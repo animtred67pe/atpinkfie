@@ -1,0 +1,14 @@
+.pinkfie-stage{
+	overflow: hidden;
+	position: relative;
+}
+.watcher-pinkfie-menu-vertical div {
+  padding: 0.2em;
+  margin: 0.2em;
+  font-size: 1em;
+  border-radius: 0.5em;
+}
+.watcher-pinkfie-menu-vertical div:hover {
+  background-color: #eee;
+  cursor: pointer;
+}

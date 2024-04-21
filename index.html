@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>PinkFie - Flash Player Emulator</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+		<style type="text/css">
+			body {
+				background-color: #000;
+				font-family: monospace;
+			}
+			a{
+				color: #ffffff;
+			}
+			.app{
+				width: 640px;
+				margin: auto;
+				color: #ffffff;
+			}
+			#pinkfie-player{
+    			width: 640px;
+				margin: 0 auto;
+			}
+		</style>
+    </head>
+    <body id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+		<div class="app">
+			<h1>PinkFie</h1>
+			<p>The Flash Player emulator in Javascript, is still in development.</p>
+			<a href="#" id="loadswffile">Open Swf</a>
+			<a href="#" id="ssag2">Close</a>
+			<br>
+			<div id="pinkfiestage" style="display: none;">
+				<div id="pinkfie-player"></div>
+				<a href="#" id="viewbbb2">Play/Pause</a>
+				<label>volume:</label>
+				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
+				<br>
+				<div id="demo"></div>
+			</div>
+			<div id="pinkfiemenu"></div>
+			<p style="color: #999999;">(C) 2024, THandPEPeerTDP</p>
+		</div>
+		<script src="pinkfie.js"></script>
+		<script>
+			var player = new PKF.Player();
+			player.setWH(640, 400);
+			var fvolumeff = document.getElementById('fvolumeff');
+			var demo = document.getElementById("demo");
+			var pinkfiemenu = document.getElementById('pinkfiemenu');
+
+			var pinkfiestage = document.getElementById('pinkfiestage');
+
+			var viewbbb2 = document.getElementById('viewbbb2');
+			var ssag2 = document.getElementById('ssag2');
+			var playerArea = document.getElementById('pinkfie-player');
+
+			playerArea.appendChild(player.root);
+			fvolumeff.addEventListener('input', function (e) {
+				player.setVolume(fvolumeff.value);
+			});
+
+			function showSwf() {
+				var resultswf = player.stage.swf;
+				var dfgfd = "<h3>SWF Info</h3>";
+                var stageSize = resultswf.movieInfo.bounds;
+				dfgfd += "compression: " + resultswf.header.compression + " version: " + resultswf.header.version +  " uncompressed size: " + resultswf.header.uncompressedLength + "<br>";
+				dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " frameRate: " + resultswf.movieInfo.frameRate + " frames: " + resultswf.movieInfo.numFrames + "";
+				demo.innerHTML = dfgfd;
+			}
+
+			viewbbb2.onclick = function () {
+				player.toggleRunning();
+			}
+			ssag2.onclick = function () {
+				pinkfiemenu.style.display = "";
+				pinkfiestage.style.display = "none";
+				player.cleanup();
+			}
+			//setNextFrame
+			player.onload.subscribe(function() {
+				showSwf();
+			})
+			player.onerror.subscribe(function(e) {
+				console.log(e);
+				pinkfiemenu.style.display = "";
+				pinkfiestage.style.display = "none";
+				player.cleanup();
+			});
+			function dropHandler(ev) {
+				ev.preventDefault();
+				if (ev.dataTransfer.items) {
+					[...ev.dataTransfer.items].forEach((item, i) => {
+					if (item.kind === 'file') {
+						const file = item.getAsFile();
+						loadSwfFile(file);
+					}
+					});
+				}
+			}
+			function dragOverHandler(ev) {
+				ev.preventDefault();
+			}
+
+			function loadSwfFile(file) {
+				pinkfiestage.style.display = "";
+				pinkfiemenu.style.display = "none";
+				demo.innerHTML = '';
+
+				player.loadSwfFromFile(file);
+			}
+
+			var loadprojectfile = document.getElementById('loadswffile');
+			loadprojectfile.onclick = function() {
+				var sa = document.createElement('input');
+				sa.type = 'file';
+				sa.accept = '.swf';
+				sa.addEventListener('change', function(e) {
+					var file = e.target.files[0];
+					if (!file) {
+						return;
+					}
+					loadSwfFile(file);
+				}, false);
+				sa.click();
+			}
+		</script>
+    </body>
+</html>
