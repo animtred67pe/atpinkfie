@@ -13,7 +13,7 @@ OOO        OOO   OOO       OOOO   OOO     OOO  OOO        OOO   OOOOOOOOOO
 
 Pinkfie - an html5 player for Movie SWF
 
-Version: 1.1 21/04/2024
+Version: 1.1 24/04/2024
 
 Made in the Peru
 
@@ -886,10 +886,18 @@ var PKF = (function() {
 		this.tagstackSize = 0;
 		this.taglengthstack = [];
 		this.taglengthstackSize = 0;
+		this.aborted = false;
 
 		this.onload = null;
 		this.onerror = null;
 		this.onprogress = null;
+	}
+	SwfParser.prototype.cancel = function() {
+		if (this._interval) {
+			clearInterval(this._interval);
+			this._interval = null;
+		}
+		this.aborted = true;
 	}
 	SwfParser.prototype.load = function() {
 		this._interval = setInterval(this.tick, 5);
@@ -920,8 +928,10 @@ var PKF = (function() {
 			}
 		}
 		if (this.isLoad) {
-			if (this.onload) {
-				this.onload();
+			if (!this.aborted) {
+				if (this.onload) {
+					this.onload();
+				}	
 			}
 		}
 		this._stopped = false;
@@ -950,20 +960,22 @@ var PKF = (function() {
 					var stack = this.getTagStack();
 					while (true) {
 						var tag = this.parseTag();
-						if ((tag.tagcode == 0) || !(this.byteStream.position < this.getTagLengthStack())) {
-							if (this.tagstackSize == 1) {
-								this._loadedType++;
-								stopped = true;
-							} else {
-								this.byteStream.position = this.getTagLengthStack();
-								this.byteStream.bit_offset = 0;
-								this.tagstackSize--;
-								this.taglengthstackSize--;
+						if (tag) {
+							if ((tag.tagcode == 0) || !(this.byteStream.position < this.getTagLengthStack())) {
+								if (this.tagstackSize == 1) {
+									this._loadedType++;
+									stopped = true;
+								} else {
+									this.byteStream.position = this.getTagLengthStack();
+									this.byteStream.bit_offset = 0;
+									this.tagstackSize--;
+									this.taglengthstackSize--;
+								}
+								break;
 							}
-							break;
+							stack.push(tag);
+							if (tag.tagcode == 39) break;	
 						}
-						stack.push(tag);
-						if (tag.tagcode == 39) break;
 						if ((Date.now() - startTime) > 20) {
 							stopped = true;
 							break;
@@ -4292,7 +4304,7 @@ var PKF = (function() {
 		},
 		convertCurrentPosition: function(src, ne) {
 			var array = [];
-			this.currentPosition = {x: 0, y: 0};
+			var currentPosition = {x: 0, y: 0};
 			for (let i = 0; i < src.length; i++) {
 				const record = src[i];
 				if (ne) {
@@ -4302,33 +4314,33 @@ var PKF = (function() {
 				if (record) {
 					if (record.isChange) {
 						if (record.stateMoveTo) {
-							this.currentPosition.x = record.moveX;
-							this.currentPosition.y = record.moveY;
+							currentPosition.x = record.moveX;
+							currentPosition.y = record.moveY;
 						}
 						array.push(record);
 					} else {
 						var isCurved = record.isCurved;
 						if (isCurved) {
-							var _controlX = this.currentPosition.x + record.controlDeltaX;
-							var _controlY = this.currentPosition.y + record.controlDeltaY;
-							this.currentPosition.x = _controlX + record.anchorDeltaX;
-							this.currentPosition.y = _controlY + record.anchorDeltaY;
+							var _controlX = currentPosition.x + record.controlDeltaX;
+							var _controlY = currentPosition.y + record.controlDeltaY;
+							currentPosition.x = _controlX + record.anchorDeltaX;
+							currentPosition.y = _controlY + record.anchorDeltaY;
 							array.push({
 								controlX: _controlX,
 								controlY: _controlY,
-								anchorX: this.currentPosition.x,
-								anchorY: this.currentPosition.y,
+								anchorX: currentPosition.x,
+								anchorY: currentPosition.y,
 								isCurved: true,
 								isChange: false
 							});
 						} else {
-							this.currentPosition.x += record.deltaX;
-							this.currentPosition.y += record.deltaY;
+							currentPosition.x += record.deltaX;
+							currentPosition.y += record.deltaY;
 							array.push({
 								controlX: 0,
 								controlY: 0,
-								anchorX: this.currentPosition.x,
-								anchorY: this.currentPosition.y,
+								anchorX: currentPosition.x,
+								anchorY: currentPosition.y,
 								isCurved: false,
 								isChange: false
 							});
@@ -4664,7 +4676,9 @@ var PKF = (function() {
 	}
     const SoundTransform = function() {
     }
-    const DisplayObjectBase = function() {
+    const DisplayObject = function(context) {
+		this.context = context;
+
         this.matrix = [1, 0, 0, 1, 0, 0];
         this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
         this.blendMode = null;
@@ -4696,84 +4710,44 @@ var PKF = (function() {
         this.HAS_EXPLICIT_NAME = false;
         this.SKIP_NEXT_ENTER_FRAME = false;
         this.CACHE_INVALIDATED = false;
+
+		this.displayType = "Base";
     }
-	DisplayObjectBase.prototype.getPlaceFrame = function() {
-		return this.placeFrame;
-	}
-	DisplayObjectBase.prototype.setPlaceFrame = function(frame) {
-        this.placeFrame = frame;
-	}
-	DisplayObjectBase.prototype.getParent = function() {
-        return this.parent;
-	}
-	DisplayObjectBase.prototype.setParent = function(parent) {
-        this.parent = parent;
-	}
-    const DisplayObject = function(context) {
-		this.context = context;
-        this.base = new DisplayObjectBase();
-    }
-	Object.defineProperties(DisplayObject.prototype, {
-		"TRANSFORMED_BY_SCRIPT": {
-			get: function() {
-				return this.base.TRANSFORMED_BY_SCRIPT;
-			},
-			set: function(value) {
-				this.base.TRANSFORMED_BY_SCRIPT = value;
-			}
-		},
-		"clipDepth": {
-			get: function() {
-				return this.base.clipDepth;
-			},
-			set: function(value) {
-				this.base.clipDepth = value;
-			}
-		},
-		"isClipDepth": {
-			get: function() {
-				return this.base.isClipDepth;
-			},
-			set: function(value) {
-				this.base.isClipDepth = value;
-			}
-		},
-	});
     DisplayObject.prototype.getColorTransform = function() {
-        return this.base.colorTransform;
+        return this.colorTransform;
     }
     DisplayObject.prototype.setColorTransform = function(colorTransform) {
-		this.base.colorTransform = colorTransform;
+		this.colorTransform = colorTransform;
     }
     DisplayObject.prototype.getMatrix = function() {
-        return this.base.matrix;
+        return this.matrix;
     }
     DisplayObject.prototype.setMatrix = function(matrix) {
-		this.base.matrix = matrix;
+		this.matrix = matrix;
     }
     DisplayObject.prototype.getDepth = function() {
-		return this.base.depth;
+		return this.depth;
     }
 	DisplayObject.prototype.setDepth = function(depth) {
-		this.base.depth = depth;
+		this.depth = depth;
     }
 	DisplayObject.prototype.getVisible = function() {
-		return this.base.VISIBLE;
+		return this.VISIBLE;
     }
 	DisplayObject.prototype.setVisible = function(visible) {
-		this.base.VISIBLE = visible;
+		this.VISIBLE = visible;
     }
 	DisplayObject.prototype.getPlaceFrame = function() {
-		return this.base.getPlaceFrame();
+		return this.placeFrame;
 	}
 	DisplayObject.prototype.setPlaceFrame = function(frame) {
-        this.base.setPlaceFrame(frame);
+        this.placeFrame = frame;
 	}
 	DisplayObject.prototype.getParent = function() {
-        return this.base.getParent();
+        return this.parent;
 	}
 	DisplayObject.prototype.setParent = function(parent) {
-        this.base.setParent(parent);
+        this.parent = parent;
 	}
     DisplayObject.prototype.applyPlaceObject = function(placeObject) {
 		if (!this.TRANSFORMED_BY_SCRIPT) {
@@ -4784,7 +4758,7 @@ var PKF = (function() {
 				this.setColorTransform(placeObject.colorTransform); // ColorTransform
 			}
 			if ("visible" in placeObject) { // Visible
-				this.setVisible(placeObject.visible);
+				this.setVisible(!!placeObject.visible);
 			}
 			if (this instanceof Shape) {
 				if ("ratio" in placeObject) {
@@ -4802,12 +4776,26 @@ var PKF = (function() {
             this.runFrameAvm1();
         }
     }
+	DisplayObject.prototype.debugRender = function(initObject, instantiatedBy, runFrame) {
+		return [0, 0, 0, 0];
+    }
     /// Execute all other timeline actions on this object.
-    DisplayObject.prototype.runFrameAvm1 = function() {
-        
+    DisplayObject.prototype.runFrameAvm1 = function() {}
+    DisplayObject.prototype.avm1Unload = function() {
+        // Unload children.
+		if (this instanceof DisplayObjectContainer) {
+			var children = this.iterRenderList();
+			for (let i = 0; i < children.length; i++) {
+				const child = children[i];
+                child.avm1Unload();
+			}
+		}
+		this.context.avm1.removeExecuteList(this);
+		this.AVM1_REMOVED = true;
     }
     const InteractiveObject = function(context) {
 		DisplayObject.call(this, context);
+		this.displayType = "InteractiveObject";
 		this._mouseEnabled = true;
     }
     InteractiveObject.prototype = Object.create(DisplayObject.prototype);
@@ -4815,6 +4803,7 @@ var PKF = (function() {
     const DisplayObjectContainer = function(context) {
 		InteractiveObject.call(this, context);
 		this.container = [];
+		this.displayType = "Container";
     }
     DisplayObjectContainer.prototype = Object.create(InteractiveObject.prototype);
     DisplayObjectContainer.prototype.constructor = DisplayObjectContainer;
@@ -4822,26 +4811,18 @@ var PKF = (function() {
 		this.container[depth] = child;
 	}
     DisplayObjectContainer.prototype.childByDepth = function (depth) {
-		var container = this.container;
-		return container[depth];
+		return this.container[depth];
 	}
     DisplayObjectContainer.prototype.removeChild = function (child) {
-		var depth = child.getDepth();
-		if (child instanceof DisplayObjectContainer) {
-			this.context.avm1.removeExecuteList(child);
-			child._removeAllChild();
-		} else if (child instanceof Avm1Buttom) { // TODO
-			this.context.avm1.removeExecuteList(child);
-			child.spriteContainer._removeAllChild();
-		}
+		let depth = child.getDepth();
+
+		// Remove the child from the depth list, before moving it to a negative depth
 		delete this.container[depth];
+
+		this.removeChildDirectly(child);
 	}
-	DisplayObjectContainer.prototype._removeAllChild = function () {
-		var children = this.iterRenderList();
-		for (let i = 0; i < children.length; i++) {
-			const child = children[i];
-			this.removeChild(child);
-		}
+	DisplayObjectContainer.prototype.removeChildDirectly = function (child) {
+		child.avm1Unload();
 	}
     DisplayObjectContainer.prototype.iterRenderList = function () {
 		var result = [];
@@ -4861,33 +4842,28 @@ var PKF = (function() {
 		var isVisible = (visible && this.getVisible());
 		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 		var rMatrix = multiplicationMatrix(matrix, this.getMatrix());
-		var container = this.container;
 		var clips = [];
-		var isClipDepth = false;
-		for (var depth in container) {
-			if (!container.hasOwnProperty(depth)) {
-				continue;
-			}
-			var instance = container[depth];
-			if (!instance) {
-				continue;
-			}
-			var cLen = clips.length;
-			for (var cIdx = 0; cIdx < cLen; cIdx++) {
-				var cDepth = clips[cIdx];
+		let isClipDepth = false;
+		var children = this.iterRenderList();
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			let depth = child.getDepth();
+			const cLen = clips.length;
+			for (let cIdx = 0; cIdx < cLen; cIdx++) {
+				const cDepth = clips[cIdx];
 				if (depth > cDepth) {
 					clips.splice(cIdx, 1);
 					renderer.restore();
 					break;
 				}
 			}
-			if (instance.isClipDepth) {
+			if (child.isClipDepth) {
 				renderer.save();
 				renderer.beginPath();
-				clips.push(instance.clipDepth);
+				clips.push(child.clipDepth);
 				isClipDepth = true;
 			}
-			instance.render(stage, renderer, rMatrix, rColorTransform, isVisible, isClipDepth || isClip);
+			child.render(stage, renderer, rMatrix, rColorTransform, isVisible, isClipDepth || isClip);
 			if (isClipDepth) {
 				renderer.clip();
 				isClipDepth = false;
@@ -4897,53 +4873,194 @@ var PKF = (function() {
 			renderer.restore();
 		}
 	}
+	DisplayObjectContainer.prototype.debugRender = function (ctx, matrix, colorTransform, stage, visible) {
+		this.coll = [255, 0, 0, 1];
+		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+		var rMatrix = multiplicationMatrix(matrix, this.getMatrix());
+		var children = this.iterRenderList();
+		var bounds = [];
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			if (child) {
+				var res = child.debugRender(ctx, rMatrix, rColorTransform, stage, visible);
+				if (res) {
+					bounds.push(res);
+				}
+			}
+		}
+		var sbounds = [Infinity, Infinity, -Infinity, -Infinity];
+		for (var i = 0; i < bounds.length; i++) {
+			var b = bounds[i];
+			if (sbounds[0] > b.xMin) {
+				sbounds[0] = b.xMin;
+			}
+			if (sbounds[1] > b.yMin) {
+				sbounds[1] = b.yMin;
+			}
+			if (sbounds[2] < b.xMax) {
+				sbounds[2] = b.xMax;
+			}
+			if (sbounds[3] < b.yMax) {
+				sbounds[3] = b.yMax;
+			}
+		}
+		if (!bounds.length) {
+			sbounds = [rMatrix[4], rMatrix[5], rMatrix[4], rMatrix[5]];
+		}
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		var css = "rgba(0, 0, 0, 1)";
+		ctx.beginPath();
+		ctx.strokeStyle = css;
+		ctx.lineWidth = 2;
+		ctx.lineCap = "round";
+		ctx.lineJoin = "round";
+		ctx.rect(sbounds[0], sbounds[1], (sbounds[2] - sbounds[0]), (sbounds[3] - sbounds[1]));
+		ctx.stroke();
+		ctx.fillStyle = "#f00";
+		ctx.font = "20px Arial";
+		ctx.textAlign = "left";
+		ctx.fillText(this.displayType, sbounds[0], sbounds[1] - 27);
+		return {xMin: sbounds[0], yMin: sbounds[1], xMax: sbounds[2], yMax: sbounds[3]}
+	}
 	const Shape = function(context) {
 		DisplayObject.call(this, context);
-		this.shapeTag = null;
+		this.ShapeData = null;
 		this.ratio = 0;
+		this.coll = [255, 0, 0, 1];
+		this.displayType = "Shape";
     }
     Shape.prototype = Object.create(DisplayObject.prototype);
     Shape.prototype.constructor = Shape;
-	Shape.prototype.init = function(shapeTag) {
-		this.shapeTag = shapeTag;
+	Shape.prototype.init = function(ShapeData) {
+		this.ShapeData = ShapeData;
+		if (this.ShapeData instanceof MorphShapeData) {
+			this.displayType = "MorphShape";
+		} else {
+			this.displayType = "Shape";
+		}
 	}
     Shape.prototype.replaceWith = function(characterId) {
-		this.shapeTag = this.context.library.getCharacter(characterId);
+		this.ShapeData = this.context.library.getCharacter(characterId);
+		if (this.ShapeData instanceof MorphShapeData) {
+			this.displayType = "MorphShape";
+		} else {
+			this.displayType = "Shape";
+		}
     }
 	Shape.prototype.setRatio = function(ratio) {
 		this.ratio = ratio;
     }
+	Shape.prototype.getBounds = function(matrix) {
+		var r = this.ShapeData.getShape(this.ratio).bounds;
+		if (matrix) {
+			return boundsMatrix(r, matrix);
+		} else {
+			return r;
+		}
+	}
 	Shape.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
 		var isVisible = (visible && this.getVisible());
 		var m2 = multiplicationMatrix(matrix, this.getMatrix());
 		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 		if (isVisible) {
-			this.shapeTag.executeRender(stage, renderer, m2, rColorTransform, this.ratio, isClip);
+			this.ShapeData.executeRender(stage, renderer, m2, rColorTransform, this.ratio, isClip);
+		}
+	}
+	Shape.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
+		if (visible) {
+			var m2 = multiplicationMatrix(matrix, this.getMatrix());
+			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+			var b = this.getBounds();
+			ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+			ctx.beginPath();
+			var color = generateColorTransform(this.coll, rColorTransform);
+			ctx.lineWidth = 40;
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+			ctx.strokeStyle = css;
+			ctx.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			ctx.stroke();
+			var bm = this.getBounds(m2);
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			var css = "rgba(0, 0, 0, 1)";
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = css;
+			ctx.beginPath();
+			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
+			ctx.stroke();
+			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
+			ctx.fillStyle = "#00f";
+			ctx.font = "20px Arial";
+			ctx.textAlign = "left";
+			ctx.fillText(this.displayType, 0, -8);
+			return bm;
 		}
 	}
 	const TextDisplay = function(context) {
 		DisplayObject.call(this, context);
-		this.shapeTag = null;
+		this.ShapeData = null;
+		this.coll = [255, 0, 0, 1];
+		this.displayType = "StaticText";
     }
     TextDisplay.prototype = Object.create(DisplayObject.prototype);
     TextDisplay.prototype.constructor = TextDisplay;
-	TextDisplay.prototype.init = function(shapeTag) {
-		this.shapeTag = shapeTag;
+	TextDisplay.prototype.init = function(ShapeData) {
+		this.ShapeData = ShapeData;
 	}
     TextDisplay.prototype.replaceWith = function(characterId) {
-		this.shapeTag = this.context.library.getCharacter(characterId);
+		this.ShapeData = this.context.library.getCharacter(characterId);
     }
+	TextDisplay.prototype.getBounds = function(matrix) {
+		var r = this.ShapeData.bounds;
+		if (matrix) {
+			return boundsMatrix(r, matrix);
+		} else {
+			return r;
+		}
+	}
 	TextDisplay.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
 		var isVisible = (visible && this.getVisible());
 		var m2 = multiplicationMatrix(matrix, this.getMatrix());
 		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 		if (isVisible) {
-			this.shapeTag.executeRender(stage, renderer, m2, rColorTransform, isClip);
+			this.ShapeData.executeRender(stage, renderer, m2, rColorTransform, isClip);
+		}
+	}
+	TextDisplay.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
+		if (visible) {
+			var m2 = multiplicationMatrix(matrix, this.getMatrix());
+			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+			var b = this.getBounds();
+			ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+			ctx.beginPath();
+			var color = generateColorTransform(this.coll, rColorTransform);
+			ctx.lineWidth = 40;
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+			ctx.strokeStyle = css;
+			ctx.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			ctx.stroke();
+			var bm = this.getBounds(m2);
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			var css = "rgba(0, 0, 0, 1)";
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = css;
+			ctx.beginPath();
+			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
+			ctx.stroke();
+			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
+			ctx.fillStyle = "#00f";
+			ctx.font = "20px Arial";
+			ctx.textAlign = "left";
+			ctx.fillText(this.displayType, 0, -8);
+			return bm;
 		}
 	}
 	const TextField = function(context) {
 		InteractiveObject.call(this, context);
-
+		this.displayType = "TextField";
 	}
     TextField.prototype = Object.create(InteractiveObject.prototype);
     TextField.prototype.constructor = TextField;
@@ -4955,6 +5072,7 @@ var PKF = (function() {
 		this.spriteContainer = new DisplayObjectContainer(context);
 		this.__initialized = false;
 		this._records = null;
+		this.displayType = "Buttom";
     }
     Avm1Buttom.prototype = Object.create(InteractiveObject.prototype);
     Avm1Buttom.prototype.constructor = Avm1Buttom;
@@ -4966,6 +5084,17 @@ var PKF = (function() {
 		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 		var m2 = multiplicationMatrix(matrix, this.getMatrix());
 		this.spriteContainer.render(stage, renderer, m2, rColorTransform, isVisible);
+	}
+	Avm1Buttom.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
+		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+		var m2 = multiplicationMatrix(matrix, this.getMatrix());
+		var e = this.spriteContainer.debugRender(ctx, m2, rColorTransform, stage, true);
+		ctx.setTransform(1, 0, 0, 1, e.xMin, e.yMin);
+		ctx.fillStyle = "#0f0";
+		ctx.font = "20px Arial";
+		ctx.textAlign = "left";
+		ctx.fillText(this.displayType, 0, -45);
+		return null;
 	}
 	Avm1Buttom.prototype.postInstantiation = function(initObject, instantiatedBy, runFrame) {
 		this.context.avm1.addExecuteList(this);
@@ -4995,14 +5124,30 @@ var PKF = (function() {
 			this.setState("up");
 		}
 	}
+    Avm1Buttom.prototype.avm1Unload = function() {
+        this.spriteContainer.avm1Unload(); // TODO
+		this.context.avm1.removeExecuteList(this);
+		this.AVM1_REMOVED = true;
+    }
     const MovieClip = function(context) {
 		DisplayObjectContainer.call(this, context);
         this.currentFrame = 0;
-        this.isPlaying = true;
 		this.totalframes = 0;
 		this.framesloaded = 0;
 		this.framesInfo = [];
 		this.streamSounds = [];
+		this.audioStream = null;
+
+		// flags
+
+        /// Whether this `MovieClip` has run its initial frame.
+        this.isPlaying = true;
+
+		this.INITIALIZED = false;
+		this.PROGRAMMATICALLY_PLAYED = false;
+		this.EXECUTING_AVM2_FRAME_SCRIPT = false;
+		this.LOOP_QUEUED = false;
+		this.displayType = "MovieClip";
     }
     MovieClip.prototype = Object.create(DisplayObjectContainer.prototype);
     MovieClip.prototype.constructor = MovieClip;
@@ -5024,6 +5169,7 @@ var PKF = (function() {
 	}
 	MovieClip.prototype.stop = function () {
 		this.isPlaying = false;
+        this.stopAudioStream();
 	}
 	MovieClip.prototype.determineNextFrame = function () {
 		if (this.currentFrame < this.totalframes) {
@@ -5034,7 +5180,7 @@ var PKF = (function() {
 			return "same";
 		}
 	}
-	MovieClip.prototype.runIntervalFrame = function () {
+	MovieClip.prototype.runIntervalFrame = function (runDisplayAction, runSounds) {
 		let nextFrame = this.determineNextFrame();
 		switch (nextFrame) {
 			case "next":
@@ -5045,7 +5191,7 @@ var PKF = (function() {
 				break;
 			case "first":
 				this.runGoto(1, true);
-				break;
+				return;
 			case "same":
 				this.stop();
 				break;
@@ -5058,27 +5204,29 @@ var PKF = (function() {
 				case "PlaceObject2":
 				case "PlaceObject3":
 				case "PlaceObject4":
-					this.placeObject(tag);
+					if (runDisplayAction) {
+						this.placeObject(tag);
+					}
 					break;
 				case "RemoveObject":
 				case "RemoveObject2":
-					this.removeObject(tag);
+					if (runDisplayAction) {
+						this.removeObject(tag);
+					}
 					break;
 				case "StartSound":
 				case "StartSound2":
-					this.context.audio.startSound(tag, this);
-					break;
-				case "SoundStreamBlock":
-					var sounds = this.streamSounds;
-					if (sounds) {
-						var sound = sounds[this.currentFrame - 1];
-						if (sound) {
-							if (this.isPlaying) {
-								this.context.audio.startStreamSound(sound, this);
-							}
-						}
+					if (runSounds) {
+						this.startSound(tag);
 					}
 					break;
+				case "SoundStreamBlock":
+					if (runSounds) {
+						this.soundStreamBlock();
+					}
+					break;
+				case "SetBackgroundColor": 
+					this.context.stage.setBackgroundColor(...tag.rgb);
 					break;
 				case "DoAction":
 					break;
@@ -5087,40 +5235,75 @@ var PKF = (function() {
 	}
 	MovieClip.prototype.runGoto = function (frame, isImplicit) {
 		let children = this.iterRenderList();
-		if (isImplicit) {
-			for (var i = 0; i < children.length; i++) {
-				var child = children[i];
-				if (child.getPlaceFrame() !== frame) {
-					this.removeChild(child);
-				}
+		for (var i = 0; i < children.length; i++) {
+			var child = children[i];
+			if (child.getPlaceFrame() !== frame) {
+				this.removeChild(child);
 			}
-		} else {
-			
 		}
 		this.currentFrame = frame;
+		var tags = this.getTag(this.currentFrame).tags;
+		for (var i = 0; i < tags.length; i++) {
+			var tag = tags[i];
+			switch(tag.tagType) {
+				case "PlaceObject":
+				case "PlaceObject2":
+				case "PlaceObject3":
+				case "PlaceObject4":
+					if ("characterId" in tag) {
+						if (tag.isMove) {
+							var child = this.childByDepth(tag.depth);
+							child.replaceWith(tag.characterId);
+							child.applyPlaceObject(tag);
+							child.setPlaceFrame(this.currentFrame);
+						} else {
+							var prevChild = this.childByDepth(tag.depth);
+							if (prevChild) {
+								prevChild.applyPlaceObject(tag);
+								prevChild.setPlaceFrame(this.currentFrame);
+							} else {
+								this.instantiateChild(tag.characterId, tag.depth, tag);
+							}
+						}
+					} else {
+						if (tag.isMove) {
+							var child = this.childByDepth(tag.depth);
+							child.applyPlaceObject(tag);
+						}
+					}
+					break;
+				case "RemoveObject":
+				case "RemoveObject2":
+					var child = this.childByDepth(tag.depth);
+					if (child) {
+						this.removeChild(child);
+					} else {
+						console.log(tag.depth);
+					}
+					break;
+			}
+		}
+		this.currentFrame--;
+		this.runIntervalFrame(false, true);
 	}
 	MovieClip.prototype.runFrameAvm1 = function () {
 		if (this.isPlaying) {
-			this.runIntervalFrame();
+			this.runIntervalFrame(true, true);
 		}
 	}
 	MovieClip.prototype.instantiateChild = function (id, depth, place) {
 		var child = this.context.library.instantiateById(id);
 		this.replaceAtDepth(depth, child);
-		child.TRANSFORMED_BY_SCRIPT = false;
-		//child.instantiatedByTimeline = true;
+		child.INSTANTIATED_BY_TIMELINE = true;
 		child.setDepth(depth);
 		child.setParent(this);
 		child.setPlaceFrame(this.currentFrame);
-
 		// Apply PlaceObject parameters.
 		child.applyPlaceObject(place);
-
 		if ("clipDepth" in place) {
 			child.isClipDepth = true;
 			child.clipDepth = place.clipDepth;
 		}
-		
 		// Run first frame.
 		child.postInstantiation(null, null, false);
 		//child.enterFrame();
@@ -5134,13 +5317,7 @@ var PKF = (function() {
 				child.applyPlaceObject(place);
 				child.setPlaceFrame(this.currentFrame);
 			} else {
-				var prevChild = this.childByDepth(place.depth);
-				if (prevChild) {
-					prevChild.applyPlaceObject(place);
-					prevChild.setPlaceFrame(this.currentFrame);
-				} else {
-					this.instantiateChild(place.characterId, place.depth, place);
-				}
+				this.instantiateChild(place.characterId, place.depth, place);
 			}
 		} else {
 			if (place.isMove) {
@@ -5153,55 +5330,222 @@ var PKF = (function() {
 		var child = this.childByDepth(re.depth);
 		if (child) {
 			this.removeChild(child);
-		} else {
-			console.log(re.depth);
 		}
 	}
-	const MovieClipTag = function(stage) {
+	MovieClip.prototype.startSound = function (tag) {
+		this.context.audio.startSound(tag, this);
+	}
+	MovieClip.prototype.soundStreamBlock = function () {
+		var sounds = this.streamSounds;
+		if (sounds) {
+			var sound = sounds[this.currentFrame - 1];
+			if (sound) {
+				if (this.isPlaying) {
+					this.audioStream = this.context.audio.startStreamSound(sound, this);
+				}
+			}
+		}
+	}
+	MovieClip.prototype.stopAudioStream = function () {
+		if (this.audioStream) {
+			this.context.audio.stopStreamSound(this.audioStream, this);
+			this.audioStream = null;
+		}
+	}
+    MovieClip.prototype.avm1Unload = function() {
+        // Unload children.
+		var children = this.iterRenderList();
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			child.avm1Unload();
+		}
+		this.stopAudioStream();
+		this.context.avm1.removeExecuteList(this);
+		this.AVM1_REMOVED = true;
+    }
+	const MovieClipData = function(stage) {
         this.stage = stage;
 		this.frames = [];
 		this.characterId = -1;
 		this.isRoot = false;
     }
-	MovieClipTag.prototype.init = function(frames) {
+	MovieClipData.prototype.init = function(frames) {
 		this.frames = frames;
     }
-	MovieClipTag.prototype.instantiate = function() {
+	MovieClipData.prototype.instantiate = function() {
         var clip = new MovieClip(this.stage.context);
 		clip.setTotalFrames(this.frames.length);
 		clip.framesInfo = this.frames;
 		clip.streamSounds = this.streamSounds;
 		return clip;
     }
-	const ShapeTag = function(stage, data, isMorph) {
+	const ShapeData = function(stage, data) {
         this.stage = stage;
 		this.data = data;
-		this.isMorph = isMorph;
-		this.morphInfo = null;
-		this.cachesObj = null;
 		this.characterId = data.id;
+		this.cachesObj = null;
 	}
-	ShapeTag.prototype.getShape = function(ratio) {
-		if (this.isMorph) {
-			if (!this.morphInfo) {
-				this.initMorph();
+	ShapeData.prototype.getShape = function() {
+		if (!this.cachesObj) {
+			this.cachesObj = {
+				bounds: this.data.bounds,
+				shapes: ShapeToCanvas.convert(this.data.shapes, false)
 			}
-			var res = this.executeMorph(ratio / 65535);
-			return {
-				bounds: res.bounds,
-				shapes: ShapeToCanvas.convert(res.shapes, true)
-			}
-		} else {
-			if (!this.cachesObj) {
-				this.cachesObj = {
-					bounds: this.data.bounds,
-					shapes: ShapeToCanvas.convert(this.data.shapes, false)
+		}
+		return this.cachesObj;
+	}
+	ShapeData.prototype.instantiate = function() {
+        var shape = new Shape(this.stage.context);
+		shape.init(this);
+		return shape;
+    }
+	ShapeData.prototype._clone = function(src) {
+		return JSON.parse(JSON.stringify(src));
+	}
+	ShapeData.prototype.linearGradientXY = function(m) {
+		var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
+		var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
+		var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
+		var y0 = -16384 * m[1] - 16384 * m[3] + m[5];
+		var y1 =  16384 * m[1] - 16384 * m[3] + m[5];
+		var y2 = -16384 * m[1] + 16384 * m[3] + m[5];
+		var vx2 = x2 - x0;
+		var vy2 = y2 - y0;
+		var r1 = Math.sqrt(vx2 * vx2 + vy2 * vy2);
+		vx2 /= r1;
+		vy2 /= r1;
+		var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
+		return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
+	}
+	ShapeData.prototype.executeRender = function(stage, renderer, m2, colorTransform, ratio, isClip) {
+		var info = this.getShape(ratio);
+		var shapes = info.shapes;
+		if (shapes) {
+			if (isClip) {
+				renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+				for (let k = 0; k < shapes.length; k++) {
+					const data = shapes[k];
+					var obj = data.obj;
+					if (!obj) {
+						continue;
+					}
+					var cmd = data.cmd;
+					_executeCmdCtx2dPath(renderer, cmd);
+				}
+				return;
+			} else {
+				for (let k = 0; k < shapes.length; k++) {
+					renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+					const data = shapes[k];
+					var obj = data.obj;
+					var cmd = data.cmd;
+					renderer.beginPath();
+					_executeCmdCtx2dPath(renderer, cmd);
+					var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
+					var isStroke = ("width" in obj);
+					var styleType = styleObj.fillStyleType || 0;
+					switch (styleType) {
+						case 0:
+							var color = generateColorTransform(styleObj.color, colorTransform);
+							if (isStroke) {
+								renderer.setLineWidth(obj.width);
+								renderer.setStrokeColor(color[0], color[1], color[2], color[3]);
+								renderer.stroke();
+							} else {
+								renderer.setFillColor(color[0], color[1], color[2], color[3]);
+								renderer.fill();
+							}
+							break;
+						case 0x10:
+						case 0x12:
+						case 0x13:
+							var gg = styleObj.gradient;
+							if (!gg) {
+								gg = styleObj.linearGradient;
+							}
+							if (!gg) {
+								gg = styleObj.radialGradient;
+							}
+							var m = gg.matrix;
+							var type = styleObj.fillStyleType;
+							var css;
+							if (type !== 16) {
+								renderer.save();
+								renderer.setTransform.apply(renderer, multiplicationMatrix(m2, m)); // TODO
+								css = [[1, [0, 0, 0, 0, 0, 16384]]];
+							} else {
+								var xy = this.linearGradientXY(m);
+								css = [[0, [xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0]]];
+							}
+							var records = gg.gradientRecords;
+							var rLength = records.length;
+							for (var rIdx = 0; rIdx < rLength; rIdx++) {
+								var record = records[rIdx];
+								var color = generateColorTransform(record.color, colorTransform);
+								css.push([record.ratio, color.slice(0)]);
+							}
+							if (isStroke) {
+								renderer.setLineWidth(obj.width);
+								renderer.setStrokeGradient(css);
+								renderer.stroke();
+							} else {
+								renderer.setFillGradient(css);
+								renderer.fill();
+							}
+							if (type !== 16) {
+								renderer.restore();
+							}
+							break;
+						case 0x40:
+						case 0x41:
+						case 0x42:
+						case 0x43:
+							var bitmapId = styleObj.bitmapId;
+							var bMatrix = multiplicationMatrix(m2, styleObj.bitmapMatrix);
+							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
+							var image = stage.library.getCharacter(bitmapId);
+							if (image && image.image) {
+								var c = image.image;
+								var rr = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
+								if (styleType === 0x41 || styleType === 0x43) {
+									renderer.save();
+									renderer.clip();
+									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									renderer.ctx.globalAlpha = rr;
+									renderer.ctx.drawImage(c, 0, 0);
+									renderer.ctx.globalAlpha = 1;
+									renderer.restore();
+								} else {
+									renderer.ctx.globalAlpha = rr;
+									renderer.ctx.fillStyle = renderer.ctx.createPattern(c, repeat);
+									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									renderer.ctx.fill();
+									renderer.ctx.globalAlpha = 1;
+								}
+							}
+							break;
+					}
 				}
 			}
-			return this.cachesObj;
 		}
 	}
-	ShapeTag.prototype.initMorph = function() {
+	const MorphShapeData = function(stage, data) {
+		ShapeData.call(this, stage, data);
+		this.morphInfo = null;
+	}
+    MorphShapeData.prototype = Object.create(ShapeData.prototype);
+    MorphShapeData.prototype.constructor = MorphShapeData;
+	MorphShapeData.prototype.getShape = function(ratio) {
+		if (!this.morphInfo) {
+			this.initMorph();
+		}
+		var res = this.executeMorph(ratio / 65535);
+		return {
+			bounds: res.bounds,
+			shapes: ShapeToCanvas.convert(res.shapes, true)
+		}
+	}
+	MorphShapeData.prototype.initMorph = function() {
 		var edges = this.convertMorphShape(this.data);
 		var lineStyles = this._clone(this.data.morphLineStyles);
 		var fillStyles = this._clone(this.data.morphFillStyles);
@@ -5215,12 +5559,7 @@ var PKF = (function() {
 			endBound,
 		}
 	}
-	ShapeTag.prototype.instantiate = function() {
-        var shape = new Shape(this.stage.context);
-		shape.init(this);
-		return shape;
-    }
-	ShapeTag.prototype.convertCurrentPosition = function(src) {
+	MorphShapeData.prototype.convertCurrentPosition = function(src) {
 		var array = [];
 		this.currentPosition = {x: 0, y: 0};
 		for (let i = 0; i < src.length; i++) {
@@ -5256,7 +5595,7 @@ var PKF = (function() {
 		}
 		return array;
 	}
-	ShapeTag.prototype.convertMorphShape = function(obj) {
+	MorphShapeData.prototype.convertMorphShape = function(obj) {
 		var startPosition = {x: 0, y: 0};
 		var endPosition = {x: 0, y: 0};
 		var StartRecords = this.convertCurrentPosition(obj.startEdges);
@@ -5369,10 +5708,7 @@ var PKF = (function() {
 			ends: EndRecords
 		}
 	}
-	ShapeTag.prototype._clone = function(src) {
-		return JSON.parse(JSON.stringify(src));
-	}
-	ShapeTag.prototype.executeMorph = function(per) {
+	MorphShapeData.prototype.executeMorph = function(per) {
         var startPer = 1 - per;
         var newShapeRecords = [];
         var lineStyles = this._clone(this.morphInfo.lineStyles);
@@ -5563,141 +5899,14 @@ var PKF = (function() {
         	shapes
         }
 	}
-	ShapeTag.prototype.linearGradientXY = function(m) {
-		var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
-		var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
-		var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
-		var y0 = -16384 * m[1] - 16384 * m[3] + m[5];
-		var y1 =  16384 * m[1] - 16384 * m[3] + m[5];
-		var y2 = -16384 * m[1] + 16384 * m[3] + m[5];
-		var vx2 = x2 - x0;
-		var vy2 = y2 - y0;
-		var r1 = Math.sqrt(vx2 * vx2 + vy2 * vy2);
-		vx2 /= r1;
-		vy2 /= r1;
-		var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
-		return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
-	}
-	ShapeTag.prototype.executeRender = function(stage, renderer, m2, colorTransform, ratio, isClip) {
-		var info = this.getShape(ratio);
-		var shapes = info.shapes;
-		if (shapes) {
-			if (isClip) {
-				renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
-				for (let k = 0; k < shapes.length; k++) {
-					const data = shapes[k];
-					var obj = data.obj;
-					if (!obj) {
-						continue;
-					}
-					var cmd = data.cmd;
-					_executeCmdCtx2dPath(renderer, cmd);
-				}
-				return;
-			} else {
-				for (let k = 0; k < shapes.length; k++) {
-					renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
-					const data = shapes[k];
-					var obj = data.obj;
-					var cmd = data.cmd;
-					renderer.beginPath();
-					_executeCmdCtx2dPath(renderer, cmd);
-					var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
-					var isStroke = ("width" in obj);
-					var styleType = styleObj.fillStyleType || 0;
-					switch (styleType) {
-						case 0:
-							var color = generateColorTransform(styleObj.color, colorTransform);
-							if (isStroke) {
-								renderer.setLineWidth(obj.width);
-								renderer.setStrokeColor(color[0], color[1], color[2], color[3]);
-								renderer.stroke();
-							} else {
-								renderer.setFillColor(color[0], color[1], color[2], color[3]);
-								renderer.fill();
-							}
-							break;
-						case 0x10:
-						case 0x12:
-						case 0x13:
-							var gg = styleObj.gradient;
-							if (!gg) {
-								gg = styleObj.linearGradient;
-							}
-							if (!gg) {
-								gg = styleObj.radialGradient;
-							}
-							var m = gg.matrix;
-							var type = styleObj.fillStyleType;
-							var css;
-							if (type !== 16) {
-								renderer.save();
-								renderer.setTransform.apply(renderer, multiplicationMatrix(m2, m)); // TODO
-								css = [[1, [0, 0, 0, 0, 0, 16384]]];
-							} else {
-								var xy = this.linearGradientXY(m);
-								css = [[0, [xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0]]];
-							}
-							var records = gg.gradientRecords;
-							var rLength = records.length;
-							for (var rIdx = 0; rIdx < rLength; rIdx++) {
-								var record = records[rIdx];
-								var color = generateColorTransform(record.color, colorTransform);
-								css.push([record.ratio, color.slice(0)]);
-							}
-							if (isStroke) {
-								renderer.setLineWidth(obj.width);
-								renderer.setStrokeGradient(css);
-								renderer.stroke();
-							} else {
-								renderer.setFillGradient(css);
-								renderer.fill();
-							}
-							if (type !== 16) {
-								renderer.restore();
-							}
-							break;
-						case 0x40:
-						case 0x41:
-						case 0x42:
-						case 0x43:
-							var bitmapId = styleObj.bitmapId;
-							var bMatrix = multiplicationMatrix(m2, styleObj.bitmapMatrix);
-							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-							var image = stage.library.getCharacter(bitmapId);
-							if (image && image.image) {
-								var c = image.image;
-								var rr = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
-								if (styleType === 0x41 || styleType === 0x43) {
-									renderer.save();
-									renderer.clip();
-									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
-									renderer.ctx.globalAlpha = rr;
-									renderer.ctx.drawImage(c, 0, 0);
-									renderer.ctx.globalAlpha = 1;
-									renderer.restore();
-								} else {
-									renderer.ctx.globalAlpha = rr;
-									renderer.ctx.fillStyle = renderer.ctx.createPattern(c, repeat);
-									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
-									renderer.ctx.fill();
-									renderer.ctx.globalAlpha = 1;
-								}
-							}
-							break;
-					}
-				}
-			}
-		}
-	}
-	const FontCharacter = function (stage, data) {
+	const FontData = function (stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.glyphs = [];
 		this.characterId = data.id;
 		this.init();
 	}
-	FontCharacter.prototype.init = function () {
+	FontData.prototype.init = function () {
 		if (this.data.glyphs) {
 			for (var i = 0; i < this.data.glyphs.length; i++) {
 				this.glyphs.push(ShapeToCanvas.convert({
@@ -5706,26 +5915,26 @@ var PKF = (function() {
 			}
 		}
 	}
-	FontCharacter.prototype.setAlignZones = function (alignZones) {
+	FontData.prototype.setAlignZones = function (alignZones) {
 		this.alignZones = alignZones;
 	}
-	const TextTag = function(stage, data) {
+	const TextData = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.characterId = data.id;
 		this.init();
 	}
-	TextTag.prototype.init = function() {
+	TextData.prototype.init = function() {
 		this.bounds = this.data.bounds;
 		this.matrix = this.data.matrix;
 		this.records = this.data.records;
 	}
-	TextTag.prototype.instantiate = function() {
+	TextData.prototype.instantiate = function() {
 		var d = new TextDisplay(this.stage.context);
 		d.init(this);
 		return d;
 	}
-	TextTag.prototype.executeRender = function(stage, renderer, matrix, colorTransform, isClip) {
+	TextData.prototype.executeRender = function(stage, renderer, matrix, colorTransform, isClip) {
 		var length = this.records.length;
 		var offsetX = 0;
 		var offsetY = 0;
@@ -5738,7 +5947,7 @@ var PKF = (function() {
 			var record = this.records[i];
 			if ("fontId" in record) {
 				var fontId = record.fontId;
-				var fontData = this.stage.library.getCharacter(fontId);
+				var fontData = stage.library.getCharacter(fontId);
 				ShapeTable = fontData.glyphs;
 				isZoneTable = false;
 				if ("alignZones" in fontData) {
@@ -5778,36 +5987,41 @@ var PKF = (function() {
 			}
 		}
 	}
-	const BitmapTag = function(stage, data) {
+	const CharacterBitmap = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.characterId = data.id;
 	}
-	const ButtonTag = function(stage, data) {
+	const ButtonData = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.characterId = data.id;
 	}
-	ButtonTag.prototype.instantiate = function() {
+	ButtonData.prototype.instantiate = function() {
 		var b = new Avm1Buttom(this.stage.context);
 		b.init(this);
 		return b;
 	}
-	const EditTextTag = function(stage, data) {
+	const EditTextData = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.characterId = data.id;
 	}
-	EditTextTag.prototype.instantiate = function() {
+	EditTextData.prototype.instantiate = function() {
 		return new TextField(this.stage.context);
 	}
-	const SoundTag = function(stage, data) {
+	const BinaryData = function(stage, data) {
+		this.stage = stage;
+		this.buffer = data.data;
+		this.characterId = data.id;
+	}
+	const SoundData = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.audio = null;
 		this.characterId = data.id;
 	}
-	SoundTag.prototype.setAudio = function(audio) {
+	SoundData.prototype.setAudio = function(audio) {
 		this.audio = audio;
 	}
 	const Avm1 = function(stage) {
@@ -5888,7 +6102,7 @@ var PKF = (function() {
 				this.decodePCM(buffer, channels);
 				break;
 			default:
-				console.log("TODO", format.compression);
+				console.log("TODO", format.compression, this.info);
 		}
 		if (this.onload) {
 			this.onload(buffer);
@@ -6027,6 +6241,7 @@ var PKF = (function() {
 		rs.startTime = this.tickTime;
 		rs.duration = sound.audioStream.duration;
 		this.playingSoundStreams.push(rs);
+		return rs;
 	}
 	AudioBackend.prototype.stopSound = function(playingaudio) {
 		if (playingaudio.source) {
@@ -6126,11 +6341,11 @@ var PKF = (function() {
 	}
 	Library.prototype.instantiateDisplayObject = function(character) {
 		switch (true) {
-			case character instanceof ShapeTag:
-			case character instanceof MovieClipTag:
-			case character instanceof TextTag:
-			case character instanceof ButtonTag:
-			case character instanceof EditTextTag:
+			case character instanceof ShapeData:
+			case character instanceof MovieClipData:
+			case character instanceof TextData:
+			case character instanceof ButtonData:
+			case character instanceof EditTextData:
 				return character.instantiate();
 			default:
 				console.log("Not a DisplayObject");
@@ -6141,7 +6356,8 @@ var PKF = (function() {
 		this.ctx = this.canvas.getContext("2d");
 		this.width = 640;
 		this.height = 480;
-		this.scale = 1;
+		this.canvas.width = this.width;
+		this.canvas.height = this.height;
 
 		this.stack = [[1, 0, 0, 1, 0, 0]];
 		
@@ -6160,22 +6376,17 @@ var PKF = (function() {
 		this.backgroundColor = [r, g, b];
     }
 	Renderer.prototype.clear = function() {
-		this.setTransform(1 / this.scale, 0, 0, 1 / this.scale, 0, 0);
+		this.setTransform(1, 0, 0, 1, 0, 0);
 		this.ctx.beginPath();
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.ctx.fillStyle = "rgb(" + this.backgroundColor.join(",") + ")";
 		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-	Renderer.prototype.setWidth = function(value) {
-		this.width = value;
-    }
-	Renderer.prototype.setHeight = function(value) {
-		this.height = value;
-    }
-	Renderer.prototype.resize = function(scale) {
-		this.scale = scale;
-		this.canvas.width = this.width * scale;
-		this.canvas.height = this.height * scale;
+	Renderer.prototype.resize = function(w, h) {
+		this.width = w;
+		this.height = h;
+		this.canvas.width = this.width;
+		this.canvas.height = this.height;
     }
 	Renderer.prototype.drawImage = function(img, x, y) {
 		this.ctx.drawImage(img, x, y);
@@ -6190,12 +6401,7 @@ var PKF = (function() {
 		this.ctx.restore();
     }
 	Renderer.prototype.setTransform = function(a, b, c, d, e, f) {
-		var g = [a, b, c, d, e, f];
-		for (let i = 0; i < g.length; i++) {
-			const h = g[i];
-			g[i] = (h * this.scale);
-		}
-		this.ctx.setTransform(...g);
+		this.ctx.setTransform(a, b, c, d, e, f);
     }
 	Renderer.prototype.executeGradient = function(lists) {
 		var css = null;
@@ -6274,10 +6480,10 @@ var PKF = (function() {
 		this.tickTime = 0;
 	}
 	Timer.prototype.update = function(t) {
-		this.tickTime = t - this.startTime;
+		this.tickTime = t;
 	}
 	Timer.prototype.getTime = function() {
-		return this.tickTime;
+		return this.tickTime - this.startTime;
 	}
 	const UpdateContext = function(stage) {
 		this.stage = stage;
@@ -6298,7 +6504,7 @@ var PKF = (function() {
 
 		this.clip = null;
 		this.rootClipTag = null;
-		this.playing = true;
+		this.playing = false;
 
 		this.onenterframe = null;
 		this.onload = null;
@@ -6316,42 +6522,57 @@ var PKF = (function() {
 
 		this.context = new UpdateContext(this);
 
+		this.debugMovieCanvas = document.createElement('canvas');
+		this.debugMovieCtx = this.debugMovieCanvas.getContext("2d");
+
 		this.tickTime = 0;
+		this._starttime = 0;
 		this.lastTime = 0;
-		this._startOffset = 0; 
+		this._startOffset = 0;
+
+		this.checkRender = function() {
+			return true;
+		};
     }
     Stage.prototype.tick = function() {
-		this.tickTime = this.timer.getTime();
+		this.timeUpdate();
 		if (this.isLoad) {
 			if (this.playing) {
-				this.lastTime = this.tickTime;
 				var rate = +((1000 / this.frameRate).toFixed(1));
 				if (!this.clip) {
-					if (audioContext) audioContext.resume();
+					this._starttime = this.timer.getTime();
+					this.timeUpdate();
 					this._startOffset = this.tickTime - rate; 
+					if (audioContext) audioContext.resume();
 					this.initRoot();
 				}
+				this.lastTime = this.tickTime;
 				this.audio.tick();
-				if ((this.tickTime - this._startOffset) > rate) {
+				while ((this.tickTime - this._startOffset) > rate) { // TODO
 					this.runFrame();
 					this._startOffset += rate;
 				}
-				if (this.clip) {
-					if (this.dirty) {
-						this.render();
-						this.dirty = false;
-					}
-				}
 			} else {
-				this.timer.startTime = Date.now() - this.lastTime;
+				this._starttime = this.timer.getTime() - this.lastTime;
+			}
+			if (this.dirty) {
+				this.render();
+				this.dirty = false;
 			}
 		}
+    }
+	Stage.prototype.timeUpdate = function() {
+		this.tickTime = this.timer.getTime() - this._starttime;
     }
 	Stage.prototype.pause = function() {
 		this.playing = false;
 		this.audio.pause();
     }
 	Stage.prototype.resume = function() {
+		this.playing = true;
+		this.audio.resume();
+    }
+	Stage.prototype.start = function() {
 		this.playing = true;
 		this.audio.resume();
     }
@@ -6377,11 +6598,22 @@ var PKF = (function() {
     }
 	Stage.prototype.resize = function(scale) {
 		this.dirty = true;
-		this.renderer.resize(scale)
+		this.renderer.resize(this.width * scale, this.height * scale);
+		this.debugMovieCanvas.width = this.width * scale;
+		this.debugMovieCanvas.height = this.height * scale;
+		this.render();
+		this.dirty = false;
     }
     Stage.prototype.render = function() {
         this.renderer.clear();
-		this.clip.render(this, this.renderer, [1 / 20, 0, 0, 1 / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], true, false);
+		if (this.clip) {
+			if (this.checkRender()) {
+				this.clip.render(this, this.renderer, [(this.renderer.width / this.width) / 20, 0, 0, (this.renderer.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], true, false);
+			}
+			this.debugMovieCtx.setTransform(1, 0, 0, 1, 0, 0);
+			this.debugMovieCtx.clearRect(0, 0, this.debugMovieCanvas.width, this.debugMovieCanvas.height);
+			this.clip.debugRender(this.debugMovieCtx, [(this.debugMovieCanvas.width / this.width) / 20, 0, 0, (this.debugMovieCanvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], this, true);
+		}
     }
 	Stage.prototype.setBackgroundColor = function(r, g, b) {
 		this.renderer.setBackgroundColor(r, g, b);
@@ -6411,6 +6643,8 @@ var PKF = (function() {
 		this.onerror = null;
 		this.onprogress = null;
 		this.loadimgsoundCount = 0;
+		this.swfparser = null;
+		this.aborted = false;
     }
 	Loader.prototype._stepLoadedComplete = function(callback) {
 		if (this.loadimgsoundCount == 0) {
@@ -6424,6 +6658,13 @@ var PKF = (function() {
 		}
 		callback();
 	}
+	Loader.prototype.cancel = function() {
+		if (this.swfparser) {
+			this.swfparser.cancel();
+			this.swfparser = null;
+		}
+		this.aborted = true;
+	}
 	Loader.prototype.loadedCC = function() {
 		this.loadimgsoundCount--;
 	}
@@ -6433,10 +6674,6 @@ var PKF = (function() {
 		for (let tagId = 0; tagId < tags.length; tagId++) {
 			const tag = tags[tagId];
 			switch (tag.tagType) {
-				//////// tags Callbacks ////////
-				case "SetBackgroundColor":
-					stage.setBackgroundColor(tag.rgb[0], tag.rgb[1], tag.rgb[2]);
-					break;
 				//////// frames ////////
 				case "End":
 					break;
@@ -6455,6 +6692,7 @@ var PKF = (function() {
 				case "DoAction":
 				case "FrameLabel":
 				case "VideoFrame":
+				case "SetBackgroundColor":
 					obj.tags.push(tag);
 					break;
 				case "SoundStreamHead":
@@ -6534,12 +6772,12 @@ var PKF = (function() {
 		}
 	}
 	Loader.prototype.defineFont = function(tag, stage) {
-		stage.library.setCharacter(tag.id, new FontCharacter(stage, tag));
+		stage.library.setCharacter(tag.id, new FontData(stage, tag));
 	}
 	Loader.prototype.defineBits = function(tag1, stage) {
 		var rr = this.jpegTable;
 		this.jpegTable = null;
-		var tag = new BitmapTag(stage, tag1);
+		var tag = new CharacterBitmap(stage, tag1);
 		tag.jpegTable = rr;
 		var _this = this;
 		var image = new Image();
@@ -6662,12 +6900,12 @@ var PKF = (function() {
 			}
 		}
 		imageContext.putImageData(imgData, 0, 0);
-		var rg = new BitmapTag(stage, bitmapInfo);
+		var rg = new CharacterBitmap(stage, bitmapInfo);
 		rg.image = canvas;
 		stage.library.setCharacter(bitmapInfo.id, rg);
 	}
 	Loader.prototype.defineSound = function(tag, stage) {
-		var sp = new SoundTag(stage, tag);
+		var sp = new SoundData(stage, tag);
 		var _this = this;
 		_this.loadimgsoundCount++;
 		stage.audio.decodeAudio(tag, function(a) {
@@ -6681,36 +6919,37 @@ var PKF = (function() {
 		stage.library.setCharacter(tag.id, sp);
 	}
 	Loader.prototype.defineShape = function(tag, stage) {
-		var shape = new ShapeTag(stage, tag, false);
+		var shape = new ShapeData(stage, tag);
 		stage.library.setCharacter(tag.id, shape);
 	}
 	Loader.prototype.defineMorphShape = function(tag, stage) {
-		var shape = new ShapeTag(stage, tag, true);
+		var shape = new MorphShapeData(stage, tag);
 		stage.library.setCharacter(tag.id, shape);
 	}
 	Loader.prototype.defineSprite = function(tag, stage) {
-		var clip = new MovieClipTag(stage);
+		var clip = new MovieClipData(stage);
 		clip.characterId = tag.id;
 		this.loadTags(tag.tags, clip, stage);
 		stage.library.setCharacter(tag.id, clip);
 	}
 	Loader.prototype.defineText = function(tag, stage) {
-		stage.library.setCharacter(tag.id, new TextTag(stage, tag));
+		stage.library.setCharacter(tag.id, new TextData(stage, tag));
 	}
 	Loader.prototype.defineEditText = function(tag, stage) {
-		stage.library.setCharacter(tag.id, new EditTextTag(stage, tag))
+		stage.library.setCharacter(tag.id, new EditTextData(stage, tag))
 	}
 	Loader.prototype.defineButton = function(tag, stage) {
-		var r = new ButtonTag(stage, tag);
+		var r = new ButtonData(stage, tag);
 		stage.library.setCharacter(tag.id, r);
 	}
 	Loader.prototype.defineFontAlignZones = function(tag, stage) {
 		var resultFont = stage.library.getCharacter(tag.id);
 		resultFont.setAlignZones(tag);
 	}
-	Loader.prototype.defineBinaryData = function(tag) {
+	Loader.prototype.defineBinaryData = function(tag, stage) {
+		stage.library.setCharacter(tag.id, new BinaryData(stage, tag));
 	}
-	Loader.prototype.defineVideoStream = function(tag) {
+	Loader.prototype.defineVideoStream = function(tag, stage) {
 	}
 	Loader.prototype.parseJpegData = function(JPEGData) {
 		var i = 0;
@@ -6825,18 +7064,18 @@ var PKF = (function() {
 		stage.bounds = this.swfInfo.movieInfo.bounds;
 		stage.frameRate = this.swfInfo.movieInfo.frameRate;
 		stage.setPlayerBounds();
-		stage.renderer.setWidth(stage.width);
-		stage.renderer.setHeight(stage.height);
-		stage.renderer.resize(1);
-		var rootClip = new MovieClipTag(stage);
+		stage.resize(1);
+		var rootClip = new MovieClipData(stage);
 		rootClip.isRoot = true;
 		rootClip.frameCount = this.swfInfo.movieInfo.numFrames;
 		_this.loadTags(this.swfInfo.tags, rootClip, stage);
 		stage.rootClipTag = rootClip;
 		this.interval = setInterval(function() {
 			_this._stepLoadedComplete(function() {
-				stage.isLoad = true;
-				calllback(stage);
+				if (!_this.aborted) {
+					stage.isLoad = true;
+					calllback(stage);	
+				}
 			});
 		}, 10);
     }
@@ -6851,6 +7090,7 @@ var PKF = (function() {
 				}
 			}
 			swfparser.onload = function() {
+				_this.swfparser = null;
 				_this.loadSwfMovie(swfparser.result, function(stage) {
 					if (_this.onload) {
 						_this.onload(stage);
@@ -6858,7 +7098,12 @@ var PKF = (function() {
 				});
 			}
 			swfparser.onerror = function(e) {
+				_this.cancel();
+				if (_this.onerror) {
+					_this.onerror(e);
+				}
 			}
+			_this.swfparser = swfparser;
 			swfparser.load();
 		};
 		reader.readAsArrayBuffer(this.swfFile);
@@ -6874,7 +7119,7 @@ var PKF = (function() {
 			listener(value);
 		}
 	}
-    const Player = function() {
+    const Player = function(options = {}) {
 		var _this = this;
 		this.width = 0;
 		this.height = 0;
@@ -6895,11 +7140,7 @@ var PKF = (function() {
 			event.preventDefault();
 			_this.sendList(event);
 		});
-		this.option = {
-			autoPlay: false
-		}
 		this._clickToPlay = true;
-		this._viewBounds = false;
 		this.m_resin = true;
 		this._viewFrame = false;
 		this._o = 0;
@@ -6911,11 +7152,14 @@ var PKF = (function() {
 		this.stage = null;
 		this.currentLoader = null;
 		this.onload = new Slot();
+		this.onstartload = new Slot();
+		this.oncleanup = new Slot();
 		this.onerror = new Slot();
 		this.onprogress = new Slot();
+		this.onresume = new Slot();
+		this.onpause = new Slot();
+		this.onoptionschange = new Slot();
 		this.loadedTick = 0;
-		this.rc = [0, 0, 0, 0];
-		this.setWH(640, 400);
         this.ctx = this.canvas.getContext("2d");
 		this.canvas.onmousemove = function(e) {
 			_this.updateMouse(e);
@@ -6926,12 +7170,15 @@ var PKF = (function() {
 		this.canvas.onmouseup = function(e) {
 			_this.updateMouseUp(e);
 		}
+		this.addSettingVerticals();
+		this.setOptions(Object.assign(Object.assign({}, options), Player.DEFAULT_OPTIONS));
+		this.handleError = this.handleError.bind(this);
+		this.resize(640, 400);
 		setInterval(this.tick.bind(this), TIMER_TICK_SPEED);
     }
 	Player.prototype.addMenuVerticals = function () {
 		var _this = this;
 		this.MenuVertical = document.createElement('div');
-        this.playerStage.appendChild(this.MenuVertical);
         this.MenuVertical.className = 'watcher-pinkfie-menu-vertical';
         this.movie_playStop = this._createE('Stop', function () {
 			_this.c_playStop();
@@ -6940,11 +7187,79 @@ var PKF = (function() {
 		this.MenuVertical.appendChild(this._createE('View Stats', function () {
 			_this.viewStats();
 		}));
+		var rr = this._createE('Settings', function () {
+			_this.showSetting();
+		});
+		this.MenuVertical.appendChild(rr);
+        this.playerStage.appendChild(this.MenuVertical);
+	}
+	Player.prototype.addSettingVerticals = function() {
+		var _this = this;
+		this.settingVertical = document.createElement('div');
+        this.settingVertical.className = 'watcher-pinkfie-setting';
+		this.settingVertical.style = '';
+		this.settingVertical.style.display = 'none';
+		this.settingVertical.style.position = 'absolute';
+		this.settingVertical.style.top = '0px';
+		this.settingVertical.style.left = '0px';
+		this.settingVertical.style.background = 'rgba(0, 0, 0, 0.75)';
+		this.settingVertical.style.width = '100%';
+		this.settingVertical.style.height = '100%';
+		var rrj = document.createElement('div');
+		rrj.style = '';
+		rrj.style.overflow = 'auto';
+		rrj.style.position = 'absolute';
+		rrj.style.top = '50%';
+		rrj.style.left = '50%';
+		rrj.style.padding = '6px';
+		rrj.style.transform = 'translate(-50%, -50%)';
+		rrj.style.background = 'rgba(0, 0, 0, 0.75)';
+		rrj.style.width = '350px';
+		rrj.style.height = '200px';
+		rrj.innerHTML = '<h3>Settings</h3>';
+		var rrj2 = document.createElement('a');
+		rrj2.href = "#";
+		rrj2.onclick = function() {
+			_this.settingVertical.style.display = 'none';
+		};
+		rrj2.style = '';
+		rrj2.style.position = 'absolute';
+		rrj2.style.top = '0%';
+		rrj2.style.right = '0%';
+		rrj2.innerHTML = "[x]";
+		var rrj3 = document.createElement('label');
+		rrj3.innerHTML = "volume:";
+		var rrj4 = document.createElement('input');
+		rrj4.type = "range";
+		rrj4.value = 100;
+		rrj4.max = 100;
+		rrj4.min = 0;
+		rrj4.addEventListener('input', function (e) {
+			_this.setVolume(rrj4.value);
+		});
+		this._rrj4 = rrj4;
+		var rrj5 = document.createElement('label');
+		rrj5.innerHTML = "Base Bounds: ";
+		
+		var rrj6 = document.createElement('input');
+		rrj6.type = "checkbox";
+		rrj6.addEventListener('input', function (e) {
+			_this.c_bbbb();
+		});
+		this._rrj6 = rrj6;
+		rrj.appendChild(rrj2);
+		rrj.appendChild(rrj3);
+		rrj.appendChild(rrj4);
+		rrj.appendChild(document.createElement('br'));
+		rrj.appendChild(rrj5);
+		rrj.appendChild(rrj6);
+		this.settingVertical.appendChild(rrj);
+        this.playerStage.appendChild(this.settingVertical);
 	}
 	Player.prototype._createE = function (name, fun) {
         var MVG1 = document.createElement('div');
         MVG1.innerHTML = name;
-        MVG1.style.color = "#000";
+        MVG1.style.color = "#fff";
         MVG1.onclick = function() {
         	fun();
         }
@@ -6957,10 +7272,7 @@ var PKF = (function() {
 		this.MenuVertical.style.position = 'absolute';
 		this.MenuVertical.style.top = (event.clientY - rect.top) + 'px';
 		this.MenuVertical.style.left = (event.clientX - rect.left) + 'px';
-		this.MenuVertical.style.border = '0.1em solid #ccc';
-		this.MenuVertical.style.borderRadius = '0.5em';
-		this.MenuVertical.style.background = '#fff';
-		this.MenuVertical.style.width = '8em';
+		this.MenuVertical.style.background = 'rgba(0, 0, 0, 0.5)';
 		this.MenuVertical.style.height = 'auto';
 		if (this.isPlayMovie()) {
 			this.movie_playStop.innerHTML = "Stop";
@@ -6983,6 +7295,15 @@ var PKF = (function() {
 			}
 		}
 	}
+	Player.prototype.setOptions = function (changedOptions) {
+		this.options = Object.assign(Object.assign({}, this.options), changedOptions);
+		if (this.stage) {
+			this.applyOptionsToStage();
+		}
+		this._rrj4.value = this.options.volume;
+		this._rrj6.value = this.options.viewBounds;
+		this.onoptionschange.emit(changedOptions);
+	}
 	Player.prototype.viewStats = function () {
 		if (this._viewFrame) {
 			this._viewFrame = false;
@@ -6991,6 +7312,12 @@ var PKF = (function() {
 		}
 	}
 	Player.prototype.showSetting = function () {
+		this.settingVertical.style.display = '';
+	}
+	Player.prototype.c_bbbb = function () {
+		this.setOptions({
+			viewBounds: !this.options.viewBounds
+		});
 	}
 	Player.prototype.updateMouse = function (e) {
 		if (this.stage) {
@@ -7001,8 +7328,10 @@ var PKF = (function() {
 			this.mousePoint[0] = xm;
 			this.mousePoint[1] = ym;
 
-			var x = ((xm - this.rc[0]) / this.rc[2]);
-			var y = ((ym - this.rc[1]) / this.rc[3]);
+			var rc = this.getRectStage();
+
+			var x = ((xm - rc[0]) / rc[2]);
+			var y = ((ym - rc[1]) / rc[3]);
 			var wx = Math.round(x * this.stage.width);
 			var wy = Math.round(y * this.stage.height);
 			if (((x >= 0) && (y >= 0)) && ((x < 1) && (y < 1))) {
@@ -7011,6 +7340,12 @@ var PKF = (function() {
 		}
 	}
 	Player.prototype.updateMouseDown = function (e) {
+		if (this._clickToPlay && this.isLoad) {
+			if (this.stage) {
+				this.stage.resume();
+			}
+			this._clickToPlay = false;
+		}
 		if (this.stage) {
 			this.stage.mouseDown();
 		}
@@ -7030,6 +7365,10 @@ var PKF = (function() {
 			this.stage.clipStop();
 		}
 	}
+	Player.prototype.handleError = function(error) {
+		console.log(error);
+		this.onerror.emit(error);
+	}
 	Player.prototype.beginLoadingSWF = function() {
 		this.cleanup();
 	}
@@ -7038,11 +7377,17 @@ var PKF = (function() {
 		var _this = this;
 		_this.loaded = 1;
 		var loader = new Loader(file);
+		_this.currentLoader = loader;
 		loader.onprogress = function(fs) {
 			_this.loadedTick = ((fs[0] + fs[1]) / 2);
+			_this.onprogress.emit(((fs[0] + fs[1]) / 2));
 		}
 		loader.onload = function(stage) {
+			_this.currentLoader = null;
 			_this.setStage(stage);
+		}
+		loader.onerror = function(e) {
+			_this.handleError(e);
 		}
 		loader.load();
 	}
@@ -7054,24 +7399,23 @@ var PKF = (function() {
 		}
 	}
 	Player.prototype.setStage = function(stage) {
+		var _this = this;
 		this.stage = stage;
 		this.loaded = 2;
-		this.stage.timer.startTime = Date.now();
-		if (this.stage) {
-			this.stage.audio.setVolume(this.volume);
-		}
-		this.applyStageResize();
+		stage.checkRender = function() { return !_this.options.viewBounds };
+		this.applyOptionsToStage();
+		this.applyResizeStage();
 		this.isLoad = true;
+		this.applyAutoplay(this.options.autoplay);
 		this.onload.emit(stage);
 	}
-    Player.prototype.setWH = function(w, h) {
-		this.width = w;
-		this.height = h;
-		this.canvas.width = w;
-		this.canvas.height = h;
-		this.applyStageResize();
+	Player.prototype.applyAutoplay = function(policy) {
+		if (policy) {
+			this.stage.start();
+			this._clickToPlay = false;
+		}
     }
-    Player.prototype.applyStageResize = function() {
+	Player.prototype.applyResizeStage = function() {
 		if (this.stage) {
 			var scaleW = this.width / this.stage.width;
 			var scaleH = this.height / this.stage.height;
@@ -7079,25 +7423,39 @@ var PKF = (function() {
 			this.stage.resize(scale);
 		}
     }
+    Player.prototype.setWH = function(w, h) {
+		this.resize(w, h);
+    }
+	Player.prototype.resize = function(w, h) {
+		this.width = w;
+		this.height = h;
+		this.canvas.width = w;
+		this.canvas.height = h;
+		this.applyResizeStage();
+		this.render();
+    }
+    Player.prototype.applyOptionsToStage = function() {
+		if (this.stage) {
+			this.stage.audio.setVolume(this.options.volume);
+		}
+    }
     Player.prototype.tick = function() {
 		this.tickTime += TIMER_TICK_SPEED;
 		if (this.isLoad) {
 			this.stage.timer.update(Date.now());
 			this.stage.tick();
-			if (!this.stage.playing) {
+			if ((!this.stage.playing) && !this._clickToPlay) {
 				this._o = this.tickTime + 1000;
 			}
 		}
 		this.render();
     }
 	Player.prototype.setVolume = function(val) {
-		this.volume = val;
-		if (this.stage) {
-			this.stage.audio.setVolume(this.volume);
-		}
+		this.setOptions({volume: val});
 	}
 	Player.prototype.resume = function() {
 		if (this.stage) {
+			this._clickToPlay = false;
 			this.stage.resume();
 		}
 	}
@@ -7115,41 +7473,63 @@ var PKF = (function() {
 			}
 		}
 	}
+	Player.prototype.getRectStage = function() {
+		if (this.stage) {
+			var _movieCanvas = this.stage.canvas;
+			var w, h;
+			var x = 0, y = 0;
+			var __Width = this.width;
+			var __Height = this.height;
+			if (this.m_resin || ((_movieCanvas.width > __Width) || (_movieCanvas.height > __Height))) {
+				if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+					w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+					h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+					x = (__Width - w) / 2;
+				} else {
+					w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+					h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+					y = (__Height - h) / 2;
+				}
+			} else {
+				w = (_movieCanvas.width);
+				h = (_movieCanvas.height);
+				x = (__Width / 2);
+				y = (__Height / 2);
+				x -= (w / 2);
+				y -= (h / 2);
+			}
+			return [x, y, w, h];
+		} else {
+			return [0, 0, 0, 0];
+		}
+	}
+
 	Player.prototype.render = function() {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		if (this.loaded == 1) {
 			this.renderloading();
 		} else {
 			if (this.isLoad) {
+				var _movieDebugCanvas = this.stage.debugMovieCanvas;
 				var _movieCanvas = this.stage.canvas;
-				var w, h;
-				var x = 0, y = 0;
-				var __Width = this.width;
-				var __Height = this.height;
-				if (this.m_resin || ((_movieCanvas.width > __Width) || (_movieCanvas.height > __Height))) {
-					if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
-						w = (_movieCanvas.width * (__Height / _movieCanvas.height));
-						h = (_movieCanvas.height * (__Height / _movieCanvas.height));
-						x = (__Width - w) / 2;
-					} else {
-						w = (_movieCanvas.width * (__Width / _movieCanvas.width));
-						h = (_movieCanvas.height * (__Width / _movieCanvas.width));
-						y = (__Height - h) / 2;
-					}
+				var rc = this.getRectStage();
+				var x = rc[0];
+				var y = rc[1];
+				var w = rc[2];
+				var h = rc[3];
+				this.ctx.globalAlpha = 1;
+				this.ctx.fillStyle = "rgba(255, 255, 255, 1)";
+				this.ctx.fillRect(x, y, w, h);
+				this.ctx.imageSmoothingEnabled = false;
+				if (this.options.viewBounds) {
+					this.ctx.drawImage(_movieDebugCanvas, x, y, w, h);
 				} else {
-					w = (_movieCanvas.width);
-					h = (_movieCanvas.height);
-					x = (__Width / 2);
-					y = (__Height / 2);
-					x -= (w / 2);
-					y -= (h / 2);
+					this.ctx.drawImage(_movieCanvas, x, y, w, h);
 				}
-				this.rc = [x, y, w, h];
-
-				this.ctx.drawImage(this.stage.renderer.canvas, x, y, w, h);
+				var rrgg = (this._o > this.tickTime);
 				var XG = x;
-				var YG = y;
-				if (this._viewFrame && this.stage) {
+				var YG = y + (rrgg ? 25 : 0);
+				if (this._viewFrame && this.stage && this.stage.clip) {
 					this.ctx.font = "15px Arial";
 					this.ctx.textAlign = "left";
 					this.ctx.globalAlpha = 0.75;
@@ -7163,23 +7543,39 @@ var PKF = (function() {
 					this.ctx.fillText("Frame: " + _u, XG + 8, YG + 35);
 					this.ctx.fillText("Mouse Point: " + this.stage.mousePosition, XG + 8, YG + 51);
 				}
-				if (this._o > this.tickTime) {
+				if (rrgg && !this._clickToPlay) {
 					var GSGGG = this.stage.playing ? "Play" : "Pause";
 					this.ctx.font = "15px Arial";
 					this.ctx.textAlign = "left";
 					this.ctx.globalAlpha = 0.75;
 					this.ctx.fillStyle = "#000";
 					var rr = this.ctx.measureText(GSGGG);
-					this.ctx.fillRect(XG + 3, YG + 3, rr.width + 11, 23);
+					this.ctx.fillRect(XG + 3, y + 3, rr.width + 11, 23);
 					this.ctx.fillStyle = "#fff";
 					this.ctx.globalAlpha = 1;
-					this.ctx.fillText(GSGGG, XG + 8, YG + 20);
+					this.ctx.fillText(GSGGG, XG + 8, y + 20);
+				}
+				if (this._clickToPlay) {
+					this.ctx.globalAlpha = 0.5;
+					this.ctx.fillStyle = "#000";
+					this.ctx.fillRect(x, y, w, h);
+					this.ctx.globalAlpha = 1;
+					this.ctx.fillStyle = "#fff";
+					this.ctx.font = "30px Arial";
+					this.ctx.textAlign = "center";
+					this.ctx.fillText("Click To Play", this.width / 2, (this.height / 2));
 				}
 			}
 		}
     }
 	Player.prototype.cleanup = function() {
+		this._clickToPlay = true;
 		this.isLoad = false;
+		this.settingVertical.style.display = 'none';
+		if (this.currentLoader) {
+			this.currentLoader.cancel();
+			this.currentLoader = null;
+		}
 		if (this.stage) {
 			this.stage.destroy();
 			this.stage = null;
@@ -7285,7 +7681,13 @@ var PKF = (function() {
 		this.ctx.stroke();
 		this.ctx.restore();
     }
+	Player.DEFAULT_OPTIONS = {
+		autoplay: false,
+		volume: 100,
+		viewBounds: false
+	};
     return {
         Player,
+	SwfParser
     }
 }());
