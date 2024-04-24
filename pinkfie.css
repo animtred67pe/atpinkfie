@@ -1,3 +1,6 @@
+.pinkfie-root{
+  font-family: "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+}
 .pinkfie-stage{
 	overflow: hidden;
 	position: relative;
@@ -6,9 +9,15 @@
   padding: 0.2em;
   margin: 0.2em;
   font-size: 1em;
-  border-radius: 0.5em;
+  color: rgba(255, 255, 255, 1);
 }
 .watcher-pinkfie-menu-vertical div:hover {
-  background-color: #eee;
+  background-color: #000000;
   cursor: pointer;
+}
+.watcher-pinkfie-setting div {
+  color: rgba(255, 255, 255, 1);
+}
+.watcher-pinkfie-setting div a {
+  color: rgba(255, 255, 255, 1);
 }
