@@ -1,19 +1,53 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>PinkFie - Flash Player Emulator</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+        <title>PinkFie - Flash Player Emulator</title>
+		<script>
+		  // Apply local dark mode preference very early to avoid a flash of white
+		  (function() {
+			try {
+			  if (localStorage.getItem('userPrefersDark') === 'true') {
+				document.documentElement.classList.add('dark');
+			  }
+			} catch (e) {
+			  console.log('error loading theme choice', e);
+			}
+		  }());
+		</script>
 		<style type="text/css">
 			body {
-				background-color: #000;
 				font-family: monospace;
 			}
-			a{
-				color: #ffffff;
+			/* Theme changer */
+			.theme-select {
+				position: absolute;
+				left: 5px;
+				top: 5px;
+				opacity: 0.5;
+				transition: opacity 0.2s;
+			}
+			.theme-select:hover {
+				opacity: 1;
 			}
 			.app{
 				width: 640px;
 				margin: auto;
+				color: #000000;
+			}
+			.app a{
+				color: #000000;
+			}
+			.dark {
+				background-color:rgb(0, 0, 0, 1);
+				color: #ffffff;
+			}
+			.dark .app {
+				color: #ffffff;
+			}
+			.dark a {
 				color: #ffffff;
 			}
 			#pinkfie-player{
@@ -22,12 +56,16 @@
 			}
 		</style>
     </head>
-    <body id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+    <body id="drop_zone">
+		<div class="theme-select">
+		  <a href="#" class="switch-theme">switch theme</a>
+		</div>
 		<div class="app">
 			<h1>PinkFie</h1>
 			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open Swf</a>
 			<a href="#" id="ssag2">Close</a>
+			<label id="ggtitle5"></label>
 			<br>
 			<div id="pinkfiestage" style="display: none;">
 				<div id="pinkfie-player"></div>
@@ -37,92 +75,161 @@
 				<br>
 				<div id="demo"></div>
 			</div>
-			<div id="pinkfiemenu"></div>
-			<p style="color: #999999;">(C) 2024, THandPEPeerTDP</p>
+			<div id="pinkfiemenu">
+				<!--
+				<ul>
+					<li><a href="demo.html">Demo development</a></li>
+				</ul>-->
+			</div>
+			<p style="color: #999999;">(C) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">THandPEPeerTDP</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
-			var player = new PKF.Player();
-			player.setWH(640, 400);
-			var fvolumeff = document.getElementById('fvolumeff');
-			var demo = document.getElementById("demo");
-			var pinkfiemenu = document.getElementById('pinkfiemenu');
-
-			var pinkfiestage = document.getElementById('pinkfiestage');
-
-			var viewbbb2 = document.getElementById('viewbbb2');
-			var ssag2 = document.getElementById('ssag2');
-			var playerArea = document.getElementById('pinkfie-player');
-
-			playerArea.appendChild(player.root);
-			fvolumeff.addEventListener('input', function (e) {
-				player.setVolume(fvolumeff.value);
-			});
-
-			function showSwf() {
-				var resultswf = player.stage.swf;
-				var dfgfd = "<h3>SWF Info</h3>";
-                var stageSize = resultswf.movieInfo.bounds;
-				dfgfd += "compression: " + resultswf.header.compression + " version: " + resultswf.header.version +  " uncompressed size: " + resultswf.header.uncompressedLength + "<br>";
-				dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " frameRate: " + resultswf.movieInfo.frameRate + " frames: " + resultswf.movieInfo.numFrames + "";
-				demo.innerHTML = dfgfd;
-			}
-
-			viewbbb2.onclick = function () {
-				player.toggleRunning();
-			}
-			ssag2.onclick = function () {
-				pinkfiemenu.style.display = "";
-				pinkfiestage.style.display = "none";
-				player.cleanup();
-			}
-			//setNextFrame
-			player.onload.subscribe(function() {
-				showSwf();
-			})
-			player.onerror.subscribe(function(e) {
-				console.log(e);
-				pinkfiemenu.style.display = "";
-				pinkfiestage.style.display = "none";
-				player.cleanup();
-			});
-			function dropHandler(ev) {
-				ev.preventDefault();
-				if (ev.dataTransfer.items) {
-					[...ev.dataTransfer.items].forEach((item, i) => {
-					if (item.kind === 'file') {
-						const file = item.getAsFile();
-						loadSwfFile(file);
+			(function() {
+				function querySelector(selector) {
+					var el = document.querySelector(selector);
+					if (!el) {
+						throw new Error('Selector returned nothing: ' + selector);
 					}
-					});
+					return el;
 				}
-			}
-			function dragOverHandler(ev) {
-				ev.preventDefault();
-			}
 
-			function loadSwfFile(file) {
-				pinkfiestage.style.display = "";
-				pinkfiemenu.style.display = "none";
-				demo.innerHTML = '';
+				var player = new PKF.Player();
+				window.player = player;
+				var fvolumeff = document.getElementById('fvolumeff');
+				var demo = document.getElementById("demo");
+				var ggtitle5 = document.getElementById("ggtitle5");
+				var pinkfiemenu = document.getElementById('pinkfiemenu');
 
-				player.loadSwfFromFile(file);
-			}
+				var pinkfiestage = document.getElementById('pinkfiestage');
 
-			var loadprojectfile = document.getElementById('loadswffile');
-			loadprojectfile.onclick = function() {
-				var sa = document.createElement('input');
-				sa.type = 'file';
-				sa.accept = '.swf';
-				sa.addEventListener('change', function(e) {
-					var file = e.target.files[0];
-					if (!file) {
-						return;
+				var viewbbb2 = document.getElementById('viewbbb2');
+				var ssag2 = document.getElementById('ssag2');
+				var playerArea = document.getElementById('pinkfie-player');
+
+				playerArea.appendChild(player.root);
+				fvolumeff.addEventListener('input', function (e) {
+					player.setVolume(fvolumeff.value);
+				});
+
+				player.onoptionschange.subscribe(function(o) {
+					fvolumeff.value = player.options.volume;
+				});
+
+				function showSwf() {
+					var resultswf = player.stage.swf;
+					var dfgfd = "<h3>SWF Info</h3>";
+					var stageSize = resultswf.movieInfo.bounds;
+					dfgfd += "compression: " + resultswf.header.compression + " version: " + resultswf.header.version +  " uncompressed size: " + resultswf.header.uncompressedLength + "<br>";
+					dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " fps: " + resultswf.movieInfo.frameRate + " frames: " + resultswf.movieInfo.numFrames + "";
+					demo.innerHTML = dfgfd;
+				}
+
+				viewbbb2.onclick = function () {
+					player.toggleRunning();
+				}
+				ssag2.onclick = function () {
+					pinkfiemenu.style.display = "";
+					pinkfiestage.style.display = "none";
+					ggtitle5.textContent = "";
+					player.cleanup();
+				}
+				//setNextFrame
+				player.onload.subscribe(function() {
+					showSwf();
+				})
+				player.onerror.subscribe(function(e) {
+					pinkfiemenu.style.display = "";
+					pinkfiestage.style.display = "none";
+					ggtitle5.textContent = "";
+					player.cleanup();
+				});
+				function dropHandler(ev) {
+					ev.preventDefault();
+					if (ev.dataTransfer.items) {
+						[...ev.dataTransfer.items].forEach((item, i) => {
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
+						});
 					}
-					loadSwfFile(file);
-				}, false);
-				sa.click();
-			}
+				}
+				function dragOverHandler(ev) {
+					ev.preventDefault();
+				}
+
+				var drop_zone = document.getElementById("drop_zone");
+
+				drop_zone.ondrop = dropHandler;
+				drop_zone.ondragover = dragOverHandler;
+
+				function loadSwfFile(file) {
+					pinkfiestage.style.display = "";
+					pinkfiemenu.style.display = "none";
+					demo.innerHTML = '';
+					ggtitle5.textContent = file.name;
+
+					player.loadSwfFromFile(file);
+				}
+
+				function getDefaultDarkMode() {
+					return window.matchMedia('(prefers-color-scheme: dark)').matches;
+				}
+
+				/** Dark Mode **/
+				function getLocalDarkMode() {
+					try {
+						const value = localStorage.getItem('userPrefersDark');
+						if (!value) {
+						// value is undefined or null
+							return getDefaultDarkMode();
+						}
+						// value is the string 'true' or the string 'false'
+						return value === 'true';
+					} catch (e) {
+						console.log('error getting local color choice', e);
+						return false;
+					}
+				}
+
+				function setDarkMode(dark) {
+					if (dark) {
+						document.documentElement.classList.add('dark');
+					} else {
+						document.documentElement.classList.remove('dark');
+					}
+					try {
+						return localStorage.setItem('userPrefersDark', dark);
+					} catch (e) {
+						console.log('error saving color choice', e);
+					}
+				}
+
+				setDarkMode(getLocalDarkMode());
+
+				function toggleDarkMode(dark) {
+					setDarkMode(!document.documentElement.classList.contains('dark'));
+				}
+				querySelector('.theme-select a').addEventListener('click', function() {
+					toggleDarkMode();
+				});
+
+				var loadprojectfile = document.getElementById('loadswffile');
+				loadprojectfile.onclick = function() {
+					var sa = document.createElement('input');
+					sa.type = 'file';
+					sa.accept = '.swf';
+					sa.addEventListener('change', function(e) {
+						var file = e.target.files[0];
+						if (!file) {
+							return;
+						}
+						loadSwfFile(file);
+					}, false);
+					sa.click();
+				}
+			}());
 		</script>
     </body>
 </html>
