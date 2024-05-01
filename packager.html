@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PinkFie - Flash Player Emulator</title>
+        <style>
+            body {
+                font-family: monospace;
+            }
+            .app{
+                width: 640px;
+                margin: auto;
+                color: #000000;
+            }
+            .app a{
+                color: #000000;
+            }
+        </style>
+    </head>
+    <body>
+		<a href="./">back</a>
+        <div class="app">
+            <h1>HTML Packager</h1>
+            <p>The HTML packager allows you to generate an HTML file for a SWF File.</p>
+            <noscript><b>This page requires JavaScript to work properly.</b></noscript>
+            <a href="#" id="openidofile">Open SWF</a>
+			<label id="ggtitle5"></label>
+            <br>
+            <button id="demo2">Packager</button>
+            <p id="demo"></p>
+        </div>
+        <script src="packer.js"></script>
+        <script>
+            (function() {
+				"use strict";
+
+                var demo = document.getElementById("demo");
+                var demo2 = document.getElementById("demo2");
+                var ggtitle5 = document.getElementById("ggtitle5");
+                var openidofile = document.getElementById("openidofile");
+
+                var fileSWFo = null;
+                var fileSWFname = '';
+
+                var files = [
+                    'pinkfie.js',
+                    'pinkfie.css',
+                ];
+
+                function loadSwfFile(file) {
+                    demo2.style.display = "";
+                    ggtitle5.textContent = file.name;
+                    fileSWFname = file.name;
+                    fileSWFo = file;
+                }
+
+                openidofile.onclick = function() {
+                    var sa = document.createElement('input');
+                    sa.type = 'file';
+                    sa.accept = '.swf';
+                    sa.addEventListener('change', function(e) {
+                        var file = e.target.files[0];
+                        if (!file) {
+                            return;
+                        }
+                        loadSwfFile(file);
+                    }, false);
+                    sa.click();
+                }
+                function loadFileUrls(url, callback) {
+                    var x = new XMLHttpRequest();
+                    x.onload = function() {
+                        callback(x.response);
+                    }
+                    x.open("GET", url);
+                    x.send();
+                }
+
+                function loadFilespack(dataUrl, callback) {
+                    loadFileUrls("pinkfie.js", function(jsss) {
+                        loadFileUrls("pinkfie.css", function(csss) {
+                            callback(jsss, csss);
+                        });
+                    });
+                }
+
+                demo2.onclick = function() {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        var data = e.target.result;
+
+                        demo.textContent = "Loading internal files";
+
+                        loadFilespack(data, function(jsss, csss) {
+
+                            const bodyg = new Packer.Packager(csss, jsss, data);
+
+                            var bod = bodyg.run();
+
+                            var rrrg = new Blob([bod]);
+
+                            console.log();
+
+                            var ra = document.createElement("a");
+                            ra.href = URL.createObjectURL(rrrg);
+
+                            ra.download = (fileSWFname.split(".")[0] + ".html");
+
+                            ra.click();
+
+                            demo.textContent = "done";
+
+                        });
+                    };
+                    reader.readAsDataURL(fileSWFo);
+                }
+                demo2.style.display = "none";
+            }());
+        </script>
+    </body>
+</html>

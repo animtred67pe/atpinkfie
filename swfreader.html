@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>SWF Reader Preview</title>
+		<style>
+			body{
+				font-family: monospace;
+				background: #000;
+				color: #fff;
+			}
+			a{
+				color: #fff;
+			}
+			.app{
+				width: 640px;
+				margin: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<a href="./">back</a>
+		<div class="app">
+			<h1>SWF Reader Preview</h1>
+			<p>The 90% javascript</p>
+			<p>The Flash Reader in Javascript, is still in development.</p>
+			<a href="#" id="loadswffile">Open Swf</a>
+			<label id="ggtitle5"></label>
+			<br>
+			<div id="demo"></div>
+			<br>
+			<div id="demo3" style="overflow: auto; height: 400px; border: 4px solid #fff; border-radius: 10px;"></div>
+			<div id="demo2" style="overflow: auto; height: 400px; border: 4px solid #fff; border-radius: 10px;"></div>
+		</div>
+		<script src="pinkfie.js"></script>
+		<script type="text/javascript">
+			(function() {
+				"use strict";
+				var demo = document.getElementById("demo");
+				var demo2 = document.getElementById("demo2");
+				var demo3 = document.getElementById("demo3");
+				var ggtitle5 = document.getElementById("ggtitle5");
+				var resultswf = null;
+				var result_tagsElem = null;
+				var result_tagElem = null;
+
+				var tagsLimit = 2000;
+
+				var countTags = 0;
+				function gettagslength(tags) {
+					for (let i = 0; i < tags.length; i++) {
+						const tag = tags[i];
+						if (tag.tagcode == 39) {
+							gettagslength(tag.tags);
+						}
+						countTags++;
+					}
+				}
+				function _showobj(obj, _original) {
+					var ggs = document.createElement("ul");
+					var isSprite = (obj.tagcode == 39);
+					if (_original) {
+						var ar6 = document.createElement("a");
+						ar6.href = "#";
+						ar6.innerHTML = '[Back]';
+						ar6.onclick = (function() {
+							return function() {
+								demo2.style.display = "";
+								demo3.style.display = "none";
+							}
+						}());
+						ggs.appendChild(ar6);
+					}
+					for (var _bitmap in obj) {
+						if (!(_bitmap in obj)) {
+							continue;
+						}
+						if (isSprite && _bitmap == "tags") {
+							continue;
+						}
+						var RRy = obj[_bitmap];
+						var aaa = document.createElement("li");
+						var txts = _bitmap + ": ";
+						aaa.textContent = txts;
+						if ((typeof RRy) == "string" || (typeof RRy) == "number" || (typeof RRy) == "boolean" || RRy === undefined || RRy === null) {
+							aaa.textContent += RRy;
+						} else {
+							if ((typeof RRy) == "object") {
+								if (Array.isArray(RRy)) {
+									// TODO Array
+									var aags = _showobj(RRy);
+									aaa.appendChild(aags);
+								} else if (RRy instanceof ArrayBuffer) {
+									var ar = document.createElement("a");
+									ar.href = "#";
+									ar.innerHTML = ("[ArrayBuffer(" + RRy.byteLength + ")]");
+									ar.onclick = (function(arrTag) {
+										var _arrTag = arrTag;
+										return function() {
+											var r = document.createElement("a");
+											r.href = URL.createObjectURL(new Blob([new Uint8Array(_arrTag)]));
+											r.download = "pinkfie_" + _arrTag.byteLength + ".dat";
+											r.click();
+										}
+									}(RRy));
+									aaa.appendChild(ar);
+								} else {
+									var aags = _showobj(RRy);
+									aaa.appendChild(aags);
+								}
+							}
+							
+						}
+						ggs.appendChild(aaa);
+					}
+					return ggs;
+				}
+				function _showtagobj(obj) {
+					if (result_tagElem) {
+						demo3.removeChild(result_tagElem);
+						result_tagElem.remove();
+						result_tagElem = null;
+					}
+					result_tagElem = _showobj(obj, true);
+					demo3.appendChild(result_tagElem);
+					demo2.style.display = "none";
+					demo3.style.display = "";
+				}
+				function _showtags(tags) {
+					var gg = document.createElement("ul");
+					var gfgbvbvbvb = 0;
+					var showtagswithlimit = function() {
+						for (let i = gfgbvbvbvb; i < tags.length; i++) {
+							const tag = tags[i];
+							var aaa = document.createElement("li");
+							aaa.innerHTML = tag.tagType + ": ";
+							var ar = document.createElement("a");
+							ar.href = "#";
+							ar.onclick = (function(objTag) {
+								var _objTag = objTag;
+								return function() {
+									_showtagobj(_objTag);
+								}
+							}(tag));
+							ar.innerHTML = tag._byteLength;
+							aaa.appendChild(ar);
+							if (tag.tagcode == 39) {
+								var aag = _showtags(tag.tags);
+								aaa.appendChild(aag);
+							}
+							gg.appendChild(aaa);
+							if (i > tags.length) {
+
+							}
+							if ((i - gfgbvbvbvb) >= tagsLimit) {
+								gfgbvbvbvb = i;
+								var aaa2 = document.createElement("li");
+								var ar2 = document.createElement("a");
+								ar2.innerHTML = "... " + i + "/" + tags.length;
+								ar2.href = "#";
+								ar2.onclick = function() {
+									aaa2.removeChild(ar2);
+									gg.removeChild(aaa2);
+									showtagswithlimit();
+								}
+								aaa2.appendChild(ar2);
+								gg.appendChild(aaa2);
+								break;
+							}
+						}	
+					}
+					
+					showtagswithlimit();
+
+					return gg;
+				}
+				function slowswf() {
+					countTags = 0;
+					gettagslength(resultswf.tags);
+					result_tagsElem = _showtags(resultswf.tags);
+					var dfgfd = "<h3>SWF Info</h3>";
+					var swfHeader = resultswf.header;
+					var headerMovie = resultswf.movieInfo;
+					var stageSize = headerMovie.bounds;
+					dfgfd += "compression: " + swfHeader.compression + " version: " + swfHeader.version +  " uncompressed size: " + swfHeader.uncompressedLength + "<br>";
+						dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " fps: " + headerMovie.frameRate + " frames: " + headerMovie.numFrames + "";
+					dfgfd += "<h3>SWF Tags</h3> tags length: " + countTags + "";
+					demo.innerHTML = dfgfd;
+					demo2.appendChild(result_tagsElem);
+					demo2.style.display = "";
+					console.log(resultswf);
+				}
+				demo2.style.display = "none";
+				demo3.style.display = "none";
+				var loadprojectfile = document.getElementById('loadswffile');
+				loadprojectfile.onclick = function () {
+					var sa = document.createElement('input');
+					sa.type = 'file';
+					sa.accept = '.swf';
+					sa.addEventListener('change', function (e) {
+						var file = e.target.files[0];
+						if (!file) {
+							return;
+						}
+						demo2.style.display = "none";
+						demo3.style.display = "none";
+						ggtitle5.textContent = file.name || "";
+						if (result_tagsElem) {
+							demo2.removeChild(result_tagsElem);
+							result_tagsElem.remove();
+							result_tagsElem = null;
+						}
+						demo.innerHTML = "<br>opening swf file";
+						var reader = new FileReader();
+						reader.onload = function(e) {
+							var swfparser = new PKF.SwfParser(e.target.result);
+							swfparser.onprogress = function(fs) {
+								if (fs[0]) {
+									demo.innerHTML = "<br>decoding tags " + Math.round(fs[1] * 100) + "%";
+								} else {
+									demo.innerHTML = "<br>compressed swf " + Math.round(fs[1] * 100) + "%";
+								}
+							}
+							swfparser.onload = function() {
+								resultswf = swfparser.result;
+								slowswf();
+							}
+							swfparser.onerror = function(e) {
+								
+							}
+							swfparser.load();
+						};
+						reader.readAsArrayBuffer(file);
+					}, false);
+					sa.click();
+				}	
+			}());
+		</script>
+	</body>
+</html>

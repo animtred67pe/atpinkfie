@@ -3,6 +3,7 @@
     <head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="stylesheet" type="text/css" href="index.css">
 		<link rel="stylesheet" type="text/css" href="pinkfie.css">
         <title>PinkFie - Flash Player Emulator</title>
 		<script>
@@ -17,51 +18,13 @@
 			}
 		  }());
 		</script>
-		<style type="text/css">
-			body {
-				font-family: monospace;
-			}
-			/* Theme changer */
-			.theme-select {
-				position: absolute;
-				left: 5px;
-				top: 5px;
-				opacity: 0.5;
-				transition: opacity 0.2s;
-			}
-			.theme-select:hover {
-				opacity: 1;
-			}
-			.app{
-				width: 640px;
-				margin: auto;
-				color: #000000;
-			}
-			.app a{
-				color: #000000;
-			}
-			.dark {
-				background-color:rgb(0, 0, 0, 1);
-				color: #ffffff;
-			}
-			.dark .app {
-				color: #ffffff;
-			}
-			.dark a {
-				color: #ffffff;
-			}
-			#pinkfie-player{
-    			width: 640px;
-				margin: 0 auto;
-			}
-		</style>
     </head>
     <body id="drop_zone">
 		<div class="theme-select">
 		  <a href="#" class="switch-theme">switch theme</a>
 		</div>
 		<div class="app">
-			<h1>PinkFie</h1>
+			<h1>PinkFie v1.1</h1>
 			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open Swf</a>
 			<a href="#" id="ssag2">Close</a>
@@ -76,16 +39,20 @@
 				<div id="demo"></div>
 			</div>
 			<div id="pinkfiemenu">
-				<!--
 				<ul>
-					<li><a href="demo.html">Demo development</a></li>
-				</ul>-->
+					<li><a href="demo.html">Player development</a></li>
+					<li><a href="packager.html">HTML Packager</a></li>
+					<li><a href="swfreader.html">Swf Reader Preview</a></li>
+					<li><a href="about.html">About</a></li>
+				</ul>
 			</div>
 			<p style="color: #999999;">(C) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">THandPEPeerTDP</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
 			(function() {
+				"use strict";
+
 				function querySelector(selector) {
 					var el = document.querySelector(selector);
 					if (!el) {
@@ -109,11 +76,17 @@
 
 				playerArea.appendChild(player.root);
 				fvolumeff.addEventListener('input', function (e) {
-					player.setVolume(fvolumeff.value);
+					player.setOptions({
+						volume: (+fvolumeff.value)
+					});
+				});
+
+				player.setOptions({
+					autoplayPolicy: 'never'
 				});
 
 				player.onoptionschange.subscribe(function(o) {
-					fvolumeff.value = player.options.volume;
+					fvolumeff.value = player.getOptions().volume;
 				});
 
 				function showSwf() {
@@ -139,11 +112,9 @@
 					showSwf();
 				})
 				player.onerror.subscribe(function(e) {
-					pinkfiemenu.style.display = "";
-					pinkfiestage.style.display = "none";
-					ggtitle5.textContent = "";
-					player.cleanup();
+					
 				});
+				
 				function dropHandler(ev) {
 					ev.preventDefault();
 					if (ev.dataTransfer.items) {
@@ -168,7 +139,7 @@
 					pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
 					demo.innerHTML = '';
-					ggtitle5.textContent = file.name;
+					ggtitle5.textContent = file.name || "";
 
 					player.loadSwfFromFile(file);
 				}

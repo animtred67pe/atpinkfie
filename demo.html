@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>PinkFie - Player</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+		<style type="text/css">
+            body {
+				font-family: monospace;
+				margin: 0;
+				overflow: hidden;
+                background-color: #000;
+            }
+			#pkfcontrols {
+				background-color: rgb(92, 206, 92);
+				height: 30px;
+				overflow: hidden;
+			}
+			#pkfcontrols > * {
+				float: left;
+				padding: 4px;
+				margin: 0;
+			}
+			#pkfcontrols a {
+				margin: 3px;
+                background-color: #3f7439;
+				color: #ffffff;
+				border-radius: 16px;
+				text-decoration-line: none;
+			}
+			#pkfcontrols a:hover {
+                background-color: #8bff7e;
+				color: #000000;
+			}
+			.pinkfie-root {
+				margin: 0;
+			}
+		</style>
+	</head>
+	<body id="drop_zone">
+		<div id="pkfcontrols">
+			<a href="#" id="loadswffile">Open SWF</a>
+			<a href="#" id="closeswffile">Close</a>
+			<label id="ggtitle5" style="margin: 3px;"></label>
+			<a href="#" id="takeautoplayswf">AutoPlay: On</a>
+			<div>
+				<label style="margin: 4px;">volume:</label>
+				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
+			</div>
+			<a style="float: right;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">By THandPEPeerTDP</a>
+			<a style="float: right;" href="./">Back</a>
+		</div>
+		<div id="pinkswf"></div>
+		<script src="pinkfie_logo.js"></script>
+		<script src="pinkfie.js"></script>
+		<script>
+			(function() {
+				"use strict";
+
+				var player = new PKF.Player();
+				window.player = player;
+				var playerArea = document.getElementById('pinkswf');
+
+				var minHH = 30;
+				
+				function URLsearchParams(name,isD) {
+					var _u = new URL(window.location.href);
+					if (isD) {
+						return _u.searchParams.has(name);
+					} else {
+						return _u.searchParams.get(name);
+					}
+				}
+
+				var loadprojectfile = document.getElementById('loadswffile');
+
+				var closeswffile = document.getElementById('closeswffile');
+
+				var takeautoplayswf = document.getElementById('takeautoplayswf');
+
+				var pkfcontrols = document.getElementById('pkfcontrols');
+
+				var ggtitle5 = document.getElementById("ggtitle5");
+
+				var fvolumeff = document.getElementById('fvolumeff');
+
+				playerArea.appendChild(player.root);
+
+				function TSProgress(e) {
+					
+				}
+				function _resize_() {
+					pkfcontrols.style.width = window.innerWidth + "px";
+					if (screen.width == window.innerWidth &&  screen.height == window.innerHeight) {
+						pkfcontrols.style.display = 'none';
+						player.resize(window.innerWidth, window.innerHeight);
+					} else {
+						pkfcontrols.style.display = '';
+						player.resize(window.innerWidth, window.innerHeight - minHH);
+					}
+				}
+				window.addEventListener("resize", _resize_);
+				_resize_();
+
+				function loadSwfFile(file) {
+					ggtitle5.textContent = file.name || "";
+					TSProgress(0);
+					player.loadSwfFromFile(file);
+				}
+				player.onload.subscribe(function() {
+				});
+				player.onprogress.subscribe(TSProgress);
+				closeswffile.onclick = function () {
+					ggtitle5.textContent = "";
+					player.cleanup();
+				}
+				loadprojectfile.onclick = function () {
+					var sa = document.createElement('input');
+					sa.type = 'file';
+					sa.accept = '.swf';
+					sa.addEventListener('change', function (e) {
+						var file = e.target.files[0];
+						if (!file) {
+							return;
+						}
+						loadSwfFile(file);
+					}, false);
+					sa.click();
+				}
+				fvolumeff.addEventListener('input', function (e) {
+					player.setOptions({
+						volume: (+fvolumeff.value)
+					});
+				});
+
+				player.onoptionschange.subscribe(function(o) {
+					fvolumeff.value = player.getOptions().volume;
+				});
+				
+				function dropHandler(ev) {
+					ev.preventDefault();
+					if (ev.dataTransfer.items) {
+						[...ev.dataTransfer.items].forEach((item, i) => {
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
+						});
+					}
+				}
+				function dragOverHandler(ev) {
+					ev.preventDefault();
+				}
+
+				var drop_zone = document.getElementById("drop_zone");
+
+				drop_zone.ondrop = dropHandler;
+				drop_zone.ondragover = dragOverHandler;
+
+				takeautoplayswf.onclick = function () {
+					console.log();
+
+					var optip = player.getOptions();
+					var rrgh = (optip.autoplayPolicy == "never") ? "always" : "never";
+
+					if (rrgh == "never") {
+						takeautoplayswf.textContent = "AutoPlay: Off";
+					} else {
+						takeautoplayswf.textContent = "AutoPlay: On";
+					}
+
+					player.setOptions({
+						autoplayPolicy: rrgh
+					});
+				}
+
+				var bb = new Uint8Array(window.pinkfieLogoSWFData);
+				var fil = new Blob([bb]);
+				loadSwfFile(fil);
+
+			}());
+		</script>
+	</body>
+</html>

@@ -13,16 +13,19 @@ OOO        OOO   OOO       OOOO   OOO     OOO  OOO        OOO   OOOOOOOOOO
 
 Pinkfie - an html5 player for Movie SWF
 
-Version: 1.1 24/04/2024
+Version: 1.1 30/04/2024
 
 Made in the Peru
 
 (C) 2022-2024 Anim-Tred.
-*/
 
+files
+swf/swfparser.js
+
+*/
+console
 var PKF = (function() {
 	const audioContext = new AudioContext();
-	const TIMER_TICK_SPEED = 10;
 	function getDuraction(num) {
 		var txt = '';
 		var ms = Math.floor(num) % 60;
@@ -71,8 +74,6 @@ var PKF = (function() {
 			a[1] * b[4] + a[3] * b[5] + a[5] // TranslateY
 		];
 	}
-	// resultX: x * ScaleX + y + * RotateSkew1 + TranslateX
-	// resultY: x * RotateSkew0 + y * ScaleY + TranslateY
 	function multiplicationColor(a, b) {
 		return [
 			a[0] * b[0], // Red Multiply
@@ -84,6 +85,11 @@ var PKF = (function() {
 			a[2] * b[6] + a[6], // Blue Addition
 			a[3] * b[7] + a[7] // Transparency Addition
 		];
+	}
+	// resultX: x * ScaleX + y * RotateSkew1 + TranslateX
+	// resultY: x * RotateSkew0 + y * ScaleY + TranslateY
+	function generateMatrix(point, data) {
+		return [(point[0] * data[0] + point[1] * data[2] + data[4]), point[0] * data[1] + point[1] * data[3] + data[5]];
 	}
 	function generateColorTransform(color, data) {
 		return [
@@ -124,13 +130,8 @@ var PKF = (function() {
 			yMax: Math.max(Math.max(Math.max(Math.max(yMax, y0), y1), y2), y3)
 		};
 	}
-	function cloneArray(src) {
-		var arr = [];
-		var length = src.length;
-		for (var i = 0; i < length; i++) {
-			arr[i] = src[i];
-		}
-		return arr;
+	const toInt16 = function(value) {
+		return (value < 0x8000) ? value : (value - 0x10000);
 	}
 	function _executeCmdCtx2dPath(ctx, cmd) {
 		for (let i = 0; i < cmd.length; i++) {
@@ -144,11 +145,11 @@ var PKF = (function() {
 			}
 		}
 	}
-	const ByteStream = function() {
-		this.arrayBuffer = null;
-		this.dataView = null;
-		this.start = 0;
-		this.end = 0;
+	const ByteStream = function(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
+		this.arrayBuffer = arrayBuffer;
+		this.dataView = new DataView(arrayBuffer);
+		this.start = start;
+		this.end = end;
 		this.bit_offset = 0;
 		this._position = 0;
 		this.littleEndian = true;
@@ -163,11 +164,6 @@ var PKF = (function() {
 			}
 		}
 	});
-	ByteStream.prototype.setData = function(arrayBuffer) {
-		this.arrayBuffer = arrayBuffer;
-		this.dataView = new DataView(arrayBuffer);
-		this.end = arrayBuffer.byteLength;
-	}
 	ByteStream.prototype.readString = function(length) {
 		var str = "";
 		var count = length;
@@ -864,8 +860,7 @@ var PKF = (function() {
 	//!
 	//! These structures are documented in the Adobe SWF File Format Specification
     const SwfParser = function(data) {
-		this.byteStream = new ByteStream();
-		this.byteStream.setData(data);
+		this.byteStream = new ByteStream(data);
 		this.clear();
 		this.tick = this.tick.bind(this);
 	}
@@ -897,6 +892,9 @@ var PKF = (function() {
 			clearInterval(this._interval);
 			this._interval = null;
 		}
+		this.onload = null;
+		this.onerror = null;
+		this.onprogress = null;
 		this.aborted = true;
 	}
 	SwfParser.prototype.load = function() {
@@ -1010,7 +1008,7 @@ var PKF = (function() {
 							this._compressStream.tick();
 							this.onprogress([0, this._compressStream.loaded]);
 							if (this._compressStream.isLoad) {
-								this.byteStream.setData(this._compressStream.result);
+								this.byteStream = new ByteStream(this._compressStream.result);
 								this.byteStream.setOffset(8, 0);
 								this._compressStream = null;
 								this._loadedType++;
@@ -1024,7 +1022,7 @@ var PKF = (function() {
 									for (let i = 0; i < _fileLength; i++) {
 										FixedData[i] = compressStream[i];
 									}
-									this.byteStream.setData(FixedData.buffer);
+									this.byteStream = new ByteStream(FixedData.buffer);
 									this.byteStream.setOffset(8, 0);
 									this._loadedType++;
 								} else {
@@ -1442,25 +1440,8 @@ var PKF = (function() {
 		return result;
 	}
 	//////// Structure ////////
-	SwfParser.prototype.parseLanguage = function() {
-		var languageCode = this.byteStream.readUint8();
-		switch (languageCode) {
-			case 0: // Unknown
-				return "";
-			case 1: // Latin
-				return "latin";
-			case 2: // Japanese
-				return "japanese";
-			case 3: // Korean
-				return "korean";
-			case 4: // SimplifiedChinese
-				return "simplifiedChinese";
-			case 5: // TraditionalChinese
-				return "traditionalChinese";
-			default:
-				throw new Error("Invalid language code:" + languageCode);
-		}
-	}
+
+	//////// Shapes ////////
 	SwfParser.prototype.gradientSpread = function(code) {
 		switch (code) {
 			case 0: // Pad
@@ -1539,7 +1520,7 @@ var PKF = (function() {
 		var byteStream = this.byteStream;
 		var obj = {};
 		var bitType = byteStream.readUint8();
-		obj.fillStyleType = bitType;
+		obj.type = bitType;
 		switch (bitType) {
 			case 0x00:
 				if (shapeVersion >= 3) {
@@ -1738,7 +1719,7 @@ var PKF = (function() {
 		var byteStream = this.byteStream;
 		var obj = {};
 		var bitType = byteStream.readUint8();
-		obj.fillStyleType = bitType;
+		obj.type = bitType;
 		switch (bitType) {
 			case 0x00:
 				obj.startColor = this.rgba();
@@ -1851,6 +1832,89 @@ var PKF = (function() {
 		});
 		return ShapeRecords;
 	}
+
+	//////// Font Text ////////
+	SwfParser.prototype.parseLanguage = function() {
+		var languageCode = this.byteStream.readUint8();
+		switch (languageCode) {
+			case 0: // Unknown
+				return "";
+			case 1: // Latin
+				return "latin";
+			case 2: // Japanese
+				return "japanese";
+			case 3: // Korean
+				return "korean";
+			case 4: // SimplifiedChinese
+				return "simplifiedChinese";
+			case 5: // TraditionalChinese
+				return "traditionalChinese";
+			default:
+				throw new Error("Invalid language code:" + languageCode);
+		}
+	}
+	SwfParser.prototype.getTextRecords = function(ver, GlyphBits, AdvanceBits) {
+		var byteStream = this.byteStream;
+		var array = [];
+		while (true) {
+			var flags = byteStream.readUint8();
+			if (flags == 0) {
+				// End of text records.
+				break;
+			}
+			var obj = {};
+			if (flags & 0b1000) {
+				obj.fontId = byteStream.readUint16();
+			}
+			if (flags & 0b100) {
+				if (ver === 1) {
+					obj.textColor = this.rgb();
+				} else {
+					obj.textColor = this.rgba();
+				}
+			}
+			if (flags & 0b1) {
+				obj.XOffset = byteStream.readInt16();
+			}
+			if (flags & 0b10) {
+				obj.YOffset = byteStream.readInt16();
+			}
+			if (flags & 0b1000) {
+				obj.textHeight = byteStream.readUint16();
+			}
+			obj.glyphEntries = this.getGlyphEntries(GlyphBits, AdvanceBits);
+			array.push(obj);
+		}
+		return array;
+	}
+	SwfParser.prototype.textAlign = function(type) {
+		switch (type) {
+			case 0:
+				return "left";
+			case 1:
+				return "right";
+			case 2:
+				return "center";
+			case 3:
+				return "justify";
+			default:
+				throw new Error("Invalid language code:" + type);
+		}
+	}
+	SwfParser.prototype.getGlyphEntries = function(GlyphBits, AdvanceBits) {
+		// TODO(Herschel): font_id and height are tied together. Merge them into a struct?
+		var byteStream = this.byteStream;
+		var count = byteStream.readUint8();
+		var array = [];
+		while (count--) {
+			array.push({
+				index: byteStream.getUIBits(GlyphBits),
+				advance: byteStream.getSIBits(AdvanceBits)
+			});
+		}
+		return array;
+	}
+
 	SwfParser.prototype.buttonRecords = function(ver) {
 		var records = [];
 		var byteStream = this.byteStream;
@@ -1915,67 +1979,6 @@ var PKF = (function() {
 			}
 		}
 		return results;
-	}
-	SwfParser.prototype.getTextRecords = function(ver, GlyphBits, AdvanceBits) {
-		var byteStream = this.byteStream;
-		var array = [];
-		while (true) {
-			var flags = byteStream.readUint8();
-			if (flags == 0) {
-				// End of text records.
-				break;
-			}
-			var obj = {};
-			if (flags & 0b1000) {
-				obj.fontId = byteStream.readUint16();
-			}
-			if (flags & 0b100) {
-				if (ver === 1) {
-					obj.textColor = this.rgb();
-				} else {
-					obj.textColor = this.rgba();
-				}
-			}
-			if (flags & 0b1) {
-				obj.XOffset = byteStream.readInt16();
-			}
-			if (flags & 0b10) {
-				obj.YOffset = byteStream.readInt16();
-			}
-			if (flags & 0b1000) {
-				obj.textHeight = byteStream.readUint16();
-			}
-			obj.glyphEntries = this.getGlyphEntries(GlyphBits, AdvanceBits);
-			array.push(obj);
-		}
-		return array;
-	}
-	SwfParser.prototype.textAlign = function(type) {
-		switch (type) {
-			case 0:
-				return "left";
-			case 1:
-				return "right";
-			case 2:
-				return "center";
-			case 3:
-				return "justify";
-			default:
-				throw new Error("Invalid language code:" + type);
-		}
-	}
-	SwfParser.prototype.getGlyphEntries = function(GlyphBits, AdvanceBits) {
-		// TODO(Herschel): font_id and height are tied together. Merge them into a struct?
-		var byteStream = this.byteStream;
-		var count = byteStream.readUint8();
-		var array = [];
-		while (count--) {
-			array.push({
-				index: byteStream.getUIBits(GlyphBits),
-				advance: byteStream.getSIBits(AdvanceBits)
-			});
-		}
-		return array;
 	}
 	SwfParser.prototype.parseSoundFormat = function() {
 		var byteStream = this.byteStream;
@@ -2146,9 +2149,9 @@ var PKF = (function() {
 		var result = [];
 		var numberOfFilters = byteStream.readUint8();
 		while (numberOfFilters--) {
-			result[result.length] = this.getFilter();
+			result.push(this.getFilter());
 		}
-		return (result.length) ? result : null;
+		return result;
 	}
 	SwfParser.prototype.getFilter = function() {
 		var byteStream = this.byteStream;
@@ -2712,20 +2715,30 @@ var PKF = (function() {
 		var hasFont = flag1 & 1;
 		var hasMaxLength = (flag1 >>> 1) & 1;
 		var hasTextColor = (flag1 >>> 2) & 1;
+		var isReadOnly = (flag1 >>> 3) & 1;
+		var isPassword = (flag1 >>> 4) & 1;
+		var isMultiline = (flag1 >>> 5) & 1;
+		var isWordWrap = (flag1 >>> 6) & 1;
 		var hasInitialText = (flag1 >>> 7) & 1;
+		var outlines = (flag1 >>> 8) & 1;
+		var HTML = (flag1 >>> 9) & 1;
+		var wasStatic = (flag1 >>> 10) & 1;
+		var border = (flag1 >>> 11) & 1;
+		var noSelect = (flag1 >>> 12) & 1;
 		var hasLayout = (flag1 >>> 13) & 1;
+		var autoSize = (flag1 >>> 14) & 1;
 		var hasFontClass = (flag1 >>> 15) & 1;
 
-		obj.isReadOnly = (flag1 >>> 3) & 1;
-		obj.isPassword = (flag1 >>> 4) & 1;
-		obj.isMultiline = (flag1 >>> 5) & 1;
-		obj.isWordWrap = (flag1 >>> 6) & 1;
-		obj.outlines = (flag1 >>> 8) & 1;
-		obj.HTML = (flag1 >>> 9) & 1;
-		obj.wasStatic = (flag1 >>> 10) & 1;
-		obj.border = (flag1 >>> 11) & 1;
-		obj.noSelect = (flag1 >>> 12) & 1;
-		obj.autoSize = (flag1 >>> 14) & 1;
+		obj.isReadOnly = isReadOnly;
+		obj.isPassword = isPassword;
+		obj.isMultiline = isMultiline;
+		obj.isWordWrap = isWordWrap;
+		obj.outlines = outlines;
+		obj.HTML = HTML;
+		obj.wasStatic = wasStatic;
+		obj.border = border;
+		obj.noSelect = noSelect;
+		obj.autoSize = autoSize;
 
 		if (hasFont) {
 			obj.fontID = byteStream.readUint16();
@@ -3327,8 +3340,7 @@ var PKF = (function() {
 		return obj;
 	}
 	const ActionParser = function(data) {
-		this.byteStream = new ByteStream();
-		this.byteStream.setData(data);
+		this.byteStream = new ByteStream(data);
 	}
 	ActionParser.prototype.parseAvm1 = function(data) {
 		var avm1Parser = new ActionParser(data);
@@ -3644,8 +3656,7 @@ var PKF = (function() {
 		return action;
 	}
 	const AbcParser = function(data) {
-		this.byteStream = new ByteStream();
-		this.byteStream.setData(data);
+		this.byteStream = new ByteStream(data);
 	}
 	AbcParser.prototype.parse = function() {
 		var byteStream = this.byteStream;
@@ -4674,6 +4685,12 @@ var PKF = (function() {
 			}
 		},
 	}
+
+	// Red: MovieClip
+	// Green: Button
+	// Yellow: TextField
+	// Pulpe: StaticText
+
     const SoundTransform = function() {
     }
     const DisplayObject = function(context) {
@@ -4686,10 +4703,9 @@ var PKF = (function() {
 
         this.parent = null;
         this.placeFrame = 0;
-        this.depth = null;
-        this.name = 0;
+        this.depth = 0;
+        this.name = "";
         this.clipDepth = 0;
-        this.isClipDepth = false;
         this.nextAvm1Clip = null;
         this.soundTransform = new SoundTransform();
         this.masker = null;
@@ -4712,6 +4728,8 @@ var PKF = (function() {
         this.CACHE_INVALIDATED = false;
 
 		this.displayType = "Base";
+		this.coll = [255, 0, 0, 1];
+		this._debug_colorDisplayType = [0, 0, 0, 1];
     }
     DisplayObject.prototype.getColorTransform = function() {
         return this.colorTransform;
@@ -4749,6 +4767,15 @@ var PKF = (function() {
 	DisplayObject.prototype.setParent = function(parent) {
         this.parent = parent;
 	}
+	DisplayObject.prototype.isAvm1PendingRemoval = function() {
+        return this.depth < 0;
+	}
+	DisplayObject.prototype.setSkipNextEnterFrame = function(b) {
+        this.SKIP_NEXT_ENTER_FRAME = b;
+	}
+	DisplayObject.prototype.shouldSkipNextEnterFrame = function(b) {
+        return this.SKIP_NEXT_ENTER_FRAME;
+	}
     DisplayObject.prototype.applyPlaceObject = function(placeObject) {
 		if (!this.TRANSFORMED_BY_SCRIPT) {
 			if ("matrix" in placeObject) { // Matrix
@@ -4776,11 +4803,19 @@ var PKF = (function() {
             this.runFrameAvm1();
         }
     }
+    DisplayObject.prototype.render = function() {}
 	DisplayObject.prototype.debugRender = function(initObject, instantiatedBy, runFrame) {
 		return [0, 0, 0, 0];
     }
+
+    /// Run any start-of-frame actions for this display object.
+    ///
+    /// When fired on `Stage`, this also emits the AVM2 `enterFrame` broadcast.
+	DisplayObject.prototype.enterFrame = function() {}
+
     /// Execute all other timeline actions on this object.
     DisplayObject.prototype.runFrameAvm1 = function() {}
+	
     DisplayObject.prototype.avm1Unload = function() {
         // Unload children.
 		if (this instanceof DisplayObjectContainer) {
@@ -4790,7 +4825,6 @@ var PKF = (function() {
                 child.avm1Unload();
 			}
 		}
-		this.context.avm1.removeExecuteList(this);
 		this.AVM1_REMOVED = true;
     }
     const InteractiveObject = function(context) {
@@ -4802,41 +4836,115 @@ var PKF = (function() {
     InteractiveObject.prototype.constructor = InteractiveObject;
     const DisplayObjectContainer = function(context) {
 		InteractiveObject.call(this, context);
-		this.container = [];
 		this.displayType = "Container";
+		this.renderList = [];
+		this.depthList = [];
     }
     DisplayObjectContainer.prototype = Object.create(InteractiveObject.prototype);
     DisplayObjectContainer.prototype.constructor = DisplayObjectContainer;
+
+	// renderList
+	DisplayObjectContainer.prototype.numChildren = function () {
+		return this.renderList.length;
+	}
+	DisplayObjectContainer.prototype.replaceId = function (id, child) {
+		this.renderList[id] = child;
+	}
+	DisplayObjectContainer.prototype.insertId = function (id, child) {
+		if (this.renderList.length) {
+			if (id >= this.renderList.length) {
+				this.renderList.push(child);
+			} else {
+				this.renderList.splice(id, 0, child);
+			}
+		} else {
+			this.renderList.push(child);
+		}
+	}
+	DisplayObjectContainer.prototype.pushId = function (child) {
+		this.renderList.push(child);
+	}
+	DisplayObjectContainer.prototype.removeId = function (id) {
+		if (this.renderList.length) {
+			if (id >= this.renderList.length) {
+				this.renderList.pop();
+			} else {
+				this.renderList.splice(id, 1);
+			}
+		}
+	}
+
     DisplayObjectContainer.prototype.replaceAtDepth = function (depth, child) {
-		this.container[depth] = child;
+		var prevChild = this.insertChildIntoDepthList(depth, child);
+		if (prevChild) {
+			console.log(prevChild);
+		}
+		var aboveChild = null;
+		for (let i = 0; i < this.depthList.length; i++) {
+			const c = this.depthList[i];
+			if (c && (i !== depth)) {
+				if (i > depth) {
+					aboveChild = c;
+					break;
+				}
+			}
+		}
+		if (aboveChild) {
+			var rs = this.renderList.indexOf(aboveChild);
+			if (rs >= 0) {
+				this.insertId(rs, child);
+			} else {
+				this.pushId(child);
+			}
+		} else {
+			this.pushId(child);
+		}
 	}
     DisplayObjectContainer.prototype.childByDepth = function (depth) {
-		return this.container[depth];
+		return this.depthListGetDepth(depth);
 	}
     DisplayObjectContainer.prototype.removeChild = function (child) {
-		let depth = child.getDepth();
-
-		// Remove the child from the depth list, before moving it to a negative depth
-		delete this.container[depth];
-
 		this.removeChildDirectly(child);
 	}
 	DisplayObjectContainer.prototype.removeChildDirectly = function (child) {
+		// Remove the child from the depth list, before moving it to a negative depth
+
+		this.removeChildFromDepthList(child);
+		this.removeChildFromRenderList(child);
+
 		child.avm1Unload();
 	}
+
+	DisplayObjectContainer.prototype.removeChildFromDepthList = function (child) {
+		let depth = child.getDepth();
+		delete this.depthList[depth];
+	}
+	DisplayObjectContainer.prototype.removeChildFromRenderList = function (child) {
+		var rs = this.renderList.indexOf(child);
+		if (rs >= 0) {
+			this.removeId(rs);
+		} else {
+			console.log(child);
+		}
+	}
+	DisplayObjectContainer.prototype.insertChildIntoDepthList = function (depth, child) {
+		var r = this.depthList[depth];
+		this.depthList[depth] = child;
+		return r;
+	}
+	DisplayObjectContainer.prototype.depthListGetDepth = function (depth) {
+		return this.depthList[depth];
+	}
     DisplayObjectContainer.prototype.iterRenderList = function () {
-		var result = [];
-		var container = this.container;
-		for (var depth in container) {
-			if (!container.hasOwnProperty(depth)) {
-				continue;
-			}
-			var instance = container[depth];
-			if (instance) {
-				result.push(instance);
+		return this.renderList.slice(0);
+	}
+	DisplayObjectContainer.prototype.updatePendingRemovals = function () {
+		var chs = this.iterRenderList();
+		for (let i = 0; i < chs.length; i++) {
+			const c = chs[i];
+			if (c.isAvm1PendingRemoval()) {
 			}
 		}
-		return result;
 	}
     DisplayObjectContainer.prototype.render = function (stage, renderer, matrix, colorTransform, visible, isClip) {
 		var isVisible = (visible && this.getVisible());
@@ -4857,7 +4965,7 @@ var PKF = (function() {
 					break;
 				}
 			}
-			if (child.isClipDepth) {
+			if (child.clipDepth > 0) {
 				renderer.save();
 				renderer.beginPath();
 				clips.push(child.clipDepth);
@@ -4907,27 +5015,30 @@ var PKF = (function() {
 		if (!bounds.length) {
 			sbounds = [rMatrix[4], rMatrix[5], rMatrix[4], rMatrix[5]];
 		}
+		ctx.globalAlpha = 1;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
-		var css = "rgba(0, 0, 0, 1)";
+		var css = [0, 0, 0, 1];
 		ctx.beginPath();
-		ctx.strokeStyle = css;
+		ctx.globalAlpha = 1;
+		ctx.strokeStyle = 'rgba(' + generateColorTransform(css, rColorTransform).join(",") + ')';
 		ctx.lineWidth = 2;
 		ctx.lineCap = "round";
 		ctx.lineJoin = "round";
 		ctx.rect(sbounds[0], sbounds[1], (sbounds[2] - sbounds[0]), (sbounds[3] - sbounds[1]));
 		ctx.stroke();
-		ctx.fillStyle = "#f00";
+		ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
 		ctx.font = "20px Arial";
 		ctx.textAlign = "left";
 		ctx.fillText(this.displayType, sbounds[0], sbounds[1] - 27);
+		ctx.globalAlpha = 1;
 		return {xMin: sbounds[0], yMin: sbounds[1], xMax: sbounds[2], yMax: sbounds[3]}
 	}
 	const Shape = function(context) {
 		DisplayObject.call(this, context);
 		this.ShapeData = null;
 		this.ratio = 0;
-		this.coll = [255, 0, 0, 1];
 		this.displayType = "Shape";
+		this._debug_colorDisplayType = [0, 0, 255, 1];
     }
     Shape.prototype = Object.create(DisplayObject.prototype);
     Shape.prototype.constructor = Shape;
@@ -4935,17 +5046,14 @@ var PKF = (function() {
 		this.ShapeData = ShapeData;
 		if (this.ShapeData instanceof MorphShapeData) {
 			this.displayType = "MorphShape";
+			this._debug_colorDisplayType = [0, 255, 255, 1];
 		} else {
 			this.displayType = "Shape";
+			this._debug_colorDisplayType = [0, 0, 255, 1];
 		}
 	}
     Shape.prototype.replaceWith = function(characterId) {
-		this.ShapeData = this.context.library.getCharacter(characterId);
-		if (this.ShapeData instanceof MorphShapeData) {
-			this.displayType = "MorphShape";
-		} else {
-			this.displayType = "Shape";
-		}
+		this.init(this.context.library.getCharacter(characterId));
     }
 	Shape.prototype.setRatio = function(ratio) {
 		this.ratio = ratio;
@@ -4971,37 +5079,44 @@ var PKF = (function() {
 			var m2 = multiplicationMatrix(matrix, this.getMatrix());
 			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 			var b = this.getBounds();
-			ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+			ctx.globalAlpha = 1;
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
 			ctx.beginPath();
 			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.lineWidth = 40;
+			ctx.globalAlpha = 1;
+			ctx.lineWidth = 2;
 			ctx.lineCap = "round";
 			ctx.lineJoin = "round";
 			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
 			ctx.strokeStyle = css;
-			ctx.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
 			ctx.stroke();
 			var bm = this.getBounds(m2);
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			var css = "rgba(0, 0, 0, 1)";
+			ctx.globalAlpha = 1;
 			ctx.lineWidth = 2;
-			ctx.strokeStyle = css;
+			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
 			ctx.beginPath();
 			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
 			ctx.stroke();
 			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = "#00f";
+			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
 			ctx.font = "20px Arial";
 			ctx.textAlign = "left";
 			ctx.fillText(this.displayType, 0, -8);
+			ctx.globalAlpha = 1;
 			return bm;
 		}
 	}
 	const TextDisplay = function(context) {
 		DisplayObject.call(this, context);
 		this.ShapeData = null;
-		this.coll = [255, 0, 0, 1];
 		this.displayType = "StaticText";
+		this._debug_colorDisplayType = [255, 0, 255, 1];
     }
     TextDisplay.prototype = Object.create(DisplayObject.prototype);
     TextDisplay.prototype.constructor = TextDisplay;
@@ -5009,7 +5124,7 @@ var PKF = (function() {
 		this.ShapeData = ShapeData;
 	}
     TextDisplay.prototype.replaceWith = function(characterId) {
-		this.ShapeData = this.context.library.getCharacter(characterId);
+		this.init(this.context.library.getCharacter(characterId));
     }
 	TextDisplay.prototype.getBounds = function(matrix) {
 		var r = this.ShapeData.bounds;
@@ -5032,69 +5147,131 @@ var PKF = (function() {
 			var m2 = multiplicationMatrix(matrix, this.getMatrix());
 			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 			var b = this.getBounds();
-			ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+			ctx.globalAlpha = 1;
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
 			ctx.beginPath();
 			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.lineWidth = 40;
+			ctx.lineWidth = 2;
 			ctx.lineCap = "round";
 			ctx.lineJoin = "round";
 			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
 			ctx.strokeStyle = css;
-			ctx.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
 			ctx.stroke();
 			var bm = this.getBounds(m2);
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			var css = "rgba(0, 0, 0, 1)";
 			ctx.lineWidth = 2;
-			ctx.strokeStyle = css;
+			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
+			ctx.globalAlpha = 1;
 			ctx.beginPath();
 			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
 			ctx.stroke();
 			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = "#00f";
+			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
 			ctx.font = "20px Arial";
 			ctx.textAlign = "left";
 			ctx.fillText(this.displayType, 0, -8);
+			ctx.globalAlpha = 1;
 			return bm;
 		}
 	}
 	const TextField = function(context) {
 		InteractiveObject.call(this, context);
 		this.displayType = "TextField";
+		this._debug_colorDisplayType = [255, 255, 0, 1];
+		this.text_bounds = {xMin: 0, yMin: 0, yMax: 0, xMax: 0};
+		this.text_html = "";
+		this.textColor = null;
+		this.fontHeight = 0;
+		this.__backgroundColor = [255, 255, 255, 1];
+		this.__border_color = [0, 0, 0, 1];
 	}
     TextField.prototype = Object.create(InteractiveObject.prototype);
     TextField.prototype.constructor = TextField;
-	TextField.prototype.render = function() {
-
+	TextField.prototype.init = function(textInfo) {
+		this.text_bounds = textInfo.bounds;
+		this.fontHeight = textInfo.fontHeight || 0;
+		if ("initialText" in textInfo) {
+			this.text_html = ("" + textInfo.initialText);
+		}
+		if ("textColor" in textInfo) {
+			this.textColor = textInfo.textColor;
+		}
+	}
+	TextField.prototype.getBounds = function(matrix) {
+		var r = this.text_bounds;
+		if (matrix) {
+			return boundsMatrix(r, matrix);
+		} else {
+			return r;
+		}
+	}
+	TextField.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
+		var isVisible = (visible && this.getVisible());
+		var m2 = multiplicationMatrix(matrix, this.getMatrix());
+		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+		if (isVisible) {
+			var b = this.getBounds();
+			var color = generateColorTransform(this.__backgroundColor, rColorTransform);
+			renderer.beginPath();
+			renderer.setFillColor(color[0], color[1], color[2], color[3]);
+			renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+			renderer.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			renderer.fill();
+		}
+	}
+	TextField.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
+		if (visible) {
+			var m2 = multiplicationMatrix(matrix, this.getMatrix());
+			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+			var b = this.getBounds();
+			ctx.globalAlpha = 1;
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			ctx.beginPath();
+			var color = generateColorTransform(this.coll, rColorTransform);
+			ctx.lineWidth = 2;
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+			ctx.strokeStyle = css;
+			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
+			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
+			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
+			ctx.stroke();
+			var bm = this.getBounds(m2);
+			ctx.globalAlpha = 1;
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
+			ctx.beginPath();
+			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
+			ctx.stroke();
+			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
+			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
+			ctx.font = "20px Arial";
+			ctx.textAlign = "left";
+			ctx.fillText(this.displayType, 0, -8);
+			ctx.globalAlpha = 1;
+			return bm;
+		}
 	}
     const Avm1Buttom = function(context) {
-		InteractiveObject.call(this, context);
-		this.spriteContainer = new DisplayObjectContainer(context);
+		DisplayObjectContainer.call(this, context);
 		this.__initialized = false;
 		this._records = null;
 		this.displayType = "Buttom";
+		this._debug_colorDisplayType = [0, 255, 0, 1];
     }
-    Avm1Buttom.prototype = Object.create(InteractiveObject.prototype);
+    Avm1Buttom.prototype = Object.create(DisplayObjectContainer.prototype);
     Avm1Buttom.prototype.constructor = Avm1Buttom;
 	Avm1Buttom.prototype.init = function(i) {
 		this._records = i.data.records;
-	}
-	Avm1Buttom.prototype.render = function(stage, renderer, matrix, colorTransform, visible) {
-		var isVisible = (visible && this.getVisible());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		this.spriteContainer.render(stage, renderer, m2, rColorTransform, isVisible);
-	}
-	Avm1Buttom.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		var e = this.spriteContainer.debugRender(ctx, m2, rColorTransform, stage, true);
-		ctx.setTransform(1, 0, 0, 1, e.xMin, e.yMin);
-		ctx.fillStyle = "#0f0";
-		ctx.font = "20px Arial";
-		ctx.textAlign = "left";
-		ctx.fillText(this.displayType, 0, -45);
-		return null;
 	}
 	Avm1Buttom.prototype.postInstantiation = function(initObject, instantiatedBy, runFrame) {
 		this.context.avm1.addExecuteList(this);
@@ -5105,17 +5282,27 @@ var PKF = (function() {
 			var record = this._records[i];
 			if (record.buttonStateUp) {
 				var child = this.context.library.instantiateById(record.characterId);
+				child.setParent(this);
+				child.setDepth(record.depth);
+				
+                // Set transform of child (and modify previous child if it already existed)
 				child.setMatrix(record.matrix);
 				if ("colorTransform" in record) {
 					child.setColorTransform(record.colorTransform);
 				}
-				child.setParent(this);
-				child.setDepth(record.depth);
-				// Initialize new child.
-				child.postInstantiation(null, null, false);
-				child.runFrameAvm1();
-				this.spriteContainer.replaceAtDepth(record.depth, child);
+
+				children.push([record.depth, child]);
 			}
+		}
+		for (let o = 0; o < children.length; o++) {
+			const c = children[o];
+			var depth = c[0];
+			var child = c[1];
+
+			// Initialize new child.
+			child.postInstantiation(null, null, false);
+			child.runFrameAvm1();
+			this.replaceAtDepth(depth, child);
 		}
 	}
 	Avm1Buttom.prototype.runFrameAvm1 = function() {
@@ -5125,8 +5312,6 @@ var PKF = (function() {
 		}
 	}
     Avm1Buttom.prototype.avm1Unload = function() {
-        this.spriteContainer.avm1Unload(); // TODO
-		this.context.avm1.removeExecuteList(this);
 		this.AVM1_REMOVED = true;
     }
     const MovieClip = function(context) {
@@ -5148,6 +5333,7 @@ var PKF = (function() {
 		this.EXECUTING_AVM2_FRAME_SCRIPT = false;
 		this.LOOP_QUEUED = false;
 		this.displayType = "MovieClip";
+		this._debug_colorDisplayType = [255, 0, 0, 1];
     }
     MovieClip.prototype = Object.create(DisplayObjectContainer.prototype);
     MovieClip.prototype.constructor = MovieClip;
@@ -5196,7 +5382,7 @@ var PKF = (function() {
 				this.stop();
 				break;
 		}
-		var tags = this.getTag(this.currentFrame).tags;
+		var tags = this.getTag(this.currentFrame);
 		for (var i = 0; i < tags.length; i++) {
 			var tag = tags[i];
 			switch(tag.tagType) {
@@ -5229,11 +5415,13 @@ var PKF = (function() {
 					this.context.stage.setBackgroundColor(...tag.rgb);
 					break;
 				case "DoAction":
+					this.doAction(tag);
 					break;
 			}
 		}
 	}
 	MovieClip.prototype.runGoto = function (frame, isImplicit) {
+		this.setSkipNextEnterFrame(false);
 		let children = this.iterRenderList();
 		for (var i = 0; i < children.length; i++) {
 			var child = children[i];
@@ -5242,7 +5430,7 @@ var PKF = (function() {
 			}
 		}
 		this.currentFrame = frame;
-		var tags = this.getTag(this.currentFrame).tags;
+		var tags = this.getTag(this.currentFrame);
 		for (var i = 0; i < tags.length; i++) {
 			var tag = tags[i];
 			switch(tag.tagType) {
@@ -5253,9 +5441,11 @@ var PKF = (function() {
 					if ("characterId" in tag) {
 						if (tag.isMove) {
 							var child = this.childByDepth(tag.depth);
-							child.replaceWith(tag.characterId);
-							child.applyPlaceObject(tag);
-							child.setPlaceFrame(this.currentFrame);
+							if (child) {
+								child.replaceWith(tag.characterId);
+								child.applyPlaceObject(tag);
+								child.setPlaceFrame(this.currentFrame);
+							}
 						} else {
 							var prevChild = this.childByDepth(tag.depth);
 							if (prevChild) {
@@ -5277,8 +5467,6 @@ var PKF = (function() {
 					var child = this.childByDepth(tag.depth);
 					if (child) {
 						this.removeChild(child);
-					} else {
-						console.log(tag.depth);
 					}
 					break;
 			}
@@ -5287,6 +5475,12 @@ var PKF = (function() {
 		this.runIntervalFrame(false, true);
 	}
 	MovieClip.prototype.runFrameAvm1 = function () {
+		var isLoadFrame = !this.INITIALIZED;
+		if (isLoadFrame) {
+			this.INITIALIZED = true;
+		}
+		// Run my SWF tags.
+		// In AVM2, SWF tags are processed at enterFrame time.
 		if (this.isPlaying) {
 			this.runIntervalFrame(true, true);
 		}
@@ -5301,28 +5495,58 @@ var PKF = (function() {
 		// Apply PlaceObject parameters.
 		child.applyPlaceObject(place);
 		if ("clipDepth" in place) {
-			child.isClipDepth = true;
 			child.clipDepth = place.clipDepth;
 		}
 		// Run first frame.
 		child.postInstantiation(null, null, false);
-		//child.enterFrame();
+		child.enterFrame();
+
+		// In AVM1, children are added in `run_frame` so this is necessary.
+		// In AVM2 we add them in `construct_frame` so calling this causes
+		// duplicate frames
 		child.runFrameAvm1();
+	}
+	MovieClip.prototype.enterFrame = function () {
+        let skipFrame = this.shouldSkipNextEnterFrame();
+        //Child removals from looping gotos appear to resolve in reverse order.
+		var children = this.iterRenderList();
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			if (skipFrame) {
+                // If we're skipping our current frame, then we want to skip it for our children
+                // as well. This counts as the skipped frame for any children that already
+                // has this set to true (e.g. a third-level grandchild doesn't skip three frames).
+                // We'll still call 'enter_frame' on the child - it will recurse, propagating along
+                // the flag, and then set its own flag back to 'false'.
+                //
+                // We do *not* propagate `skip_frame=false` down to children, since a normally
+                // executing parent can add a child that should have its first frame skipped.
+
+                // FIXME - does this propagate through non-movie-clip children (Loader/Button)?
+				child.setSkipNextEnterFrame(true);
+			}
+			child.enterFrame();
+		}
+		if (skipFrame) {
+			this.setSkipNextEnterFrame(false);
+		}
 	}
 	MovieClip.prototype.placeObject = function (place) {
 		if ("characterId" in place) {
 			if (place.isMove) {
 				var child = this.childByDepth(place.depth);
-				child.replaceWith(place.characterId);
-				child.applyPlaceObject(place);
-				child.setPlaceFrame(this.currentFrame);
+				if (child) {
+					child.replaceWith(place.characterId);
+					child.applyPlaceObject(place);
+					child.setPlaceFrame(this.currentFrame);
+				}
 			} else {
 				this.instantiateChild(place.characterId, place.depth, place);
 			}
 		} else {
 			if (place.isMove) {
 				var child = this.childByDepth(place.depth);
-				child.applyPlaceObject(place);
+				if (child) child.applyPlaceObject(place);
 			}
 		}
 	}
@@ -5331,6 +5555,12 @@ var PKF = (function() {
 		if (child) {
 			this.removeChild(child);
 		}
+	}
+	MovieClip.prototype.doAction = function (tag) {
+		this.context.queueAction(this, {
+			type: "normal",
+			caches: tag.action
+		}, false);
 	}
 	MovieClip.prototype.startSound = function (tag) {
 		this.context.audio.startSound(tag, this);
@@ -5360,7 +5590,6 @@ var PKF = (function() {
 			child.avm1Unload();
 		}
 		this.stopAudioStream();
-		this.context.avm1.removeExecuteList(this);
 		this.AVM1_REMOVED = true;
     }
 	const MovieClipData = function(stage) {
@@ -5383,16 +5612,16 @@ var PKF = (function() {
         this.stage = stage;
 		this.data = data;
 		this.characterId = data.id;
-		this.cachesObj = null;
+		this.shapeCache = null;
 	}
 	ShapeData.prototype.getShape = function() {
-		if (!this.cachesObj) {
-			this.cachesObj = {
+		if (!this.shapeCache) {
+			this.shapeCache = {
 				bounds: this.data.bounds,
 				shapes: ShapeToCanvas.convert(this.data.shapes, false)
 			}
 		}
-		return this.cachesObj;
+		return this.shapeCache;
 	}
 	ShapeData.prototype.instantiate = function() {
         var shape = new Shape(this.stage.context);
@@ -5422,7 +5651,7 @@ var PKF = (function() {
 		var shapes = info.shapes;
 		if (shapes) {
 			if (isClip) {
-				renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+				renderer.setTransform(...m2);
 				for (let k = 0; k < shapes.length; k++) {
 					const data = shapes[k];
 					var obj = data.obj;
@@ -5435,7 +5664,7 @@ var PKF = (function() {
 				return;
 			} else {
 				for (let k = 0; k < shapes.length; k++) {
-					renderer.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+					renderer.setTransform(...m2);
 					const data = shapes[k];
 					var obj = data.obj;
 					var cmd = data.cmd;
@@ -5443,16 +5672,16 @@ var PKF = (function() {
 					_executeCmdCtx2dPath(renderer, cmd);
 					var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
 					var isStroke = ("width" in obj);
-					var styleType = styleObj.fillStyleType || 0;
+					var styleType = styleObj.type || 0;
 					switch (styleType) {
 						case 0:
 							var color = generateColorTransform(styleObj.color, colorTransform);
 							if (isStroke) {
 								renderer.setLineWidth(obj.width);
-								renderer.setStrokeColor(color[0], color[1], color[2], color[3]);
+								renderer.setStrokeColor(...color);
 								renderer.stroke();
 							} else {
-								renderer.setFillColor(color[0], color[1], color[2], color[3]);
+								renderer.setFillColor(...color);
 								renderer.fill();
 							}
 							break;
@@ -5467,11 +5696,11 @@ var PKF = (function() {
 								gg = styleObj.radialGradient;
 							}
 							var m = gg.matrix;
-							var type = styleObj.fillStyleType;
+							var type = styleObj.type;
 							var css;
 							if (type !== 16) {
 								renderer.save();
-								renderer.setTransform.apply(renderer, multiplicationMatrix(m2, m)); // TODO
+								renderer.setTransform(...multiplicationMatrix(m2, m));
 								css = [[1, [0, 0, 0, 0, 0, 16384]]];
 							} else {
 								var xy = this.linearGradientXY(m);
@@ -5510,7 +5739,7 @@ var PKF = (function() {
 								if (styleType === 0x41 || styleType === 0x43) {
 									renderer.save();
 									renderer.clip();
-									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									renderer.setTransform(...bMatrix);
 									renderer.ctx.globalAlpha = rr;
 									renderer.ctx.drawImage(c, 0, 0);
 									renderer.ctx.globalAlpha = 1;
@@ -5518,7 +5747,7 @@ var PKF = (function() {
 								} else {
 									renderer.ctx.globalAlpha = rr;
 									renderer.ctx.fillStyle = renderer.ctx.createPattern(c, repeat);
-									renderer.setTransform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									renderer.setTransform(...bMatrix);
 									renderer.ctx.fill();
 									renderer.ctx.globalAlpha = 1;
 								}
@@ -5531,12 +5760,12 @@ var PKF = (function() {
 	}
 	const MorphShapeData = function(stage, data) {
 		ShapeData.call(this, stage, data);
-		this.morphInfo = null;
+		this.morphChapeCache = null;
 	}
     MorphShapeData.prototype = Object.create(ShapeData.prototype);
     MorphShapeData.prototype.constructor = MorphShapeData;
 	MorphShapeData.prototype.getShape = function(ratio) {
-		if (!this.morphInfo) {
+		if (!this.morphChapeCache) {
 			this.initMorph();
 		}
 		var res = this.executeMorph(ratio / 65535);
@@ -5551,7 +5780,7 @@ var PKF = (function() {
 		var fillStyles = this._clone(this.data.morphFillStyles);
         var startBound = this.data.startBounds;
         var endBound = this.data.endBounds;
-		this.morphInfo = {
+		this.morphChapeCache = {
 			lineStyles,
 			fillStyles,
 			edges,
@@ -5561,7 +5790,6 @@ var PKF = (function() {
 	}
 	MorphShapeData.prototype.convertCurrentPosition = function(src) {
 		var array = [];
-		this.currentPosition = {x: 0, y: 0};
 		for (let i = 0; i < src.length; i++) {
 			const record = src[i];
 			if (record) {
@@ -5711,11 +5939,11 @@ var PKF = (function() {
 	MorphShapeData.prototype.executeMorph = function(per) {
         var startPer = 1 - per;
         var newShapeRecords = [];
-        var lineStyles = this._clone(this.morphInfo.lineStyles);
-        var fillStyles = this._clone(this.morphInfo.fillStyles);
-        var EndBounds = this.morphInfo.endBound;
-        var StartBounds = this.morphInfo.startBound;
-		var result = this.morphInfo.edges;
+        var lineStyles = this._clone(this.morphChapeCache.lineStyles);
+        var fillStyles = this._clone(this.morphChapeCache.fillStyles);
+        var EndBounds = this.morphChapeCache.endBound;
+        var StartBounds = this.morphChapeCache.startBound;
+		var result = this.morphChapeCache.edges;
         var lineStyleCount = lineStyles.length;
         var fillStyleCount = fillStyles.length;
         var StartEdges = result.starts;
@@ -5820,19 +6048,19 @@ var PKF = (function() {
             shapes.lineStyles[i] = {
                 width: Math.floor(StartWidth * startPer + EndWidth * per),
                 color: color,
-                fillStyleType: 0
+                type: 0
             };
         }
         for (i = 0; i < fillStyleCount; i++) {
             var fillStyle = fillStyles[i];
-            var fillStyleType = fillStyle.fillStyleType;
+            var fillStyleType = fillStyle.type;
             if (fillStyleType === 0x00) {
                 EndColor = fillStyle.endColor;
                 StartColor = fillStyle.startColor;
                 color = [Math.floor(StartColor[0] * startPer + EndColor[0] * per), Math.floor(StartColor[1] * startPer + EndColor[1] * per), Math.floor(StartColor[2] * startPer + EndColor[2] * per), StartColor[3] * startPer + EndColor[3] * per];
                 shapes.fillStyles[i] = {
                     color: color,
-                    fillStyleType: fillStyleType
+                    type: fillStyleType
                 };
             } else {
             	if (fillStyleType == 0x40 || fillStyleType == 0x41 || fillStyleType == 0x42 || fillStyleType == 0x43) {
@@ -5844,7 +6072,7 @@ var PKF = (function() {
 	                    bitmapMatrix: matrix,
 	                    isSmoothed: fillStyle.isSmoothed,
 	                    isRepeating: fillStyle.isRepeating,
-	                    fillStyleType: fillStyleType
+	                    type: fillStyleType
 	                };
             	} else {
 	                var gradient = fillStyle.gradient;
@@ -5883,7 +6111,7 @@ var PKF = (function() {
 							spreadMode: gradient.spreadMode,
 							interpolationMode: gradient.interpolationMode
 	                    },
-	                    fillStyleType: fillStyleType
+	                    type: fillStyleType
 	                };
             	}
             }
@@ -6008,81 +6236,492 @@ var PKF = (function() {
 		this.characterId = data.id;
 	}
 	EditTextData.prototype.instantiate = function() {
-		return new TextField(this.stage.context);
+		var t = new TextField(this.stage.context);
+		t.init(this.data);
+		return t;
 	}
 	const BinaryData = function(stage, data) {
 		this.stage = stage;
-		this.buffer = data.data;
+		this.data = data.data;
 		this.characterId = data.id;
+	}
+	const DefineVideoData = function(stage, data) {
+		this.stage = stage;
+		this.characterId = data.id;
+	}
+	DefineVideoData.prototype.instantiate = function(stage, data) {
+		
 	}
 	const SoundData = function(stage, data) {
 		this.stage = stage;
 		this.data = data;
 		this.audio = null;
 		this.characterId = data.id;
+		this.id = data.id;
+		this.numSamples = data.numSamples;
+		this.format = data.format;
 	}
 	SoundData.prototype.setAudio = function(audio) {
 		this.audio = audio;
 	}
-	const Avm1 = function(stage) {
-        this.stage = stage;
-		this.version = 6;
-		this.clipExecuteList = [];
-    }
-	Avm1.prototype.runFrame = function() {
-		for (let i = 0; i < this.clipExecuteList.length; i++) {
-			const clip = this.clipExecuteList[i];
-			if (clip) {
-				clip.running = true;
+	const Avm1Object = function() {
+		this.props = Object.create(null);
+		this.___proto = undefined;
+		this.___hasProto = false;
+		this.___type = "object";
+	}
+	Avm1Object.prototype.getProperty = function(name) {
+		return this.props[name];
+	}
+	Avm1Object.prototype.setProperty = function(name, value) {
+		this.props[name] = value;
+	}
+	Avm1Object.prototype.findProperty = function(name) {
+		return name in this.props;
+	}
+	const Avm1Activation = function(avm1, clip, caches) {
+		this.avm1 = avm1;
+		this.clip = clip;
+		this.caches = caches;
+		this.pos = 0;
+		this.stack = [];
+	}
+	Avm1Activation.actionLibrary = Object.create(null);
+	Avm1Activation.prototype.runActions = function() {
+		var caches = this.caches;
+		var cLength = caches.length;
+		this.pos = 0;
+		while(this.pos < cLength) {
+			var aScript = caches[this.pos];
+			var result = this.doAction(aScript);
+			if (!result) console.log(aScript.opcode);
+			if (result[0] === 1) {
+				if (result[1] === 1) {
+					return result[2];
+				} else {
+					return undefined;
+				}
+			} else {
 			}
+			this.pos = aScript.end;
 		}
-		for (let i = 0; i < this.clipExecuteList.length; i++) {
-			const clip = this.clipExecuteList[i];
-			if (clip) {
-				if (clip.running) {
-					clip.base.runFrameAvm1();
+	}
+	Avm1Activation.prototype.doAction = function(aScript) {
+		var actionCode = aScript.opcode;
+		var actionFunc = actionLibrary[actionCode];
+		actionFunc(this, aScript);
+	}
+	const actionLibrary = Avm1Activation.actionLibrary;
+	actionLibrary[0x00] = function(activation, aScript) { // ActionEnd
+
+	}
+	actionLibrary[0x81] = function(activation, aScript) { // ActionGotoFrame
+
+	}
+	actionLibrary[0x04] = function(activation, aScript) { // ActionNextFrame
+
+	}
+	actionLibrary[0x05] = function(activation, aScript) { // ActionPreviousFrame
+
+	}
+	actionLibrary[0x06] = function(activation, aScript) { // ActionPlay
+
+	}
+	actionLibrary[0x07] = function(activation, aScript) { // ActionStop
+
+	}
+	actionLibrary[0x08] = function(activation, aScript) { // ActionToggleQuality
+
+	}
+	actionLibrary[0x8A] = function(activation, aScript) { // ActionWaitForFrame
+
+	}
+	actionLibrary[0x09] = function(activation, aScript) { // ActionStopSounds
+
+	}
+	actionLibrary[0x8B] = function(activation, aScript) { // ActionSetTarget
+
+	}
+	actionLibrary[0x8C] = function(activation, aScript) { // ActionGoToLabel
+
+	}
+	actionLibrary[0x83] = function(activation, aScript) { // ActionGetURL
+
+	}
+	actionLibrary[0x0A] = function(activation, aScript) { // ActionAdd
+
+	}
+	actionLibrary[0x0B] = function(activation, aScript) { // ActionSubtract
+
+	}
+	actionLibrary[0x0C] = function(activation, aScript) { // ActionMultiply
+
+	}
+	actionLibrary[0x0D] = function(activation, aScript) { // ActionDivide
+
+	}
+	actionLibrary[0x0E] = function(activation, aScript) { // ActionEquals
+
+	}
+	actionLibrary[0x0F] = function(activation, aScript) { // ActionLess
+
+	}
+	actionLibrary[0x10] = function(activation, aScript) { // ActionAnd
+
+	}
+	actionLibrary[0x11] = function(activation, aScript) { // ActionOr
+
+	}
+	actionLibrary[0x12] = function(activation, aScript) { // ActionNot
+
+	}
+	actionLibrary[0x13] = function(activation, aScript) { // ActionStringEquals
+
+	}
+	actionLibrary[0x14] = function(activation, aScript) { // ActionStringLength
+
+	}
+	actionLibrary[0x31] = function(activation, aScript) { // ActionMBStringLength
+
+	}
+	actionLibrary[0x21] = function(activation, aScript) { // ActionStringAdd
+
+	}
+	actionLibrary[0x15] = function(activation, aScript) { // ActionStringExtract
+
+	}
+	actionLibrary[0x35] = function(activation, aScript) { // ActionMBStringExtract
+
+	}
+	actionLibrary[0x29] = function(activation, aScript) { // ActionStringLess
+
+	}
+	actionLibrary[0x17] = function(activation, aScript) { // ActionPop
+
+	}
+	actionLibrary[0x96] = function(activation, aScript) { // ActionPush
+
+	}
+	actionLibrary[0x33] = function(activation, aScript) { // ActionAsciiToChar
+
+	}
+	actionLibrary[0x37] = function(activation, aScript) { // ActionAsciiToChar
+
+	}
+	actionLibrary[0x36] = function(activation, aScript) { // ActionCharToAscii
+
+	}
+	actionLibrary[0x32] = function(activation, aScript) { // ActionCharToAscii
+
+	}
+	actionLibrary[0x18] = function(activation, aScript) { // ActionToInteger
+
+	}
+	actionLibrary[0x9E] = function(activation, aScript) { // ActionCall
+
+	}
+	actionLibrary[0x9D] = function(activation, aScript) { // ActionIf
+
+	}
+	actionLibrary[0x99] = function(activation, aScript) { // ActionJump
+
+	}
+	actionLibrary[0x1C] = function(activation, aScript) { // ActionGetVariable
+
+	}
+	actionLibrary[0x1D] = function(activation, aScript) { // ActionSetVariable
+
+	}
+	actionLibrary[0x9A] = function(activation, aScript) { // ActionGetURL2
+
+	}
+	actionLibrary[0x22] = function(activation, aScript) { // ActionGetProperty
+
+	}
+	actionLibrary[0x9F] = function(activation, aScript) { // ActionGoToFrame2
+
+	}
+	actionLibrary[0x20] = function(activation, aScript) { // ActionSetTarget2
+
+	}
+	actionLibrary[0x23] = function(activation, aScript) { // ActionSetProperty
+
+	}
+	actionLibrary[0x27] = function(activation, aScript) { // ActionStartDrag
+
+	}
+	actionLibrary[0x8D] = function(activation, aScript) { // ActionWaitForFrame2
+
+	}
+	actionLibrary[0x24] = function(activation, aScript) { // ActionCloneSprite
+
+	}
+	actionLibrary[0x25] = function(activation, aScript) { // ActionRemoveSprite
+
+	}
+	actionLibrary[0x28] = function(activation, aScript) { // ActionEndDrag
+
+	}
+	actionLibrary[0x34] = function(activation, aScript) { // ActionGetTime
+
+	}
+	actionLibrary[0x30] = function(activation, aScript) { // ActionRandomNumber
+
+	}
+	actionLibrary[0x26] = function(activation, aScript) { // ActionTrace
+
+	}
+	actionLibrary[0x2D] = function(activation, aScript) { // ActionFsCommand2
+
+	}
+	actionLibrary[0x52] = function(activation, aScript) { // ActionCallMethod
+
+	}
+	actionLibrary[0x88] = function(activation, aScript) { // ActionConstantPool
+
+	}
+	actionLibrary[0x3d] = function(activation, aScript) { // ActionCallFunction
+
+	}
+	actionLibrary[0x3c] = function(activation, aScript) { // ActionDefineLocal
+
+	}
+	actionLibrary[0x41] = function(activation, aScript) { // ActionDefineLocal2
+
+	}
+	actionLibrary[0x3a] = function(activation, aScript) { // ActionDelete
+
+	}
+	actionLibrary[0x3b] = function(activation, aScript) { // ActionDelete2
+
+	}
+	actionLibrary[0x46] = function(activation, aScript) { // ActionEnumerate
+
+	}
+	actionLibrary[0x49] = function(activation, aScript) { // ActionEquals2
+
+	}
+	actionLibrary[0x4e] = function(activation, aScript) { // ActionGetMember
+
+	}
+	actionLibrary[0x42] = function(activation, aScript) { // ActionInitArray
+
+	}
+	actionLibrary[0x43] = function(activation, aScript) { // ActionInitObject
+
+	}
+	actionLibrary[0x53] = function(activation, aScript) { // ActionNewMethod
+
+	}
+	actionLibrary[0x40] = function(activation, aScript) { // ActionNewObject
+
+	}
+	actionLibrary[0x4f] = function(activation, aScript) { // ActionSetMember
+
+	}
+	actionLibrary[0x45] = function(activation, aScript) { // ActionTargetPath
+
+	}
+	actionLibrary[0x94] = function(activation, aScript) { // ActionWith
+
+	}
+	actionLibrary[0x4a] = function(activation, aScript) { // ActionToNumber
+
+	}
+	actionLibrary[0x4b] = function(activation, aScript) { // ActionToString
+
+	}
+	actionLibrary[0x44] = function(activation, aScript) { // ActionTypeOf
+
+	}
+	actionLibrary[0x47] = function(activation, aScript) { // ActionAdd2
+
+	}
+	actionLibrary[0x48] = function(activation, aScript) { // ActionLess2
+
+	}
+	actionLibrary[0x3f] = function(activation, aScript) { // ActionModulo
+
+	}
+	actionLibrary[0x60] = function(activation, aScript) { // ActionBitAnd
+
+	}
+	actionLibrary[0x63] = function(activation, aScript) { // ActionBitLShift
+
+	}
+	actionLibrary[0x61] = function(activation, aScript) { // ActionBitOr
+
+	}
+	actionLibrary[0x64] = function(activation, aScript) { // ActionBitRShift
+
+	}
+	actionLibrary[0x65] = function(activation, aScript) { // ActionBitURShift
+
+	}
+	actionLibrary[0x62] = function(activation, aScript) { // ActionBitXor
+
+	}
+	actionLibrary[0x51] = function(activation, aScript) { // ActionDecrement
+
+	}
+	actionLibrary[0x50] = function(activation, aScript) { // ActionIncrement
+
+	}
+	actionLibrary[0x4c] = function(activation, aScript) { // ActionPushDuplicate
+
+	}
+	actionLibrary[0x3e] = function(activation, aScript) { // ActionReturn
+
+	}
+	actionLibrary[0x4d] = function(activation, aScript) { // ActionStackSwap
+
+	}
+	actionLibrary[0x87] = function(activation, aScript) { // ActionStoreRegister
+
+	}
+	actionLibrary[0x54] = function(activation, aScript) { // ActionInstanceOf
+
+	}
+	actionLibrary[0x55] = function(activation, aScript) { // ActionEnumerate
+
+	}
+	actionLibrary[0x66] = function(activation, aScript) { // ActionStrictEquals
+
+	}
+	actionLibrary[0x67] = function(activation, aScript) { // ActionGreater
+
+	}
+	actionLibrary[0x68] = function(activation, aScript) { // ActionStringGreater
+
+	}
+	actionLibrary[0x8e] = function(activation, aScript) { // ActionDefineFunction
+
+	}
+	actionLibrary[0x9b] = function(activation, aScript) { // ActionDefineFunction2
+
+	}
+	actionLibrary[0x69] = function(activation, aScript) { // ActionExtends
+
+	}
+	actionLibrary[0x2b] = function(activation, aScript) { // ActionCastOp
+
+	}
+	actionLibrary[0x2c] = function(activation, aScript) { // ActionImplementsOp
+
+	}
+	actionLibrary[0x8f] = function(activation, aScript) { // ActionTry
+
+	}
+	actionLibrary[0x2a] = function(activation, aScript) { // ActionThrow
+
+	}
+	const Avm1 = function() {
+		this.version = 6;
+		this.clipExecList = null;
+		this.context = null;
+    }
+	Avm1.prototype.findDisplayObjectsPendingRemoval = function(obj, out) {
+		var parent = obj;
+		if (parent instanceof DisplayObjectContainer) {
+			var children = parent.iterRenderList();
+			for (let i = 0; i < children.length; i++) {
+				const child = children[i];
+				if (child.isAvm1PendingRemoval()) {
+					out.push(child);
+					this.findDisplayObjectsPendingRemoval(child, out);
 				}
 			}
 		}
-		for (let i = this.clipExecuteList.length; i--;) {
-			if (!this.clipExecuteList[i]) {
-				this.clipExecuteList.splice(i, 1);
+	}
+	Avm1.prototype.removePending = function() {
+		var vec = [];
+		var rootClip = this.context.stage.clip;
+		if (rootClip) {
+			this.findDisplayObjectsPendingRemoval(rootClip, vec);
+		}
+		for (let i = 0; i < vec.length; i++) {
+			const child = vec[i];
+            let parent = child.getParent();
+			if (parent && (parent instanceof DisplayObjectContainer)) {
+				parent.removeChildDirectly(child);
+				parent.updatePendingRemovals();	
 			}
 		}
-    }
-	Avm1.prototype.getExecuteList = function(_clip) {
-		for (let i = 0; i < this.clipExecuteList.length; i++) {
-			const clip = this.clipExecuteList[i];
-			if (clip && (clip.base === _clip)) {
-				return i;
+	}
+	Avm1.prototype.runFrame = function() {
+        // Remove pending objects
+		this.removePending();
+
+        // In AVM1, we only ever execute the idle phase, and all the work that
+        // would ordinarily be phased is instead run all at once in whatever order
+        // the SWF requests it.
+		this.context.framePhase = "idle";
+		var prev = null;
+		var next = this.clipExecList;
+		while(true) {
+			var clip = next;
+			if (!clip) {
+				break;
+			}
+			next = clip.nextAvm1Clip;
+			if (clip.AVM1_REMOVED) {
+                // Clean up removed clips from this frame or a previous frame.
+				if (prev) {
+					prev.nextAvm1Clip = next;
+				} else {
+					this.clipExecList = next;
+				}
+				clip.nextAvm1Clip = null;
+			} else {
+				clip.runFrameAvm1();
+				prev = clip;
 			}
 		}
-		return -1;
+
+		this.context.framePhase = "idle";
     }
 	Avm1.prototype.addExecuteList = function(clip) {
-		this.clipExecuteList.push({
-			base: clip,
-			running: false
-		});
-    }
-	Avm1.prototype.removeExecuteList = function(clip) {
-		var id = this.getExecuteList(clip);
-		if (id >= 0) {
-			this.clipExecuteList[id] = undefined;
+        // Adding while iterating is safe, as this does not modify any active nodes.
+		if (!clip.nextAvm1Clip) {
+			clip.nextAvm1Clip = this.clipExecList;
+			this.clipExecList = clip;
 		}
     }
+	Avm1.prototype.valueTypeof = function(value) {
+		var r = (typeof value);
+		return r;
+	}
+	Avm1.prototype.valueToNumber = function(value) {
+		return +value;
+	}
+	Avm1.prototype.valueToF64 = function(value) {
+		return +value;
+	}
+	Avm1.prototype.valueToString = function(value) {
+		return value + "";
+	}
+	Avm1.prototype.valueAsBool = function(value) {
+		return !!value;
+	}
+	Avm1.prototype.abstractLT = function(value) {
+		
+	}
+	Avm1.prototype.abstractEQ = function(value) {
+		
+	}
 	const SoundDecoder = function(info) {
 		this.info = info;
+		this.formatInfo = null;
+		this.numSamples = null;
 		this.data = info.data;
 		this.byteStream = null;
 		this.onload = null;
 	}
-	SoundDecoder.INDEX_TABLE = [
-		[-1, 2],
-		[-1, -1, 2, 4],
-		[-1, -1, -1, -1, 2, 4, 6, 8],
-		[-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16],
-	];
+	SoundDecoder.INDEX_TABLE = [];
+	SoundDecoder.INDEX_TABLE[0] = [-1, 2];
+	SoundDecoder.INDEX_TABLE[1] = [-1, -1, 2, 4];
+	SoundDecoder.INDEX_TABLE[2] = [-1, -1, -1, -1, 2, 4, 6, 8];
+	SoundDecoder.INDEX_TABLE[3] = [-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16];
 	SoundDecoder.STEP_TABLE = [
 		7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66,
 		73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449,
@@ -6090,36 +6729,121 @@ var PKF = (function() {
 		2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493,
 		10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767,
 	];
+	SoundDecoder.SAMPLE_DELTA_CALCULATOR = [];
+
+    // 2 bits
+	SoundDecoder.SAMPLE_DELTA_CALCULATOR[0] = function(step, magnitude) {
+        let delta = step >> 1;
+        if (magnitude & 1) {
+            delta += step;
+        }
+        return delta;
+	};
+    // 3 bits
+	SoundDecoder.SAMPLE_DELTA_CALCULATOR[1] = function(step, magnitude) {
+        let  delta = step >> 2;
+        if (magnitude & 1) {
+            delta += step >> 1;
+        }
+        if (magnitude & 2) {
+            delta += step;
+        }
+        return delta;
+	}
+    // 4 bits
+	SoundDecoder.SAMPLE_DELTA_CALCULATOR[2] = function(step, magnitude) {
+        let delta = step >> 3;
+        if (magnitude & 1) {
+            delta += step >> 2;
+        }
+        if (magnitude & 2) {
+            delta += step >> 1;
+        }
+        if (magnitude & 4) {
+            delta += step;
+        }
+        return delta;
+	}
+    // 5 bits
+	SoundDecoder.SAMPLE_DELTA_CALCULATOR[3] = function(step, magnitude) {
+        let delta = step >> 4;
+        if (magnitude & 1) {
+            delta += step >> 3;
+        }
+        if (magnitude & 2) {
+            delta += step >> 2;
+        }
+        if (magnitude & 4) {
+            delta += step >> 1;
+        }
+        if (magnitude & 8) {
+            delta += step;
+        }
+        return delta;
+	}
+
+	SoundDecoder.NELLY_DEQUANTIZATION_TABLE = [0.0000000000, -0.8472560048, 0.7224709988, -1.5247479677, -0.4531480074, 0.3753609955, 1.4717899561, -1.9822579622, -1.1929379702, -0.5829370022, -0.0693780035, 0.3909569979, 0.9069200158, 1.4862740040, 2.2215409279, -2.3887870312, -1.8067539930, -1.4105420113, -1.0773609877, -0.7995010018, -0.5558109879, -0.3334020078, -0.1324490011, 0.0568020009, 0.2548770010, 0.4773550034, 0.7386850119, 1.0443060398, 1.3954459429, 1.8098750114, 2.3918759823, -2.3893830776, -1.9884680510, -1.7514040470, -1.5643119812, -1.3922129869, -1.2164649963, -1.0469499826, -0.8905100226, -0.7645580173, -0.6454579830, -0.5259280205, -0.4059549868, -0.3029719889, -0.2096900046, -0.1239869967, -0.0479229987, 0.0257730000, 0.1001340002, 0.1737180054, 0.2585540116, 0.3522900045, 0.4569880068, 0.5767750144, 0.7003160119, 0.8425520062, 1.0093879700, 1.1821349859, 1.3534560204, 1.5320819616, 1.7332619429, 1.9722349644, 2.3978140354, -2.5756309032, -2.0573320389, -1.8984919786, -1.7727810144, -1.6662600040, -1.5742180347, -1.4993319511, -1.4316639900, -1.3652280569, -1.3000990152, -1.2280930281, -1.1588579416, -1.0921250582, -1.0135740042, -0.9202849865, -0.8287050128, -0.7374889851, -0.6447759867, -0.5590940118, -0.4857139885, -0.4110319912, -0.3459700048, -0.2851159871, -0.2341620028, -0.1870580018, -0.1442500055, -0.1107169986, -0.0739680007, -0.0365610011, -0.0073290002, 0.0203610007, 0.0479039997, 0.0751969963, 0.0980999991, 0.1220389977, 0.1458999962, 0.1694349945, 0.1970459968, 0.2252430022, 0.2556869984, 0.2870100141, 0.3197099864, 0.3525829911, 0.3889069855, 0.4334920049, 0.4769459963, 0.5204820037, 0.5644530058, 0.6122040153, 0.6685929894, 0.7341650128, 0.8032159805, 0.8784040213, 0.9566209912, 1.0397069454, 1.1293770075, 1.2211159468, 1.3080279827, 1.4024800062, 1.5056819916, 1.6227730513, 1.7724959850, 1.9430880547, 2.2903931141];
+	SoundDecoder.NELLY_BAND_SIZES_TABLE = [2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8, 9, 10, 12, 14, 15];
+	SoundDecoder.NELLY_INIT_TABLE = [3134, 5342, 6870, 7792, 8569, 9185, 9744, 10191, 10631, 11061, 11434, 11770, 12116, 12513, 12925, 13300, 13674, 14027, 14352, 14716, 15117, 15477, 15824, 16157, 16513, 16804, 17090, 17401, 17679, 17948, 18238, 18520, 18764, 19078, 19381, 19640, 19921, 20205, 20500, 20813, 21162, 21465, 21794, 22137, 22453, 22756, 23067, 23350, 23636, 23926, 24227, 24521, 24819, 25107, 25414, 25730, 26120, 26497, 26895, 27344, 27877, 28463, 29426, 31355];
+	SoundDecoder.NELLY_DELTA_TABLE = [-11725, -9420, -7910, -6801, -5948, -5233, -4599, -4039, -3507, -3030, -2596, -2170, -1774, -1383, -1016, -660, -329, -1, 337, 696, 1085, 1512, 1962, 2433, 2968, 3569, 4314, 5279, 6622, 8154, 10076, 12975];
 	SoundDecoder.prototype.load = function() {
-		this.byteStream = new ByteStream();
-		this.byteStream.setData(this.data);
-		//console.log(this.info);
+		var _this = this;
 		var format = this.info.format;
+		this.formatInfo = format;
+		this.numSamples = this.info.numSamples;
 		var channels = (format.isStereo ? 2 : 1);
-		var buffer = audioContext.createBuffer(channels, this.info.numSamples, format.sampleRate);
-		switch(format.compression) {
-			case "uncompressed":
-				this.decodePCM(buffer, channels);
-				break;
-			default:
-				console.log("TODO", format.compression, this.info);
+		this.byteStream = new ByteStream(this.data);
+		if (format.compression == "MP3") {
+			var seekSample = this.byteStream.readInt16();
+			audioContext.decodeAudioData(this.data.slice(2), function(a) {
+				if (_this.onload) {
+					_this.onload({
+						buffer: a,
+						seekSample
+					});
+				}
+			}, function(e) {
+				console.log("MP3: failed");
+				if (_this.onload) {
+					_this.onload({
+						buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate),
+						seekSample: 0
+					});
+				}
+			});
+			return;
 		}
+		var buffer = audioContext.createBuffer(channels, this.numSamples, format.sampleRate);
+		this.decodeFormat(format.compression, buffer, channels);
 		if (this.onload) {
-			this.onload(buffer);
+			this.onload({
+				buffer,
+				seekSample: 0
+			});
 		}
 	}
-	SoundDecoder.prototype.g = function() {
-		
+	SoundDecoder.prototype.decodeFormat = function(compression, buffer, channels, pos_buffer) {
+		switch(compression) {
+			case "uncompressed":
+				return this.decodePCM(buffer, channels, pos_buffer);
+			case "ADPCM":
+				return this.decodeADPCM(buffer, channels, pos_buffer);
+			default:
+				console.log("TODO", compression);
+				return 0;
+		}
 	}
 	// info.format.is16Bit
 	// info.format.isStereo
 	// info.format.sampleRate
-	SoundDecoder.prototype.decodePCM = function(buffer, channels) {
-		var format = this.info.format;
+	SoundDecoder.prototype.decodePCM = function(buffer, channels, pos_buffer) {
+		var _pos_buffer = pos_buffer || 0;
+
+		var format = this.formatInfo;
 		/// Decoder for PCM audio data in a Flash file.
 		/// Flash exports this when you use the "Raw" compression setting.
 		/// 8-bit unsigned or 16-bit signed PCM.
-		var i = 0;
+		var i = _pos_buffer;
 		var _left = buffer.getChannelData(0);
 		var _right = null;
 		if (channels == 2) {
@@ -6139,18 +6863,208 @@ var PKF = (function() {
 			}
 			i++;
 		}
+
+		return i;
 	}
-	SoundDecoder.prototype.decodeADPCM = function() {
+	SoundDecoder.prototype.decodeADPCM = function(buffer, channels, pos_buffer) {
+		let adpcmCodeSize = this.byteStream.getUIBits(2);
+
+		let bits_per_sample = (adpcmCodeSize + 2);
+		var _pos_buffer = pos_buffer || 0;
+		var _left = buffer.getChannelData(0);
+		var _right = null;
+		if (channels == 2) {
+			_right = buffer.getChannelData(1);
+		}
+		var decoder = SoundDecoder.SAMPLE_DELTA_CALCULATOR[bits_per_sample - 2];
+
+		let num_channels = channels;
+		var _channels = [{}, {}];
+
+		let sign_mask = (1 << (bits_per_sample - 1));
 		
+		while(this.byteStream.getBytesAvailable() > 1) {
+			// The initial sample values are NOT byte-aligned.
+			for (let i = 0; i < num_channels; i++) {
+				const ch = _channels[i];
+				ch.sample = toInt16(this.byteStream.getUIBits(16));
+				ch.stepIndex = this.byteStream.getUIBits(6);
+			}
+			
+			var __left = _channels[0].sample;
+			var __right = _channels[1].sample;
+			_left[_pos_buffer] = __left / 0x7fff;
+			if (num_channels == 2) {
+				_right[_pos_buffer] = __right / 0x7fff;
+			}
+			_pos_buffer += 1;
+
+			for (let i3 = 0; i3 < 4095; i3++) {
+				if (this.byteStream.getBytesAvailable() <= 1) {
+					break;
+				}
+				for (let i2 = 0; i2 < num_channels; i2++) {
+					const ch = _channels[i2];
+					let step = SoundDecoder.STEP_TABLE[ch.stepIndex];
+					let data = this.byteStream.getUIBits(bits_per_sample);
+					let magnitude = (data & (sign_mask - 1)); // TODO
+					
+					// (data + 0.5) * step / 2^(bits_per_sample - 2)
+					let delta = decoder(step, magnitude);
+
+					var result_sample = 0;
+					if (data & sign_mask) {
+						result_sample = (ch.sample - delta);
+						if (result_sample < -32768) {
+							result_sample = -32768;
+						}
+					} else {
+						result_sample = (ch.sample + delta);
+						if (result_sample > 32767) {
+							result_sample = 32767;
+						}
+					}
+					ch.sample = result_sample;
+
+					ch.stepIndex += SoundDecoder.INDEX_TABLE[bits_per_sample - 2][magnitude];
+					if (ch.stepIndex > 88) {
+						ch.stepIndex = 88;
+					}
+					if (ch.stepIndex < 0) {
+						ch.stepIndex = 0;
+					}
+					
+					var __left = _channels[0].sample;
+					var __right = _channels[1].sample;
+					_left[_pos_buffer] = __left / 0x7fff;
+					if (num_channels == 2) {
+						_right[_pos_buffer] = __right / 0x7fff;
+					}
+					_pos_buffer += 1;
+				}
+			}
+		}
+		return _pos_buffer;
 	}
 	SoundDecoder.prototype.decodeMP3 = function() {
 		
 	}
+	const SoundStreamDecoder = function(streamInfo, blocks) {
+		SoundDecoder.call(this, {data: null});
+		this.streamInfo = streamInfo;
+		this.blocks = blocks;
+	}
+	SoundStreamDecoder.prototype = Object.create(SoundDecoder.prototype);
+	SoundStreamDecoder.prototype.constructor = SoundStreamDecoder;
+	SoundStreamDecoder.prototype.load = function() {
+		var _this = this;
+
+		var streamInfo = this.streamInfo;
+		var blocks = this.blocks;
+
+		var isMP3 = (streamInfo.stream.compression == "MP3");
+
+		var idlimit = (streamInfo.stream.compression == "MP3") ? 4 : 0;
+
+		var gg1 = 0;
+		for (var i = 0; i < blocks.length; i++) {
+			var b1 = blocks[i];
+			gg1 += (b1.byteLength - idlimit);
+		}
+		var gg = new Uint8Array(gg1);
+		var idd = 0;
+		var sh = false;
+		for (var i = 0; i < blocks.length; i++) {
+			var bb = blocks[i];
+			var ui8view = new Uint8Array(bb);
+			for (var i2 = idlimit; i2 < bb.byteLength; i2++) {
+				gg[idd++] = ui8view[i2];
+			}
+			sh = true;
+		}
+
+		var compressed = gg.buffer;
+		if (compressed.byteLength > 0) {
+			this.data = compressed;
+			this.formatInfo = streamInfo.stream;
+			this.numSamples = blocks.length * streamInfo.samplePerBlock; // TODO
+			var channels = (this.formatInfo.isStereo ? 2 : 1);
+			this.byteStream = new ByteStream(this.data);
+			if (isMP3) {
+				var seekSample = streamInfo.latencySeek;
+				audioContext.decodeAudioData(this.data.slice(0), function(a) {
+					if (_this.onload) {
+						_this.onload({
+							buffer: a,
+							seekSample
+						});
+					}
+				}, function(e) {
+					console.log("MP3: failed");
+					if (_this.onload) {
+						_this.onload({
+							buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate),
+							seekSample: 0
+						});
+					}
+				});
+				return;
+			}
+			var buffer = audioContext.createBuffer(channels, this.numSamples, this.formatInfo.sampleRate);
+			this.decodeStreamFormat(this.formatInfo.compression, buffer, channels, blocks);
+			if (this.onload) {
+				this.onload({
+					buffer,
+					seekSample: 0
+				});
+			}
+		} else {
+			if (_this.onload) {
+				_this.onload({
+					buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate),
+					seekSample
+				});
+			}
+		}
+	}
+	SoundStreamDecoder.prototype.decodeStreamFormat = function (compression, buffer, channels, blocks) {
+		var oPos = 0;
+		for (let i = 0; i < blocks.length; i++) {
+			const block = blocks[i];
+			this.data = block;
+			this.byteStream = new ByteStream(this.data);
+			var posBuffer = this.decodeFormat(compression, buffer, channels, oPos);
+			oPos = posBuffer;
+		}
+	}
+	const Sound = function() {
+		this.buffer = null;
+		this.duration = 0;
+		this.seekSample = 0;
+    }
+	Sound.prototype.getBuffer = function() {
+		return this.buffer;
+    }
+	Sound.prototype.setBuffer = function(buffer) {
+		this.buffer = buffer;
+		this.duration = buffer.duration;
+    }
+	const SoundStream = function() {
+		this.buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);;
+		this.duration = 0;
+		this.seekSample = 0;
+    }
+	SoundStream.prototype.getBuffer = function() {
+		return this.buffer;
+    }
+	SoundStream.prototype.setBuffer = function(buffer) {
+		this.buffer = buffer;
+		this.duration = buffer.duration;
+    }
     const AudioBackend = function(stage) {
         this.stage = stage;
 		this.node = audioContext.createGain();
 		this.node.connect(audioContext.destination);
-		this.sounds = [];
 		this.playingAudios = [];
 		this.playingSoundStreams = [];
 		this.tickTime = 0;
@@ -6158,7 +7072,6 @@ var PKF = (function() {
 	AudioBackend.prototype.cleanup = function() {
 		this.stopAll(true);
 		this.stopAllSoundStream();
-		this.sounds = [];
 	}
 	AudioBackend.prototype.pause = function() {
 		if (audioContext) audioContext.suspend();
@@ -6222,7 +7135,7 @@ var PKF = (function() {
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingaudio = this.playingAudios[i];
 			if ((playingaudio.id == soundinfo.id) && (playingaudio.mc === mc)) {
-				this.stopSound(playingaudio);
+				//this.stopSound(playingaudio);
 			}
 		}
 		if (sound.audio) {
@@ -6233,7 +7146,7 @@ var PKF = (function() {
 		var rs = {};
 		if (!sound.audioStream) return;
 		var source = audioContext.createBufferSource();
-		source.buffer = sound.audioStream;
+		source.buffer = sound.audioStream.getBuffer();
 		source.connect(this.node);
 		source.start(audioContext.currentTime);
 		rs.mc = mc;
@@ -6270,14 +7183,19 @@ var PKF = (function() {
 		}
 	}
 	AudioBackend.prototype.playSound = function(sud, soundinfo, mc) {
-		//console.log(soundinfo.info);
 		var sound = {};
-		sound.buffer = sud.audio;
-		this.playSource(sound);
+		var audio = sud.audio;
+		
+		sound.buffer = audio.getBuffer();;
 		sound.mc = mc;
 		sound.id = sud.id;
-		sound.duration = sound.buffer.duration;
-		sound.duration = (sud.numSamples / sud.format.sampleRate);
+
+		let duration = (sud.numSamples / sud.format.sampleRate);
+		let seekTime = (audio.seekSample / sud.format.sampleRate);
+
+		sound.__start = seekTime;
+		sound.duration = duration;
+		this.playSource(sound);
 		if ("numLoops" in soundinfo.info) {
 			sound.numLoops = soundinfo.info.numLoops - 1;
 		} else {
@@ -6294,32 +7212,33 @@ var PKF = (function() {
 		sound.source = audioContext.createBufferSource();
 		sound.source.buffer = sound.buffer;
 		sound.source.connect(this.node);
-		sound.source.start(audioContext.currentTime);
+		sound.source.start(audioContext.currentTime, sound.__start);
 	}
-	AudioBackend.prototype.decodeAudio = function(info, callback, isStream) {
+	AudioBackend.prototype.decodeSound = function(sound, callback) {
 		// info.format.is16Bit
 		// info.format.isStereo
 		// info.format.sampleRate
-		if (info.format.compression == "MP3") {
-			// skip
-			audioContext.decodeAudioData(info.data.slice(isStream ? 0 : 2), function(a) {
-				callback(a);
-			}, function(e) {
-				callback(null);
-			});
-		} else {
-			var sd = new SoundDecoder(info, audioContext);
-			sd.onload = function(buf) {
-				callback(buf);
-			}
-			sd.load();
+		var sd = new SoundDecoder(sound);
+		sd.onload = function(buf) {
+			var s = new Sound();
+			s.setBuffer(buf.buffer);
+			s.seekSample = buf.seekSample;
+			callback(s);
 		}
+		sd.load();
+	}
+	AudioBackend.prototype.decodeSoundStream = function(streamInfo, blocks, callback) {
+		var sd = new SoundStreamDecoder(streamInfo, blocks);
+		sd.onload = function(buf) {
+			var s = new SoundStream();
+			s.setBuffer(buf.buffer);
+			s.seekSample = buf.seekSample;
+			callback(s);
+		}
+		sd.load();
 	}
 	AudioBackend.prototype.getSound = function(id) {
-		return this.sounds[id];
-	}
-	AudioBackend.prototype.setSound = function(id, info) {
-		this.sounds[id] = info;
+		return this.stage.library.getCharacter(id);
 	}
     const Library = function(stage) {
         this.stage = stage;
@@ -6367,8 +7286,13 @@ var PKF = (function() {
 
 		this.fill_style_color = [0, 0, 0, 1];
 		this.stroke_style_color = [0, 0, 0, 1];
+
 		this.fill_style_gradient = null;
 		this.stroke_style_gradient = null;
+
+		this.fill_style_pattern = null;
+		this.stroke_style_pattern = null;
+
 		this.fill_style_type = 0;
 		this.stroke_style_type = 0;
     }
@@ -6377,7 +7301,7 @@ var PKF = (function() {
     }
 	Renderer.prototype.clear = function() {
 		this.setTransform(1, 0, 0, 1, 0, 0);
-		this.ctx.beginPath();
+		this.beginPath();
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.ctx.fillStyle = "rgb(" + this.backgroundColor.join(",") + ")";
 		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -6388,7 +7312,7 @@ var PKF = (function() {
 		this.canvas.width = this.width;
 		this.canvas.height = this.height;
     }
-	Renderer.prototype.drawImage = function(img, x, y) {
+	Renderer.prototype.drawImage = function(img, x, y, width, height) {
 		this.ctx.drawImage(img, x, y);
     }
 	Renderer.prototype.save = function() {
@@ -6463,17 +7387,29 @@ var PKF = (function() {
 		this.stroke_style_type = 1;
     }
 	Renderer.prototype.beginPath = function() {
-		this.pathStack = [];
 		this.ctx.beginPath();
+		//this.pathStack = [];
     }
 	Renderer.prototype.moveTo = function(x, y) {
 		this.ctx.moveTo(x, y);
+		//this.pathStack.push([0, x, y]);
     }
 	Renderer.prototype.lineTo = function(x, y) {
 		this.ctx.lineTo(x, y);
+		//this.pathStack.push([2, x, y]);
     }
 	Renderer.prototype.quadraticCurveTo = function(x1, y1, x2, y2) {
 		this.ctx.quadraticCurveTo(x1, y1, x2, y2);
+		//this.pathStack.push([1, x1, y1, x2, y2]);
+    }
+	Renderer.prototype.rect = function(x, y, w, h) {
+		this.ctx.rect(x, y, w, h);
+		//this.pathStack.push([0, x, y]);
+		//this.pathStack.push([2, x + w, y]);
+		//this.pathStack.push([2, x + w, y + h]);
+		//this.pathStack.push([2, x, y + h]);
+		//this.pathStack.push([2, x, y]);
+		//this.pathStack.push([0, x, y]);
     }
 	const Timer = function() {
 		this.startTime = 0;
@@ -6491,6 +7427,20 @@ var PKF = (function() {
 		this.renderer = stage.renderer;
 		this.audio = stage.audio;
 		this.avm1 = stage.avm1;
+		this.framePhase = "";
+		this.actionQueue = [];
+	}
+	UpdateContext.prototype.init = function() {
+	}
+	UpdateContext.prototype.queueAction = function(clip, action, isUnload) {
+		let _action = {};
+		_action.clip = clip;
+		_action.action = action;
+		_action.isUnload = isUnload;
+		this.actionQueue.push(_action);
+	}
+	UpdateContext.prototype.popAction = function() {
+		return this.actionQueue.pop();
 	}
     const Stage = function() {
 		this.width = 0;
@@ -6521,6 +7471,8 @@ var PKF = (function() {
 		this.timer = new Timer();
 
 		this.context = new UpdateContext(this);
+
+		this.avm1.context = this.context;
 
 		this.debugMovieCanvas = document.createElement('canvas');
 		this.debugMovieCtx = this.debugMovieCanvas.getContext("2d");
@@ -6595,18 +7547,27 @@ var PKF = (function() {
 	Stage.prototype.runFrame = function() {
 		this.dirty = true;
 		this.avm1.runFrame();
+		this.runActions();
+    }
+	Stage.prototype.runActions = function() {
+		var context = this.context;
+		while (context.actionQueue.length) {
+			var actionInfo = context.popAction();
+		}
     }
 	Stage.prototype.resize = function(scale) {
 		this.dirty = true;
-		this.renderer.resize(this.width * scale, this.height * scale);
-		this.debugMovieCanvas.width = this.width * scale;
-		this.debugMovieCanvas.height = this.height * scale;
+		var w = Math.floor(this.width * scale);
+		var h = Math.floor(this.height * scale);
+		this.renderer.resize(w, h);
+		this.debugMovieCanvas.width = w;
+		this.debugMovieCanvas.height = h;
 		this.render();
 		this.dirty = false;
     }
     Stage.prototype.render = function() {
         this.renderer.clear();
-		if (this.clip) {
+		if (this.clip && this.isLoad) {
 			if (this.checkRender()) {
 				this.clip.render(this, this.renderer, [(this.renderer.width / this.width) / 20, 0, 0, (this.renderer.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], true, false);
 			}
@@ -6669,7 +7630,7 @@ var PKF = (function() {
 		this.loadimgsoundCount--;
 	}
 	Loader.prototype.loadTags = function(tags, clip, stage) {
-		var obj = this.generateDefaultTagObj();
+		var obj = [];
 		var frames = [];
 		for (let tagId = 0; tagId < tags.length; tagId++) {
 			const tag = tags[tagId];
@@ -6679,7 +7640,7 @@ var PKF = (function() {
 					break;
 				case "ShowFrame":
 					frames.push(obj);
-					obj = this.generateDefaultTagObj();
+					obj = [];
 					break;
 				case "PlaceObject":
 				case "PlaceObject2":
@@ -6691,17 +7652,11 @@ var PKF = (function() {
 				case "StartSound2":
 				case "DoAction":
 				case "FrameLabel":
-				case "VideoFrame":
 				case "SetBackgroundColor":
-					obj.tags.push(tag);
-					break;
 				case "SoundStreamHead":
 				case "SoundStreamHead2":
-					obj.soundStream = tag;
-					break;
 				case "SoundStreamBlock":
-					obj.soundStreamBlock = tag.compressed;
-					obj.tags.push(tag);
+					obj.push(tag);
 					break;
 				//////// Define ////////
 				case "DefineFont":
@@ -6766,9 +7721,7 @@ var PKF = (function() {
 	}
 	Loader.prototype.generateDefaultTagObj = function() {
 		return {
-			tags: [],
-			soundStreamBlock: null,
-			soundStream: null
+			tags: []
 		}
 	}
 	Loader.prototype.defineFont = function(tag, stage) {
@@ -6908,12 +7861,8 @@ var PKF = (function() {
 		var sp = new SoundData(stage, tag);
 		var _this = this;
 		_this.loadimgsoundCount++;
-		stage.audio.decodeAudio(tag, function(a) {
-			stage.audio.setSound(tag.id, {
-				audio: a,
-				format: tag.format,
-				numSamples: tag.numSamples
-			});
+		stage.audio.decodeSound(tag, function(a) {
+			sp.setAudio(a);
 			_this.loadedCC();
 		});
 		stage.library.setCharacter(tag.id, sp);
@@ -6950,6 +7899,7 @@ var PKF = (function() {
 		stage.library.setCharacter(tag.id, new BinaryData(stage, tag));
 	}
 	Loader.prototype.defineVideoStream = function(tag, stage) {
+		stage.library.setCharacter(tag.id, new DefineVideoData(stage, tag));
 	}
 	Loader.prototype.parseJpegData = function(JPEGData) {
 		var i = 0;
@@ -6989,6 +7939,22 @@ var PKF = (function() {
 		}
 		return str;
 	}
+	Loader.prototype.getSoundStreamHead = function(tags) {
+		for (let i = 0; i < tags.length; i++) {
+			const tag = tags[i];
+			if (tag.tagType == "SoundStreamHead" || tag.tagType == "SoundStreamHead2") {
+				return tag;
+			}
+		}
+	}
+	Loader.prototype.getSoundStreamBlock = function(tags) {
+		for (let i = 0; i < tags.length; i++) {
+			const tag = tags[i];
+			if (tag.tagType == "SoundStreamBlock") {
+				return tag;
+			}
+		}
+	}
 	Loader.prototype.loadSoundStreamSprite = function(sp, stage) {
 		var frames = sp.frames;
 		sp.streamSounds = [];
@@ -6998,16 +7964,18 @@ var PKF = (function() {
 		var blocks = [];
 		for (let tagId = 0; tagId < frames.length; tagId++) {
 			var tag = frames[tagId];
-			if (tag.soundStream) {
-				soundStreamInfo = tag.soundStream;
+			var __soundStreamHead = this.getSoundStreamHead(tag);
+			var __soundStreamBlock = this.getSoundStreamBlock(tag);
+			if (__soundStreamHead) {
+				soundStreamInfo = __soundStreamHead;
 			}
-			var blockStreams = tag.soundStreamBlock;
+			var blockStreams = __soundStreamBlock;
 			if (blockStreams) {
 				if (!_soundStreamStart) {
 					curFrame = tagId;
 				}
 				_soundStreamStart = true;
-				blocks.push(blockStreams);
+				blocks.push(blockStreams.compressed);
 			} else {
 				if (_soundStreamStart) {
 					sp.streamSounds[curFrame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
@@ -7020,46 +7988,27 @@ var PKF = (function() {
 			sp.streamSounds[curFrame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
 		}
 	}
-	Loader.prototype.loadSoundStream = function(stream, blocks, stage) {
-		var idlimit = (stream.stream.compression == "MP3") ? 4 : 0;
-		var gg1 = 0;
-		for (var i = 0; i < blocks.length; i++) {
-			var b1 = blocks[i];
-			gg1 += b1.byteLength;
-		}
-		var gg = new Uint8Array(gg1);
-		var idd = 0;
-		for (var i = 0; i < blocks.length; i++) {
-			var bb = blocks[i];
-			var ui8view = new Uint8Array(bb);
-			for (var i2 = idlimit; i2 < bb.byteLength; i2++) {
-				gg[idd++] = ui8view[i2];
-			}
-		}
-		var compressed = gg.buffer;
+	Loader.prototype.loadSoundStream = function(streamInfo, blocks, stage) {
 		var soundInfo = {
-			data: compressed.slice(0),
-			format: stream.stream,
-			numSamples: stream.samplePerBlock * blocks.length, // TODO
+			blocks: blocks,
+			streamInfo: streamInfo
 		}
 		var result = {};
-		if (compressed.byteLength > idlimit) {
-			result.data = compressed;
-			result.info = stream;
-			var _this = this;
-			_this.loadimgsoundCount++;
-			stage.audio.decodeAudio(soundInfo, function(a) {
-				result.audioStream = a;
-				_this.loadedCC();
-			}, true);	
-		}
+		result.soundInfo = soundInfo;
+		var _this = this;
+		_this.loadimgsoundCount++;
+		stage.audio.decodeSoundStream(streamInfo, blocks, function(a) {
+			result.audioStream = a;
+			_this.loadedCC();
+		}, true);
 		return result;
 	}
-	Loader.prototype.loadSwfMovie = function(swfInfo, calllback) {
+	Loader.prototype.loadSwfMovie = function(swfInfo, swfData, calllback) {
 		this.swfInfo = swfInfo;
 		var _this = this;
 		var stage = new Stage();
 		stage.swf = swfInfo;
+		stage.swfData = swfData;
 		stage.version = this.swfInfo.header.version;
 		stage.bounds = this.swfInfo.movieInfo.bounds;
 		stage.frameRate = this.swfInfo.movieInfo.frameRate;
@@ -7083,7 +8032,8 @@ var PKF = (function() {
 		var _this = this;
 		var reader = new FileReader();
 		reader.onload = function(e) {
-			var swfparser = new SwfParser(e.target.result);
+			var data = e.target.result;
+			var swfparser = new SwfParser(data);
 			swfparser.onprogress = function(fs) {
 				if (_this.onprogress) {
 					_this.onprogress(fs);
@@ -7091,7 +8041,7 @@ var PKF = (function() {
 			}
 			swfparser.onload = function() {
 				_this.swfparser = null;
-				_this.loadSwfMovie(swfparser.result, function(stage) {
+				_this.loadSwfMovie(swfparser.result, data, function(stage) {
 					if (_this.onload) {
 						_this.onload(stage);
 					}
@@ -7114,43 +8064,22 @@ var PKF = (function() {
 	Slot.prototype.subscribe = function(fn) {
 		this._listeners.push(fn);
 	}
-	Slot.prototype.emit = function(value) {
+	Slot.prototype.emit = function() {
 		for (const listener of this._listeners) {
-			listener(value);
+			listener(...arguments);
 		}
 	}
+	const ScreenCap = function () {
+		this.canvas = document.createElement("canvas");
+		this.ctx = this.canvas.getContext("2d");
+	}
+	ScreenCap.prototype.scan = function (image, width, height) {
+		this.canvas.width = width || image.width;
+		this.canvas.height = height || image.height;
+		this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
+		return this.canvas.toDataURL();
+	}
     const Player = function(options = {}) {
-		var _this = this;
-		this.width = 0;
-		this.height = 0;
-		this.root = document.createElement('div');
-		this.root.className = 'pinkfie-root';
-		this.playerStage = document.createElement('div');
-		this.playerStage.className = 'pinkfie-stage';
-        this.canvas = document.createElement("canvas");
-		this.playerStage.appendChild(this.canvas);
-		this.root.appendChild(this.playerStage);
-		this.addMenuVerticals();
-		this.MenuVertical.style.display = 'none';
-        this.playerStage.onclick = function () {
-        	this.MenuVertical.style.display = 'none';
-        }
-        this.playerStage.onclick = this.playerStage.onclick.bind(this);
-		this.playerStage.addEventListener('contextmenu', event => {
-			event.preventDefault();
-			_this.sendList(event);
-		});
-		this._clickToPlay = true;
-		this.m_resin = true;
-		this._viewFrame = false;
-		this._o = 0;
-		this.volume = 100;
-		this.mousePoint = [0, 0];
-		this.tickTime = 0;
-		this.isLoad = false;
-		this.loaded = 0;
-		this.stage = null;
-		this.currentLoader = null;
 		this.onload = new Slot();
 		this.onstartload = new Slot();
 		this.oncleanup = new Slot();
@@ -7159,39 +8088,96 @@ var PKF = (function() {
 		this.onresume = new Slot();
 		this.onpause = new Slot();
 		this.onoptionschange = new Slot();
+		this.scanned = new ScreenCap();
+		this.stage = null;
+		this.currentLoader = null;
+		this.width = 0;
+		this.height = 0;
+		this.root = document.createElement('div');
+		this.root.className = 'pinkfie-root';
+		this.playerContainer = document.createElement('div');
+		this.playerContainer.className = 'pinkfie-stage';
+		this.root.appendChild(this.playerContainer);
+		this._clickToPlay = false;
+		this._viewFrame = false;
+		this._o = 0;
+		this.mousePoint = [0, 0];
+		this.tickTime = 0;
+		this.isLoad = false;
+		this.loaded = 0;
 		this.loadedTick = 0;
-        this.ctx = this.canvas.getContext("2d");
-		this.canvas.onmousemove = function(e) {
-			_this.updateMouse(e);
-		}
-		this.canvas.onmousedown = function(e) {
-			_this.updateMouseDown(e);
-		}
-		this.canvas.onmouseup = function(e) {
-			_this.updateMouseUp(e);
-		}
+        this.canvas = document.createElement("canvas");
+		this.playerContainer.appendChild(this.canvas);
+		this.addMenuVerticals();
 		this.addSettingVerticals();
+        this.ctx = this.canvas.getContext("2d");
 		this.setOptions(Object.assign(Object.assign({}, options), Player.DEFAULT_OPTIONS));
 		this.handleError = this.handleError.bind(this);
 		this.resize(640, 400);
-		setInterval(this.tick.bind(this), TIMER_TICK_SPEED);
+		this.addEventListeners();
+		setInterval(this.tick.bind(this), 10);
     }
+	Player.prototype.addEventListeners = function () {
+		var _this = this;
+		this._onmousedown = this._onmousedown.bind(this);
+		this._onmouseup = this._onmouseup.bind(this);
+		this._onmousemove = this._onmousemove.bind(this);
+		document.addEventListener('mousedown', this._onmousedown);
+		document.addEventListener('mouseup', this._onmouseup);
+		document.addEventListener('mousemove', this._onmousemove);
+		document.addEventListener('contextmenu', function(e) {
+			if (e.target === _this.canvas) {
+				e.preventDefault();
+				_this.sendList(e);
+			}
+		});
+	}
+	Player.prototype._onmousedown = function (e) {
+		if (e.target === this.canvas) {
+			this.MenuVertical.style.display = 'none';
+			this.updateMouseDown(e);
+			e.preventDefault();
+		}
+	}
+	Player.prototype._onmouseup = function (e) {
+		this.updateMouseUp(e);
+	}
+	Player.prototype._onmousemove = function (e) {
+		this.updateMouse(e);
+	}
 	Player.prototype.addMenuVerticals = function () {
 		var _this = this;
 		this.MenuVertical = document.createElement('div');
         this.MenuVertical.className = 'watcher-pinkfie-menu-vertical';
+		this.movie_playPause = this._createE('Pause', function () {
+			_this.toggleRunning();
+			_this.MenuVertical.style.display = 'none';
+		});
+		this.MenuVertical.appendChild(this.movie_playPause);
         this.movie_playStop = this._createE('Stop', function () {
 			_this.c_playStop();
+			_this.MenuVertical.style.display = 'none';
 		});
 		this.MenuVertical.appendChild(this.movie_playStop);
 		this.MenuVertical.appendChild(this._createE('View Stats', function () {
 			_this.viewStats();
+			_this.MenuVertical.style.display = 'none';
+		}));
+		this.MenuVertical.appendChild(this._createE('Save Screenshot', function () {
+			_this.saveScreenshot();
+			_this.MenuVertical.style.display = 'none';
+		}));
+		this.MenuVertical.appendChild(this._createE('Download SWF', function () {
+			_this.downloadSwf();
+			_this.MenuVertical.style.display = 'none';
 		}));
 		var rr = this._createE('Settings', function () {
 			_this.showSetting();
+			_this.MenuVertical.style.display = 'none';
 		});
 		this.MenuVertical.appendChild(rr);
-        this.playerStage.appendChild(this.MenuVertical);
+        this.playerContainer.appendChild(this.MenuVertical);
+		this.MenuVertical.style.display = 'none';
 	}
 	Player.prototype.addSettingVerticals = function() {
 		var _this = this;
@@ -7202,7 +8188,7 @@ var PKF = (function() {
 		this.settingVertical.style.position = 'absolute';
 		this.settingVertical.style.top = '0px';
 		this.settingVertical.style.left = '0px';
-		this.settingVertical.style.background = 'rgba(0, 0, 0, 0.75)';
+		this.settingVertical.style.background = 'rgba(0, 0, 0, 0.6)';
 		this.settingVertical.style.width = '100%';
 		this.settingVertical.style.height = '100%';
 		var rrj = document.createElement('div');
@@ -7213,8 +8199,8 @@ var PKF = (function() {
 		rrj.style.left = '50%';
 		rrj.style.padding = '6px';
 		rrj.style.transform = 'translate(-50%, -50%)';
-		rrj.style.background = 'rgba(0, 0, 0, 0.75)';
-		rrj.style.width = '350px';
+		rrj.style.background = 'rgba(0, 0, 0, 0.6)';
+		rrj.style.width = '320px';
 		rrj.style.height = '200px';
 		rrj.innerHTML = '<h3>Settings</h3>';
 		var rrj2 = document.createElement('a');
@@ -7254,12 +8240,11 @@ var PKF = (function() {
 		rrj.appendChild(rrj5);
 		rrj.appendChild(rrj6);
 		this.settingVertical.appendChild(rrj);
-        this.playerStage.appendChild(this.settingVertical);
+        this.playerContainer.appendChild(this.settingVertical);
 	}
 	Player.prototype._createE = function (name, fun) {
         var MVG1 = document.createElement('div');
-        MVG1.innerHTML = name;
-        MVG1.style.color = "#fff";
+        MVG1.textContent = name;
         MVG1.onclick = function() {
         	fun();
         }
@@ -7267,7 +8252,7 @@ var PKF = (function() {
         return MVG1;
 	}
 	Player.prototype.sendList = function (event) {
-		var rect = this.playerStage.getBoundingClientRect();
+		var rect = this.playerContainer.getBoundingClientRect();
 		this.MenuVertical.style = '';
 		this.MenuVertical.style.position = 'absolute';
 		this.MenuVertical.style.top = (event.clientY - rect.top) + 'px';
@@ -7279,15 +8264,55 @@ var PKF = (function() {
 		} else {
 			this.movie_playStop.innerHTML = "Play";
 		}
+		if (this.hasStage() && this.stage.playing) {
+			this.movie_playPause.innerHTML = "Pause";
+		} else {
+			this.movie_playPause.innerHTML = "Resume";
+		}
+	}
+	Player.prototype.getSwfName = function () {
+		var swf = this.stage.swf;
+		return "pinkfie_" + swf.header.compression + "_" + swf.header.version + "_" + swf.header.uncompressedLength + "_fps" + swf.movieInfo.frameRate + "_frames" + swf.movieInfo.numFrames;
+	}
+	Player.prototype.hasStage = function () {
+		return !!this.stage;
+	}
+	Player.prototype.getOptions = function () {
+		return this.options;
+	}
+	Player.prototype.saveScreenshot = function () {
+		if (!this.hasStage()) return;
+		var _movieCanvas = this.stage.canvas;
+		if (this.options.viewBounds) {
+			_movieCanvas = this.stage.debugMovieCanvas;
+		}
+		if (!this.isLoad) return;
+		var j = this.getSwfName();
+		var h = this.scanned.scan(_movieCanvas);
+		var a = document.createElement("a");
+		a.href = h;
+		a.download = j + ".png";
+		a.click();
+	}
+	Player.prototype.downloadSwf = function () {
+		if (!this.hasStage()) return;
+		var j = this.getSwfName();
+		var h = URL.createObjectURL(new Blob([new Uint8Array(this.stage.swfData)]));
+		var a = document.createElement("a");
+		a.href = h;
+		a.download = j + ".swf";
+		a.click();
 	}
 	Player.prototype.isPlayMovie = function() {
-		if (this.stage && this.stage.clip) {
+		if (!this.hasStage()) return false;
+		if (this.stage.clip) {
 			return this.stage.clip.isPlaying;
 		}
 		return false;
 	}
 	Player.prototype.c_playStop = function () {
-		if (this.stage && this.stage.clip) {
+		if (!this.hasStage()) return;
+		if (this.stage.clip) {
 			if (this.isPlayMovie()) {
 				this.stopMovie();
 			} else {
@@ -7297,7 +8322,7 @@ var PKF = (function() {
 	}
 	Player.prototype.setOptions = function (changedOptions) {
 		this.options = Object.assign(Object.assign({}, this.options), changedOptions);
-		if (this.stage) {
+		if (this.hasStage()) {
 			this.applyOptionsToStage();
 		}
 		this._rrj4.value = this.options.volume;
@@ -7324,12 +8349,9 @@ var PKF = (function() {
 			var rect = this.canvas.getBoundingClientRect();
 			var xm = e.clientX - rect.left;
 			var ym = e.clientY - rect.top;
-
 			this.mousePoint[0] = xm;
 			this.mousePoint[1] = ym;
-
 			var rc = this.getRectStage();
-
 			var x = ((xm - rc[0]) / rc[2]);
 			var y = ((ym - rc[1]) / rc[3]);
 			var wx = Math.round(x * this.stage.width);
@@ -7406,20 +8428,41 @@ var PKF = (function() {
 		this.applyOptionsToStage();
 		this.applyResizeStage();
 		this.isLoad = true;
-		this.applyAutoplay(this.options.autoplay);
+		this.applyAutoplayPolicy(this.options.autoplayPolicy);
 		this.onload.emit(stage);
 	}
-	Player.prototype.applyAutoplay = function(policy) {
-		if (policy) {
-			this.stage.start();
-			this._clickToPlay = false;
+	Player.prototype.applyAutoplayPolicy = function(policy) {
+		switch (policy) {
+			case 'always': {
+				this.triggerStartMovie();
+				break;
+			}
+			case 'if-audio-playable': {
+				if (!audioContext || audioContext.state === 'running') {
+					this.triggerStartMovie();
+				} else {
+					this.showClickToPlayContainer();
+				}
+				break;
+			}
+			case 'never': {
+				this.showClickToPlayContainer();
+				break;
+			}
 		}
+    }
+	Player.prototype.triggerStartMovie = function() {
+		this.stage.start();
+		this._clickToPlay = false;
+    }
+	Player.prototype.showClickToPlayContainer = function() {
+		this._clickToPlay = true;
     }
 	Player.prototype.applyResizeStage = function() {
 		if (this.stage) {
 			var scaleW = this.width / this.stage.width;
 			var scaleH = this.height / this.stage.height;
-			var scale = (Math.min(Math.abs(scaleW), Math.abs(scaleH)));
+			var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
 			this.stage.resize(scale);
 		}
     }
@@ -7440,7 +8483,7 @@ var PKF = (function() {
 		}
     }
     Player.prototype.tick = function() {
-		this.tickTime += TIMER_TICK_SPEED;
+		this.tickTime += 10;
 		if (this.isLoad) {
 			this.stage.timer.update(Date.now());
 			this.stage.tick();
@@ -7454,18 +8497,18 @@ var PKF = (function() {
 		this.setOptions({volume: val});
 	}
 	Player.prototype.resume = function() {
-		if (this.stage) {
+		if (this.hasStage()) {
 			this._clickToPlay = false;
 			this.stage.resume();
 		}
 	}
 	Player.prototype.pause = function() {
-		if (this.stage) {
+		if (this.hasStage()) {
 			this.stage.pause();
 		}
 	}
 	Player.prototype.toggleRunning = function() {
-		if (this.stage) {
+		if (this.hasStage()) {
 			if (this.stage.playing) {
 				this.pause();
 			} else {
@@ -7474,29 +8517,20 @@ var PKF = (function() {
 		}
 	}
 	Player.prototype.getRectStage = function() {
-		if (this.stage) {
+		if (this.hasStage()) {
 			var _movieCanvas = this.stage.canvas;
 			var w, h;
 			var x = 0, y = 0;
 			var __Width = this.width;
 			var __Height = this.height;
-			if (this.m_resin || ((_movieCanvas.width > __Width) || (_movieCanvas.height > __Height))) {
-				if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
-					w = (_movieCanvas.width * (__Height / _movieCanvas.height));
-					h = (_movieCanvas.height * (__Height / _movieCanvas.height));
-					x = (__Width - w) / 2;
-				} else {
-					w = (_movieCanvas.width * (__Width / _movieCanvas.width));
-					h = (_movieCanvas.height * (__Width / _movieCanvas.width));
-					y = (__Height - h) / 2;
-				}
+			if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+				w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+				h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+				x = (__Width - w) / 2;
 			} else {
-				w = (_movieCanvas.width);
-				h = (_movieCanvas.height);
-				x = (__Width / 2);
-				y = (__Height / 2);
-				x -= (w / 2);
-				y -= (h / 2);
+				w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+				h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+				y = (__Height - h) / 2;
 			}
 			return [x, y, w, h];
 		} else {
@@ -7522,9 +8556,9 @@ var PKF = (function() {
 				this.ctx.fillRect(x, y, w, h);
 				this.ctx.imageSmoothingEnabled = false;
 				if (this.options.viewBounds) {
-					this.ctx.drawImage(_movieDebugCanvas, x, y, w, h);
+					this.ctx.drawImage(_movieDebugCanvas, x, y);
 				} else {
-					this.ctx.drawImage(_movieCanvas, x, y, w, h);
+					this.ctx.drawImage(_movieCanvas, x, y);
 				}
 				var rrgg = (this._o > this.tickTime);
 				var XG = x;
@@ -7570,6 +8604,7 @@ var PKF = (function() {
     }
 	Player.prototype.cleanup = function() {
 		this._clickToPlay = true;
+		this.loaded = 0;
 		this.isLoad = false;
 		this.settingVertical.style.display = 'none';
 		if (this.currentLoader) {
@@ -7590,17 +8625,25 @@ var PKF = (function() {
 		this.ctx.restore();
 		this.renderLogo((this.canvas.width / 2), (this.canvas.height / 2) - 20);
 		this.ctx.save();
-		this.ctx.beginPath();
+
 		this.ctx.lineWidth = 5;
 		this.ctx.lineCap = "round";
+
+		this.ctx.beginPath();
 		this.ctx.strokeStyle = "#000";
 		this.ctx.arc((this.canvas.width / 2), (this.canvas.height / 2) + 50, 20, 0 * (Math.PI / 180), 360 * (Math.PI / 180));
 		this.ctx.stroke();
+
 		this.ctx.beginPath();
 		this.ctx.strokeStyle = "#fff";
 		this.ctx.arc((this.canvas.width / 2), (this.canvas.height / 2) + 50, 20, -90 * (Math.PI / 180), (r - 90) * (Math.PI / 180));
 		this.ctx.stroke();
+
 		this.ctx.restore();
+		this.ctx.fillStyle = "#000";
+		this.ctx.font = "10px Arial";
+		this.ctx.textAlign = "center";
+		this.ctx.fillText("(C) 2024, THandPEPeerTDP", this.width / 2, this.height - 5);
 	}
     Player.prototype.renderLogo = function(x, y) {
 		this.ctx.save();
@@ -7682,12 +8725,15 @@ var PKF = (function() {
 		this.ctx.restore();
     }
 	Player.DEFAULT_OPTIONS = {
-		autoplay: false,
+		autoplayPolicy: 'always',
 		volume: 100,
 		viewBounds: false
 	};
     return {
         Player,
-	SwfParser
+		SwfParser,
+		audioContext,
+		ActionParser,
+		AbcParser
     }
 }());
