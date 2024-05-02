@@ -44,6 +44,8 @@
 			<a href="#" id="closeswffile">Close</a>
 			<label id="ggtitle5" style="margin: 3px;"></label>
 			<a href="#" id="takeautoplayswf">AutoPlay: On</a>
+			<a href="#" id="takeautoplayswf2">Play/Pause</a>
+			<a href="#" id="takeautoplayswf3">Settings</a>
 			<div>
 				<label style="margin: 4px;">volume:</label>
 				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
@@ -78,6 +80,8 @@
 				var closeswffile = document.getElementById('closeswffile');
 
 				var takeautoplayswf = document.getElementById('takeautoplayswf');
+				var takeautoplayswf2 = document.getElementById('takeautoplayswf2');
+				var takeautoplayswf3 = document.getElementById('takeautoplayswf3');
 
 				var pkfcontrols = document.getElementById('pkfcontrols');
 
@@ -92,19 +96,19 @@
 				}
 				function _resize_() {
 					pkfcontrols.style.width = window.innerWidth + "px";
-					if (screen.width == window.innerWidth &&  screen.height == window.innerHeight) {
+					pkfcontrols.style.display = '';
+					player.resize(window.innerWidth, window.innerHeight - minHH);
+					/*if (screen.width == window.innerWidth &&  screen.height == window.innerHeight) {
 						pkfcontrols.style.display = 'none';
 						player.resize(window.innerWidth, window.innerHeight);
 					} else {
-						pkfcontrols.style.display = '';
-						player.resize(window.innerWidth, window.innerHeight - minHH);
-					}
+					}*/
 				}
 				window.addEventListener("resize", _resize_);
 				_resize_();
 
 				function loadSwfFile(file) {
-					ggtitle5.textContent = file.name || "";
+					ggtitle5.textContent = "";
 					TSProgress(0);
 					player.loadSwfFromFile(file);
 				}
@@ -159,7 +163,6 @@
 				drop_zone.ondragover = dragOverHandler;
 
 				takeautoplayswf.onclick = function () {
-					console.log();
 
 					var optip = player.getOptions();
 					var rrgh = (optip.autoplayPolicy == "never") ? "always" : "never";
@@ -173,6 +176,12 @@
 					player.setOptions({
 						autoplayPolicy: rrgh
 					});
+				}
+				takeautoplayswf2.onclick = function() {
+					player.toggleRunning();
+				}
+				takeautoplayswf3.onclick = function() {
+					player.showSetting();
 				}
 
 				var bb = new Uint8Array(window.pinkfieLogoSWFData);

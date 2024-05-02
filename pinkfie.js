@@ -13,17 +13,13 @@ OOO        OOO   OOO       OOOO   OOO     OOO  OOO        OOO   OOOOOOOOOO
 
 Pinkfie - an html5 player for Movie SWF
 
-Version: 1.1 30/04/2024
+Version: 1.1 2/05/2024
 
 Made in the Peru
 
-(C) 2022-2024 Anim-Tred.
-
-files
-swf/swfparser.js
-
+(c) 2022-2024 Anim-Tred-Studio.
 */
-console
+
 var PKF = (function() {
 	const audioContext = new AudioContext();
 	function getDuraction(num) {
@@ -6249,8 +6245,8 @@ var PKF = (function() {
 		this.stage = stage;
 		this.characterId = data.id;
 	}
-	DefineVideoData.prototype.instantiate = function(stage, data) {
-		
+	DefineVideoData.prototype.instantiate = function() {
+		return new DisplayObject();
 	}
 	const SoundData = function(stage, data) {
 		this.stage = stage;
@@ -6308,7 +6304,7 @@ var PKF = (function() {
 	}
 	Avm1Activation.prototype.doAction = function(aScript) {
 		var actionCode = aScript.opcode;
-		var actionFunc = actionLibrary[actionCode];
+		var actionFunc = Avm1Activation.actionLibrary[actionCode];
 		actionFunc(this, aScript);
 	}
 	const actionLibrary = Avm1Activation.actionLibrary;
@@ -6867,7 +6863,9 @@ var PKF = (function() {
 		return i;
 	}
 	SoundDecoder.prototype.decodeADPCM = function(buffer, channels, pos_buffer) {
-		let adpcmCodeSize = this.byteStream.getUIBits(2);
+		var byteStream = this.byteStream;
+
+		let adpcmCodeSize = byteStream.getUIBits(2);
 
 		let bits_per_sample = (adpcmCodeSize + 2);
 		var _pos_buffer = pos_buffer || 0;
@@ -6882,31 +6880,29 @@ var PKF = (function() {
 		var _channels = [{}, {}];
 
 		let sign_mask = (1 << (bits_per_sample - 1));
+
+		var isEnd = false;
 		
-		while(this.byteStream.getBytesAvailable() > 1) {
+		while(!isEnd) {
 			// The initial sample values are NOT byte-aligned.
 			for (let i = 0; i < num_channels; i++) {
 				const ch = _channels[i];
-				ch.sample = toInt16(this.byteStream.getUIBits(16));
-				ch.stepIndex = this.byteStream.getUIBits(6);
+				ch.sample = toInt16(byteStream.getUIBits(16));
+				ch.stepIndex = byteStream.getUIBits(6);
 			}
-			
-			var __left = _channels[0].sample;
-			var __right = _channels[1].sample;
-			_left[_pos_buffer] = __left / 0x7fff;
-			if (num_channels == 2) {
-				_right[_pos_buffer] = __right / 0x7fff;
-			}
-			_pos_buffer += 1;
 
 			for (let i3 = 0; i3 < 4095; i3++) {
-				if (this.byteStream.getBytesAvailable() <= 1) {
+				if ((byteStream.getBytesAvailable() <= 1) && (byteStream.bit_offset >= (8 - bits_per_sample))) {
+					isEnd = true;
 					break;
 				}
 				for (let i2 = 0; i2 < num_channels; i2++) {
+					if ((byteStream.getBytesAvailable() <= 1) && (byteStream.bit_offset >= (8 - bits_per_sample))) {
+						break;
+					}
 					const ch = _channels[i2];
 					let step = SoundDecoder.STEP_TABLE[ch.stepIndex];
-					let data = this.byteStream.getUIBits(bits_per_sample);
+					let data = byteStream.getUIBits(bits_per_sample);
 					let magnitude = (data & (sign_mask - 1)); // TODO
 					
 					// (data + 0.5) * step / 2^(bits_per_sample - 2)
@@ -6933,15 +6929,14 @@ var PKF = (function() {
 					if (ch.stepIndex < 0) {
 						ch.stepIndex = 0;
 					}
-					
-					var __left = _channels[0].sample;
-					var __right = _channels[1].sample;
-					_left[_pos_buffer] = __left / 0x7fff;
-					if (num_channels == 2) {
-						_right[_pos_buffer] = __right / 0x7fff;
-					}
-					_pos_buffer += 1;
 				}
+				var __left = _channels[0].sample;
+				var __right = _channels[1].sample;
+				_left[_pos_buffer] = __left / 0x8000;
+				if (num_channels == 2) {
+					_right[_pos_buffer] = __right / 0x8000;
+				}
+				_pos_buffer += 1;
 			}
 		}
 		return _pos_buffer;
@@ -6962,9 +6957,11 @@ var PKF = (function() {
 		var streamInfo = this.streamInfo;
 		var blocks = this.blocks;
 
-		var isMP3 = (streamInfo.stream.compression == "MP3");
+		var streamStream = streamInfo.stream;
+		var streamPlayback = streamInfo.playback;
 
-		var idlimit = (streamInfo.stream.compression == "MP3") ? 4 : 0;
+		var isMP3 = (streamStream.compression == "MP3");
+		var idlimit = isMP3 ? 4 : 0;
 
 		var gg1 = 0;
 		for (var i = 0; i < blocks.length; i++) {
@@ -6986,7 +6983,7 @@ var PKF = (function() {
 		var compressed = gg.buffer;
 		if (compressed.byteLength > 0) {
 			this.data = compressed;
-			this.formatInfo = streamInfo.stream;
+			this.formatInfo = streamStream;
 			this.numSamples = blocks.length * streamInfo.samplePerBlock; // TODO
 			var channels = (this.formatInfo.isStereo ? 2 : 1);
 			this.byteStream = new ByteStream(this.data);
@@ -7010,8 +7007,8 @@ var PKF = (function() {
 				});
 				return;
 			}
-			var buffer = audioContext.createBuffer(channels, this.numSamples, this.formatInfo.sampleRate);
-			this.decodeStreamFormat(this.formatInfo.compression, buffer, channels, blocks);
+			var buffer = audioContext.createBuffer(channels, this.numSamples, streamStream.sampleRate);
+			this.decodeStreamFormat(streamStream.compression, buffer, channels, blocks);
 			if (this.onload) {
 				this.onload({
 					buffer,
@@ -7069,6 +7066,18 @@ var PKF = (function() {
 		this.playingSoundStreams = [];
 		this.tickTime = 0;
     }
+	AudioBackend.prototype._createPan = function(input) {
+		var inputNode = audioContext.createGain();
+		var leftGain = audioContext.createGain();
+		var rightGain = audioContext.createGain();
+		var channelMerger = audioContext.createChannelMerger(2);
+		inputNode.connect(leftGain);
+		inputNode.connect(rightGain);
+		leftGain.connect(channelMerger, 0, 0);
+		rightGain.connect(channelMerger, 0, 1);
+		channelMerger.connect(input);
+		return {inputNode, leftGain, rightGain};
+	}
 	AudioBackend.prototype.cleanup = function() {
 		this.stopAll(true);
 		this.stopAllSoundStream();
@@ -7090,12 +7099,38 @@ var PKF = (function() {
 		for (let i = 0; i < this.playingAudios.length; i++) {
 			const playingaudio = this.playingAudios[i];
 			if (!playingaudio.ended) {
-				if ((this.tickTime - playingaudio.startTime) > (playingaudio.duration * 1000)) {
+				var SGFtime = (this.tickTime - playingaudio.startTime) / 1000;
+				var SGFtime2 = (this.tickTime - playingaudio.startTimeOriginal) / 1000;
+				if (playingaudio.stateEnvelopeSound) {
+					var envelopes = playingaudio._envelopes;
+					var nodeLR = playingaudio.nodeLR;
+					if (playingaudio.envelopeId < envelopes.length) {
+						var rs = envelopes[playingaudio.envelopeId];
+						var rs2 = envelopes[playingaudio.envelopeId - 1];
+						if (rs2) {
+							const per = Math.max(Math.min(((SGFtime2 * playingaudio.__rate) - rs2.sample) / (rs.sample - rs2.sample), 1), 0);
+							const startPer = 1 - per;
+							const leftVal = ((rs2.leftVolume * startPer) + (rs.leftVolume * per)) / 32768;
+							const rightVal = ((rs2.rightVolume * startPer) + (rs.rightVolume * per)) / 32768;
+							nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
+							nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
+						}
+						if (SGFtime2 >= rs.sample / playingaudio.__rate) {
+							const leftVal = rs.leftVolume / 32768;
+							const rightVal = rs.rightVolume / 32768;
+							nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
+							nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
+							playingaudio.envelopeId++;
+						}
+					}
+				}
+				if ((SGFtime + playingaudio.__startSound) > playingaudio.__endSound) {
+					playingaudio.numLoops--;
 					if (playingaudio.numLoops > 0) {
-						playingaudio.numLoops--;
 						this.playSource(playingaudio);
 						playingaudio.startTime = this.tickTime;
 					} else {
+						playingaudio.stateEnvelopeSound = false;
 						this.stopSound(playingaudio);
 					}
 				}
@@ -7127,6 +7162,7 @@ var PKF = (function() {
 		this.playingSoundStreams = newTags2;
 	}
 	AudioBackend.prototype.startSound = function(soundinfo, mc) {
+		//console.log(soundinfo);
 		var sound = this.getSound(soundinfo.id);
 		if (!sound) {
 			console.log("missing: " + soundinfo.id);
@@ -7185,23 +7221,57 @@ var PKF = (function() {
 	AudioBackend.prototype.playSound = function(sud, soundinfo, mc) {
 		var sound = {};
 		var audio = sud.audio;
+
+		var __info = soundinfo.info;
+		var sampleRate = sud.format.sampleRate;
 		
 		sound.buffer = audio.getBuffer();;
 		sound.mc = mc;
 		sound.id = sud.id;
 
-		let duration = (sud.numSamples / sud.format.sampleRate);
-		let seekTime = (audio.seekSample / sud.format.sampleRate);
+		let duration = (sud.numSamples / sampleRate);
+		let seekTime = (audio.seekSample / sampleRate);
 
-		sound.__start = seekTime;
+		var nodeLR = this._createPan(this.node);
+		sound.nodeLR = nodeLR;
+
 		sound.duration = duration;
-		this.playSource(sound);
-		if ("numLoops" in soundinfo.info) {
-			sound.numLoops = soundinfo.info.numLoops - 1;
+		sound.__start = seekTime;
+		sound.__rate = 44100;
+
+		if ("numLoops" in __info) {
+			sound.numLoops = __info.numLoops;
 		} else {
-			sound.numLoops = 0;
+			sound.numLoops = 1;
+		}
+		if ("inSample" in __info) {
+			sound.__startSound = (__info.inSample / sound.__rate);
+		} else {
+			sound.__startSound = 0;
+		}
+		if ("outSample" in __info) {
+			sound.__endSound = (__info.outSample / sound.__rate);
+		} else {
+			sound.__endSound = duration;
+		}
+		if ("envelope" in __info) {
+			sound.stateEnvelopeSound = true;
+			sound.envelopeId = 0;
+			var envelopes =  __info.envelope;
+			var rs = envelopes[0];
+			if (rs) {
+				const leftVal = rs.leftVolume / 32768;
+				const rightVal = rs.rightVolume / 32768;
+				nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
+				nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
+			}
+			sound._envelopes = envelopes;
+		} else {
+			sound.stateEnvelopeSound = false;
 		}
 		sound.startTime = this.tickTime;
+		sound.startTimeOriginal = this.tickTime;
+		this.playSource(sound);
 		return sound;
 	}
 	AudioBackend.prototype.playSource = function(sound) {
@@ -7211,8 +7281,12 @@ var PKF = (function() {
 		}
 		sound.source = audioContext.createBufferSource();
 		sound.source.buffer = sound.buffer;
-		sound.source.connect(this.node);
-		sound.source.start(audioContext.currentTime, sound.__start);
+		if (sound.nodeLR) {
+			sound.source.connect(sound.nodeLR.inputNode);
+		} else {
+			sound.source.connect(this.node);
+		}
+		sound.source.start(audioContext.currentTime, (sound.__start + (sound.__startSound || 0)));
 	}
 	AudioBackend.prototype.decodeSound = function(sound, callback) {
 		// info.format.is16Bit
@@ -7265,6 +7339,7 @@ var PKF = (function() {
 			case character instanceof TextData:
 			case character instanceof ButtonData:
 			case character instanceof EditTextData:
+			case character instanceof DefineVideoData:
 				return character.instantiate();
 			default:
 				console.log("Not a DisplayObject");
@@ -7553,6 +7628,7 @@ var PKF = (function() {
 		var context = this.context;
 		while (context.actionQueue.length) {
 			var actionInfo = context.popAction();
+			//console.log(actionInfo);
 		}
     }
 	Stage.prototype.resize = function(scale) {
@@ -8122,9 +8198,15 @@ var PKF = (function() {
 		this._onmousedown = this._onmousedown.bind(this);
 		this._onmouseup = this._onmouseup.bind(this);
 		this._onmousemove = this._onmousemove.bind(this);
+		this._ontouchstart = this._ontouchstart.bind(this);
+		this._ontouchend = this._ontouchend.bind(this);
+		this._ontouchmove = this._ontouchmove.bind(this);
 		document.addEventListener('mousedown', this._onmousedown);
 		document.addEventListener('mouseup', this._onmouseup);
 		document.addEventListener('mousemove', this._onmousemove);
+		document.addEventListener('touchstart', this._ontouchstart, { passive: false });
+		document.addEventListener('touchend', this._ontouchend);
+		document.addEventListener('touchmove', this._ontouchmove);
 		document.addEventListener('contextmenu', function(e) {
 			if (e.target === _this.canvas) {
 				e.preventDefault();
@@ -8141,9 +8223,33 @@ var PKF = (function() {
 	}
 	Player.prototype._onmouseup = function (e) {
 		this.updateMouseUp(e);
+		if (e.target === this.canvas) e.preventDefault();
 	}
 	Player.prototype._onmousemove = function (e) {
 		this.updateMouse(e);
+		if (e.target === this.canvas) e.preventDefault();
+	}
+	Player.prototype._ontouchstart = function (e) {
+		for (var i = 0; i < e.changedTouches.length; i++) {
+			const t = e.changedTouches[i];
+			this.updateMouseDown(t);
+		}
+		if (e.target === this.canvas) {
+			this.MenuVertical.style.display = 'none';
+			e.preventDefault();
+		}
+	}
+	Player.prototype._ontouchend = function (e) {
+		for (var i = 0; i < e.changedTouches.length; i++) {
+			const t = e.changedTouches[i];
+			this.updateMouseUp(t);
+		}
+	}
+	Player.prototype._ontouchmove = function (e) {
+		for (var i = 0; i < e.changedTouches.length; i++) {
+			const t = e.changedTouches[i];
+			this.updateMouse(t);
+		}
 	}
 	Player.prototype.addMenuVerticals = function () {
 		var _this = this;

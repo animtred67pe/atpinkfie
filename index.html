@@ -24,7 +24,7 @@
 		  <a href="#" class="switch-theme">switch theme</a>
 		</div>
 		<div class="app">
-			<h1>PinkFie v1.1</h1>
+			<h1>PinkFie</h1>
 			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open Swf</a>
 			<a href="#" id="ssag2">Close</a>
@@ -33,6 +33,7 @@
 			<div id="pinkfiestage" style="display: none;">
 				<div id="pinkfie-player"></div>
 				<a href="#" id="viewbbb2">Play/Pause</a>
+				<a href="#" id="viewbbb3">Settings</a>
 				<label>volume:</label>
 				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
 				<br>
@@ -46,7 +47,7 @@
 					<li><a href="about.html">About</a></li>
 				</ul>
 			</div>
-			<p style="color: #999999;">(C) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">THandPEPeerTDP</a></p>
+			<p style="color: #999999;">(c) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">THandPEPeerTDP</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
@@ -71,6 +72,7 @@
 				var pinkfiestage = document.getElementById('pinkfiestage');
 
 				var viewbbb2 = document.getElementById('viewbbb2');
+				var viewbbb3 = document.getElementById('viewbbb3');
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfie-player');
 
@@ -100,6 +102,9 @@
 
 				viewbbb2.onclick = function () {
 					player.toggleRunning();
+				}
+				viewbbb3.onclick = function () {
+					player.showSetting();
 				}
 				ssag2.onclick = function () {
 					pinkfiemenu.style.display = "";
