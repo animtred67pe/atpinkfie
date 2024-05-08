@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>PinkFie - Swf Preview</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+        <style>
+			body {
+				font-family: monospace;
+			}
+			.app {
+				width: 640px;
+				margin: auto;
+				color: #000000;
+			}
+            .pinkfie-stage{
+                width: 640px;
+            }
+			#soundimage {
+				width: 640px;
+				height: 320px;
+				border: 2px solid #ccc;
+				overflow: auto;
+			}
+			#shapes {
+				width: 640px;
+				height: 320px;
+				border: 2px solid #ccc;
+				overflow: auto;
+			}
+			.shapeat {
+				margin: 5px;
+				width: 100px;
+				height: 110px;
+				border: 2px solid;
+				padding: 5px;
+				float: left;
+			}
+			.shapeat canvas {
+				padding: 5px;
+				margin: 0;
+				text-align: center;
+			}
+			.shapeat p {
+				margin: 0;
+				text-align: center;
+			}
+        </style>
+	</head>
+	<body>
+		<a href="./" style="position: fixed; top: 4px; left: 4px;">back</a>
+		<div class="app">
+			<h1>SWF Preview</h1>
+			<p>The Flash Reader in Javascript, is still in development.</p>
+			<a href="#" id="loadswffile">Open Swf</a>
+			<div id="pinkfie-player"></div>
+			<h3>Sounds</h3>
+			<div id="soundimage"></div>
+			<h3>Shapes</h3>
+			<div id="shapes"></div>
+			<h3>MorphShapes</h3>
+			<h3>Bitmaps</h3>
+			<h3>Fonts</h3>
+		</div>
+		<script src="pinkfie.js"></script>
+		<script>
+			var player = new PKF.Player();
+
+			function _executeCmdCtx2dPath(ctx, cmd) {
+				for (let i = 0; i < cmd.length; i++) {
+					const cmm = cmd[i];
+					if (cmm[0] == 0) {
+						ctx.moveTo(cmm[1], cmm[2]);
+					} else if (cmm[0] == 1) {
+						ctx.quadraticCurveTo(cmm[1], cmm[2], cmm[3], cmm[4]);
+					} else if (cmm[0] == 2) {
+						ctx.lineTo(cmm[1], cmm[2]);
+					}
+				}
+			}
+
+			var linearGradientXY = function(m) {
+				var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
+				var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
+				var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
+				var y0 = -16384 * m[1] - 16384 * m[3] + m[5];
+				var y1 =  16384 * m[1] - 16384 * m[3] + m[5];
+				var y2 = -16384 * m[1] + 16384 * m[3] + m[5];
+				var vx2 = x2 - x0;
+				var vy2 = y2 - y0;
+				var r1 = Math.sqrt(vx2 * vx2 + vy2 * vy2);
+				vx2 /= r1;
+				vy2 /= r1;
+				var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
+				return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
+			}
+
+            const SoundPlayer = function (audioContext) {
+                this.isPaused = true;
+                this.audioContext = audioContext;
+                this.node = this.audioContext.createGain();
+                this.node.connect(this.audioContext.destination);
+                this.startTime = Date.now();
+                this.duration = 0;
+                this.currentTime = 0;
+                this.buffer = null;
+                this.onended = null;
+                this.playingSource = null;
+                this.isLoad = false;
+                this.loadingLoaded = 0;
+                this._p = 0;
+                setInterval(this.step.bind(this), 20);
+            }
+            SoundPlayer.prototype.cleanup = function() {
+                this.stopSource();
+                this.currentTime = 0;
+                this.setStartTime(this.currentTime);
+                this.duration = 0;
+                this.isPaused = true;
+                this.isLoad = false;
+            };
+            SoundPlayer.prototype.setCurrentTime = function(time) {
+                this.currentTime = time;
+                this.setStartTime(time);
+                if (!this.isPaused) {
+                    this.playSource(this.currentTime);
+                }
+            };
+            SoundPlayer.prototype.setVolume = function(v) {
+                this.node.gain.value = v;
+            };
+            SoundPlayer.prototype.getVolume = function() {
+                return this.node.gain.value;
+            };
+            SoundPlayer.prototype.setStartTime = function(time) {
+                this.startTime = (Date.now() - (time * 1000));
+            };
+            SoundPlayer.prototype.getTime = function() {
+                return (Date.now() - this.startTime) / 1000;
+            };
+            SoundPlayer.prototype.play = function() {
+                if (!this.isLoad) return;
+                this.isPaused = false;
+                this.setStartTime(this.currentTime);
+                if (this.currentTime >= this.duration) {
+                    this.currentTime = 0;
+                    this.setStartTime(0);
+                }
+                this.playSource(this.currentTime);
+            };
+            SoundPlayer.prototype.stop = function() {
+                this.isPaused = true;
+                this.currentTime = 0;
+                this.setStartTime(0);
+                this.stopSource();
+            };
+            SoundPlayer.prototype.pause = function() {
+                if (!this.isLoad) return;
+                this.isPaused = true;
+                this.setStartTime(this.currentTime);
+                this.stopSource();
+            };
+            SoundPlayer.prototype.playSource = function(time) {
+                this._p = Date.now();
+                this.stopSource();
+                this.playingSource = this.audioContext.createBufferSource();
+                this.playingSource.buffer = this.buffer;
+                this.playingSource.connect(this.node);
+                this.playingSource.start(this.audioContext.currentTime, time);
+            };
+            SoundPlayer.prototype.stopSource = function() {
+                if (this.playingSource) {
+                    this.playingSource.disconnect();
+                    this.playingSource = null;
+                }
+            };
+            SoundPlayer.prototype.step = function() {
+                if (this.currentTime > this.duration && !this.isPaused) {
+                    this.stopSource();
+                    this.currentTime = this.duration;
+                    this.setStartTime(this.duration);
+                    this.isPaused = true;
+                    if (this.onended) this.onended();
+                }
+                if (!this.isPaused && this.loadingLoaded == 0) {
+                    this.currentTime = Math.round((Date.now() - this.startTime)) / 1000;
+                }
+            };
+            SoundPlayer.prototype.setBuffer = function(buffer) {
+                var _this = this;
+                _this.cleanup();
+                this.buffer = buffer;
+                this.duration = this.buffer.duration;
+                this.isLoad = true;
+            };
+
+            function mod(x, y) {
+				var r = x % y;
+				if (r / y < 0) {
+				r += y;
+				}
+				return r; 
+			};
+			function getDuraction(num) {
+				var txt = '';
+				if (Math.floor(num) > 3599) {
+					txt += '' + Math.floor(num / 3600);
+					txt += ':';
+					if (mod(Math.floor(num / 60), 60) > 9) {
+						txt += '' + mod(Math.floor(num / 60), 60);
+					} else {
+						txt += '0' + mod(Math.floor(num / 60), 60);
+					}
+					txt += ':';
+					if (mod(Math.floor(num), 60) > 9) {
+						txt += '' + mod(Math.floor(num), 60);
+					} else {
+						txt += '0' + mod(Math.floor(num), 60);
+					}
+				} else {
+					txt += '' + mod(Math.floor(num / 60), 60);
+					txt += ':';
+					if (mod(Math.floor(num), 60) > 9) {
+						txt += '' + mod(Math.floor(num), 60);
+					} else {
+						txt += '0' + mod(Math.floor(num), 60);
+					}
+				}
+				return txt;
+			}
+			function _createImage(url) {
+				const img = new Image;
+				img.src = url;
+				return img;
+			}
+			function mod(x, y) {
+				var r = x % y;
+				if (r / y < 0) {
+				r += y;
+				}
+				return r; 
+			};
+			function z_dir(dx,dy) {
+				return Math.sqrt((dx * dx) + (dy * dy));
+			}
+			function cosiLINE(x, y, width, r, tx, ty) {
+				return (tx > (x - r)) && (tx < ((x + width) + r)) && (ty > (y - r)) && (ty < (y + r));
+			}
+			function GGint8(data, pos, cc) {
+				var fixval = (cc | 0) % 0x100;
+				data[pos] = fixval;
+			}
+			function GGint16(data, pos, cc) {
+				var fixval = (cc | 0) % 0x10000;
+				data[pos] = fixval % 256;
+				data[pos + 1] = Math.floor(fixval / 256);
+			}
+			function GGint32(data, pos, cc) {
+				var fixval = (cc | 0) % 0x100000000;
+				data[pos] = fixval % 256;
+				data[pos + 1] = Math.floor(fixval / 256);
+				data[pos + 2] = Math.floor(fixval / 0x10000);
+				data[pos + 3] = Math.floor(fixval / 0x1000000);
+			}
+			function Grint16(data, pos) {
+				var val = (data[pos] + (data[pos + 1] * 256));
+				return (val > 32767) ? (val - 0x10000) : val;
+			}
+			var ATPlayer = function () {
+				this._player = new SoundPlayer(PKF.audioContext);
+				this._player.setVolume(1);
+				this.volumeimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzNy43NjMzOSIgaGVpZ2h0PSIzOS43ODMiIHZpZXdCb3g9IjAsMCwzNy43NjMzOSwzOS43ODMiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMjIuMzc4OTYsLTE2MC41NTQyMikiPjxnIGRhdGEtcGFwZXItZGF0YT0ieyZxdW90O2lzUGFpbnRpbmdMYXllciZxdW90Ozp0cnVlfSIgZmlsbD0iIzAwMDAwMCIgZmlsbC1ydWxlPSJub256ZXJvIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMCIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiLz48cGF0aCBkPSJNMjQxLjM1MjMyLDE4OS42MDk2MnYtMTguNDE4OTdjMCwwIDguMTQ5OTksMC43ODAwNSA4LjE0OTk5LDguNjM4OTljMCw5LjM1MjkyIC04LjE0OTk5LDkuNzc5OTkgLTguMTQ5OTksOS43Nzk5OXoiLz48cGF0aCBkPSJNMjQxLjc2NjcyLDIwMC4zMzcyMWMwLDAgMC4xMTcsLTUuMjc3MyAwLjExNywtNS4yNzczYzAsMCAxMy4wMjEsLTMuMjUzNDkgMTMuNDEwODksLTE0LjYxNDJjMC40MTg1MywtMTIuMTk1MjMgLTEzLjY1OTQ0LC0xNC45MDU5NyAtMTMuNjU5NDQsLTE0LjkwNTk3bDAuMTMxNTUsLTQuOTg1NTNjMCwwIDE4LjA2MjAzLDAuMTUxMTUgMTguMzcxMjYsMTguOTI0NTVjMC4zMzIwMiwyMC4xNTY1MiAtMTguMzcxMjYsMjAuODU4NDUgLTE4LjM3MTI2LDIwLjg1ODQ1eiIvPjwvZz48L2c+PC9zdmc+');
+				this.volumeoffimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSI0MSIgaGVpZ2h0PSI0MSIgdmlld0JveD0iMCwwLDQxLDQxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjE5LjUsLTE1OS41KSI+PGcgZGF0YS1wYXBlci1kYXRhPSJ7JnF1b3Q7aXNQYWludGluZ0xheWVyJnF1b3Q7OnRydWV9IiBmaWxsLXJ1bGU9Im5vbnplcm8iIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yNDEuMzUyMzIsMTg5LjYwOTYydi0xOC40MTg5N2MwLDAgOC4xNDk5OSwwLjc4MDA1IDguMTQ5OTksOC42Mzg5OWMwLDkuMzUyOTIgLTguMTQ5OTksOS43Nzk5OSAtOC4xNDk5OSw5Ljc3OTk5eiIgZmlsbD0iIzAwMDAwMCIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjAiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTI0MS43NjY3MiwyMDAuMzM3MjFsMC4xMTcsLTUuMjc3M2MwLDAgMTMuMDIxLC0zLjI1MzQ5IDEzLjQxMDg5LC0xNC42MTQyYzAuNDE4NTMsLTEyLjE5NTIzIC0xMy42NTk0NCwtMTQuOTA1OTcgLTEzLjY1OTQ0LC0xNC45MDU5N2wwLjEzMTU1LC00Ljk4NTUzYzAsMCAxOC4wNjIwMywwLjE1MTE1IDE4LjM3MTI2LDE4LjkyNDU1YzAuMzMyMDIsMjAuMTU2NTIgLTE4LjM3MTI2LDIwLjg1ODQ1IC0xOC4zNzEyNiwyMC44NTg0NXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yMjIuNSwxNjIuNWwzNSwzNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwMDAwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvZz48L2c+PC9zdmc+');
+		    	this.mousePressed = false;
+		    	this.loop = false;
+		    	this.autoPlay = false;
+		    	this.mouseX = 0;
+		    	this.mouseY = 0;
+    			this.ToPlayAudio = 0;
+    			this.ToVolume = 0;
+				this.canvas = document.createElement('canvas');
+				this.ctx = this.canvas.getContext('2d');
+		        this.interval = null;
+		        this.variableNotUse = {"mouseDown":false};
+			}
+			ATPlayer.prototype.init = function(dix) {
+				var _this = this;
+				dix.appendChild(this.canvas);
+				this.canvas.onmousedown = function (e) {
+					_this.mousePressed = true;
+                    e.preventDefault();
+				}
+				this.canvas.onmouseup = function (e) {
+					_this.mousePressed = false;
+                    e.preventDefault();
+				}
+				this.canvas.onclick = function (e) {
+					if (z_dir(25 - _this.mouseX, 25 - _this.mouseY) < 12) {
+						if (_this._player.isPaused) {
+							_this._player.play();
+						} else {
+							_this._player.pause();
+						}
+					}
+                    e.preventDefault();
+				}
+				document.addEventListener("mousemove", function(e) {
+					var df = _this.canvas.getBoundingClientRect();
+					_this.mouseX = e.clientX - df.left;
+					_this.mouseY = e.clientY - df.top;
+				});
+				this.canvas.oncontextmenu = function (e) {
+                    _this.downloadWAV();
+                    e.preventDefault();
+				}
+				this.canvas.width = 300;
+				this.canvas.height = 50;
+				this.interval = setInterval(this.step.bind(this), 5);
+			};
+			ATPlayer.prototype.unload = function() {
+
+			}
+            ATPlayer.prototype.downloadWAV = function() {
+                var _buffer = this._player.buffer;
+				var rate = _buffer.sampleRate;
+                var ___sampleCount = _buffer.length;
+				var sampleCount = ___sampleCount;
+				var wavData = new Uint8Array(36 + (8 + (2 * sampleCount)));
+				wavData[0] = 82;
+				wavData[1] = 73;
+				wavData[2] = 70;
+				wavData[3] = 70;
+				GGint32(wavData, 4, (2 * sampleCount) + 36); // total size (excluding 8-byte RIFF header)
+				wavData[8] = 87;
+				wavData[9] = 65;
+				wavData[10] = 86;
+				wavData[11] = 69;
+				// format chunk
+				wavData[12] = 102;
+				wavData[13] = 109;
+				wavData[14] = 116;
+				wavData[15] = 32;
+				GGint32(wavData, 16, 16); // format chunk size
+				GGint16(wavData, 20, 1); // encoding; 1 = PCM
+				GGint16(wavData, 22, 1); // channels; 1 = mono
+				GGint32(wavData, 24, rate); // samplesPerSecond
+				GGint32(wavData, 28, rate * _buffer.numberOfChannels); // bytesPerSecond
+				GGint16(wavData, 32, 2); // blockAlignment
+				GGint16(wavData, 34, 16); // bitsPerSample
+				// data chunk
+				wavData[36] = 100;
+				wavData[37] = 97;
+				wavData[38] = 116;
+				wavData[39] = 97;
+				GGint32(wavData, 40, (2 * sampleCount)); // format chunk size
+				var _left = null;
+				var _right = null;
+				_left = _buffer.getChannelData(0);
+				if (_buffer.numberOfChannels > 1) {
+                    _right = _buffer.getChannelData(1);
+				}
+				for (var i = 0; i < ___sampleCount; i++) {
+					var id = (i * 2);
+					var l = 0;
+					if (_right) {
+						l = (_left[i] + _right[i]) / 2;
+					} else {
+						l = _left[i];
+					}
+				    GGint16(wavData, id + 44, Math.round((l * 0x7fff))); // bitsPerSample
+					//wavData[id + 44] = Math.round((l * 120)) + 128;
+				}
+				var bb = new Blob([wavData]);
+				var aaa = document.createElement('a');
+				aaa.href = URL.createObjectURL(bb);
+				aaa.download = player.getSwfName() + ".wav";
+				aaa.click();
+            }
+			ATPlayer.prototype.step = function() {
+				this.ctx.clearRect(0, 0, this.canvas.width, 50);
+				this.ctx.beginPath();
+				this.ctx.lineCap = "round";
+				this.ctx.lineWidth = 50;
+				this.ctx.strokeStyle = "#f4f4f4";
+				this.ctx.moveTo(25, 25);
+				this.ctx.lineTo(this.canvas.width - 25, 25);
+				this.ctx.stroke();
+				if (z_dir(25 - this.mouseX, 25 - this.mouseY) < 12) {
+					this.ctx.beginPath();
+					this.ctx.lineCap = "round";
+					this.ctx.lineWidth = 25;
+					this.ctx.strokeStyle = "#ddd";
+					this.ctx.moveTo(25, 25);
+					this.ctx.lineTo(25, 25);
+					this.ctx.stroke();
+				}
+				this.ctx.beginPath();
+				this.ctx.fillStyle = "#000";
+				if (this._player.isPaused) {
+					this.ctx.moveTo(30, 25);
+					this.ctx.lineTo(20, 19);
+					this.ctx.lineTo(20, 31);
+				} else {
+					this.ctx.moveTo(20, 19);
+					this.ctx.lineTo(20, 31);
+					this.ctx.lineTo(23, 31);
+					this.ctx.lineTo(23, 19);
+					this.ctx.moveTo(27, 19);
+					this.ctx.lineTo(27, 31);
+					this.ctx.lineTo(30, 31);
+					this.ctx.lineTo(30, 19);
+				}
+				this.ctx.fill();
+				var VS1 = this.canvas.width - 100;
+				var VS2 = this.canvas.width - 50;
+				var GS1 = 125;
+				var GS2 = this.canvas.width - 48;
+				if (this.ToVolume > 0) {
+					GS2 = VS1 - 25;
+				}
+				if (this.ToVolume != 2 && (this.ToPlayAudio < 2)) {
+					if ((z_dir((VS2 + 25) - this.mouseX, 25 - this.mouseY) < 12) && this.ToVolume == 0) {
+						this.ToVolume = 1;
+					}
+					if (!cosiLINE(VS1, 25, ((VS2 + 25) - VS1), 12, this.mouseX, this.mouseY)) {
+						this.ToVolume = 0;
+					}
+				}
+				this.ctx.font = "13px Arial";
+				this.ctx.fillText(getDuraction(this._player.currentTime) + ' / ' + getDuraction(this._player.duration),45,30);
+				this.ctx.beginPath();
+				this.ctx.lineCap = "round";
+				this.ctx.lineWidth = 4;
+				this.ctx.strokeStyle = "#bbb";
+				this.ctx.moveTo(GS1, 25);
+				this.ctx.lineTo(GS2, 25);
+				this.ctx.stroke();
+				var duH1 = (this._player.currentTime / this._player.duration);
+				var duH2 = (this._player.currentTime / this._player.duration);
+				this.ctx.beginPath();
+				this.ctx.lineCap = "round";
+				this.ctx.lineWidth = 4;
+				this.ctx.strokeStyle = "#555";
+				this.ctx.moveTo(GS1, 25);
+				this.ctx.lineTo(GS1 + (duH2 * (GS2 - GS1)), 25);
+				this.ctx.stroke();
+				this.ctx.beginPath();
+				this.ctx.lineCap = "round";
+				this.ctx.lineWidth = 4;
+				this.ctx.strokeStyle = "#000";
+				this.ctx.moveTo(GS1, 25);
+				this.ctx.lineTo(GS1 + (duH1 * (GS2 - GS1)), 25);
+				this.ctx.stroke();
+				if ((this.ToPlayAudio < 2) && this.ToVolume !== 2) {
+					if (cosiLINE(GS1, 25, (GS2 - GS1), 8, this.mouseX, this.mouseY)) {
+						this.ToPlayAudio = 1;
+					} else {
+						this.ToPlayAudio = 0;
+					}
+				}
+				if (this.ToPlayAudio > 0) {
+					this.ctx.beginPath();
+					this.ctx.lineCap = "round";
+					this.ctx.lineWidth = 12;
+					this.ctx.strokeStyle = "#000";
+					this.ctx.moveTo(GS1 + (duH1 * (GS2 - GS1)), 25);
+					this.ctx.lineTo(GS1 + (duH1 * (GS2 - GS1)), 25);
+					this.ctx.stroke();
+				}
+				if (this.ToPlayAudio == 1 && this.mousePressed == true) {
+					this.ToPlayAudio = 2;
+					this._ToPlayAudioPaused = this._player.isPaused;
+					this._player.pause();
+				}
+				if (this.ToPlayAudio == 2) {
+					var AudioCurrentTime = (((this.mouseX - GS1) / (GS2 - GS1)) * this._player.duration);
+					if (AudioCurrentTime < 0) {
+						AudioCurrentTime = 0;
+					}
+					if (AudioCurrentTime > this._player.duration) {
+						AudioCurrentTime = this._player.duration;
+					}
+					this._player.setCurrentTime(AudioCurrentTime);
+					if (this.mousePressed == false) {
+						this.ToPlayAudio = 0;
+						if (this._ToPlayAudioPaused == false && this._player.currentTime != this._player.duration) this._player.play();
+					}
+				}
+				if (this.ToVolume > 0) {
+					var vuH1 = this._player.getVolume();
+					this.ctx.beginPath();
+					this.ctx.lineCap = "round";
+					this.ctx.lineWidth = 25;
+					this.ctx.strokeStyle = "#ddd";
+					this.ctx.moveTo(VS1, 25);
+					this.ctx.lineTo(VS2 + 25, 25);
+					this.ctx.stroke();
+					this.ctx.beginPath();
+					this.ctx.lineCap = "round";
+					this.ctx.lineWidth = 4;
+					this.ctx.strokeStyle = "#bbb";
+					this.ctx.moveTo(VS1, 25);
+					this.ctx.lineTo(VS2, 25);
+					this.ctx.stroke();
+					this.ctx.beginPath();
+					this.ctx.lineCap = "round";
+					this.ctx.lineWidth = 4;
+					this.ctx.strokeStyle = "#000";
+					this.ctx.moveTo(VS1, 25);
+					this.ctx.lineTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
+					this.ctx.stroke();
+					if (cosiLINE(VS1, 25, (VS2 - VS1), 10, this.mouseX, this.mouseY) || this.ToVolume == 2) {
+						this.ctx.beginPath();
+						this.ctx.lineCap = "round";
+						this.ctx.lineWidth = 12;
+						this.ctx.strokeStyle = "#000";
+						this.ctx.moveTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
+						this.ctx.lineTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
+						this.ctx.stroke();
+						if (this.mousePressed && this.ToVolume !== 2) this.ToVolume = 2;
+					}
+					if (this.ToVolume == 2) {
+						var AudioVolume = (((this.mouseX - VS1) / (VS2 - VS1)));
+						if (AudioVolume < 0) {
+							AudioVolume = 0;
+						}
+						if (AudioVolume > 1) {
+							AudioVolume = 1;
+						}
+						this._player.setVolume(AudioVolume);
+						if (this.mousePressed == false) this.ToVolume = 1;
+					}
+				}
+				if (this._player.getVolume() > 0) {
+					this.ctx.drawImage(this.volumeimg, VS2 + 18,18,15,15);
+				} else {
+					this.ctx.drawImage(this.volumeoffimg, VS2 + 18,18,15,15);
+				}
+			};
+			ATPlayer.prototype.setBuffer = function(buffer) {
+				this._player.setBuffer(buffer);
+				if (this.autoPlay) {
+					this._player.play();
+				}
+			};
+
+			var ATShape = function(shapeCache, id) {
+				this.shapeCache = shapeCache;
+				this.root = document.createElement("div");
+				this.root.className = "shapeat";
+
+				var s = document.createElement("p");
+				s.textContent = 'Shape' + id;
+				this.canvas = document.createElement("canvas");
+				this.canvas.width = 80;
+				this.canvas.height = 80;
+				this.ctx = this.canvas.getContext('2d');
+				this.root.appendChild(this.canvas);
+				this.root.appendChild(s);
+				try {
+					this.renderShape();
+				} catch (e) {
+					console.log("renderShape", e);
+				}
+			}
+			ATShape.prototype.renderShape = function() {
+
+				var bounds = {
+					xMin: Infinity,
+					yMin: Infinity,
+					xMax: -Infinity,
+					yMax: -Infinity
+				}
+				var shapes = this.shapeCache;
+				function dfgfd(x, y) {
+					if (x < bounds.xMin) {
+						bounds.xMin = x;
+					}
+					if (y < bounds.yMin) {
+						bounds.yMin = y;
+					}
+					if (x > bounds.xMax) {
+						bounds.xMax = x;
+					}
+					if (y > bounds.yMax) {
+						bounds.yMax = y;
+					}
+				}
+				for (let u = 0; u < shapes.length; u++) {
+					const data = shapes[u];
+					var cmd = data.cmd;
+					for (let i = 0; i < cmd.length; i++) {
+						const cmm = cmd[i];
+						if (cmm[0] == 0) {
+							dfgfd(cmm[1], cmm[2]);
+						} else if (cmm[0] == 1) {
+							dfgfd(cmm[1], cmm[2]);
+							dfgfd(cmm[3], cmm[4]);
+						} else if (cmm[0] == 2) {
+							dfgfd(cmm[1], cmm[2]);
+						}
+					}
+				}
+
+				var minX = bounds.xMin;
+				var minY = bounds.yMin;
+				var maxX = bounds.xMax;
+				var maxY = bounds.yMax;
+
+				var canvas = this.canvas;
+				var maxWidth = Math.abs(maxX - minX);
+				var maxHeight = Math.abs(maxY - minY);
+
+				var scaleW = 80 / (maxWidth / 20);
+				var scaleH = 80 / (maxHeight / 20);
+				var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
+				var ctx = this.ctx;
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				var m2 = [scale / 20, 0, 0, scale / 20, ((0 - minX) / 20) * scale, ((0 - minY) / 20) * scale];
+				for (let k = 0; k < shapes.length; k++) {
+					ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+					const data = shapes[k];
+					var obj = data.obj;
+					if (!obj) {
+						continue;
+					}
+					var cmd = data.cmd;
+					ctx.beginPath();
+					_executeCmdCtx2dPath(ctx, cmd);
+					var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
+					var isStroke = ("width" in obj);
+					var styleType = styleObj.type || 0;
+					switch (styleType) {
+						case 0:
+							var color = styleObj.color;
+							var css = 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
+							if (isStroke) {
+								ctx.strokeStyle = css;
+								ctx.lineWidth = obj.width;
+								ctx.lineCap = "round";
+								ctx.lineJoin = "round";
+								ctx.stroke();
+							} else {
+								ctx.fillStyle = css;
+								ctx.fill();
+							}
+							break;
+						case 0x10:
+						case 0x12:
+						case 0x13:
+							var css;
+							var gg = styleObj.gradient;
+							if (!gg) {
+								gg = styleObj.linearGradient;
+							}
+							if (!gg) {
+								gg = styleObj.radialGradient;
+							}
+							var m = gg.matrix;
+							var ggg = m;
+							var type = styleObj.type;
+							if (type !== 16) {
+								ctx.save();
+								ctx.transform(ggg[0], ggg[1], ggg[2], ggg[3], ggg[4], ggg[5]);
+								css = ctx.createRadialGradient(0, 0, 0, 0, 0, 16384);
+							} else {
+								var xy = linearGradientXY(m);
+								css = ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
+							}
+							var records = gg.gradientRecords;
+							var rLength = records.length;
+							for (var rIdx = 0; rIdx < rLength; rIdx++) {
+								var record = records[rIdx];
+								var color = record.color;
+								var rgba = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+								css.addColorStop(record.ratio, rgba);
+							}
+							if (isStroke) {
+								ctx.strokeStyle = css;
+								ctx.lineWidth = obj.width;
+								ctx.lineCap = "round";
+								ctx.lineJoin = "round";
+								ctx.stroke();
+							} else {
+								ctx.fillStyle = css;
+								ctx.fill();
+							}
+							if (type !== 16) {
+								ctx.restore();
+							}
+							break;
+						case 0x40:
+						case 0x41:
+						case 0x42:
+						case 0x43:
+							var bitmapId = styleObj.bitmapId;
+							var bMatrix = styleObj.bitmapMatrix;
+							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
+							var image = player.stage.library.getCharacter(bitmapId);
+							if (image && image.image) {
+								var c = image.image;
+								if (styleType === 0x41 || styleType === 0x43) {
+									ctx.save();
+									ctx.clip();
+									ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									ctx.imageSmoothingEnabled = false;
+									ctx.drawImage(c, 0, 0);
+									ctx.restore();
+								} else {
+									ctx.fillStyle = ctx.createPattern(c, repeat);
+									ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									ctx.fill();
+								}
+							}
+							break;
+					}
+				}
+			}
+
+            var playerArea = document.getElementById('pinkfie-player');
+
+            //playerArea.appendChild(player.root);
+
+			var soundimage = document.getElementById("soundimage");
+			var soundimage2 = document.getElementById("shapes");
+
+			var shapegdloadmore = document.createElement("a");
+
+            player.setOptions({
+                autoplayPolicy: 'never'
+            });
+
+			var atplayerpre = [];
+			var atshapepre = [];
+
+			var atshapecga = [];
+
+			var ss = 0;
+
+			function unloadSwf() {
+				for (let i = 0; i < atplayerpre.length; i++) {
+					const eg = atplayerpre[i];
+					soundimage.removeChild(eg.canvas);
+				}
+				atplayerpre = [];
+				for (let i = 0; i < atshapepre.length; i++) {
+					const ee = atshapepre[i];
+					soundimage2.removeChild(ee.root);
+				}
+				atshapepre = [];
+				atshapecga = [];
+				ss = 0;
+			}
+
+
+			function showShapes() {
+				for (let js = ss; js < (ss + Math.min(atshapecga.length, 250)); js++) {
+					const _data = atshapecga[js];
+					var ats = new ATShape(PKF.ShapeToCanvas.convert(_data.shapes), _data.id);
+					soundimage2.appendChild(ats.root);
+					atshapepre.push(ats);
+				}
+				ss += Math.min(atshapecga.length, 250);
+			}
+			
+			player.onload.subscribe(function (stage) {
+				var streamSoundSprites = [];
+                streamSoundSprites.push(stage.rootClipTag);
+				for (var i in stage.library.characters) {
+					var fgd = stage.library.characters[i];
+					if (!fgd) break;
+					var _data = fgd.data;
+                    if (_data) {
+                        switch(_data.tagType) {
+                            case "DefineSound":
+                                var atp = new ATPlayer();
+                                atp.init(soundimage);
+                                atp.setBuffer(fgd.audio.getBuffer());
+								atplayerpre.push(atp);
+                                break;
+                            case "DefineShape":
+                            case "DefineShape2":
+                            case "DefineShape3":
+                            case "DefineShape4":
+								atshapecga.push(_data);
+                                break;
+                        }
+                    } else {
+                        streamSoundSprites.push(fgd);
+                    }
+				}
+                for (var i in streamSoundSprites) {
+					var fgd = streamSoundSprites[i];
+					if (!fgd) break;
+                    var strea = fgd.streamSounds;
+					if (!strea) break;
+					for (var i2 in strea) {
+						var _data = strea[i2];
+						if (!_data) break;
+                        var audiost = _data.audioStream;
+						if (!audiost) break;
+                        var atp = new ATPlayer();
+                        atp.init(soundimage);
+                        atp.setBuffer(audiost.getBuffer());
+						atplayerpre.push(atp);
+                    }
+				}
+				showShapes();
+			});
+			var loadprojectfile = document.getElementById('loadswffile');
+			loadprojectfile.onclick = function () {
+				var sa = document.createElement('input');
+				sa.type = 'file';
+				sa.accept = '.swf';
+				sa.addEventListener('change', function (e) {
+					var file = e.target.files[0];
+					if (!file) {
+						return;
+					}
+					unloadSwf();
+					player.loadSwfFromFile(file);
+				}, false);
+				sa.click();
+			}
+		</script>
+	</body>
+</html>

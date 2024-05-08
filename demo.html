@@ -43,8 +43,6 @@
 			<a href="#" id="loadswffile">Open SWF</a>
 			<a href="#" id="closeswffile">Close</a>
 			<label id="ggtitle5" style="margin: 3px;"></label>
-			<a href="#" id="takeautoplayswf">AutoPlay: On</a>
-			<a href="#" id="takeautoplayswf2">Play/Pause</a>
 			<a href="#" id="takeautoplayswf3">Settings</a>
 			<div>
 				<label style="margin: 4px;">volume:</label>
@@ -56,6 +54,7 @@
 		<div id="pinkswf"></div>
 		<script src="pinkfie_logo.js"></script>
 		<script src="pinkfie.js"></script>
+		<script src="common.js"></script>
 		<script>
 			(function() {
 				"use strict";
@@ -79,8 +78,6 @@
 
 				var closeswffile = document.getElementById('closeswffile');
 
-				var takeautoplayswf = document.getElementById('takeautoplayswf');
-				var takeautoplayswf2 = document.getElementById('takeautoplayswf2');
 				var takeautoplayswf3 = document.getElementById('takeautoplayswf3');
 
 				var pkfcontrols = document.getElementById('pkfcontrols');
@@ -108,7 +105,7 @@
 				_resize_();
 
 				function loadSwfFile(file) {
-					ggtitle5.textContent = "";
+					ggtitle5.textContent = file.name || "";
 					TSProgress(0);
 					player.loadSwfFromFile(file);
 				}
@@ -138,6 +135,8 @@
 					});
 				});
 
+				player.setOptions(Common.playerOptions);
+
 				player.onoptionschange.subscribe(function(o) {
 					fvolumeff.value = player.getOptions().volume;
 				});
@@ -157,29 +156,13 @@
 					ev.preventDefault();
 				}
 
+				fvolumeff.value = player.getOptions().volume;
+
 				var drop_zone = document.getElementById("drop_zone");
 
 				drop_zone.ondrop = dropHandler;
 				drop_zone.ondragover = dragOverHandler;
 
-				takeautoplayswf.onclick = function () {
-
-					var optip = player.getOptions();
-					var rrgh = (optip.autoplayPolicy == "never") ? "always" : "never";
-
-					if (rrgh == "never") {
-						takeautoplayswf.textContent = "AutoPlay: Off";
-					} else {
-						takeautoplayswf.textContent = "AutoPlay: On";
-					}
-
-					player.setOptions({
-						autoplayPolicy: rrgh
-					});
-				}
-				takeautoplayswf2.onclick = function() {
-					player.toggleRunning();
-				}
 				takeautoplayswf3.onclick = function() {
 					player.showSetting();
 				}

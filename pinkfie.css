@@ -1,8 +1,12 @@
 .pinkfie-root{
-  font-family: monospace;
+  position: relative;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
 .pinkfie-stage{
 	position: relative;
+}
+.watcher-pinkfie-menu-vertical {
+  background-color: rgba(0, 0, 0, 0.5);
 }
 .watcher-pinkfie-menu-vertical div {
   padding: 0.2em;
@@ -14,6 +18,14 @@
   background-color: #ffffff;
   color: #000000;
   cursor: pointer;
+}
+.watcher-pinkfie-setting {
+  background-color: rgba(0, 0, 0, 0.75);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 .watcher-pinkfie-setting div {
   color: rgba(255, 255, 255, 1);

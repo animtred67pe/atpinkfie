@@ -44,12 +44,14 @@
 					<li><a href="demo.html">Player development</a></li>
 					<li><a href="packager.html">HTML Packager</a></li>
 					<li><a href="swfreader.html">Swf Reader Preview</a></li>
+					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
 					<li><a href="about.html">About</a></li>
 				</ul>
 			</div>
 			<p style="color: #999999;">(c) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">THandPEPeerTDP</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
+		<script src="common.js"></script>
 		<script>
 			(function() {
 				"use strict";
@@ -83,6 +85,8 @@
 					});
 				});
 
+				player.setOptions(Common.playerOptions);
+
 				player.setOptions({
 					autoplayPolicy: 'never'
 				});
@@ -91,12 +95,37 @@
 					fvolumeff.value = player.getOptions().volume;
 				});
 
+				fvolumeff.value = player.getOptions().volume;
+
 				function showSwf() {
+
 					var resultswf = player.stage.swf;
 					var dfgfd = "<h3>SWF Info</h3>";
 					var stageSize = resultswf.movieInfo.bounds;
-					dfgfd += "compression: " + resultswf.header.compression + " version: " + resultswf.header.version +  " uncompressed size: " + resultswf.header.uncompressedLength + "<br>";
-					dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " fps: " + resultswf.movieInfo.frameRate + " frames: " + resultswf.movieInfo.numFrames + "";
+
+					/*
+						Uncompressed Length
+						SWF Version
+						FP Version
+						ActionScript 3
+						Total Frames
+						Frame Rate
+						SWF Width
+						SWF Height
+						SWF Background Color
+					*/
+
+					dfgfd += "compression: " + resultswf.header.compression;
+					dfgfd += " version: " + resultswf.header.version;
+					dfgfd += " uncompressed length: " + resultswf.header.uncompressedLength + "<br>";
+
+					dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20);
+					dfgfd += " height: " + ((stageSize.yMax - stageSize.yMin) / 20);
+					dfgfd += " frame rate: " + resultswf.movieInfo.frameRate;
+					dfgfd += " total frames: " + resultswf.movieInfo.numFrames + "";
+
+					//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
+
 					demo.innerHTML = dfgfd;
 				}
 
