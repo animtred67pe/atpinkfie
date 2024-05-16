@@ -13,7 +13,7 @@ OOO        OOO   OOO       OOOO   OOO     OOO  OOO        OOO   OOOOOOOOOO
 
 Pinkfie - an html5 player for Movie SWF
 
-Version: 1.1 7/05/2024
+Version: 1.1 16/05/2024
 
 Made in the Peru
 
@@ -893,6 +893,7 @@ var PKF = (function() {
 		this.onload = null;
 		this.onerror = null;
 		this.onprogress = null;
+		this.onmessage = null;
 	}
 	SwfParser.prototype.cancel = function() {
 		if (this._interval) {
@@ -902,6 +903,7 @@ var PKF = (function() {
 		this.onload = null;
 		this.onerror = null;
 		this.onprogress = null;
+		this.onmessage = null;
 		this.aborted = true;
 	}
 	SwfParser.prototype.load = function() {
@@ -912,6 +914,11 @@ var PKF = (function() {
 	}
 	SwfParser.prototype.getTagLengthStack = function() {
 		return this.taglengthstack[this.taglengthstackSize - 1];
+	}
+	SwfParser.prototype.emitMessage = function(message, type) {
+		if (this.onmessage) {
+			this.onmessage(message, type);
+		}
 	}
 	SwfParser.prototype.tick = function() {
 		if (this.isLoad) {
@@ -997,7 +1004,7 @@ var PKF = (function() {
 					// We'll still try to parse what we get if the full decompression fails.
 					// (+ 8 for header size)
 					if (this.byteStream.getLength() !== this._uncompressedLength) {
-						console.log("SWF length doesn't match header, may be corrupt " + this.byteStream.data.length + " == " + this._uncompressedLength);
+						this.emitMessage("SWF length doesn't match header, may be corrupt " + this.byteStream.data.length + " == " + this._uncompressedLength, "warm");
 					}
 					var headerMovie = this.parseHeaderMovie();
 					this.headerMovie = headerMovie;
@@ -1104,7 +1111,7 @@ var PKF = (function() {
 		result._byteLength = length;
 		if (result.tagcode !== 39) { // Sprite
 			if ((tagDataStartOffset + length) !== this.byteStream.position) {
-				console.log(this.byteStream.position - tagDataStartOffset, length, SwfParser.tagCodes[tagcode]);
+				this.emitMessage(this.byteStream.position - tagDataStartOffset + ", " + length + ", " + SwfParser.tagCodes[tagcode], "log");
 				this.byteStream.position = (tagDataStartOffset + length);
 				this.byteStream.bit_offset = 0;
 			}
@@ -1461,7 +1468,7 @@ var PKF = (function() {
 			case 2: // Repeat
 				return "repeat";
 			default:
-				throw new Error("Invalid gradient spread mode:" + code);
+				this.emitMessage("Invalid gradient spread mode:" + code, "error");
 		}
 	}
 	SwfParser.prototype.gradientInterpolation = function(code) {
@@ -1475,7 +1482,7 @@ var PKF = (function() {
 			case 1: // LinearRgb
 				return "linearRgb";
 			default:
-				throw new Error("Invalid gradient interpolation mode:" + code);
+				this.emitMessage("Invalid gradient interpolation mode:" + code, "error");
 		}
 	}
 	SwfParser.prototype.shapeWithStyle = function(shapeVersion) {
@@ -1559,7 +1566,8 @@ var PKF = (function() {
 				obj.isRepeating = (bitType & 0b01);
 				break;
 			default:
-				throw new Error("Invalid fill style.");
+				this.emitMessage("Invalid fill style: " + bitType, "error");
+				break;
 		}
 		return obj;
 	}
@@ -1718,7 +1726,7 @@ var PKF = (function() {
 		}
 		var fillStyles = [];
 		for (var i = fillStyleCount; i--;) {
-			fillStyles[fillStyles.length] = this.morphFillStyle();
+			fillStyles.push(this.morphFillStyle());
 		}
 		return fillStyles;
 	}
@@ -1757,7 +1765,7 @@ var PKF = (function() {
 				obj.isRepeating = (bitType & 0b01) == 0;
 				break;
 			default:
-				throw new Error("Invalid fill style.");
+				this.emitMessage("Invalid fill style: " + bitType, "error");
 		}
 		return obj;
 	}
@@ -1770,14 +1778,16 @@ var PKF = (function() {
 		obj.spreadMode = this.gradientSpread((flags >> 6) & 0b11);
 		obj.interpolationMode = this.gradientInterpolation((flags >> 4) & 0b11);
 		var numGradients = (flags & 0b1111);
-		var startRecords = [];
-		var endRecords = [];
+		var gradientRecords = [];
 		for (var i = numGradients; i--;) {
-			startRecords[startRecords.length] = {ratio: byteStream.readUint8() / 255, color: this.rgba()};
-			endRecords[endRecords.length] = {ratio: byteStream.readUint8() / 255, color: this.rgba()};
+			gradientRecords.push({
+				startRatio: byteStream.readUint8() / 255,
+				startColor: this.rgba(),
+				endRatio: byteStream.readUint8() / 255,
+				endColor: this.rgba()
+			});
 		}
-		obj.startRecords = startRecords;
-		obj.endRecords = endRecords;
+		obj.gradientRecords = gradientRecords;
 		return obj;
 	}
 	SwfParser.prototype.morphLineStyleArray = function(shapeVersion) {
@@ -1857,7 +1867,7 @@ var PKF = (function() {
 			case 5: // TraditionalChinese
 				return "traditionalChinese";
 			default:
-				throw new Error("Invalid language code:" + languageCode);
+				this.emitMessage("Invalid language code:" + languageCode, "error");
 		}
 	}
 	SwfParser.prototype.getTextRecords = function(ver, GlyphBits, AdvanceBits) {
@@ -1905,7 +1915,7 @@ var PKF = (function() {
 			case 3:
 				return "justify";
 			default:
-				throw new Error("Invalid language code:" + type);
+				this.emitMessage("Invalid language code:" + type, "error");
 		}
 	}
 	SwfParser.prototype.getGlyphEntries = function(GlyphBits, AdvanceBits) {
@@ -2018,7 +2028,7 @@ var PKF = (function() {
 				compression = "speex";
 				break;
 			default:
-				throw new Error("Invalid audio format.");
+				this.emitMessage("Invalid audio format", "error");
 		}
 		obj.compression = compression;
 		var sampleRate;
@@ -2044,7 +2054,7 @@ var PKF = (function() {
 		return obj;
 	}
 	SwfParser.prototype.parseBlendMode = function() {
-		var blendMode = this.byteStream.readUint8()
+		var blendMode = this.byteStream.readUint8();
 		switch (blendMode) {
 			case 0:
 			case 1:
@@ -2076,7 +2086,7 @@ var PKF = (function() {
 			case 14:
 				return "hardlight";
 			default:
-				throw new Error("Invalid blend mode: " + blendMode);
+				this.emitMessage("Invalid blend mode: " + blendMode, "error");
 		}
 	}
 	SwfParser.prototype.parseClipActions = function(startOffset, length) {
@@ -2190,7 +2200,7 @@ var PKF = (function() {
 				filter = this.gradientBevelFilter();
 				break;
 			default: 
-				throw new Error("Invalid filter type");
+				this.emitMessage("Invalid filter type: " + filterId, "error");
 		}
 		return {filterId, filter};
 	}
@@ -2890,7 +2900,7 @@ var PKF = (function() {
 				obj.codec = "ScreenVideoV2";
 				break;
 			default:
-				throw new Error("Invalid video codec.");
+				this.emitMessage("Invalid video codec.", "error");
 		}
 		switch ((flags >> 1) & 0b111) {
 			case 0: // None
@@ -2912,7 +2922,7 @@ var PKF = (function() {
 				obj.deblocking = "Level4";
 				break;
 			default:
-				throw new Error("Invalid video deblocking value.");
+				this.emitMessage("Invalid video deblocking value.", "error");
 		}
 		obj.isSmoothed = flags & 0b1;
 		return obj;
@@ -2934,7 +2944,7 @@ var PKF = (function() {
 			case 5: // Rgb32
 				break;
 			default:
-				throw new Error("Invalid bitmap format: " + format);
+				this.emitMessage("Invalid bitmap format: " + format, "error");
 		}
 		var sub = byteStream.position - startOffset;
 		obj.data = byteStream.readBytes(length - sub);
@@ -3084,7 +3094,7 @@ var PKF = (function() {
 				obj.characterId = byteStream.readUint16();
 			}
 			if (!obj.isMove && !hasCharacter) {
-				throw new Error("Invalid PlaceObject type");
+				this.emitMessage("Invalid PlaceObject type", "error");
 			}
 			if (hasMatrix) {
 				obj.matrix = this.matrix();
@@ -3339,7 +3349,7 @@ var PKF = (function() {
 				obj.gridFit = "subPixel";
 				break;
 			default:
-				throw new Error("Invalid text grid fitting");
+				this.emitMessage("Invalid text grid fitting", "error");
 		}
 		obj.thickness = byteStream.readFloat32();
 		obj.sharpness = byteStream.readFloat32();
@@ -4697,6 +4707,7 @@ var PKF = (function() {
 	// Blue: Shape
 	// Blue: MorphShape
 	// Yellow: TextField
+	// Green Avm1Buttom
 	// Pulpe: StaticText
 
     const SoundTransform = function() {
@@ -4918,10 +4929,50 @@ var PKF = (function() {
 	DisplayObject.prototype.getBounds = function() {
 		return {xMin: 0, yMin: 0, xMax: 0, yMax: 0}
 	}
-    DisplayObject.prototype.render = function() {}
-	DisplayObject.prototype.debugRender = function(initObject, instantiatedBy, runFrame) {
-		return [0, 0, 0, 0];
-    }
+    DisplayObject.prototype.render = function(context) {
+		this.renderBase(context);
+	}
+	DisplayObject.prototype.renderBase = function(context) {
+		context.transformStack.stackPush(this.getMatrix(), this.getColorTransform());
+		this.renderSelf(context);
+		context.transformStack.stackPop();
+	}
+	DisplayObject.prototype.renderSelf = function() {}
+	DisplayObject.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
+		var m2 = multiplicationMatrix(matrix, this.getMatrix());
+		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
+		var b = this.getBounds();
+		ctx.globalAlpha = 1;
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.beginPath();
+		var color = generateColorTransform(this.coll, rColorTransform);
+		ctx.globalAlpha = 1;
+		ctx.lineWidth = 2;
+		ctx.lineCap = "round";
+		ctx.lineJoin = "round";
+		var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+		ctx.strokeStyle = css;
+		ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
+		ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
+		ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
+		ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
+		ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
+		ctx.stroke();
+		var bm = boundsMatrix(this.getBounds(), m2);
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.globalAlpha = 1;
+		ctx.lineWidth = 2;
+		ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
+		ctx.beginPath();
+		ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
+		ctx.stroke();
+		ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
+		ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
+		ctx.font = "20px Arial";
+		ctx.textAlign = "left";
+		ctx.fillText(this.getDisplayName(), 0, -8);
+		ctx.globalAlpha = 1;
+	}
 
     /// Run any start-of-frame actions for this display object.
     ///
@@ -5096,13 +5147,13 @@ var PKF = (function() {
 		}
 		return sbounds;
 	}
-    DisplayObjectContainer.prototype.render = function (stage, renderer, matrix, colorTransform, visible, isClip) {
-		var isVisible = (visible && this.getVisible());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		var rMatrix = multiplicationMatrix(matrix, this.getMatrix());
+    /// Renders the children of this container in render list order.
+    DisplayObjectContainer.prototype.renderChildren = function(context) {
 		var clips = [];
 		let isClipDepth = false;
 		var children = this.iterRenderList();
+
+		var renderer = context.renderer;
 
 		//var b = this.getBounds();
 		//var d = this.getBackgroundColor();
@@ -5127,11 +5178,15 @@ var PKF = (function() {
 			if (child.clipDepth > 0) {
 				renderer.save();
 				renderer.beginPath();
+				context.activeMask++;
 				clips.push(child.clipDepth);
 				isClipDepth = true;
 			}
-			child.render(stage, renderer, rMatrix, rColorTransform, isVisible, isClipDepth || isClip);
+			if (child.getVisible()) {
+				child.render(context);
+			}
 			if (isClipDepth) {
+				context.activeMask--;
 				renderer.clip();
 				isClipDepth = false;
 			}
@@ -5141,15 +5196,13 @@ var PKF = (function() {
 		}
 	}
 	DisplayObjectContainer.prototype.debugRender = function (ctx, matrix, colorTransform, stage, visible) {
-		this.coll = [255, 0, 0, 1];
 		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
 		var rMatrix = multiplicationMatrix(matrix, this.getMatrix());
 		var children = this.iterRenderList();
 		for (let i = 0; i < children.length; i++) {
 			const child = children[i];
-			if (child) {
-				child.debugRender(ctx, rMatrix, rColorTransform, stage, visible);
-			}
+			child.debugRender(ctx, rMatrix, rColorTransform, stage, visible);
+			
 		}
 		var ___b = boundsMatrix(this.getBounds(), rMatrix);
 		var sbounds = [___b.xMin, ___b.yMin, ___b.xMax, ___b.yMax];
@@ -5203,50 +5256,11 @@ var PKF = (function() {
 		var r = this.shapeData.getShape(0).bounds;
 		return r;
 	}
-	Shape.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
-		var isVisible = (visible && this.getVisible());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		if (isVisible) {
-			this.shapeData.executeRender(stage, renderer, m2, rColorTransform, 0, isClip);
-		}
-	}
-	Shape.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
-		if (visible) {
-			var m2 = multiplicationMatrix(matrix, this.getMatrix());
-			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-			var b = this.getBounds();
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.beginPath();
-			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.globalAlpha = 1;
-			ctx.lineWidth = 2;
-			ctx.lineCap = "round";
-			ctx.lineJoin = "round";
-			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-			ctx.strokeStyle = css;
-			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.stroke();
-			var bm = boundsMatrix(this.getBounds(), m2);
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.globalAlpha = 1;
-			ctx.lineWidth = 2;
-			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
-			ctx.beginPath();
-			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
-			ctx.stroke();
-			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
-			ctx.font = "20px Arial";
-			ctx.textAlign = "left";
-			ctx.fillText(this.getDisplayName(), 0, -8);
-			ctx.globalAlpha = 1;
-		}
+	Shape.prototype.renderSelf = function(context) {
+		var renderer = context.renderer;
+		var m2 = context.transformStack.getMatrix();
+		var rColorTransform = context.transformStack.getColorTransform();
+		this.shapeData.executeRender(context.stage, renderer, m2, rColorTransform, 0, context.activeMask);
 	}
 	const MorphShape = function(context) {
 		DisplayObject.call(this, context);
@@ -5274,50 +5288,11 @@ var PKF = (function() {
 		var bounds = this.morphShapeData.getShape(this.ratio).bounds;
 		return bounds;
 	}
-	MorphShape.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
-		var isVisible = (visible && this.getVisible());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		if (isVisible) {
-			this.morphShapeData.executeRender(stage, renderer, m2, rColorTransform, this.ratio, isClip);
-		}
-	}
-	MorphShape.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
-		if (visible) {
-			var m2 = multiplicationMatrix(matrix, this.getMatrix());
-			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-			var b = this.getBounds();
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.beginPath();
-			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.globalAlpha = 1;
-			ctx.lineWidth = 2;
-			ctx.lineCap = "round";
-			ctx.lineJoin = "round";
-			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-			ctx.strokeStyle = css;
-			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.stroke();
-			var bm = boundsMatrix(this.getBounds(), m2);
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.globalAlpha = 1;
-			ctx.lineWidth = 2;
-			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
-			ctx.beginPath();
-			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
-			ctx.stroke();
-			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
-			ctx.font = "20px Arial";
-			ctx.textAlign = "left";
-			ctx.fillText(this.getDisplayName(), 0, -8);
-			ctx.globalAlpha = 1;
-		}
+	MorphShape.prototype.renderSelf = function(context) {
+		var renderer = context.renderer;
+		var m2 = context.transformStack.getMatrix();
+		var rColorTransform = context.transformStack.getColorTransform();
+		this.morphShapeData.executeRender(context.stage, renderer, m2, rColorTransform, this.ratio, context.activeMask);
 	}
 	const StaticText = function(context) {
 		DisplayObject.call(this, context);
@@ -5341,49 +5316,11 @@ var PKF = (function() {
 		var r = this.textData.bounds;
 		return r;
 	}
-	StaticText.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
-		var isVisible = (visible && this.getVisible());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		if (isVisible) {
-			this.textData.executeRender(stage, renderer, m2, rColorTransform, isClip);
-		}
-	}
-	StaticText.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
-		if (visible) {
-			var m2 = multiplicationMatrix(matrix, this.getMatrix());
-			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-			var b = this.getBounds();
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.beginPath();
-			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.lineWidth = 2;
-			ctx.lineCap = "round";
-			ctx.lineJoin = "round";
-			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-			ctx.strokeStyle = css;
-			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.stroke();
-			var bm = boundsMatrix(this.getBounds(), m2);
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.lineWidth = 2;
-			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
-			ctx.globalAlpha = 1;
-			ctx.beginPath();
-			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
-			ctx.stroke();
-			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
-			ctx.font = "20px Arial";
-			ctx.textAlign = "left";
-			ctx.fillText(this.getDisplayName(), 0, -8);
-			ctx.globalAlpha = 1;
-		}
+	StaticText.prototype.renderSelf = function(context) {
+		var renderer = context.renderer;
+		var m2 = context.transformStack.getMatrix();
+		var rColorTransform = context.transformStack.getColorTransform();
+		this.textData.executeRender(context.stage, renderer, m2, rColorTransform, context.activeMask);
 	}
 	const HTMLEngine = function() {
 		this.elements = [];
@@ -5436,129 +5373,89 @@ var PKF = (function() {
     TextField.prototype.runFrameAvm1 = function() {
         // Noop
 	}
-	TextField.prototype.render = function(stage, renderer, matrix, colorTransform, visible, isClip) {
-		var isVisible = (visible && this.getVisible());
-		var m2 = multiplicationMatrix(matrix, this.getMatrix());
-		var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-		if (isVisible) {
-			var b = this.getBounds();
-			var color = generateColorTransform(this.textColor, rColorTransform);
-			if (this.HAS_BACKGROUND) {
-				var bgcolor = generateColorTransform(this.__backgroundColor, rColorTransform);
-				renderer.setTransform(...m2);
-				renderer.beginPath();
-				renderer.setFillColor(...bgcolor);
-				renderer.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
-				renderer.fill();
-			}
+	TextField.prototype.renderSelf = function(context) {
+		var renderer = context.renderer;
 
-			var scale = this.fontHeight / 1024;
-			scale *= 2;
+		var m2 = context.transformStack.getMatrix();
+		var rColorTransform = context.transformStack.getColorTransform();
+			
+		renderer.setColorTransform(rColorTransform);
 
-			var rrr = b.xMin;
-			var rrr2 = b.yMin + 500;
-			for (let k = 0; k < this.text_html.length; k++) {
-				const l = this.text_html;
-				if ((l[k] == "\r") || (l[k] == "\n")) {
-					rrr = 0;
-					rrr2 += 350;
-				} else {
-					const glyph = pinkfieFont.glyphs[pinkfieFont.codeTable.indexOf(l.charCodeAt(k))];
-					if (glyph) {
+		var b = this.getBounds();
+		var color = this.textColor;
+		if (this.HAS_BACKGROUND) {
+			var bgcolor = this.__backgroundColor;
+			renderer.setTransform(...m2);
+			renderer.beginPath();
+			renderer.setFillColor(...bgcolor);
+			renderer.rect(b.xMin, b.yMin, (b.xMax - b.xMin), (b.yMax - b.yMin));
+			renderer.fill();
+		}
 
-						var bounds = {
-							xMin: Infinity,
-							yMin: Infinity,
-							xMax: -Infinity,
-							yMax: -Infinity
+		var scale = this.fontHeight / 1024;
+		scale *= 2;
+
+		var rrr = b.xMin;
+		var rrr2 = b.yMin + 500;
+		for (let k = 0; k < this.text_html.length; k++) {
+			const l = this.text_html;
+			if ((l[k] == "\r") || (l[k] == "\n")) {
+				rrr = 0;
+				rrr2 += 350;
+			} else {
+				const glyph = pinkfieFont.glyphs[pinkfieFont.codeTable.indexOf(l.charCodeAt(k))];
+				if (glyph) {
+
+					var bounds = {
+						xMin: Infinity,
+						yMin: Infinity,
+						xMax: -Infinity,
+						yMax: -Infinity
+					}
+			
+					function dfgfd(x, y) {
+						if (x < bounds.xMin) {
+							bounds.xMin = x;
 						}
-				
-						function dfgfd(x, y) {
-							if (x < bounds.xMin) {
-								bounds.xMin = x;
-							}
-							if (y < bounds.yMin) {
-								bounds.yMin = y;
-							}
-							if (x > bounds.xMax) {
-								bounds.xMax = x;
-							}
-							if (y > bounds.yMax) {
-								bounds.yMax = y;
-							}
+						if (y < bounds.yMin) {
+							bounds.yMin = y;
 						}
-						
-						for (let i = 0; i < glyph.length; i++) {
-							const cmm = glyph[i];
-							if (cmm[0] == 0) {
-								dfgfd(cmm[1], cmm[2]);
-							} else if (cmm[0] == 1) {
-								dfgfd(cmm[1], cmm[2]);
-								dfgfd(cmm[3], cmm[4]);
-							} else if (cmm[0] == 2) {
-								dfgfd(cmm[1], cmm[2]);
-							}
+						if (x > bounds.xMax) {
+							bounds.xMax = x;
 						}
-						
-						var m3 = multiplicationMatrix(m2, [scale, 0, 0, scale, (rrr * scale), (rrr2 * scale)]);
-
-						/*renderer.setTransform(...multiplicationMatrix(m3, [0.02, 0, 0, 0.02, 0, 0]));
-						renderer.beginPath();
-						renderer.setFillColor(...color);
-						renderer.rect(bounds.xMin, bounds.yMin, (bounds.xMax - bounds.xMin), (bounds.yMax - bounds.yMin));
-						renderer.fill();*/
-						
-						renderer.setTransform(...multiplicationMatrix(m3, [0.02, 0, 0, 0.02, 0, 0]));
-						renderer.beginPath();
-						renderer.setFillColor(...color);
-						_executeCmdCtx2dPath(renderer, glyph);
-						renderer.fill();
-						var fgdg = (bounds.xMax - bounds.xMin);
-						if ((l[k] == " ")) {
-							rrr += 150;
-						} else {
-							rrr += ((fgdg / 20) * 0.5);
+						if (y > bounds.yMax) {
+							bounds.yMax = y;
 						}
 					}
+					
+					for (let i = 0; i < glyph.length; i++) {
+						const cmm = glyph[i];
+						if (cmm[0] == 0) {
+							dfgfd(cmm[1], cmm[2]);
+						} else if (cmm[0] == 1) {
+							dfgfd(cmm[1], cmm[2]);
+							dfgfd(cmm[3], cmm[4]);
+						} else if (cmm[0] == 2) {
+							dfgfd(cmm[1], cmm[2]);
+						}
+					}
+					
+					var m3 = multiplicationMatrix(m2, [scale, 0, 0, scale, (rrr * scale), (rrr2 * scale)]);
+					
+					renderer.setTransform(...multiplicationMatrix(m3, [0.02, 0, 0, 0.02, (0 - bounds.xMin) / 20, 0]));
+					renderer.beginPath();
+					renderer.setFillColor(...color);
+					_executeCmdCtx2dPath(renderer, glyph);
+					renderer.fill();
+					var fgdg = (bounds.xMax - bounds.xMin);
+					if ((l[k] == " ")) {
+						rrr += 150;
+					} else {
+						rrr += ((fgdg / 20) * 0.5);
+					}
 				}
-				
 			}
-		}
-	}
-	TextField.prototype.debugRender = function(ctx, matrix, colorTransform, stage, visible) {
-		if (visible) {
-			var m2 = multiplicationMatrix(matrix, this.getMatrix());
-			var rColorTransform = multiplicationColor(colorTransform, this.getColorTransform());
-			var b = this.getBounds();
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.beginPath();
-			var color = generateColorTransform(this.coll, rColorTransform);
-			ctx.lineWidth = 2;
-			ctx.lineCap = "round";
-			ctx.lineJoin = "round";
-			var css = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-			ctx.strokeStyle = css;
-			ctx.moveTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMin], m2));
-			ctx.lineTo(...generateMatrix([b.xMax, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMax], m2));
-			ctx.lineTo(...generateMatrix([b.xMin, b.yMin], m2));
-			ctx.stroke();
-			var bm = boundsMatrix(this.getBounds(), m2);
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.lineWidth = 2;
-			ctx.strokeStyle = 'rgba(' + generateColorTransform([0, 0, 0, 1], rColorTransform).join(",") + ')';
-			ctx.beginPath();
-			ctx.rect(bm.xMin, bm.yMin, (bm.xMax - bm.xMin), (bm.yMax - bm.yMin));
-			ctx.stroke();
-			ctx.setTransform(1, 0, 0, 1, bm.xMin, bm.yMin);
-			ctx.fillStyle = 'rgba(' + generateColorTransform(this._debug_colorDisplayType, rColorTransform).join(",") + ')';
-			ctx.font = "20px Arial";
-			ctx.textAlign = "left";
-			ctx.fillText(this.getDisplayName(), 0, -8);
-			ctx.globalAlpha = 1;
+			
 		}
 	}
 	const typeButton = {
@@ -5687,6 +5584,9 @@ var PKF = (function() {
     Avm1Buttom.prototype.avm1Unload = function() {
 		this.AVM1_REMOVED = true;
     }
+	Avm1Buttom.prototype.renderSelf = function(context) {
+		this.renderChildren(context);
+	}
     Avm1Buttom.prototype.takeHitButton = function(stage, matrix, x, y) {
 		var rMatrix = multiplicationMatrix(matrix, this.getMatrix());
 		var pos = [x, y];
@@ -5721,14 +5621,28 @@ var PKF = (function() {
 			}
 		}
     }
+	const tagUtils_decodeTags = function(reader, callback) {
+		while (reader.pos < reader.tags.length) {
+			var c = callback(reader.tags[reader.pos]);
+			reader.pos++;
+			if (c == "exit") {
+				break;
+			}
+		}
+	}
+	const SwfTagStream = function(pos, tags) {
+		this.pos = pos;
+		this.tags = tags;
+	}
     const MovieClip = function(context) {
 		DisplayObjectContainer.call(this, context);
         this.currentFrame = 0;
 		this.totalframes = 0;
 		this.framesloaded = 0;
-		this.framesInfo = [];
+		this.tags = [];
 		this.streamSounds = [];
 		this.audioStream = null;
+		this.tagStreamPos = 0;
 
 		this.___object = null;
 
@@ -5747,7 +5661,7 @@ var PKF = (function() {
     MovieClip.prototype = Object.create(DisplayObjectContainer.prototype);
     MovieClip.prototype.constructor = MovieClip;
 	MovieClip.prototype.getTag = function (frame) {
-		return this.framesInfo[frame - 1];
+		return this.tags[frame - 1];
 	}
 	MovieClip.prototype.setTotalFrames = function (frame) {
 		this.totalframes = frame;
@@ -5788,9 +5702,6 @@ var PKF = (function() {
 		switch (nextFrame) {
 			case "next":
 				this.currentFrame++;
-				if (this.totalframes == 1) { // TODO
-					this.stop();
-				}
 				break;
 			case "first":
 				this.runGoto(1, true);
@@ -5799,9 +5710,8 @@ var PKF = (function() {
 				this.stop();
 				break;
 		}
-		var tags = this.getTag(this.currentFrame);
-		for (var i = 0; i < tags.length; i++) {
-			var tag = tags[i];
+		var reader = new SwfTagStream(this.tagStreamPos, this.tags);
+		let tagCallback = function(tag) {
 			switch(tag.tagType) {
 				case "PlaceObject":
 				case "PlaceObject2":
@@ -5831,8 +5741,13 @@ var PKF = (function() {
 				case "DoAction":
 					this.doAction(tag);
 					break;
+				case "ShowFrame":
+					return "exit";
 			}
+			return "continue";
 		}
+		tagUtils_decodeTags(reader, tagCallback.bind(this));
+		this.tagStreamPos = reader.pos;
 	}
 	MovieClip.prototype.runGoto = function (frame, isImplicit) {
 		this.setSkipNextEnterFrame(false);
@@ -5854,9 +5769,12 @@ var PKF = (function() {
 			}
 		}
 		this.currentFrame = frame;
-		var tags = this.getTag(this.currentFrame);
-		for (var i = 0; i < tags.length; i++) {
-			var tag = tags[i];
+
+		this.tagStreamPos = 0;
+
+		var reader = new SwfTagStream(this.tagStreamPos, this.tags);
+		
+		let tagCallback = function(tag) {
 			switch(tag.tagType) {
 				case "PlaceObject":
 				case "PlaceObject2":
@@ -5895,8 +5813,15 @@ var PKF = (function() {
 						this.removeChild(child);
 					}
 					break;
+				case "ShowFrame":
+					return "exit";
 			}
+			return "continue";
 		}
+		tagUtils_decodeTags(reader, tagCallback.bind(this));
+
+		this.tagStreamPos = 0;
+		
 		this.currentFrame--;
 		this.runIntervalFrame(false, true);
 	}
@@ -5905,6 +5830,9 @@ var PKF = (function() {
 	}
 	MovieClip.prototype.unsetLoopQueued = function () {
 		this.LOOP_QUEUED = false;
+	}
+	MovieClip.prototype.renderSelf = function(context) {
+		this.renderChildren(context);
 	}
 	MovieClip.prototype.runFrameAvm1 = function () {
 		var isLoadFrame = !this.INITIALIZED;
@@ -6021,9 +5949,9 @@ var PKF = (function() {
 		this.context.audio.startSound(tag, this);
 	}
 	MovieClip.prototype.soundStreamBlock = function () {
-		var sounds = this.streamSounds;
-		if (sounds) {
-			var sound = sounds[this.currentFrame - 1];
+		var streamSounds = this.streamSounds;
+		if (streamSounds) {
+			var sound = streamSounds[this.currentFrame];
 			if (sound) {
 				if (this.isPlaying) {
 					this.audioStream = this.context.audio.startStreamSound(sound, this);
@@ -6052,18 +5980,19 @@ var PKF = (function() {
     }
 	const MovieClipData = function(stage) {
         this.stage = stage;
-		this.frames = [];
+		this.tags = [];
+		this.frameCount = 0;
 		this.characterId = -1;
 		this.isRoot = false;
     }
-	MovieClipData.prototype.init = function(frames) {
-		this.frames = frames;
+	MovieClipData.prototype.init = function(tags) {
+		this.tags = tags;
     }
 	MovieClipData.prototype.instantiate = function() {
         var clip = new MovieClip(this.stage.context);
 		clip.setId(this.characterId);
-		clip.setTotalFrames(this.frames.length);
-		clip.framesInfo = this.frames;
+		clip.setTotalFrames(this.frameCount);
+		clip.tags = this.tags;
 		clip.streamSounds = this.streamSounds;
 		return clip;
     }
@@ -6109,6 +6038,7 @@ var PKF = (function() {
 		var info = this.getShape(ratio || 0);
 		var shapes = info.shapes;
 		if (shapes) {
+			renderer.setColorTransform(colorTransform);
 			if (isClip) {
 				renderer.setTransform(...m2);
 				for (let k = 0; k < shapes.length; k++) {
@@ -6131,7 +6061,7 @@ var PKF = (function() {
 					var styleType = styleObj.type || 0;
 					switch (styleType) {
 						case 0:
-							var color = generateColorTransform(styleObj.color, colorTransform);
+							var color = styleObj.color;
 							renderer.setTransform(...m2);
 							renderer.beginPath();
 							_executeCmdCtx2dPath(renderer, cmd);
@@ -6170,7 +6100,7 @@ var PKF = (function() {
 							var rLength = records.length;
 							for (var rIdx = 0; rIdx < rLength; rIdx++) {
 								var record = records[rIdx];
-								var color = generateColorTransform(record.color, colorTransform);
+								var color = record.color;
 								css.push([record.ratio, color.slice(0)]);
 							}
 							if (type !== 16) {
@@ -6193,28 +6123,28 @@ var PKF = (function() {
 							var bMatrix = multiplicationMatrix(m2, styleObj.bitmapMatrix);
 							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
 							var image = stage.library.getCharacter(bitmapId);
-							if (image && image.texture) {
-								var texture = image.texture;
-								var rr = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
-								if (styleType === 0x41 || styleType === 0x43) {
-									renderer.setTransform(...m2);
-									renderer.beginPath();
-									_executeCmdCtx2dPath(renderer, cmd);
-									renderer.save();
-									renderer.clip();
-									renderer.setTransform(...bMatrix);
-									renderer.drawTexture(texture, [1, 1, 1, rr], true);
-									renderer.restore();
-								} else {
-									renderer.setTransform(...m2);
-									renderer.beginPath();
-									_executeCmdCtx2dPath(renderer, cmd);
-									renderer.ctx.globalAlpha = rr;
-									renderer.setFillPattern([[texture, [1, 1, 1, rr], true], repeat]);
-									renderer.setTransform(...bMatrix);
-									renderer.fill();
-									renderer.ctx.globalAlpha = 1;
+							if (image && image.image) {
+								var texture = image.getTexture();
+								if (texture) {
+									if (styleType === 0x41 || styleType === 0x43) {
+										renderer.setTransform(...m2);
+										renderer.beginPath();
+										_executeCmdCtx2dPath(renderer, cmd);
+										renderer.save();
+										renderer.clip();
+										renderer.setTransform(...bMatrix);
+										renderer.drawTexture(texture, true);
+										renderer.restore();
+									} else {
+										renderer.setTransform(...m2);
+										renderer.beginPath();
+										_executeCmdCtx2dPath(renderer, cmd);
+										renderer.setFillPattern([[texture, true], repeat]);
+										renderer.setTransform(...bMatrix);
+										renderer.fill();
+									}	
 								}
+								
 							}
 							break;
 					}
@@ -6445,16 +6375,124 @@ var PKF = (function() {
 			ends: EndRecords
 		}
 	}
+	MorphShapeData.prototype.morphColor = function(startColor, endColor, per) {
+        var startPer = 1 - per;
+		var result = [
+			Math.floor(startColor[0] * startPer + endColor[0] * per),
+			Math.floor(startColor[1] * startPer + endColor[1] * per),
+			Math.floor(startColor[2] * startPer + endColor[2] * per),
+			startColor[3] * startPer + endColor[3] * per
+		];
+		return result;
+	}
+	MorphShapeData.prototype.morphMatrix = function(startMatrix, endMatrix, per) {
+        var startPer = 1 - per;
+		var result = [
+			startMatrix[0] * startPer + endMatrix[0] * per,
+			startMatrix[1] * startPer + endMatrix[1] * per,
+			startMatrix[2] * startPer + endMatrix[2] * per,
+			startMatrix[3] * startPer + endMatrix[3] * per,
+			startMatrix[4] * startPer + endMatrix[4] * per,
+			startMatrix[5] * startPer + endMatrix[5] * per
+		];
+		return result;
+	}
+	MorphShapeData.prototype.morphFill = function(fillStyle, per) {
+		var fillStyleType = fillStyle.type;
+        var startPer = 1 - per;
+        var EndColor;
+        var StartColor;
+        var color;
+		if (fillStyleType === 0x00) {
+			EndColor = fillStyle.endColor;
+			StartColor = fillStyle.startColor;
+			color = [
+				Math.floor(StartColor[0] * startPer + EndColor[0] * per),
+				Math.floor(StartColor[1] * startPer + EndColor[1] * per),
+				Math.floor(StartColor[2] * startPer + EndColor[2] * per),
+				StartColor[3] * startPer + EndColor[3] * per
+			];
+			return {
+				color: color,
+				type: fillStyleType
+			};
+		} else {
+			if (fillStyleType == 0x40 || fillStyleType == 0x41 || fillStyleType == 0x42 || fillStyleType == 0x43) {
+				var EndMatrix = fillStyle.bitmapEndMatrix;
+				var StartMatrix = fillStyle.bitmapStartMatrix;
+				var matrix = [
+					StartMatrix[0] * startPer + EndMatrix[0] * per,
+					StartMatrix[1] * startPer + EndMatrix[1] * per,
+					StartMatrix[2] * startPer + EndMatrix[2] * per,
+					StartMatrix[3] * startPer + EndMatrix[3] * per,
+					StartMatrix[4] * startPer + EndMatrix[4] * per,
+					StartMatrix[5] * startPer + EndMatrix[5] * per
+				];
+				return {
+					bitmapId: fillStyle.bitmapId,
+					bitmapMatrix: matrix,
+					isSmoothed: fillStyle.isSmoothed,
+					isRepeating: fillStyle.isRepeating,
+					type: fillStyleType
+				};
+			} else {
+				var gradient = fillStyle.gradient;
+				if (!gradient) {
+					gradient = fillStyle.linearGradient;
+				}
+				if (!gradient) {
+					gradient = fillStyle.radialGradient;
+				}
+				var EndGradientMatrix = gradient.endMatrix;
+				var StartGradientMatrix = gradient.startMatrix;
+				var matrix = [
+					StartGradientMatrix[0] * startPer + EndGradientMatrix[0] * per,
+					StartGradientMatrix[1] * startPer + EndGradientMatrix[1] * per,
+					StartGradientMatrix[2] * startPer + EndGradientMatrix[2] * per,
+					StartGradientMatrix[3] * startPer + EndGradientMatrix[3] * per,
+					StartGradientMatrix[4] * startPer + EndGradientMatrix[4] * per,
+					StartGradientMatrix[5] * startPer + EndGradientMatrix[5] * per
+				];
+				var gRecords = [];
+				var GradientRecords = gradient.gradientRecords;
+				var gLen = GradientRecords.length;
+				for (var gIdx = 0; gIdx < gLen; gIdx++) {
+					var gRecord = GradientRecords[gIdx];
+					EndColor = gRecord.endColor;
+					StartColor = gRecord.startColor;
+					color = [
+						Math.floor(StartColor[0] * startPer + EndColor[0] * per),
+						Math.floor(StartColor[1] * startPer + EndColor[1] * per),
+						Math.floor(StartColor[2] * startPer + EndColor[2] * per),
+						StartColor[3] * startPer + EndColor[3] * per
+					];
+					gRecords[gIdx] = {
+						color: color,
+						ratio: gRecord.startRatio * startPer + gRecord.endRatio * per
+					};
+				}
+				return {
+					gradient: {
+						matrix: matrix,
+						gradientRecords: gRecords,
+						spreadMode: gradient.spreadMode,
+						interpolationMode: gradient.interpolationMode
+					},
+					type: fillStyleType
+				};
+			}
+		}
+	}
 	MorphShapeData.prototype.executeMorph = function(per) {
         var startPer = 1 - per;
         var newShapeRecords = [];
         var lineStyles = this._clone(this.morphChapeCache.lineStyles);
         var fillStyles = this._clone(this.morphChapeCache.fillStyles);
+        var lineStyleCount = lineStyles.length;
+        var fillStyleCount = fillStyles.length;
         var EndBounds = this.morphChapeCache.endBound;
         var StartBounds = this.morphChapeCache.startBound;
 		var result = this.morphChapeCache.edges;
-        var lineStyleCount = lineStyles.length;
-        var fillStyleCount = fillStyles.length;
         var StartEdges = result.starts;
         var EndEdges = result.ends;
         var StartShapeRecords = StartEdges;
@@ -6542,88 +6580,41 @@ var PKF = (function() {
             }
             newShapeRecords[i] = newRecord;
         }
-        newShapeRecords[newShapeRecords.length] = 0;
         shapes.shapeRecords = newShapeRecords;
         var EndColor;
         var StartColor;
         var color;
         for (i = 0; i < lineStyleCount; i++) {
+			var EndWidth = lineStyles[i].endWidth;
+			var StartWidth = lineStyles[i].startWidth;
             var lineStyle = lineStyles[i];
-            EndColor = lineStyle.endColor;
-            StartColor = lineStyle.startColor;
-            color = [Math.floor(StartColor[0] * startPer + EndColor[0] * per), Math.floor(StartColor[1] * startPer + EndColor[1] * per), Math.floor(StartColor[2] * startPer + EndColor[2] * per), StartColor[3] * startPer + EndColor[3] * per];
-            var EndWidth = lineStyles[i].endWidth;
-            var StartWidth = lineStyles[i].startWidth;
-            shapes.lineStyles[i] = {
-                width: Math.floor(StartWidth * startPer + EndWidth * per),
-                color: color,
-                type: 0
-            };
+			if (lineStyle.fillType) {
+				var mf = this.morphFill(lineStyle.fillType, per);
+				shapes.lineStyles[i] = {
+					width: Math.floor(StartWidth * startPer + EndWidth * per),
+					fillType: mf,
+					type: 0
+				};
+			} else {
+				EndColor = lineStyle.endColor;
+				StartColor = lineStyle.startColor;
+				color = [
+					Math.floor(StartColor[0] * startPer + EndColor[0] * per),
+					Math.floor(StartColor[1] * startPer + EndColor[1] * per),
+					Math.floor(StartColor[2] * startPer + EndColor[2] * per),
+					StartColor[3] * startPer + EndColor[3] * per
+				];
+				shapes.lineStyles[i] = {
+					width: Math.floor(StartWidth * startPer + EndWidth * per),
+					color: color,
+					type: 0
+				};
+			}
         }
         for (i = 0; i < fillStyleCount; i++) {
             var fillStyle = fillStyles[i];
-            var fillStyleType = fillStyle.type;
-            if (fillStyleType === 0x00) {
-                EndColor = fillStyle.endColor;
-                StartColor = fillStyle.startColor;
-                color = [Math.floor(StartColor[0] * startPer + EndColor[0] * per), Math.floor(StartColor[1] * startPer + EndColor[1] * per), Math.floor(StartColor[2] * startPer + EndColor[2] * per), StartColor[3] * startPer + EndColor[3] * per];
-                shapes.fillStyles[i] = {
-                    color: color,
-                    type: fillStyleType
-                };
-            } else {
-            	if (fillStyleType == 0x40 || fillStyleType == 0x41 || fillStyleType == 0x42 || fillStyleType == 0x43) {
-	                var EndMatrix = fillStyle.bitmapEndMatrix;
-	                var StartMatrix = fillStyle.bitmapStartMatrix;
-	                var matrix = [StartMatrix[0] * startPer + EndMatrix[0] * per, StartMatrix[1] * startPer + EndMatrix[1] * per, StartMatrix[2] * startPer + EndMatrix[2] * per, StartMatrix[3] * startPer + EndMatrix[3] * per, StartMatrix[4] * startPer + EndMatrix[4] * per, StartMatrix[5] * startPer + EndMatrix[5] * per];
-	                shapes.fillStyles[i] = {
-	                    bitmapId: fillStyle.bitmapId,
-	                    bitmapMatrix: matrix,
-	                    isSmoothed: fillStyle.isSmoothed,
-	                    isRepeating: fillStyle.isRepeating,
-	                    type: fillStyleType
-	                };
-            	} else {
-	                var gradient = fillStyle.gradient;
-	            	if (!gradient) {
-            			gradient = fillStyle.linearGradient;
-	            	}
-	            	if (!gradient) {
-            			gradient = fillStyle.radialGradient;
-	            	}
-	                var EndGradientMatrix = gradient.endMatrix;
-	                var StartGradientMatrix = gradient.startMatrix;
-	                var matrix = [StartGradientMatrix[0] * startPer + EndGradientMatrix[0] * per, StartGradientMatrix[1] * startPer + EndGradientMatrix[1] * per, StartGradientMatrix[2] * startPer + EndGradientMatrix[2] * per, StartGradientMatrix[3] * startPer + EndGradientMatrix[3] * per, StartGradientMatrix[4] * startPer + EndGradientMatrix[4] * per, StartGradientMatrix[5] * startPer + EndGradientMatrix[5] * per];
-	                var gRecords = [];
-	                var gRecords1 = [];
-	                for (var i2 = 0; i2 < gradient.startRecords.length; i2++) {
-	                	var sta = gradient.startRecords[i2];
-	                	var end = gradient.endRecords[i2];
-	                	gRecords1.push({startRatio: sta.ratio, startColor: sta.color, endRatio: end.ratio, endColor: end.color});
-	                }
-	                var GradientRecords = gRecords1;
-	                var gLen = GradientRecords.length;
-	                for (var gIdx = 0; gIdx < gLen; gIdx++) {
-	                    var gRecord = GradientRecords[gIdx];
-	                    EndColor = gRecord.endColor;
-	                    StartColor = gRecord.startColor;
-	                    color = [Math.floor(StartColor[0] * startPer + EndColor[0] * per), Math.floor(StartColor[1] * startPer + EndColor[1] * per), Math.floor(StartColor[2] * startPer + EndColor[2] * per), StartColor[3] * startPer + EndColor[3] * per];
-	                    gRecords[gIdx] = {
-	                        color: color,
-	                        ratio: gRecord.startRatio * startPer + gRecord.endRatio * per
-	                    };
-	                }
-	                shapes.fillStyles[i] = {
-	                    gradient: {
-	                   		matrix: matrix,
-	                    	gradientRecords: gRecords,
-							spreadMode: gradient.spreadMode,
-							interpolationMode: gradient.interpolationMode
-	                    },
-	                    type: fillStyleType
-	                };
-            	}
-            }
+			var mf = this.morphFill(fillStyle, per);
+			shapes.fillStyles[i] = mf;
         }
         var bounds = {
             xMax: (StartBounds.xMax * startPer) + (EndBounds.xMax * per),
@@ -6679,6 +6670,7 @@ var PKF = (function() {
 		var textHeight = 0;
 		var ShapeTable = null;
 		var isZoneTable = false;
+		renderer.setColorTransform(colorTransform);
 		var cm = multiplicationMatrix(matrix, this.matrix);
 		for (var i = 0; i < length; i++) {
 			var record = this.records[i];
@@ -6706,7 +6698,7 @@ var PKF = (function() {
 					textHeight /= 20;
 				}
 			}
-			renderer.setFillColor(...generateColorTransform(color, colorTransform));
+			renderer.setFillColor(...color);
 			var entries = record.glyphEntries;
 			var _scale = textHeight / 1024;
 			for (var idx = 0; idx < entries.length; idx++) {
@@ -6734,9 +6726,14 @@ var PKF = (function() {
 	}
 	CharacterBitmap.prototype.setBitmap = function(image) {
 		this.image = image;
-		var tex = this.stage.renderer.createTexture();
-		tex.setImage(image);
-		this.texture = tex;
+	}
+	CharacterBitmap.prototype.getTexture = function() {
+		if (!this.texture) {
+			var tex = this.stage.renderer.createTexture();
+			tex.setImage(this.image);
+			this.texture = tex;
+		}
+		return this.texture;
 	}
 	const ButtonData = function(stage, data) {
 		this.stage = stage;
@@ -6829,6 +6826,7 @@ var PKF = (function() {
 	SoundData.prototype.setAudio = function(audio) {
 		this.audio = audio;
 	}
+
 	const Avm1Undefined = function() {};
 	const Avm1Null = function() {};
 	const Avm1Number = function(num, avm1) {
@@ -6909,7 +6907,27 @@ var PKF = (function() {
 	}
 	Avm1MovieClip.prototype = Object.create(Avm1Object.prototype);
 	Avm1MovieClip.prototype.constructor = Avm1MovieClip;
+	const globalLibrary = {};
+	globalLibrary["object"] = function(avm1) {
+		function _valueOf(activation, _este, args) {
+			
+		}
+		var proto_decs = [];
+		proto_decs.push({
+			name: "valueOf",
+			value: _valueOf,
+			type: "method"
+		});
+	}
+	globalLibrary["array"] = function(avm1) {
 
+	}
+	globalLibrary["boolean"] = function(avm1) {
+
+	}
+	globalLibrary["number"] = function(avm1) {
+
+	}
 	const Avm1ReturnType = {
 		implicit: 0,
 		explicit: 1
@@ -7595,6 +7613,48 @@ var PKF = (function() {
 		var obj = new Avm1Object(this);
 		return obj;
 	}
+	Avm1.prototype.executeGetObject = function(object, name) {
+		if ((object === Avm1Undefined) || (object === Avm1Null)) {
+			return Avm1Undefined;
+		}
+		if (object.hasProp(name)) {
+			var result = object.getProp(name);
+			return result;
+		} else {
+			var ____proto = object.___proto;
+			if (____proto) {
+				return this.executeGetObject(____proto, name);
+			} else {
+				return Avm1Undefined;
+			}
+		}
+	}
+	Avm1.prototype.objectGetPropertyOnSlashPath = function(object, name) {
+		if ((object === Avm1Undefined) || (object === Avm1Null)) {
+			return Avm1Undefined;
+		} else if (object instanceof Avm1Object) {
+			return this.executeGetObject(object, name);
+		} else {
+			console.log(object, name);
+			return Avm1Undefined;
+		}
+	}
+	Avm1.prototype.objectGetProperty = function(object, name) {
+		if ((object === Avm1Undefined) || (object === Avm1Null)) {
+			return Avm1Undefined;
+		} else if (object instanceof Avm1Object) {
+			return this.executeGetObject(object, name);
+		} else {
+			console.log(object, name);
+			return Avm1Undefined;
+		}
+	}
+	Avm1.prototype.objectSetProperty = function(object, name, value) {
+		
+	}
+	Avm1.prototype.objectCallFunction = function(object, name, args) {
+		
+	}
 	Avm1.prototype.createNewObjectWithMovieClip = function(clip) {
 		var obj = new Avm1MovieClip(this);
 		obj.clip = clip;
@@ -7693,6 +7753,17 @@ var PKF = (function() {
 	SoundDecoder.NELLY_BAND_SIZES_TABLE = [2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8, 9, 10, 12, 14, 15];
 	SoundDecoder.NELLY_INIT_TABLE = [3134, 5342, 6870, 7792, 8569, 9185, 9744, 10191, 10631, 11061, 11434, 11770, 12116, 12513, 12925, 13300, 13674, 14027, 14352, 14716, 15117, 15477, 15824, 16157, 16513, 16804, 17090, 17401, 17679, 17948, 18238, 18520, 18764, 19078, 19381, 19640, 19921, 20205, 20500, 20813, 21162, 21465, 21794, 22137, 22453, 22756, 23067, 23350, 23636, 23926, 24227, 24521, 24819, 25107, 25414, 25730, 26120, 26497, 26895, 27344, 27877, 28463, 29426, 31355];
 	SoundDecoder.NELLY_DELTA_TABLE = [-11725, -9420, -7910, -6801, -5948, -5233, -4599, -4039, -3507, -3030, -2596, -2170, -1774, -1383, -1016, -660, -329, -1, 337, 696, 1085, 1512, 1962, 2433, 2968, 3569, 4314, 5279, 6622, 8154, 10076, 12975];
+	
+	const NELLY_BLOCK_LEN = 64; // usize
+	const NELLY_HEADER_BITS = 116; // usize
+	const NELLY_DETAIL_BITS = 198; // i32
+	const NELLY_BUF_LEN = 128; // usize
+	const NELLY_FILL_LEN = 124; // usize
+	const NELLY_BIT_CAP = 6; // i16
+	const NELLY_BASE_OFF = 4228; // i32
+	const NELLY_BASE_SHIFT = 19; // i16
+	const NELLY_SAMPLES = NELLY_BUF_LEN * 2; // usize
+	
 	SoundDecoder.prototype.load = function() {
 		var _this = this;
 		var format = this.info.format;
@@ -7736,6 +7807,8 @@ var PKF = (function() {
 				return this.decodePCM(buffer, channels, pos_buffer);
 			case "ADPCM":
 				return this.decodeADPCM(buffer, channels, pos_buffer);
+			//case "nellymoser": 
+			//	return this.decodeNellymoser(buffer, channels, pos_buffer);
 			default:
 				console.log("TODO", compression);
 				return 0;
@@ -7854,6 +7927,31 @@ var PKF = (function() {
 		return _pos_buffer;
 	}
 	SoundDecoder.prototype.decodeMP3 = function() {
+	}
+	SoundDecoder.prototype.decodeNellymoser = function() {
+		
+		var sampleRate = 0;
+		var state = new Array(NELLY_BUF_LEN);
+		for (let i = 0; i < state.length; i++) {
+			state[i] = 0;
+		}
+		var scratch = new Array(1024);
+		for (let i = 0; i < scratch.length; i++) {
+			scratch[i] = 0;
+		}
+		var cur_frame = new Array(NELLY_SAMPLES); // TODO: make uninitialized?
+		for (let i = 0; i < cur_frame.length; i++) {
+			cur_frame[i] = 0;
+		}
+		var cur_sample = 0;
+
+		function next_frame() {
+
+		}
+
+		function decode_block(block) {
+
+		}
 		
 	}
 	const SoundStreamDecoder = function(streamInfo, blocks) {
@@ -7992,7 +8090,7 @@ var PKF = (function() {
 	}
 	AudioBackend.prototype.cleanup = function() {
 		this.stopAll(true);
-		this.stopAllSoundStream();
+		this.stopAllSoundStream(true);
 	}
 	AudioBackend.prototype.pause = function() {
 		if (audioContext) audioContext.suspend();
@@ -8096,10 +8194,13 @@ var PKF = (function() {
 	AudioBackend.prototype.startStreamSound = function(sound, mc) {
 		var rs = {};
 		if (!sound.audioStream) return;
+		var sampleRate = sound.soundInfo.streamInfo.stream.sampleRate;
+		let seekTime = (sound.audioStream.seekSample / sampleRate);
+		rs.__start = seekTime;
 		var source = audioContext.createBufferSource();
 		source.buffer = sound.audioStream.getBuffer();
 		source.connect(this.node);
-		source.start(audioContext.currentTime);
+		source.start(audioContext.currentTime, seekTime);
 		rs.mc = mc;
 		rs.source = source;
 		rs.startTime = this.tickTime;
@@ -8140,7 +8241,7 @@ var PKF = (function() {
 		var __info = soundinfo.info;
 		var sampleRate = sud.format.sampleRate;
 		
-		sound.buffer = audio.getBuffer();;
+		sound.buffer = audio.getBuffer();
 		sound.mc = mc;
 		sound.id = sud.id;
 
@@ -8287,6 +8388,8 @@ var PKF = (function() {
 		this.canvas.width = this.width;
 		this.canvas.height = this.height;
 
+		this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
+
 		this.backgroundColor = [255, 255, 255];
 
 		this.fill_style_color = [0, 0, 0, 1];
@@ -8306,6 +8409,7 @@ var PKF = (function() {
     }
 	RenderCanvas2d.prototype.clear = function() {
 		this.setTransform(1, 0, 0, 1, 0, 0);
+		this.setColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
 		this.beginPath();
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.ctx.fillStyle = "rgb(" + this.backgroundColor.join(",") + ")";
@@ -8320,11 +8424,11 @@ var PKF = (function() {
 	RenderCanvas2d.prototype.createTexture = function() {
 		return new RenderCanvas2dTexture(this);
     }
-	RenderCanvas2d.prototype.drawTexture = function(texture, color, isSmoothing) {
+	RenderCanvas2d.prototype.drawTexture = function(texture, isSmoothing) {
 		if (texture) {
 			var tex = texture.getTexture();
 			if (tex) {
-				this.ctx.globalAlpha = color[3];
+				this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
 				this.ctx.imageSmoothingEnabled = isSmoothing || false;
 				this.ctx.drawImage(texture.getTexture(), 0, 0);
 				this.ctx.globalAlpha = 1;
@@ -8340,6 +8444,9 @@ var PKF = (function() {
 	RenderCanvas2d.prototype.restore = function() {
 		this.ctx.restore();
     }
+	RenderCanvas2d.prototype.setColorTransform = function(ct) {
+		this.colorTransform = ct;
+	}
 	RenderCanvas2d.prototype.setTransform = function(a, b, c, d, e, f) {
 		this.ctx.setTransform(a, b, c, d, e, f);
     }
@@ -8352,7 +8459,7 @@ var PKF = (function() {
 		}
 		for (let i = 1; i < lists.length; i++) {
 			const s = lists[i];
-			css.addColorStop(s[0], 'rgba(' + s[1].join(",") + ')');
+			css.addColorStop(s[0], 'rgba(' + generateColorTransform(s[1], this.colorTransform).join(",") + ')');
 		}
 		return css;
     }
@@ -8367,13 +8474,13 @@ var PKF = (function() {
 		} else {
 			if (this.fill_style_type == 2) {
 				var texInfo = this.fill_style_pattern[0];
-				this.ctx.globalAlpha = texInfo[1];
-				this.ctx.imageSmoothingEnabled = texInfo[2] || false;
+				this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+				this.ctx.imageSmoothingEnabled = texInfo[1] || false;
 				this.ctx.fillStyle = this.executePattern([texInfo[0], this.fill_style_pattern[1]]);
 				this.ctx.fill();
 				this.ctx.globalAlpha = 1;
 			} else {
-				this.ctx.fillStyle = 'rgba(' + this.fill_style_color.join(",") + ')';
+				this.ctx.fillStyle = 'rgba(' + generateColorTransform(this.fill_style_color, this.colorTransform).join(",") + ')';
 				this.ctx.fill();
 			}
 		}
@@ -8388,14 +8495,14 @@ var PKF = (function() {
 		} else {
 			if (this.stroke_style_type == 2) {
 				var texInfo = this.stroke_style_pattern[0];
-				this.ctx.globalAlpha = texInfo[1];
-				this.ctx.imageSmoothingEnabled = texInfo[2] || false;
+				this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+				this.ctx.imageSmoothingEnabled = texInfo[1] || false;
 				this.ctx.drawImage(texture.getTexture(), 0, 0);
 				this.ctx.strokeStyle = this.executePattern([texInfo[0], this.stroke_style_pattern[1]]);
 				this.ctx.stroke();
 				this.ctx.globalAlpha = 1;
 			} else {
-				this.ctx.strokeStyle = 'rgba(' + this.stroke_style_color.join(",") + ')';
+				this.ctx.strokeStyle = 'rgba(' + generateColorTransform(this.stroke_style_color, this.colorTransform).join(",") + ')';
 				this.ctx.stroke();
 			}
 		}
@@ -8462,6 +8569,34 @@ var PKF = (function() {
 	Timer.prototype.getTime = function() {
 		return this.tickTime - this.startTime;
 	}
+	const TransformStack = function() {
+		this.stackMt = [[1, 0, 0, 1, 0, 0]];
+		this.stackCT = [[1, 1, 1, 1, 0, 0, 0, 0]];
+		this.pushTotal = 0;
+	}
+	TransformStack.prototype.stackPush = function(matrix, colorTransform) {
+		this.stackMt.push(multiplicationMatrix(this.getMatrix(), matrix));
+		this.stackCT.push(multiplicationColor(this.getColorTransform(), colorTransform));
+		if (this.stackCT.length > this.pushTotal) {
+			this.pushTotal = this.stackCT.length;
+		}
+	}
+	TransformStack.prototype.stackPop = function() {
+		this.stackMt.pop();
+		this.stackCT.pop();
+	}
+	TransformStack.prototype.getMatrix = function() {
+		return this.stackMt[this.stackMt.length - 1];
+	}
+	TransformStack.prototype.getColorTransform = function() {
+		return this.stackCT[this.stackCT.length - 1];
+	}
+	TransformStack.prototype.setMatrix = function(matrix) {
+		this.stackMt = [matrix];
+	}
+	TransformStack.prototype.setColorTransform = function(colorTransform) {
+		this.stackCT = [colorTransform];
+	}
 	const UpdateContext = function(stage) {
 		this.stage = stage;
 		this.library = stage.library;
@@ -8469,7 +8604,9 @@ var PKF = (function() {
 		this.audio = stage.audio;
 		this.avm1 = stage.avm1;
 		this.framePhase = "";
+		this.activeMask = 0;
 		this.instanceCounter = 0;
+		this.transformStack = new TransformStack();
 		this.actionQueue = [];
 	}
 	UpdateContext.prototype.init = function() {
@@ -8490,7 +8627,7 @@ var PKF = (function() {
 	UpdateContext.prototype.popAction = function() {
 		return this.actionQueue.pop();
 	}
-    const Stage = function() {
+    const MoviePlayer = function() {
 		this.width = 0;
 		this.height = 0;
         this.version = 0;
@@ -8545,14 +8682,14 @@ var PKF = (function() {
 			return true;
 		};
     }
-	Stage.prototype.resetAttributes = function() {
+	MoviePlayer.prototype.resetAttributes = function() {
 		this.attributes.useDirectBlit = false;
 		this.attributes.useGPU = false;
 		this.attributes.hasMetadata = false;
 		this.attributes.isActionScript3 = false;
 		this.attributes.useNetworkSandbox = false;
 	}
-	Stage.prototype.initAttributes = function(info) {
+	MoviePlayer.prototype.initAttributes = function(info) {
 		if (info.useDirectBlit) {
 			this.attributes.useDirectBlit = true;
 		}
@@ -8569,19 +8706,22 @@ var PKF = (function() {
 			this.attributes.useNetworkSandbox = true;
 		}
 	}
-	Stage.prototype.isActionScript3 = function() {
+	MoviePlayer.prototype.isActionScript3 = function() {
 		return this.attributes.isActionScript3;
 	}
-    Stage.prototype.tick = function() {
+    MoviePlayer.prototype.tick = function() {
 		this.closeCursor();
 		this.timeUpdate();
 		if (this.isLoad) {
 			if (this.playing) {
 				var rate = +((1000 / this.frameRate).toFixed(1));
 				if (!this.clip) {
+					this.audio.stopAll(true);
+					this.audio.stopAllSoundStream(true);
+					this.avm1.clipExecList = null;
 					this._starttime = this.timer.getTime();
-					this.timeUpdate();
-					this._startOffset = this.tickTime - rate; 
+					this.tickTime = this.timer.getTime() - this._starttime;
+					this._startOffset = this.tickTime; 
 					if (audioContext) audioContext.resume();
 					this.initRoot();
 				}
@@ -8603,48 +8743,54 @@ var PKF = (function() {
 			}
 		}
     }
-	Stage.prototype.timeUpdate = function() {
+	MoviePlayer.prototype.timeUpdate = function() {
 		this.tickTime = this.timer.getTime() - this._starttime;
     }
-	Stage.prototype.pause = function() {
+	MoviePlayer.prototype.pause = function() {
 		this.playing = false;
 		this.audio.pause();
     }
-	Stage.prototype.resume = function() {
+	MoviePlayer.prototype.resume = function() {
 		this.playing = true;
 		this.audio.resume();
     }
-	Stage.prototype.start = function() {
+	MoviePlayer.prototype.start = function() {
 		this.playing = true;
 		this.audio.resume();
     }
-	Stage.prototype.clipPlay = function() {
+	MoviePlayer.prototype.clipPlay = function() {
 		this.dirty = true;
 		if (this.clip) {
 			this.clip.play();
 		}
 	}
-	Stage.prototype.clipStop = function() {
+	MoviePlayer.prototype.clipStop = function() {
 		if (this.clip) {
 			this.clip.stop();
 		}
 	}
-	Stage.prototype.initRoot = function() {
+	MoviePlayer.prototype.initRoot = function() {
 		var mc = this.rootClipTag.instantiate();
+		if (this.rootClipTag.characterId > 0) {
+			mc.setX(this.width / 2);
+			mc.setY(this.height / 2);
+			mc.setXScale(50);
+			mc.setYScale(50);
+		}
 		mc.postInstantiation(null, null, false);
 		this.clip = mc;
     }
-	Stage.prototype.runFrame = function() {
+	MoviePlayer.prototype.runFrame = function() {
 		this.dirty = true;
 		this.avm1.runFrame();
+		this.runActions();
 		if (config.debug) {
-			//this.runActions();
 			//var _parent = this.clip.childByDepth(1);
 			//this.executeVCam(_parent, 234);
 			//this.executeVCam(_parent, 1319);
 		}
     }
-	Stage.prototype.executeVCam = function(_parent, gs) {
+	MoviePlayer.prototype.executeVCam = function(_parent, gs) {
 		if (_parent) {
 			if (_parent instanceof MovieClip) {
 				var vCam = _parent.childByDepth(gs);
@@ -8674,7 +8820,7 @@ var PKF = (function() {
 			}
 		}
 	}
-	Stage.prototype.runActions = function() {
+	MoviePlayer.prototype.runActions = function() {
 		var context = this.context;
 		for (let i = 0; i < context.actionQueue.length; i++) {
 			const actionInfo = context.actionQueue[i];
@@ -8682,23 +8828,23 @@ var PKF = (function() {
 				var action = actionInfo.action;
 				switch(action.type) {
 					case "normal":
-						var activation = this.avm1.createActivation(action.caches, actionInfo.clip);
-						activation.runActions();
+						/*var activation = this.avm1.createActivation(action.caches, actionInfo.clip);
+						activation.runActions();*/
 						break;
 				}	
-				context.actionQueue[i] = undefined;
+				actionInfo.ended = true;
 			}
 		}
 		var newActionQueue = [];
 		for (let i = 0; i < context.actionQueue.length; i++) {
 			const a = context.actionQueue[i];
-			if (a) {
+			if (!a.ended) {
 				newActionQueue.push(a);
 			}
 		}
 		context.actionQueue = newActionQueue;
     }
-	Stage.prototype.resize = function(scale) {
+	MoviePlayer.prototype.resize = function(scale) {
 		this.dirty = true;
 		var w = Math.floor(this.width * scale);
 		var h = Math.floor(this.height * scale);
@@ -8708,43 +8854,46 @@ var PKF = (function() {
 		this.render();
 		this.dirty = false;
     }
-    Stage.prototype.render = function() {
+    MoviePlayer.prototype.render = function() {
         this.renderer.clear();
 		if (this.clip && this.isLoad) {
+			this.context.transformStack.setMatrix([(this.renderer.width / this.width) / 20, 0, 0, (this.renderer.height / this.height) / 20, 0, 0]);
+			this.context.transformStack.setColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
+			this.context.activeMask = 0;
 			if (this.checkRender()) {
-				this.clip.render(this, this.renderer, [(this.renderer.width / this.width) / 20, 0, 0, (this.renderer.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], true, false);
+				this.clip.render(this.context);
 			}
 			this.debugMovieCtx.setTransform(1, 0, 0, 1, 0, 0);
 			this.debugMovieCtx.clearRect(0, 0, this.debugMovieCanvas.width, this.debugMovieCanvas.height);
 			this.clip.debugRender(this.debugMovieCtx, [(this.debugMovieCanvas.width / this.width) / 20, 0, 0, (this.debugMovieCanvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], this, true);
 		}
     }
-	Stage.prototype.setBackgroundColor = function(r, g, b) {
+	MoviePlayer.prototype.setBackgroundColor = function(r, g, b) {
 		this.backgroundColor[0] = r;
 		this.backgroundColor[1] = g;
 		this.backgroundColor[2] = b;
 		this.renderer.setBackgroundColor(r, g, b);
     }
-	Stage.prototype.setPlayerBounds = function() {
+	MoviePlayer.prototype.setPlayerBounds = function() {
 		this.width = (this.bounds.xMax - this.bounds.xMin) / 20;
 		this.height = (this.bounds.yMax - this.bounds.yMin) / 20;
     }
-	Stage.prototype.closeCursor = function() {
+	MoviePlayer.prototype.closeCursor = function() {
 		this.cursor = 0;
 	}
-	Stage.prototype.openCursor = function() {
+	MoviePlayer.prototype.openCursor = function() {
 		this.cursor = 1;
 	}
-	Stage.prototype.mouseMove = function(x, y) {
+	MoviePlayer.prototype.mouseMove = function(x, y) {
 		this.mousePosition = [x, y];
 	}
-	Stage.prototype.mouseDown = function() {
+	MoviePlayer.prototype.mouseDown = function() {
 		this.mousePressed = true;
 	}
-	Stage.prototype.mouseUp = function() {
+	MoviePlayer.prototype.mouseUp = function() {
 		this.mousePressed = false;
 	}
-	Stage.prototype.destroy = function() {
+	MoviePlayer.prototype.destroy = function() {
 		this.audio.cleanup();
 		this.isLoad = false;
     }
@@ -8778,18 +8927,6 @@ var PKF = (function() {
 			});
 		}
 	}
-	Loader.prototype._stepLoadedComplete = function(callback) {
-		if (this.loadimgsoundCount == 0) {
-			this.complete(callback);
-		}
-	}
-	Loader.prototype.complete = function(callback) {
-		if (this.interval !== null) {
-			clearInterval(this.interval);
-			this.interval = null;
-		}
-		callback();
-	}
 	Loader.prototype.cancel = function() {
 		if (this.swfparser) {
 			this.swfparser.cancel();
@@ -8812,8 +8949,7 @@ var PKF = (function() {
 		}
 	}
 	Loader.prototype.loadTags = function(tags, clip, stage) {
-		var obj = [];
-		var frames = [];
+		var frameCount = 0;
 		for (let tagId = 0; tagId < tags.length; tagId++) {
 			const tag = tags[tagId];
 			switch (tag.tagType) {
@@ -8821,8 +8957,7 @@ var PKF = (function() {
 				case "End":
 					break;
 				case "ShowFrame":
-					frames.push(obj);
-					obj = [];
+					frameCount++;
 					break;
 				case "PlaceObject":
 				case "PlaceObject2":
@@ -8837,7 +8972,6 @@ var PKF = (function() {
 				case "SoundStreamHead":
 				case "SoundStreamHead2":
 				case "SoundStreamBlock":
-					obj.push(tag);
 					break;
 				//////// Define ////////
 				case "DefineFont":
@@ -8937,7 +9071,8 @@ var PKF = (function() {
 					break;
 			}
 		}
-		clip.init(frames);
+		clip.frameCount = frameCount;
+		clip.init(tags);
 		this.loadSoundStreamSprite(clip, stage);
 	}
 	Loader.prototype.generateDefaultTagObj = function() {
@@ -8987,24 +9122,29 @@ var PKF = (function() {
 				callback();
 			}
 			image.onerror = function() {
+				console.log("jped failed", tag1.tagType, tag.jpegTable, JPEGData);
 				_this.loadedCC();
 				callback();
 			}
+			var _JPEGData = JPEGData;
 			var jpegTables = tag.jpegTable;
 			if (jpegTables !== null && jpegTables.byteLength > 4) {
-				var margeData = [];
-				var _jpegTables = new Uint8Array(tag.jpegTable);
-				var len = _jpegTables.length - 2;
-				for (var idx = 0; idx < len; idx++) {
-					margeData[margeData.length] = _jpegTables[idx];
+				if (tag1.tagType == "DefineBits") {
+					var margeData = [];
+					var _jpegTables = new Uint8Array(tag.jpegTable);
+					var len = _jpegTables.length - 2;
+					for (var idx = 0; idx < len; idx++) {
+						margeData[margeData.length] = _jpegTables[idx];
+					}
+					len = _JPEGData.length;
+					for (idx = 2; idx < len; idx++) {
+						margeData[margeData.length] = _JPEGData[idx];
+					}
+					_JPEGData = margeData;
 				}
-				len = JPEGData.length;
-				for (idx = 2; idx < len; idx++) {
-					margeData[margeData.length] = JPEGData[idx];
-				}
-				JPEGData = margeData;
 			}
-			image.src = "data:image/jpeg;base64," + window.btoa(_this.parseJpegData(JPEGData));
+			var fi = _this.parseJpegData(_JPEGData, tag1.tagType);
+			image.src = "data:image/jpeg;base64," + window.btoa(fi);
 		});
 		stage.library.setCharacter(tag1.id, tag);
 	}
@@ -9017,11 +9157,8 @@ var PKF = (function() {
 		if (format === 3) {
 			colorTableSize = bitmapInfo.numColors + 1;
 		}
-		if (format === 4) {
-		}
-		if (format === 5) {
-		}
-		var sizeZLib = 4;
+		var sizeZLib = 5;
+		
 		var dat = ZLib.decompress(bitmapInfo.data, ((width * height) * sizeZLib), 0);
 		var data = new Uint8Array(dat);
 		var canvas = document.createElement("canvas");
@@ -9105,6 +9242,7 @@ var PKF = (function() {
 	Loader.prototype.defineSprite = function(tag, stage) {
 		var clip = new MovieClipData(stage);
 		clip.characterId = tag.id;
+		clip.totalframes = tag.numFrames;
 		this.loadTags(tag.tags, clip, stage);
 		stage.library.setCharacter(tag.id, clip);
 	}
@@ -9136,7 +9274,7 @@ var PKF = (function() {
 		var resultButton = stage.library.getCharacter(tag.id);
 		resultButton.setColorTransforms(tag);
 	}
-	Loader.prototype.parseJpegData = function(JPEGData) {
+	Loader.prototype.parseJpegData = function(JPEGData, type) {
 		var i = 0;
 		var idx = 0;
 		var str = "";
@@ -9149,7 +9287,9 @@ var PKF = (function() {
 			for (idx = 0; idx < i; idx++) {
 				str += String.fromCharCode(JPEGData[idx]);
 			}
+			var lastI = -1;
 			while (i < length) {
+				lastI = i;
 				if (JPEGData[i] === 0xFF) {
 					if (JPEGData[i + 1] === 0xD9 && JPEGData[i + 2] === 0xFF && JPEGData[i + 3] === 0xD8) {
 						i += 4;
@@ -9170,57 +9310,52 @@ var PKF = (function() {
 						i += segmentLength - i;
 					}
 				}
+				if (lastI == i) {
+					return "";
+				}
 			}
 		}
 		return str;
 	}
-	Loader.prototype.getSoundStreamHead = function(tags) {
-		for (let i = 0; i < tags.length; i++) {
-			const tag = tags[i];
-			if (tag.tagType == "SoundStreamHead" || tag.tagType == "SoundStreamHead2") {
-				return tag;
-			}
-		}
-	}
-	Loader.prototype.getSoundStreamBlock = function(tags) {
-		for (let i = 0; i < tags.length; i++) {
-			const tag = tags[i];
-			if (tag.tagType == "SoundStreamBlock") {
-				return tag;
-			}
-		}
-	}
 	Loader.prototype.loadSoundStreamSprite = function(sp, stage) {
-		var frames = sp.frames;
 		sp.streamSounds = [];
 		var soundStreamInfo = null;
 		var _soundStreamStart = false;
 		var curFrame = 0;
+		var frame = 1;
 		var blocks = [];
-		for (let tagId = 0; tagId < frames.length; tagId++) {
-			var tag = frames[tagId];
-			var __soundStreamHead = this.getSoundStreamHead(tag);
-			var __soundStreamBlock = this.getSoundStreamBlock(tag);
-			if (__soundStreamHead) {
-				soundStreamInfo = __soundStreamHead;
-			}
-			var blockStreams = __soundStreamBlock;
-			if (blockStreams) {
-				if (!_soundStreamStart) {
-					curFrame = tagId;
-				}
-				_soundStreamStart = true;
-				blocks.push(blockStreams.compressed);
-			} else {
-				if (_soundStreamStart) {
-					sp.streamSounds[curFrame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
-					blocks = [];
-					_soundStreamStart = false;
-				}
+		var tags = sp.tags;
+		var hasBlock = false;
+		for (let tagId = 0; tagId < tags.length; tagId++) {
+			var tag = tags[tagId];
+			switch(tag.tagType) {
+				case "SoundStreamHead":
+				case "SoundStreamHead2":
+					soundStreamInfo = tag;
+					break;
+				case "SoundStreamBlock":
+					if (!_soundStreamStart) {
+						frame = curFrame + 1;
+					}
+					_soundStreamStart = true;
+					hasBlock = true;
+					blocks.push(tag.compressed);
+					break;
+				case "ShowFrame":
+					curFrame++;
+					if (hasBlock == false) {
+						if (_soundStreamStart) {
+							sp.streamSounds[frame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
+							blocks = [];
+							_soundStreamStart = false;
+						}
+					}
+					hasBlock = false;
+					break;
 			}
 		}
 		if (_soundStreamStart) {
-			sp.streamSounds[curFrame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
+			sp.streamSounds[frame] = this.loadSoundStream(soundStreamInfo, blocks, stage);
 		}
 	}
 	Loader.prototype.loadSoundStream = function(streamInfo, blocks, stage) {
@@ -9244,7 +9379,7 @@ var PKF = (function() {
 	Loader.prototype.loadSwfMovie = function(swfInfo, swfData, calllback) {
 		this.swfInfo = swfInfo;
 		var _this = this;
-		var stage = new Stage();
+		var stage = new MoviePlayer();
 		stage.swf = swfInfo;
 		stage.swfData = swfData;
 		stage.version = this.swfInfo.header.version;
@@ -9254,7 +9389,6 @@ var PKF = (function() {
 		stage.resize(1);
 		var rootClip = new MovieClipData(stage);
 		rootClip.isRoot = true;
-		rootClip.frameCount = this.swfInfo.movieInfo.numFrames;
 		_this.loadTags(this.swfInfo.tags, rootClip, stage);
 		stage.rootClipTag = rootClip;
 		_this.loadCallbackPreloads(function() {
@@ -9284,10 +9418,12 @@ var PKF = (function() {
 				});
 			}
 			swfparser.onerror = function(e) {
-				_this.cancel();
 				if (_this.onerror) {
 					_this.onerror(e);
 				}
+			}
+			swfparser.onmessage = function(message, type) {
+				console.log(message);
 			}
 			_this.swfparser = swfparser;
 			swfparser.load();
@@ -9329,21 +9465,24 @@ var PKF = (function() {
 		this.onresume = new Slot();
 		this.onpause = new Slot();
 		this.onoptionschange = new Slot();
+		this.MAGIC = {
+			LARGE_Z_INDEX: '9999999999',
+		};
 		this.scanned = new ScreenCap();
 		this.stage = null;
 		this.currentLoader = null;
+		this.fullscreenEnabled = false;
 		this.width = 0;
 		this.height = 0;
 		this.root = document.createElement('div');
 		this.root.className = 'pinkfie-root';
 		this.playerContainer = document.createElement('div');
 		this.playerContainer.className = 'pinkfie-stage';
-
 		this.root.appendChild(this.playerContainer);
 		this.options = {};
 		this._clickToPlay = false;
 		this._viewFrame = false;
-		this._o = 0;
+		this._displayMessage = [0, "", 0, 1000];
 		this.mousePoint = [0, 0];
 		this.tickTime = 0;
 		this.isLoad = false;
@@ -9352,9 +9491,14 @@ var PKF = (function() {
         this.canvas = document.createElement("canvas");
 		this.playerContainer.appendChild(this.canvas);
 		this.addMenuVerticals();
+		this.addStatsControls();
 		this.addSettingVerticals();
         this.ctx = this.canvas.getContext("2d");
 		this.setOptions(Object.assign(Object.assign({}, options), Player.DEFAULT_OPTIONS));
+		window.addEventListener('resize', () => this.updateFullscreen());
+		document.addEventListener('fullscreenchange', () => this.onfullscreenchange());
+		document.addEventListener('mozfullscreenchange', () => this.onfullscreenchange());
+		document.addEventListener('webkitfullscreenchange', () => this.onfullscreenchange());
 		this.handleError = this.handleError.bind(this);
 		this.resize(640, 400);
 		this.addEventListeners();
@@ -9385,6 +9529,7 @@ var PKF = (function() {
 	Player.prototype._onmousedown = function (e) {
 		if (e.target === this.canvas) {
 			this.MenuVertical.style.display = 'none';
+			this.updateMouse(e);
 			this.updateMouseDown(e);
 			e.preventDefault();
 		}
@@ -9399,23 +9544,28 @@ var PKF = (function() {
 	Player.prototype._ontouchstart = function (e) {
 		for (var i = 0; i < e.changedTouches.length; i++) {
 			const t = e.changedTouches[i];
-			this.updateMouseDown(t);
-		}
-		if (e.target === this.canvas) {
-			this.MenuVertical.style.display = 'none';
-			e.preventDefault();
+			if (e.target === this.canvas) {
+				this.MenuVertical.style.display = 'none';
+				this.updateMouseDown(t);
+				e.preventDefault();
+			}
 		}
 	}
 	Player.prototype._ontouchend = function (e) {
 		for (var i = 0; i < e.changedTouches.length; i++) {
 			const t = e.changedTouches[i];
-			this.updateMouseUp(t);
+			if (e.target === this.canvas) {
+				this.updateMouseUp(t);
+				e.preventDefault();
+			}
 		}
 	}
 	Player.prototype._ontouchmove = function (e) {
 		for (var i = 0; i < e.changedTouches.length; i++) {
 			const t = e.changedTouches[i];
-			this.updateMouse(t);
+			if (e.target === this.canvas) {
+				this.updateMouse(t);
+			}
 		}
 	}
 	Player.prototype.addMenuVerticals = function () {
@@ -9442,6 +9592,20 @@ var PKF = (function() {
 		}));
 		this.MenuVertical.appendChild(this._createE('Download SWF', function () {
 			_this.downloadSwf();
+			_this.MenuVertical.style.display = 'none';
+		}));
+		this.MenuVertical.appendChild(this._createE('Full Screen', function () {
+			if (_this.fullscreenEnabled) {
+				_this._displayMessage[1] = "Full Screen: Off";
+				_this._displayMessage[0] = 2;
+				_this._displayMessage[2] = _this.tickTime;
+				_this.exitFullscreen();
+			} else {
+				_this._displayMessage[1] = "Full Screen: On";
+				_this._displayMessage[0] = 2;
+				_this._displayMessage[2] = _this.tickTime;
+				_this.enterFullscreen();
+			}
 			_this.MenuVertical.style.display = 'none';
 		}));
 		var rr = this._createE('Settings', function () {
@@ -9545,13 +9709,49 @@ var PKF = (function() {
 		this.settingVertical.appendChild(rrj);
         this.playerContainer.appendChild(this.settingVertical);
 	}
+	Player.prototype.addStatsControls = function() {
+		this.statsE = document.createElement("div");
+		this.statsE.style.color = "#fff";
+		this.statsE.style.position = "absolute";
+		this.statsE.style.top = "0px";
+		this.statsE.style.left = "0px";
+		this.statsE.style.fontSize = "15px";
+		this.statsE.style.display = "none";
+
+		var r = document.createElement("div");
+		r.textContent = "Time";
+		r.style.background = "rgba(0,0,0,0.75)";
+		r.style.backdropFilter = "blur(2px)";
+		r.style.padding = "3px 5px";
+		r.style.margin = "3px";
+		r.style.height = "auto";
+		r.style.display = "none";
+
+		var playpause = document.createElement("div");
+		playpause.textContent = "Pause";
+		playpause.style.background = "rgba(0,0,0,0.75)";
+		playpause.style.backdropFilter = "blur(2px)";
+		playpause.style.padding = "3px 5px";
+		playpause.style.margin = "3px";
+		playpause.style.width = "auto";
+		playpause.style.height = "auto";
+		playpause.style.display = "none";
+
+		this.statsE_R = r;
+		this.statsE_PP = playpause;
+
+		this.statsE.appendChild(playpause);
+		this.statsE.appendChild(r);
+
+        this.playerContainer.appendChild(this.statsE);
+	}
 	Player.prototype._createE = function (name, fun) {
         var MVG1 = document.createElement('div');
         MVG1.textContent = name;
         MVG1.onclick = function() {
         	fun();
         }
-        MVG1.onclick = MVG1.onclick.bind(this);
+        //MVG1.onclick = MVG1.onclick.bind(this);
         return MVG1;
 	}
 	Player.prototype.sendList = function (event) {
@@ -9641,6 +9841,70 @@ var PKF = (function() {
 			viewBounds: !this.options.viewBounds
 		});
 	}
+	Player.prototype.enableAttribute = function(name) {
+		this.root.setAttribute(name, '');
+	}
+	Player.prototype.disableAttribute = function(name) {
+		this.root.removeAttribute(name);
+	}
+	Player.prototype.setAttribute = function(name, enabled) {
+		if (enabled) {
+			this.enableAttribute(name);
+		} else {
+			this.disableAttribute(name);
+		}
+	}
+	Player.prototype.updateFullscreen = function () {
+		if (!this.fullscreenEnabled) {
+			return;
+		}
+		this._resize(window.innerWidth, window.innerHeight);
+		this.root.style.paddingLeft = '0px';
+		this.root.style.paddingTop = '0px';
+	}
+	Player.prototype.onfullscreenchange = function () {
+		if (typeof document.fullscreen === 'boolean' && document.fullscreen !== this.fullscreenEnabled) {
+			this.exitFullscreen();
+		} else if (typeof document.webkitIsFullScreen === 'boolean' && document.webkitIsFullScreen !== this.fullscreenEnabled) {
+			this.exitFullscreen();
+		}
+	}
+	Player.prototype.enterFullscreen = function() {
+		if (this.options.fullscreenMode === 'full') {
+			if (this.root.requestFullScreenWithKeys) {
+				this.root.requestFullScreenWithKeys();
+			}
+			else if (this.root.webkitRequestFullScreen) {
+				this.root.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+			}
+			else if (this.root.requestFullscreen) {
+				this.root.requestFullscreen();
+			}
+		}
+		document.body.classList.add('pinkfie-body-fullscreen');
+		this.root.style.zIndex = this.MAGIC.LARGE_Z_INDEX;
+		this.enableAttribute('fullscreen');
+		this.fullscreenEnabled = true;
+		this.updateFullscreen();
+	}
+	Player.prototype.exitFullscreen = function () {
+		this.disableAttribute('fullscreen');
+		this.fullscreenEnabled = false;
+		if (document.fullscreenElement === this.root || document.webkitFullscreenElement === this.root) {
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if (document.mozCancelFullScreen) {
+				document.mozCancelFullScreen();
+			} else if (document.webkitCancelFullScreen) {
+				document.webkitCancelFullScreen();
+			} else if (document.webkitExitFullscreen) {
+				document.webkitExitFullscreen();
+			}
+		}
+		this.root.style.zIndex = '';
+		document.body.classList.remove('pinkfie-body-fullscreen');
+		this._resize(this.width, this.height);
+	}
 	Player.prototype.updateMouse = function (e) {
 		if (this.hasStage()) {
 			var rect = this.canvas.getBoundingClientRect();
@@ -9690,12 +9954,11 @@ var PKF = (function() {
 	}
 	Player.prototype.beginLoadingSWF = function() {
 		this.cleanup();
+		this.onstartload.emit();
+		this.loaded = 1;
 	}
-	Player.prototype.loadSwfFromFile = function(file) {
-		this.beginLoadingSWF();
+	Player.prototype.loadLoader = function(loader) {
 		var _this = this;
-		_this.loaded = 1;
-		var loader = new Loader(file);
 		_this.currentLoader = loader;
 		loader.onprogress = function(fs) {
 			var r = ((fs[0] + fs[1]) / 2);
@@ -9714,6 +9977,33 @@ var PKF = (function() {
 		}
 		loader.load();
 	}
+	Player.prototype.fetchSwfUrl = function(url, callback) {
+		var xhr = new XMLHttpRequest();
+		xhr.onload = function() {
+			callback(new Blob([new Uint8Array(xhr.response)]));
+		}
+		xhr.onerror = function() {
+			callback(null);
+		}
+		xhr.responseType = "arraybuffer";
+		xhr.open("GET", url);
+		xhr.send();
+	}
+	Player.prototype.loadSwfFromFile = function(file) {
+		this.beginLoadingSWF();
+		var loader = new Loader(file);
+		this.loadLoader(loader);
+	}
+	Player.prototype.loadSwfFromURL = function(url) {
+		this.beginLoadingSWF();
+		var _this = this;
+		this.fetchSwfUrl(url, function(file) {
+			if (file) {
+				var loader = new Loader(file);
+				_this.loadLoader(loader);	
+			}
+		});
+	}
 	Player.prototype.getInfoStage = function() {
 		var stage = this.stage;
 		return {
@@ -9729,6 +10019,8 @@ var PKF = (function() {
 		this.applyOptionsToStage();
 		this.applyResizeStage();
 		this.isLoad = true;
+
+		this.statsE.style.display = "";
 
 		var _g = this._rrjswfinfo;
 
@@ -9757,11 +10049,12 @@ var PKF = (function() {
 		dfgfd += "<p>Frame Rate: " + resultswf.movieInfo.frameRate + "</p>";
 		dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
 		dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
-		dfgfd += '<p>SWF Background Color: rgba(' + stage.backgroundColor.join(",") + ')</p>';
+		dfgfd += '<p>SWF Background Color: rgb(' + stage.backgroundColor.join(",") + ')</p>';
 
 		_g.innerHTML = dfgfd;
 
 		this.applyAutoplayPolicy(this.options.autoplayPolicy);
+
 		this.onload.emit(stage);
 	}
 	Player.prototype.applyAutoplayPolicy = function(policy) {
@@ -9793,8 +10086,8 @@ var PKF = (function() {
     }
 	Player.prototype.applyResizeStage = function() {
 		if (this.stage) {
-			var scaleW = this.width / this.stage.width;
-			var scaleH = this.height / this.stage.height;
+			var scaleW = this.canvas.width / this.stage.width;
+			var scaleH = this.canvas.height / this.stage.height;
 			var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
 			this.stage.resize(scale);
 		}
@@ -9805,6 +10098,11 @@ var PKF = (function() {
 	Player.prototype.resize = function(w, h) {
 		this.width = w;
 		this.height = h;
+		if (!this.fullscreenEnabled) {
+			this._resize(w, h);
+		}
+    }
+	Player.prototype._resize = function(w, h) {
 		this.canvas.width = w;
 		this.canvas.height = h;
 
@@ -9813,7 +10111,7 @@ var PKF = (function() {
 
 		this.applyResizeStage();
 		this.render();
-    }
+	}
     Player.prototype.applyOptionsToStage = function() {
 		if (this.stage) {
 			this.stage.audio.setVolume(this.options.volume);
@@ -9844,8 +10142,15 @@ var PKF = (function() {
 			} else {
 				this.movie_playStop.innerHTML = "Play";
 			}
-			if ((!this.stage.playing) && !this._clickToPlay) {
-				this._o = this.tickTime + 1000;
+			if (this._displayMessage[0] == 1) {
+				if ((!this.stage.playing)) {
+					this._displayMessage[2] = this.tickTime;
+				}
+				if (this.stage.playing) {
+					this._displayMessage[1] = "Play";
+				} else {
+					this._displayMessage[1] = "Pause";
+				}
 			}
 		}
 		this.render();
@@ -9866,6 +10171,7 @@ var PKF = (function() {
 	}
 	Player.prototype.toggleRunning = function() {
 		if (this.hasStage()) {
+			this._displayMessage[0] = 1;
 			if (this.stage.playing) {
 				this.pause();
 			} else {
@@ -9878,8 +10184,8 @@ var PKF = (function() {
 			var _movieCanvas = this.stage.canvas;
 			var w, h;
 			var x = 0, y = 0;
-			var __Width = this.width;
-			var __Height = this.height;
+			var __Width = this.canvas.width;
+			var __Height = this.canvas.height;
 			if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
 				w = (_movieCanvas.width * (__Height / _movieCanvas.height));
 				h = (_movieCanvas.height * (__Height / _movieCanvas.height));
@@ -9898,7 +10204,7 @@ var PKF = (function() {
 	Player.prototype.render = function() {
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		if (this.loaded == 1) {
-			this.renderloading();
+
 		} else {
 			if (this.isLoad) {
 				var _movieDebugCanvas = this.stage.debugMovieCanvas;
@@ -9917,34 +10223,34 @@ var PKF = (function() {
 				} else {
 					this.ctx.drawImage(_movieCanvas, x, y);
 				}
-				var rrgg = (this._o > this.tickTime);
+				var rrgg = ((this.tickTime - this._displayMessage[2]) < this._displayMessage[3]);
 				var XG = x;
-				var YG = y + (rrgg ? 25 : 0);
+				var YG = y;
+				this.statsE.style.top = YG + "px";
+				this.statsE.style.left = XG + "px";
 				if (this._viewFrame && this.stage && this.stage.clip) {
-					this.ctx.font = "15px Arial";
-					this.ctx.textAlign = "left";
-					this.ctx.globalAlpha = 0.75;
-					this.ctx.fillStyle = "#000";
-					this.ctx.fillRect(XG + 3, YG + 3, 180, 54);
-					this.ctx.fillStyle = "#fff";
 					this.ctx.globalAlpha = 1;
 					var _r = getDuraction((this.stage.clip.currentFrame / this.stage.clip.totalframes) * (this.stage.clip.totalframes / this.stage.frameRate)) + "/" + getDuraction(this.stage.clip.totalframes / this.stage.frameRate);
 					var _u = this.stage.clip.currentFrame + "/" +  this.stage.clip.totalframes;
-					this.ctx.fillText("Time: " + _r, XG + 8, YG + 20);
-					this.ctx.fillText("Frame: " + _u, XG + 8, YG + 35);
-					this.ctx.fillText("Mouse Point: " + this.stage.mousePosition, XG + 8, YG + 51);
+					var hkj = "Time: " + _r;
+					hkj += "<br>Frame: " + _u;
+					hkj += "<br>Mouse Point: " + this.stage.mousePosition;
+					this.statsE_R.style.display = "";
+					this.statsE_R.innerHTML = hkj;
+				} else {
+					this.statsE_R.style.display = "none";
 				}
-				if (rrgg && !this._clickToPlay) {
-					var GSGGG = this.stage.playing ? "Play" : "Pause";
-					this.ctx.font = "15px Arial";
-					this.ctx.textAlign = "left";
-					this.ctx.globalAlpha = 0.75;
-					this.ctx.fillStyle = "#000";
-					var rr = this.ctx.measureText(GSGGG);
-					this.ctx.fillRect(XG + 3, y + 3, rr.width + 11, 23);
-					this.ctx.fillStyle = "#fff";
-					this.ctx.globalAlpha = 1;
-					this.ctx.fillText(GSGGG, XG + 8, y + 20);
+				if ((this._displayMessage[0] && rrgg)) {
+					var GSGGG = this._displayMessage[1];
+					this.statsE_PP.textContent = GSGGG;
+					this.statsE_PP.style.display = "inline-block";
+				} else {
+					if (this._displayMessage[0] !== 1) {
+						if (this._displayMessage[0]) {
+							this._displayMessage[0] = 1;
+						}
+					}
+					this.statsE_PP.style.display = "none";
 				}
 				if (this._clickToPlay) {
 					this.ctx.globalAlpha = 0.5;
@@ -9954,14 +10260,16 @@ var PKF = (function() {
 					this.ctx.fillStyle = "#fff";
 					this.ctx.font = "30px Arial";
 					this.ctx.textAlign = "center";
-					this.ctx.fillText("Click To Play", this.width / 2, (this.height / 2));
+					this.ctx.fillText("Click To Play", this.canvas.width / 2, (this.canvas.height / 2));
 				}
 			}
 		}
     }
 	Player.prototype.cleanup = function() {
 		this._clickToPlay = true;
+		this.statsE.style.display = "none";
 		this.loaded = 0;
+		this._displayMessage[0] = 0;
 		this.isLoad = false;
 		this.settingVertical.style.display = 'none';
 		this._rrjswfinfo.innerHTML = '';
@@ -9973,141 +10281,12 @@ var PKF = (function() {
 			this.stage.destroy();
 			this.stage = null;
 		}
-    }
-    Player.prototype.renderloading = function() {
-		var r = ((this.tickTime / 1500) * 360) % 360;
-		this.ctx.save();
-		this.ctx.fillStyle = "#0c0";
-		this.ctx.rect(0, 0, this.canvas.width, this.canvas.height);
-		this.ctx.fill();
-		this.ctx.restore();
-		this.renderLogo((this.canvas.width / 2), (this.canvas.height / 2) - 20);
-		this.ctx.save();
-
-		this.ctx.lineWidth = 5;
-		this.ctx.lineCap = "round";
-
-		this.ctx.beginPath();
-		this.ctx.strokeStyle = "#000";
-		this.ctx.arc((this.canvas.width / 2), (this.canvas.height / 2) + 43, 20, 0 * (Math.PI / 180), 360 * (Math.PI / 180));
-		this.ctx.stroke();
-
-		this.ctx.beginPath();
-		this.ctx.strokeStyle = "#00f";
-		this.ctx.arc((this.canvas.width / 2), (this.canvas.height / 2) + 43, 20, r * (Math.PI / 180), (r + 90) * (Math.PI / 180));
-		this.ctx.stroke();
-
-		this.ctx.beginPath();
-		this.ctx.strokeStyle = "#f0f";
-		this.ctx.arc((this.canvas.width / 2), (this.canvas.height / 2) + 43, 20, (r + 180) * (Math.PI / 180), (r + 270) * (Math.PI / 180));
-		this.ctx.stroke();
-
-		var barWidth = 150;
-		var barX = (this.canvas.width / 2) - (barWidth / 2);
-		var barY = (this.canvas.height / 2) + 80;
-
-		this.ctx.beginPath();
-		this.ctx.strokeStyle = "#000";
-		this.ctx.lineWidth = 12;
-		this.ctx.lineCap = "round";
-		this.ctx.moveTo(barX, barY);
-		this.ctx.lineTo(barX + barWidth, barY);
-		this.ctx.stroke();
-
-		this.ctx.beginPath();
-		this.ctx.strokeStyle = "#fff";
-		this.ctx.moveTo(barX, barY);
-		this.ctx.lineTo(barX + (barWidth * this.loadedTick), barY);
-		this.ctx.stroke();
-
-		this.ctx.restore();
-		this.ctx.fillStyle = "#000";
-		this.ctx.font = "10px Arial";
-		this.ctx.textAlign = "center";
-		this.ctx.fillText("(C) 2024, THandPEPeerTDP", this.width / 2, this.height - 5);
-	}
-    Player.prototype.renderLogo = function(x, y) {
-		this.ctx.save();
-		this.ctx.translate(x, y);
-		this.ctx.scale(0.05, 0.05);
-		this.ctx.lineWidth = 180;
-		this.ctx.lineCap = "round";
-		this.ctx.strokeStyle = "#f0f";
-		this.ctx.translate(-1580, -200);
-		this.ctx.beginPath();
-		this.ctx.moveTo(-1061, 660);
-		this.ctx.lineTo(-840,-129);
-		this.ctx.moveTo(-840, -129);
-		this.ctx.lineTo(-686,-680);
-		this.ctx.moveTo(-686, -680);
-		this.ctx.lineTo(-574,-671);
-		this.ctx.moveTo(-574, -671);
-		this.ctx.quadraticCurveTo(-440, -656, -332, -629);
-		this.ctx.moveTo(-332, -629);
-		this.ctx.quadraticCurveTo(13, -541, -31, -360);
-		this.ctx.moveTo(-31, -360);
-		this.ctx.quadraticCurveTo(-75, -179, -462, -136);
-		this.ctx.moveTo(-462, -136);
-		this.ctx.lineTo(-723,-124);
-		this.ctx.moveTo(-723, -124);
-		this.ctx.lineTo(-840,-129);
-		this.ctx.moveTo(69, 630);
-		this.ctx.lineTo(344,-650);
-		this.ctx.moveTo(619, -125);
-		this.ctx.lineTo(532,243);
-		this.ctx.moveTo(532, 243);
-		this.ctx.quadraticCurveTo(571, 161, 639, 83);
-		this.ctx.moveTo(639, 83);
-		this.ctx.quadraticCurveTo(773, -72, 913, -50);
-		this.ctx.moveTo(913, -50);
-		this.ctx.quadraticCurveTo(1084, -24, 1058, 331);
-		this.ctx.moveTo(1058, 331);
-		this.ctx.quadraticCurveTo(1046, 508, 999, 680);
-		this.ctx.moveTo(439, 635);
-		this.ctx.lineTo(532,243);
-		this.ctx.moveTo(1269, 630);
-		this.ctx.lineTo(1520,-650);
-		this.ctx.moveTo(1720, 630);
-		this.ctx.lineTo(1390, 270);
-		this.ctx.lineTo(1820,-10);
-		this.ctx.stroke();
-		this.ctx.beginPath();
-		this.ctx.translate(3061, 0);
-		this.ctx.strokeStyle = "#00f";
-		this.ctx.moveTo(-1070, 618);
-		this.ctx.lineTo(-918,-9);
-		this.ctx.moveTo(-918, -9);
-		this.ctx.lineTo(-765,-637);
-		this.ctx.moveTo(-765, -637);
-		this.ctx.lineTo(-20,-637);
-		this.ctx.moveTo(-918, -9);
-		this.ctx.lineTo(-210,-37);
-		this.ctx.moveTo(150, -337);
-		this.ctx.lineTo(0,638);
-		this.ctx.moveTo(440, 148);
-		this.ctx.lineTo(1065,153);
-		this.ctx.moveTo(1065, 153);
-		this.ctx.quadraticCurveTo(1080, 61, 1050, -31);
-		this.ctx.moveTo(1050, -31);
-		this.ctx.quadraticCurveTo(989, -215, 763, -216);
-		this.ctx.moveTo(763, -216);
-		this.ctx.quadraticCurveTo(592, -217, 484, -118);
-		this.ctx.moveTo(484, -118);
-		this.ctx.quadraticCurveTo(375, -19, 360, 153);
-		this.ctx.moveTo(360, 153);
-		this.ctx.quadraticCurveTo(346, 316, 431, 448);
-		this.ctx.moveTo(431, 448);
-		this.ctx.quadraticCurveTo(501, 559, 591, 589);
-		this.ctx.moveTo(591, 589);
-		this.ctx.quadraticCurveTo(769, 648, 920, 559);
-		this.ctx.moveTo(920, 559);
-		this.ctx.quadraticCurveTo(995, 514, 1035, 458);
-		this.ctx.stroke();
-		this.ctx.restore();
+		this.oncleanup.emit();
     }
 	Player.DEFAULT_OPTIONS = {
 		autoplayPolicy: 'always',
 		volume: 100,
+		fullscreenMode: 'full',
 		viewBounds: false
 	};
     return {

@@ -29,6 +29,12 @@
 				border: 2px solid #ccc;
 				overflow: auto;
 			}
+			#soritimage {
+				width: 640px;
+				height: 320px;
+				border: 2px solid #ccc;
+				overflow: auto;
+			}
 			.shapeat {
 				margin: 5px;
 				width: 100px;
@@ -55,6 +61,8 @@
 			<p>The Flash Reader in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open Swf</a>
 			<div id="pinkfie-player"></div>
+			<h3>Sprites</h3>
+			<div id="soritimage"></div>
 			<h3>Sounds</h3>
 			<div id="soundimage"></div>
 			<h3>Shapes</h3>
@@ -720,10 +728,12 @@
 
             var playerArea = document.getElementById('pinkfie-player');
 
-            //playerArea.appendChild(player.root);
+            playerArea.appendChild(player.root);
 
 			var soundimage = document.getElementById("soundimage");
 			var soundimage2 = document.getElementById("shapes");
+
+			var soritimage = document.getElementById("soritimage");
 
 			var shapegdloadmore = document.createElement("a");
 
@@ -733,6 +743,7 @@
 
 			var atplayerpre = [];
 			var atshapepre = [];
+			var atspeotpre = [];
 
 			var atshapecga = [];
 
@@ -750,6 +761,11 @@
 				}
 				atshapepre = [];
 				atshapecga = [];
+				for (let i = 0; i < atspeotpre.length; i++) {
+					const element = atspeotpre[i];
+					soritimage.removeChild(element);
+				}
+				atspeotpre = [];
 				ss = 0;
 			}
 
@@ -787,7 +803,9 @@
                                 break;
                         }
                     } else {
-                        streamSoundSprites.push(fgd);
+						if (fgd.tags) {
+                    	    streamSoundSprites.push(fgd);
+						}
                     }
 				}
                 for (var i in streamSoundSprites) {
@@ -805,6 +823,21 @@
                         atp.setBuffer(audiost.getBuffer());
 						atplayerpre.push(atp);
                     }
+				}
+				for (let fg = 0; fg < streamSoundSprites.length; fg++) {
+					const fgff = streamSoundSprites[fg];
+					var ag = document.createElement("a");
+					ag.href = "#";
+					ag.innerHTML = "sprite" + fgff.characterId;
+					ag.onclick = function() {
+						player.stage.rootClipTag = fgff;
+						player.stage.clip = null;
+					}
+					atspeotpre.push(ag);
+					soritimage.appendChild(ag);
+					var hgfh = document.createElement("br");
+					atspeotpre.push(hgfh);
+					soritimage.appendChild(hgfh);
 				}
 				showShapes();
 			});

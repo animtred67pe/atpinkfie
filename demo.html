@@ -63,33 +63,21 @@
 				window.player = player;
 				var playerArea = document.getElementById('pinkswf');
 
+				var swffileName = "";
+
 				var minHH = 30;
-				
-				function URLsearchParams(name,isD) {
-					var _u = new URL(window.location.href);
-					if (isD) {
-						return _u.searchParams.has(name);
-					} else {
-						return _u.searchParams.get(name);
-					}
-				}
 
 				var loadprojectfile = document.getElementById('loadswffile');
-
 				var closeswffile = document.getElementById('closeswffile');
-
 				var takeautoplayswf3 = document.getElementById('takeautoplayswf3');
-
 				var pkfcontrols = document.getElementById('pkfcontrols');
-
 				var ggtitle5 = document.getElementById("ggtitle5");
-
 				var fvolumeff = document.getElementById('fvolumeff');
 
 				playerArea.appendChild(player.root);
 
 				function TSProgress(e) {
-					
+					ggtitle5.textContent = "loading: " + Math.round(e * 100) + "%";
 				}
 				function _resize_() {
 					pkfcontrols.style.width = window.innerWidth + "px";
@@ -105,14 +93,16 @@
 				_resize_();
 
 				function loadSwfFile(file) {
-					ggtitle5.textContent = file.name || "";
+					swffileName = (file.name || "");
 					TSProgress(0);
 					player.loadSwfFromFile(file);
 				}
 				player.onload.subscribe(function() {
+					ggtitle5.textContent = swffileName.slice(0,30);
 				});
 				player.onprogress.subscribe(TSProgress);
 				closeswffile.onclick = function () {
+					swffileName = "";
 					ggtitle5.textContent = "";
 					player.cleanup();
 				}

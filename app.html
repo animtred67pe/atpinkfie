@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>PinkFie</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
+		<style type="text/css">
+            body {
+				font-family: monospace;
+				margin: 0;
+				overflow: hidden;
+                background-color: #000;
+                color: #fff;
+            }
+			#pkfcontrols {
+				background-color: rgb(92, 206, 92);
+				height: 30px;
+				overflow: hidden;
+			}
+			#pkfcontrols > * {
+				float: left;
+				padding: 4px;
+				margin: 0;
+			}
+			#pkfcontrols a {
+				margin: 3px;
+                background-color: #3f7439;
+				color: #ffffff;
+				border-radius: 16px;
+				text-decoration-line: none;
+			}
+			#pkfcontrols a:hover {
+                background-color: #8bff7e;
+				color: #000000;
+			}
+			.pinkfie-root {
+				margin: 0;
+			}
+		</style>
+	</head>
+	<body id="drop_zone">
+		<div id="pinkswf"></div>
+        <p id="loadedegfdg"></p>
+		<script src="pinkfie_logo.js"></script>
+		<script src="pinkfie.js"></script>
+		<script src="common.js"></script>
+		<script>
+			(function() {
+				"use strict";
+
+				var player = new PKF.Player();
+				window.player = player;
+				var playerArea = document.getElementById('pinkswf');
+
+                playerArea.style.display = "none";
+
+				playerArea.appendChild(player.root);
+
+                var loadedegfdg = document.getElementById("loadedegfdg");
+
+				function TSProgress(e) {
+					loadedegfdg.textContent = "loading: " + Math.round(e * 100) + "%";
+				}
+				function _resize_() {
+					player.resize(window.innerWidth, window.innerHeight);
+				}
+				window.addEventListener("resize", _resize_);
+				_resize_();
+
+				function loadSwfFile(file) {
+                    loadedegfdg.style.display = "";
+                    playerArea.style.display = "none";
+					TSProgress(0);
+					player.loadSwfFromFile(file);
+				}
+                function loadSwfURL(url) {
+                    loadedegfdg.style.display = "";
+                   playerArea.style.display = "none";
+					TSProgress(0);
+					player.loadSwfFromURL(url);
+                }
+
+				player.onload.subscribe(function() {
+                    playerArea.style.display = "";
+                    loadedegfdg.style.display = "none";
+				});
+				player.onprogress.subscribe(TSProgress);
+
+				player.setOptions(Common.playerOptions);
+				
+				function dropHandler(ev) {
+					ev.preventDefault();
+					if (ev.dataTransfer.items) {
+						[...ev.dataTransfer.items].forEach((item, i) => {
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
+						});
+					}
+				}
+				function dragOverHandler(ev) {
+					ev.preventDefault();
+				}
+
+				var drop_zone = document.getElementById("drop_zone");
+
+				drop_zone.ondrop = dropHandler;
+				drop_zone.ondragover = dragOverHandler;
+                if (Common.swfUrl) {
+					loadSwfURL(Common.swfUrl);
+				} else {
+                    var bb = new Uint8Array(window.pinkfieLogoSWFData);
+                    var fil = new Blob([bb]);
+                    loadSwfFile(fil);       
+                }
+			}());
+		</script>
+	</body>
+</html>

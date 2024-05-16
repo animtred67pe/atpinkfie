@@ -18,8 +18,13 @@ var Common = (function() {
   PKF.config.debug = URLsearchParams("debug", true);
 
   playerOptions.volume = +(URLsearchParams("volume")) || 100;
+  var swfUrl = URLsearchParams("swfurl");
+
+  var autoplay = URLsearchParams("autoplay", true);
 
   return {
-    playerOptions: playerOptions
+    playerOptions: playerOptions,
+    swfUrl,
+    autoplay
   };
 }());

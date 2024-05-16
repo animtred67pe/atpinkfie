@@ -33,3 +33,17 @@
 .watcher-pinkfie-setting div a {
   color: rgba(255, 255, 255, 1);
 }
+
+/* Player Fullscreen */
+.pinkfie-root[fullscreen] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #000;
+  height: 100%;
+  width: 100%;
+}
+.pinkfie-body-fullscreen {
+  background: #000;
+  overflow: hidden;
+}

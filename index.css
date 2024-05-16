@@ -35,3 +35,27 @@ body {
     width: 640px;
     margin: 0 auto;
 }
+
+#ggprog {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    transition: opacity .2s;
+}
+#ggprog[state=loaded] {
+  opacity: 0;
+}
+#ggprogbar {
+    width: 0%;
+    height: 100%;
+    background-color: rgb(137, 148, 158);
+    transition: .2s;
+}
+#ggprog[state=error] #ggprogbar {
+  background: rgb(233, 98, 98);
+}
