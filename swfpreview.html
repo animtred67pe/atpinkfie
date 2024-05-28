@@ -88,7 +88,7 @@
 				}
 			}
 
-			var linearGradientXY = function(m) {
+			var linearGradientXY = function(m) { // n
 				var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
 				var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
 				var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
@@ -705,7 +705,7 @@
 							var bitmapId = styleObj.bitmapId;
 							var bMatrix = styleObj.bitmapMatrix;
 							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-							var image = player.stage.library.getCharacter(bitmapId);
+							var image = player.stage.library.characterById(bitmapId);
 							if (image && image.image) {
 								var c = image.image;
 								if (styleType === 0x41 || styleType === 0x43) {
@@ -811,7 +811,7 @@
                 for (var i in streamSoundSprites) {
 					var fgd = streamSoundSprites[i];
 					if (!fgd) break;
-                    var strea = fgd.streamSounds;
+                    var strea = fgd.soundStreamBlockRecords;
 					if (!strea) break;
 					for (var i2 in strea) {
 						var _data = strea[i2];

@@ -1,6 +1,16 @@
 body {
     font-family: monospace;
 }
+a {
+  cursor: pointer;
+  text-decoration: underline;
+}
+#pinkfiestage{
+    transition: opacity .2s;
+}
+#demo{
+    transition: opacity .2s;
+}
 
 /* Theme changer */
 .theme-select {

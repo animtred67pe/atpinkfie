@@ -12,6 +12,10 @@
 				overflow: hidden;
                 background-color: #000;
             }
+			a {
+				cursor: pointer;
+				text-decoration: underline;
+			}
 			#pkfcontrols {
 				background-color: rgb(92, 206, 92);
 				height: 30px;
@@ -40,10 +44,10 @@
 	</head>
 	<body id="drop_zone">
 		<div id="pkfcontrols">
-			<a href="#" id="loadswffile">Open SWF</a>
-			<a href="#" id="closeswffile">Close</a>
+			<a id="loadswffile">Open SWF</a>
+			<a id="closeswffile">Close</a>
 			<label id="ggtitle5" style="margin: 3px;"></label>
-			<a href="#" id="takeautoplayswf3">Settings</a>
+			<a id="takeautoplayswf3">Settings</a>
 			<div>
 				<label style="margin: 4px;">volume:</label>
 				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
@@ -58,6 +62,8 @@
 		<script>
 			(function() {
 				"use strict";
+
+				var autoplayL = true;
 
 				var player = new PKF.Player();
 				window.player = player;
@@ -83,11 +89,6 @@
 					pkfcontrols.style.width = window.innerWidth + "px";
 					pkfcontrols.style.display = '';
 					player.resize(window.innerWidth, window.innerHeight - minHH);
-					/*if (screen.width == window.innerWidth &&  screen.height == window.innerHeight) {
-						pkfcontrols.style.display = 'none';
-						player.resize(window.innerWidth, window.innerHeight);
-					} else {
-					}*/
 				}
 				window.addEventListener("resize", _resize_);
 				_resize_();
@@ -99,6 +100,10 @@
 				}
 				player.onload.subscribe(function() {
 					ggtitle5.textContent = swffileName.slice(0,30);
+					if (autoplayL) {
+						player.setOptions({autoplayPolicy: "never"})
+						autoplayL = false;
+					}
 				});
 				player.onprogress.subscribe(TSProgress);
 				closeswffile.onclick = function () {

@@ -20,7 +20,7 @@
 		</style>
 	</head>
 	<body>
-		<a href="./">back</a>
+		<a href="./" style="position: absolute; top: 0; left: 0;">back</a>
 		<div class="app">
 			<h1>SWF Reader Preview</h1>
 			<p>The 90% javascript</p>
@@ -185,7 +185,7 @@
 					var headerMovie = resultswf.movieInfo;
 					var stageSize = headerMovie.bounds;
 					dfgfd += "compression: " + swfHeader.compression + " version: " + swfHeader.version +  " uncompressed size: " + swfHeader.uncompressedLength + "<br>";
-						dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " fps: " + headerMovie.frameRate + " frames: " + headerMovie.numFrames + "";
+						dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " frame rate: " + headerMovie.frameRate + " total frames: " + headerMovie.numFrames + "";
 					dfgfd += "<h3>SWF Tags</h3> tags length: " + countTags + "";
 					demo.innerHTML = dfgfd;
 					demo2.appendChild(result_tagsElem);

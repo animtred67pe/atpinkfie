@@ -13,6 +13,13 @@
                 background-color: #000;
                 color: #fff;
             }
+			#loadedegfdg {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 40px;
+			}
 			#pkfcontrols {
 				background-color: rgb(92, 206, 92);
 				height: 30px;
@@ -49,6 +56,8 @@
 			(function() {
 				"use strict";
 
+				var inh = false;
+
 				var player = new PKF.Player();
 				window.player = player;
 				var playerArea = document.getElementById('pinkswf');
@@ -60,7 +69,7 @@
                 var loadedegfdg = document.getElementById("loadedegfdg");
 
 				function TSProgress(e) {
-					loadedegfdg.textContent = "loading: " + Math.round(e * 100) + "%";
+					loadedegfdg.textContent = "Loading SWF Data (" + Math.round(e * 100) + "%)";
 				}
 				function _resize_() {
 					player.resize(window.innerWidth, window.innerHeight);
@@ -71,12 +80,16 @@
 				function loadSwfFile(file) {
                     loadedegfdg.style.display = "";
                     playerArea.style.display = "none";
+					if (inh) {
+						document.title = "SWF Local" + " - PinkFie";
+					}
+					inh = true;
 					TSProgress(0);
 					player.loadSwfFromFile(file);
 				}
                 function loadSwfURL(url) {
                     loadedegfdg.style.display = "";
-                   playerArea.style.display = "none";
+					playerArea.style.display = "none";
 					TSProgress(0);
 					player.loadSwfFromURL(url);
                 }

@@ -21,28 +21,27 @@
     </head>
     <body id="drop_zone">
 		<div class="theme-select">
-		  <a href="#" class="switch-theme">switch theme</a>
+		  <a class="switch-theme">switch theme</a>
 		</div>
 		<div class="app">
 			<h1>PinkFie</h1>
 			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
-				<a href="#" id="loadswffile">Open Swf</a>
-				<a href="#" id="ssag2">Close</a>
+				<a id="loadswffile">Open Swf</a>
+				<a id="ssag2">Close</a>
 				<label id="ggtitle5"></label>
 				<div id="ggprog">
 					<div id="ggprogbar"></div>
 				</div>
 			</div>
 			<div id="pinkfiestage" style="display: none;">
-				<div id="pinkfie-player"></div>
-				<a href="#" id="viewbbb2">Play/Pause</a>
-				<a href="#" id="viewbbb3">Settings</a>
+				<div id="pinkfieplayerarea"></div>
+				<a id="viewbbb2">Play/Pause</a>
+				<a id="viewbbb3">Settings</a>
 				<label>volume:</label>
-				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
-				<br>
-				<div id="demo"></div>
+				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 120px">
 			</div>
+			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
 				<ul>
 					<li><a href="demo.html">Player development</a></li>
@@ -81,6 +80,7 @@
 				console.log('The movie is exposed as `player.stage`');
 
 				var fvolumeff = document.getElementById('fvolumeff');
+
 				var demo = document.getElementById("demo");
 				var ggtitle5 = document.getElementById("ggtitle5");
 				var pinkfiemenu = document.getElementById('pinkfiemenu');
@@ -90,7 +90,7 @@
 				var viewbbb2 = document.getElementById('viewbbb2');
 				var viewbbb3 = document.getElementById('viewbbb3');
 				var ssag2 = document.getElementById('ssag2');
-				var playerArea = document.getElementById('pinkfie-player');
+				var playerArea = document.getElementById('pinkfieplayerarea');
 
 				var ggprog = document.getElementById('ggprog');
 				var ggprogbar = document.getElementById('ggprogbar');
@@ -167,6 +167,7 @@
 					//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
 
 					demo.innerHTML = dfgfd;
+					demo.style.display = "";
 				}
 
 				viewbbb2.onclick = function () {
@@ -175,11 +176,16 @@
 				viewbbb3.onclick = function () {
 					player.showSetting();
 				}
-				ssag2.onclick = function () {
+				function oohid() {
+    				pinkfiestage.style.display = "none";
+					demo.innerHTML = '';
+					demo.style.display = "none";
 					pinkfiemenu.style.display = "";
-					pinkfiestage.style.display = "none";
 					ggtitle5.textContent = "";
 					player.cleanup();
+				}
+				ssag2.onclick = function () {
+					oohid();
 				}
 				//setNextFrame
 				player.onload.subscribe(function() {
@@ -210,17 +216,19 @@
 				drop_zone.ondragover = dragOverHandler;
 
 				function loadSwfFile(file) {
-					pinkfiestage.style.display = "";
+    				pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
 					demo.innerHTML = '';
+					demo.style.display = "none";
 					ggtitle5.textContent = (file.name || "").slice(0,50);
 
 					player.loadSwfFromFile(file);
 				}
 
 				function loadSwfURL(url) {
-					pinkfiestage.style.display = "";
+    				pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
+					demo.style.display = "none";
 					demo.innerHTML = '';
 					ggtitle5.textContent = "";
 
