@@ -237,6 +237,13 @@
 				}
 				return txt;
 			}
+			function downloadUint8(data, name) {
+				var bb = new Blob([data]);
+				var a = document.createElement('a');
+				a.href = URL.createObjectURL(bb);
+				a.download = name;
+				a.click();
+			}
 			function _createImage(url) {
 				const img = new Image;
 				img.src = url;
@@ -291,6 +298,7 @@
 				this.ctx = this.canvas.getContext('2d');
 		        this.interval = null;
 		        this.variableNotUse = {"mouseDown":false};
+				this.swfSoundData = null;
 			}
 			ATPlayer.prototype.init = function(dix) {
 				var _this = this;
@@ -330,6 +338,10 @@
 
 			}
             ATPlayer.prototype.downloadWAV = function() {
+				if (this.swfSoundData && false) {
+					downloadUint8(new Uint8Array(this.swfSoundData), player.getSwfName() + ".dat");
+					return;
+				}
                 var _buffer = this._player.buffer;
 				var rate = _buffer.sampleRate;
                 var ___sampleCount = _buffer.length;
@@ -379,11 +391,7 @@
 				    GGint16(wavData, id + 44, Math.round((l * 0x7fff))); // bitsPerSample
 					//wavData[id + 44] = Math.round((l * 120)) + 128;
 				}
-				var bb = new Blob([wavData]);
-				var aaa = document.createElement('a');
-				aaa.href = URL.createObjectURL(bb);
-				aaa.download = player.getSwfName() + ".wav";
-				aaa.click();
+				downloadUint8(wavData, player.getSwfName() + ".wav");
             }
 			ATPlayer.prototype.step = function() {
 				this.ctx.clearRect(0, 0, this.canvas.width, 50);
@@ -773,7 +781,7 @@
 			function showShapes() {
 				for (let js = ss; js < (ss + Math.min(atshapecga.length, 250)); js++) {
 					const _data = atshapecga[js];
-					var ats = new ATShape(PKF.ShapeToCanvas.convert(_data.shapes), _data.id);
+					var ats = new ATShape(PKF.shapeUtils.convert(_data.shapes), _data.id);
 					soundimage2.appendChild(ats.root);
 					atshapepre.push(ats);
 				}
@@ -791,6 +799,7 @@
                         switch(_data.tagType) {
                             case "DefineSound":
                                 var atp = new ATPlayer();
+								atp.swfSoundData = _data.data;
                                 atp.init(soundimage);
                                 atp.setBuffer(fgd.audio.getBuffer());
 								atplayerpre.push(atp);

@@ -24,8 +24,9 @@
 		  <a class="switch-theme">switch theme</a>
 		</div>
 		<div class="app">
-			<h1>PinkFie</h1>
-			<p>The Flash Player emulator in Javascript, is still in development.</p>
+			<!-- PinkFie, just like swf2js -->
+			<h1>PinkFie<span class="version"></span></h1>
+			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open Swf</a>
 				<a id="ssag2">Close</a>
@@ -220,7 +221,7 @@
 					pinkfiemenu.style.display = "none";
 					demo.innerHTML = '';
 					demo.style.display = "none";
-					ggtitle5.textContent = (file.name || "").slice(0,50);
+					ggtitle5.textContent = (file.name || "").slice(0, 65);
 
 					player.loadSwfFromFile(file);
 				}
