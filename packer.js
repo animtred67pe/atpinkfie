@@ -82,7 +82,7 @@ window.Packer = (function() {
             // PinkFie scripts...
             ${scripts}
 
-            var player = new PKF.Player();
+            var player = new PinkFie.Player();
             var playerArea = document.getElementById('pinkswf');
             var splash = document.querySelector('.splash');
             splash.style.display = 'none';

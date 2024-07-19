@@ -18,155 +18,227 @@
 			}
 			#pkfcontrols {
 				background-color: rgb(92, 206, 92);
-				height: 30px;
+				height: 40px;
 				overflow: hidden;
 			}
 			#pkfcontrols > * {
 				float: left;
-				padding: 4px;
-				margin: 0;
 			}
-			#pkfcontrols a {
+			#pkfcontrols .pkfcontrolB {
 				margin: 3px;
+				padding: 5px;
                 background-color: #3f7439;
 				color: #ffffff;
 				border-radius: 16px;
 				text-decoration-line: none;
 			}
-			#pkfcontrols a:hover {
+			#pkfcontrols .pkfcontrolB:hover {
                 background-color: #8bff7e;
 				color: #000000;
 			}
 			.pinkfie-root {
 				margin: 0;
 			}
+			#pinkswfmetadata {
+				float: left;
+				background-color: rgb(92, 206, 92);
+				margin: 0;
+				width: 250px;
+				height: 100%;
+				position: absolute;
+				right: 0px;
+			}
 		</style>
 	</head>
 	<body id="drop_zone">
 		<div id="pkfcontrols">
-			<a id="loadswffile">Open SWF</a>
-			<a id="closeswffile">Close</a>
-			<label id="ggtitle5" style="margin: 3px;"></label>
-			<a id="takeautoplayswf3">Settings</a>
-			<div>
-				<label style="margin: 4px;">volume:</label>
-				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 100px">
-			</div>
-			<a style="float: right;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">By THandPEPeerTDP</a>
-			<a style="float: right;" href="./">Back</a>
+            <a href="./" style="width: 75px;height: 22px; padding: 6px; margin: 3px; background-image: url(data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIyMTguMDk0NjUiIGhlaWdodD0iNTguMzk5NjQiIHZpZXdCb3g9IjAsMCwyMTguMDk0NjUsNTguMzk5NjQiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xMzAuODg4MjYsLTE1MC44MDAxOCkiPjxnIGRhdGEtcGFwZXItZGF0YT0ieyZxdW90O2lzUGFpbnRpbmdMYXllciZxdW90Ozp0cnVlfSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJub256ZXJvIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2UtZGFzaGFycmF5PSIiIHN0cm9rZS1kYXNob2Zmc2V0PSIwIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6IG5vcm1hbCI+PHBhdGggZD0iTTI2My4zMzg1LDIwNS4xNzk4NGwxMC44MjQ1MiwtNDYuMzAzNDZsMjcuMjAwMDgsLTAuMzIzOCIgc3Ryb2tlPSIjMDAzNmZmIi8+PHBhdGggZD0iTTI2OS42NzAxMSwxODAuODIyNmwyNC40OTQ0NCwwLjAzODEzIiBzdHJva2U9IiMwMDM2ZmYiLz48cGF0aCBkPSJNMTg5LjM5MTQ0LDE1Ni4yOTY0NWwtOS45MDAwOSw0Ni43Mjg0MyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTE5Mi42ODQ4MSwyMDMuMzE1NTNsNi43MzIwNiwtMjcuNzIwMjYiIHN0cm9rZT0iI2U1MDBmZiIvPjxwYXRoIGQ9Ik0xOTcuNDM2ODYsMTg3LjA3OTM4YzAsMCA0LjI1NjMyLC0xMC4wMDc4NCAxMy4wOTE1MSwtOS42MTI4N2MxMC41MjA0MSwwLjMyODY5IDMuMTQ0NjQsMjYuNjQxMDMgMy4xNDQ2NCwyNi42NDEwMyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTMwMy43MzEzNSwyMDUuMTk5ODJsNS41NDQwNSwtMzQuOTczNjciIHN0cm9rZT0iIzAwMzZmZiIvPjxwYXRoIGQ9Ik0zNDMuMTY1MTQsMjAwLjM2NTExYzAsMCAtNC44NjczNCw1LjY5MDY5IC0xMi41ODcsNC4yNzk4N2MtOS4wMDk4MiwtMS42NDY2IC0xMC45NjA1MSwtOS40NjY4OCAtMTEuMDU1MjcsLTE1LjA1OTc1Yy0wLjEwNzk1LC02LjM3MTY5IDQuMDEyNDQsLTE1LjEyODQ2IDEzLjUwMTkyLC0xNS42ODAxNmM2Ljk2MTMzLC0wLjQwNDcyIDEyLjkyOTcsNS4zNDYyMyAxMS45ODg5MSwxMi44ODQzYy0wLjAzOTE4LDAuMzEzOTIgLTIzLjkxODg4LDAuOTE0NTEgLTIzLjkxODg4LDAuOTE0NTEiIHN0cm9rZT0iIzAwMzZmZiIvPjxnIHN0cm9rZT0iI2U1MDBmZiI+PHBhdGggZD0iTTEzNC44ODgyNiwyMDMuNjA4OWwxNS4wMTk1NSwtNDguNDM4MDYiLz48cGF0aCBkPSJNMTUyLjExNjU2LDE1NC44MDAxOGMwLDAgMjYuNzkzNDEsMS4xNzEyNCAyMi41ODkyMywxMi41MjM3M2MtNC4yMDQxOCwxMS4zNTI0OSAtMzAuMTYxMzEsNy45MjMwNiAtMzAuMTYxMzEsNy45MjMwNiIvPjwvZz48cGF0aCBkPSJNMjM1LjUwNjcxLDE1Ny41MTU3M2wtOS45MDAwOSw0Ni43Mjg0MyIgc3Ryb2tlPSIjZTUwMGZmIi8+PHBhdGggZD0iTTI0OS41MDE1NSwyMDQuMDQ1NjdsLTE3LjA3OTQ3LC0xNi45ODgyN2wyMi40OTg2LC0xMC42MDAyOSIgc3Ryb2tlPSIjZTUwMGZmIi8+PC9nPjwvZz48L3N2Zz4=); background-size: 100% 100%;"></a>
+            <div style="height: 20px; margin: 12px; position: absolute; left: 50%; transform: translate(-50%, 0);">
+                <a class="pkfcontrolB" id="loadswffile">Selecting SWF</a>
+                <label id="ggtitle5">No file selecting</label>
+                <label> </label>
+                <label>Sample SWF:</label>
+				<select value="" id="sampleSWFpkf"></select>
+            </div>
+			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
 		</div>
-		<div id="pinkswf"></div>
+		<div id="pinkswf">
+			<div id="pinkswfmetadata" style="display: none;">
+				<div style="margin: 0 15px;">
+					<h3>SWF Metadata</h3>
+					<p id="pinkswfmetadataResult"></p>
+				</div>
+			</div>
+		</div>
 		<script src="pinkfie_logo.js"></script>
 		<script src="pinkfie.js"></script>
-		<script src="common.js"></script>
 		<script>
-			(function() {
-				"use strict";
+			var autoplayL = true;
 
-				var autoplayL = true;
+			var player = new PinkFie.Player();
 
-				var player = new PKF.Player();
-				window.player = player;
-				var playerArea = document.getElementById('pinkswf');
+			window.player = player;
+			var playerArea = document.getElementById('pinkswf');
+			var pinkswfmetadata = document.getElementById("pinkswfmetadata");
+			var enswfmetadata = document.getElementById("enswfmetadata");
+			var pinkswfmetadataResult = document.getElementById("pinkswfmetadataResult");
 
-				var swffileName = "";
-
-				var minHH = 30;
-
-				var loadprojectfile = document.getElementById('loadswffile');
-				var closeswffile = document.getElementById('closeswffile');
-				var takeautoplayswf3 = document.getElementById('takeautoplayswf3');
-				var pkfcontrols = document.getElementById('pkfcontrols');
-				var ggtitle5 = document.getElementById("ggtitle5");
-				var fvolumeff = document.getElementById('fvolumeff');
-
-				playerArea.appendChild(player.root);
-
-				function TSProgress(e) {
-					ggtitle5.textContent = "loading: " + Math.round(e * 100) + "%";
-				}
-				function _resize_() {
-					pkfcontrols.style.width = window.innerWidth + "px";
-					pkfcontrols.style.display = '';
-					player.resize(window.innerWidth, window.innerHeight - minHH);
-				}
-				window.addEventListener("resize", _resize_);
-				_resize_();
-
-				function loadSwfFile(file) {
-					swffileName = (file.name || "");
-					TSProgress(0);
-					player.loadSwfFromFile(file);
-				}
-				player.onload.subscribe(function() {
-					ggtitle5.textContent = swffileName.slice(0,30);
-					if (autoplayL) {
-						player.setOptions({autoplayPolicy: "never"})
-						autoplayL = false;
+			function getByteText(byte) {
+				if (byte >= 1000000) {
+					return "" + (Math.floor(byte / 10000) / 100) + "MB";
+				} else {
+					if (byte >= 1000) {
+						return "" + Math.floor(byte / 1000) + "KB";
+					} else {
+						return "" + byte + "B";
 					}
-				});
-				player.onprogress.subscribe(TSProgress);
-				closeswffile.onclick = function () {
-					swffileName = "";
-					ggtitle5.textContent = "";
-					player.cleanup();
 				}
-				loadprojectfile.onclick = function () {
-					var sa = document.createElement('input');
-					sa.type = 'file';
-					sa.accept = '.swf';
-					sa.addEventListener('change', function (e) {
-						var file = e.target.files[0];
-						if (!file) {
-							return;
-						}
-						loadSwfFile(file);
-					}, false);
-					sa.click();
-				}
-				fvolumeff.addEventListener('input', function (e) {
-					player.setOptions({
-						volume: (+fvolumeff.value)
-					});
-				});
+			}
 
-				player.setOptions(Common.playerOptions);
+			function showSwf() {
 
-				player.onoptionschange.subscribe(function(o) {
-					fvolumeff.value = player.getOptions().volume;
-				});
+				var resultswf = player.stage.swf;
+				var dfgfd = "";
 				
-				function dropHandler(ev) {
-					ev.preventDefault();
-					if (ev.dataTransfer.items) {
-						[...ev.dataTransfer.items].forEach((item, i) => {
-						if (item.kind === 'file') {
-							const file = item.getAsFile();
-							loadSwfFile(file);
+				var stageSize = resultswf.movieInfo.bounds;
+
+				/*
+					Uncompressed Length
+					SWF Version
+					FP Version
+					ActionScript 3
+					Total Frames
+					Frame Rate
+					SWF Width
+					SWF Height
+					SWF Background Color
+				*/
+
+				dfgfd += "compression: " + resultswf.header.compression + "<br>";
+				dfgfd += " version: " + resultswf.header.version + "<br>";
+				dfgfd += " uncompressed length: " + getByteText(resultswf.header.uncompressedLength) + "<br>";
+
+				
+				dfgfd += "resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
+				dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20) + "<br>";
+
+				dfgfd += " frame rate: " + resultswf.movieInfo.frameRate + "<br>";
+				dfgfd += " total frames: " + resultswf.movieInfo.numFrames + "";
+
+				//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
+
+				pinkswfmetadataResult.innerHTML = dfgfd;
+
+			}
+
+			var swffileName = "";
+
+			var minHH = 40;
+			var minWW = 0;
+
+			var loadprojectfile = document.getElementById('loadswffile');
+			var pkfcontrols = document.getElementById('pkfcontrols');
+			var ggtitle5 = document.getElementById("ggtitle5");
+
+			var sampleSWFpkf = document.getElementById("sampleSWFpkf");
+
+			playerArea.appendChild(player.root);
+
+			function _resize_() {
+				pkfcontrols.style.width = window.innerWidth + "px";
+				pkfcontrols.style.display = '';
+				playerArea.style.width = (window.innerWidth - minWW) + "px";
+				playerArea.style.height = (window.innerHeight - minHH) + "px";
+				player.resize(window.innerWidth - minWW, window.innerHeight - minHH);
+			}
+			window.addEventListener("resize", _resize_);
+			_resize_();
+
+			function loadSwfFile(file) {
+				pinkswfmetadataResult.innerHTML = "";
+				swffileName = (file.name || "");
+                ggtitle5.textContent = (file.name || "No file selecting");
+				player.loadSwfFromFile(file);
+			}
+			player.onload.subscribe(function() {
+				showSwf();
+				if (autoplayL) {
+					//player.setOptions({autoplayPolicy: "never"})
+					autoplayL = false;
+				}
+			});
+			loadprojectfile.onclick = function () {
+				var sa = document.createElement('input');
+				sa.type = 'file';
+				sa.accept = '.swf';
+				sa.addEventListener('change', function (e) {
+					var file = e.target.files[0];
+					if (!file) {
+						return;
+					}
+					sampleSWFpkf.value = '';
+					loadSwfFile(file);
+				}, false);
+				sa.click();
+			}
+
+			enswfmetadata.onclick = function() {
+				if (pinkswfmetadata.style.display) {
+					pinkswfmetadata.style.display = "";
+					minWW = 250;
+				} else {
+					pinkswfmetadata.style.display = "none";
+					minWW = 0;
+				}
+				_resize_();
+			}
+			
+			function dropHandler(ev) {
+				ev.preventDefault();
+				if (ev.dataTransfer.items) {
+					[...ev.dataTransfer.items].forEach((item, i) => {
+					if (item.kind === 'file') {
+						const file = item.getAsFile();
+						loadSwfFile(file);
+					}
+					});
+				}
+			}
+			function dragOverHandler(ev) {
+				ev.preventDefault();
+			}
+
+			var drop_zone = document.getElementById("drop_zone");
+
+			drop_zone.ondrop = dropHandler;
+			drop_zone.ondragover = dragOverHandler;
+
+
+			function loadSampleSWF(infoSample) {
+				var name = infoSample.name;
+				sampleSWFpkf.value = name;
+				loadSwfFile(infoSample.file);
+			}
+			sampleSWFpkf.addEventListener("change", () => {
+				if (sampleSWFpkf.value) {
+					for (let k = 0; k < pinkfieSampleSWF.length; k++) {
+						const gd = pinkfieSampleSWF[k];
+						if (gd.name == sampleSWFpkf.value) {
+							loadSampleSWF(gd);
+							break;
 						}
-						});
 					}
 				}
-				function dragOverHandler(ev) {
-					ev.preventDefault();
-				}
-
-				fvolumeff.value = player.getOptions().volume;
-
-				var drop_zone = document.getElementById("drop_zone");
-
-				drop_zone.ondrop = dropHandler;
-				drop_zone.ondragover = dragOverHandler;
-
-				takeautoplayswf3.onclick = function() {
-					player.showSetting();
-				}
-
-				var bb = new Uint8Array(window.pinkfieLogoSWFData);
-				var fil = new Blob([bb]);
-				loadSwfFile(fil);
-
-			}());
+			});
+			loadSampleSWF(pinkfieSampleSWF[0]);
+			for (let i = 0; i < pinkfieSampleSWF.length; i++) {
+				const element = pinkfieSampleSWF[i];
+				var name = element.name;
+				var g = document.createElement('option');
+				g.value = name;
+				g.textContent = name;
+				sampleSWFpkf.appendChild(g);
+			}
 		</script>
 	</body>
 </html>

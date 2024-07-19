@@ -73,7 +73,8 @@
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
-			var player = new PKF.Player();
+			var shapeUtils = PinkFie.shapeUtils;
+			var player = new PinkFie.Player();
 
 			function _executeCmdCtx2dPath(ctx, cmd) {
 				for (let i = 0; i < cmd.length; i++) {
@@ -249,13 +250,6 @@
 				img.src = url;
 				return img;
 			}
-			function mod(x, y) {
-				var r = x % y;
-				if (r / y < 0) {
-				r += y;
-				}
-				return r; 
-			};
 			function z_dir(dx,dy) {
 				return Math.sqrt((dx * dx) + (dy * dy));
 			}
@@ -283,7 +277,7 @@
 				return (val > 32767) ? (val - 0x10000) : val;
 			}
 			var ATPlayer = function () {
-				this._player = new SoundPlayer(PKF.audioContext);
+				this._player = new SoundPlayer(player.audioContext);
 				this._player.setVolume(1);
 				this.volumeimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzNy43NjMzOSIgaGVpZ2h0PSIzOS43ODMiIHZpZXdCb3g9IjAsMCwzNy43NjMzOSwzOS43ODMiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMjIuMzc4OTYsLTE2MC41NTQyMikiPjxnIGRhdGEtcGFwZXItZGF0YT0ieyZxdW90O2lzUGFpbnRpbmdMYXllciZxdW90Ozp0cnVlfSIgZmlsbD0iIzAwMDAwMCIgZmlsbC1ydWxlPSJub256ZXJvIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMCIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiLz48cGF0aCBkPSJNMjQxLjM1MjMyLDE4OS42MDk2MnYtMTguNDE4OTdjMCwwIDguMTQ5OTksMC43ODAwNSA4LjE0OTk5LDguNjM4OTljMCw5LjM1MjkyIC04LjE0OTk5LDkuNzc5OTkgLTguMTQ5OTksOS43Nzk5OXoiLz48cGF0aCBkPSJNMjQxLjc2NjcyLDIwMC4zMzcyMWMwLDAgMC4xMTcsLTUuMjc3MyAwLjExNywtNS4yNzczYzAsMCAxMy4wMjEsLTMuMjUzNDkgMTMuNDEwODksLTE0LjYxNDJjMC40MTg1MywtMTIuMTk1MjMgLTEzLjY1OTQ0LC0xNC45MDU5NyAtMTMuNjU5NDQsLTE0LjkwNTk3bDAuMTMxNTUsLTQuOTg1NTNjMCwwIDE4LjA2MjAzLDAuMTUxMTUgMTguMzcxMjYsMTguOTI0NTVjMC4zMzIwMiwyMC4xNTY1MiAtMTguMzcxMjYsMjAuODU4NDUgLTE4LjM3MTI2LDIwLjg1ODQ1eiIvPjwvZz48L2c+PC9zdmc+');
 				this.volumeoffimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSI0MSIgaGVpZ2h0PSI0MSIgdmlld0JveD0iMCwwLDQxLDQxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjE5LjUsLTE1OS41KSI+PGcgZGF0YS1wYXBlci1kYXRhPSJ7JnF1b3Q7aXNQYWludGluZ0xheWVyJnF1b3Q7OnRydWV9IiBmaWxsLXJ1bGU9Im5vbnplcm8iIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yNDEuMzUyMzIsMTg5LjYwOTYydi0xOC40MTg5N2MwLDAgOC4xNDk5OSwwLjc4MDA1IDguMTQ5OTksOC42Mzg5OWMwLDkuMzUyOTIgLTguMTQ5OTksOS43Nzk5OSAtOC4xNDk5OSw5Ljc3OTk5eiIgZmlsbD0iIzAwMDAwMCIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjAiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTI0MS43NjY3MiwyMDAuMzM3MjFsMC4xMTcsLTUuMjc3M2MwLDAgMTMuMDIxLC0zLjI1MzQ5IDEzLjQxMDg5LC0xNC42MTQyYzAuNDE4NTMsLTEyLjE5NTIzIC0xMy42NTk0NCwtMTQuOTA1OTcgLTEzLjY1OTQ0LC0xNC45MDU5N2wwLjEzMTU1LC00Ljk4NTUzYzAsMCAxOC4wNjIwMywwLjE1MTE1IDE4LjM3MTI2LDE4LjkyNDU1YzAuMzMyMDIsMjAuMTU2NTIgLTE4LjM3MTI2LDIwLjg1ODQ1IC0xOC4zNzEyNiwyMC44NTg0NXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yMjIuNSwxNjIuNWwzNSwzNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwMDAwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvZz48L2c+PC9zdmc+');
@@ -299,6 +293,7 @@
 		        this.interval = null;
 		        this.variableNotUse = {"mouseDown":false};
 				this.swfSoundData = null;
+				this.__name = "";
 			}
 			ATPlayer.prototype.init = function(dix) {
 				var _this = this;
@@ -346,12 +341,12 @@
 				var rate = _buffer.sampleRate;
                 var ___sampleCount = _buffer.length;
 				var sampleCount = ___sampleCount;
-				var wavData = new Uint8Array(36 + (8 + (2 * sampleCount)));
+				var wavData = new Uint8Array(36 + (8 + ((2 * _buffer.numberOfChannels) * sampleCount)));
 				wavData[0] = 82;
 				wavData[1] = 73;
 				wavData[2] = 70;
 				wavData[3] = 70;
-				GGint32(wavData, 4, (2 * sampleCount) + 36); // total size (excluding 8-byte RIFF header)
+				GGint32(wavData, 4, ((2 * _buffer.numberOfChannels) * sampleCount) + 36); // total size (excluding 8-byte RIFF header)
 				wavData[8] = 87;
 				wavData[9] = 65;
 				wavData[10] = 86;
@@ -363,17 +358,17 @@
 				wavData[15] = 32;
 				GGint32(wavData, 16, 16); // format chunk size
 				GGint16(wavData, 20, 1); // encoding; 1 = PCM
-				GGint16(wavData, 22, 1); // channels; 1 = mono
+				GGint16(wavData, 22, _buffer.numberOfChannels); // channels; 1 = mono
 				GGint32(wavData, 24, rate); // samplesPerSecond
 				GGint32(wavData, 28, rate * _buffer.numberOfChannels); // bytesPerSecond
-				GGint16(wavData, 32, 2); // blockAlignment
+				GGint16(wavData, 32, 2 * _buffer.numberOfChannels); // blockAlignment
 				GGint16(wavData, 34, 16); // bitsPerSample
 				// data chunk
 				wavData[36] = 100;
 				wavData[37] = 97;
 				wavData[38] = 116;
 				wavData[39] = 97;
-				GGint32(wavData, 40, (2 * sampleCount)); // format chunk size
+				GGint32(wavData, 40, ((2 * _buffer.numberOfChannels) * sampleCount)); // format chunk size
 				var _left = null;
 				var _right = null;
 				_left = _buffer.getChannelData(0);
@@ -381,17 +376,13 @@
                     _right = _buffer.getChannelData(1);
 				}
 				for (var i = 0; i < ___sampleCount; i++) {
-					var id = (i * 2);
-					var l = 0;
+					var id = (i * (2 * _buffer.numberOfChannels));
+				    GGint16(wavData, id + 44, Math.round((_left[i] * 0x7fff))); // bitsPerSample
 					if (_right) {
-						l = (_left[i] + _right[i]) / 2;
-					} else {
-						l = _left[i];
+				    	GGint16(wavData, id + 46, Math.round((_right[i] * 0x7fff))); // bitsPerSample
 					}
-				    GGint16(wavData, id + 44, Math.round((l * 0x7fff))); // bitsPerSample
-					//wavData[id + 44] = Math.round((l * 120)) + 128;
 				}
-				downloadUint8(wavData, player.getSwfName() + ".wav");
+				downloadUint8(wavData, (this.__name + "_" + sampleCount + "_" + rate + "_" + _buffer.numberOfChannels) + ".wav");
             }
 			ATPlayer.prototype.step = function() {
 				this.ctx.clearRect(0, 0, this.canvas.width, 50);
@@ -781,7 +772,7 @@
 			function showShapes() {
 				for (let js = ss; js < (ss + Math.min(atshapecga.length, 250)); js++) {
 					const _data = atshapecga[js];
-					var ats = new ATShape(PKF.shapeUtils.convert(_data.shapes), _data.id);
+					var ats = new ATShape(shapeUtils.convert(_data.shapes), _data.id);
 					soundimage2.appendChild(ats.root);
 					atshapepre.push(ats);
 				}
@@ -800,6 +791,8 @@
                             case "DefineSound":
                                 var atp = new ATPlayer();
 								atp.swfSoundData = _data.data;
+
+                        		atp.__name = _data.format.compression || "";
                                 atp.init(soundimage);
                                 atp.setBuffer(fgd.audio.getBuffer());
 								atplayerpre.push(atp);
@@ -828,6 +821,7 @@
                         var audiost = _data.audioStream;
 						if (!audiost) break;
                         var atp = new ATPlayer();
+                        atp.__name = _data.soundInfo.streamInfo.stream.compression || "";
                         atp.init(soundimage);
                         atp.setBuffer(audiost.getBuffer());
 						atplayerpre.push(atp);

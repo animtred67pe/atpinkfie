@@ -41,13 +41,13 @@ a {
 }
 .dark {
     background-color:#000;
-    color: #ffffff;
+    color: #dfd;
 }
 .dark .app {
-    color: #ffffff;
+    color: #dfd;
 }
 .dark a {
-    color: #ffffff;
+    color: #dfd;
 }
 #pinkfie-player{
     width: 640px;
@@ -75,5 +75,5 @@ a {
     transition: .2s;
 }
 #ggprog[state=error] #ggprogbar {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(253, 0, 0, 0.75);
 }
