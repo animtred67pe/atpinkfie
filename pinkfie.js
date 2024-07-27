@@ -4139,7 +4139,7 @@ var PinkFie = (function(moduleResults) {
                     this.saveScreenshot();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Download SWF', () => {
+                this.MenuVertical.appendChild(this._createE('Flash Download', () => {
                     this.downloadSwf();
                     this.MenuVertical.style.display = 'none';
                 }));
@@ -4247,6 +4247,14 @@ var PinkFie = (function(moduleResults) {
                 });
         
                 this.__rrj8 = rrj8;
+
+                var fdgdf = document.createElement("a");
+
+                fdgdf.innerHTML = "Flash Download";
+
+                fdgdf.onclick = () => {
+                    this.downloadSwf();
+                }
         
                 var di3 = document.createElement('a');
                 di3.innerHTML = "View Stats";
@@ -4266,6 +4274,8 @@ var PinkFie = (function(moduleResults) {
                 rrj.appendChild(rrj8);
                 rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(di3);
+                rrj.appendChild(document.createElement('br'));
+                rrj.appendChild(fdgdf);
         
                 var di = document.createElement('section');
         
@@ -4739,6 +4749,7 @@ var PinkFie = (function(moduleResults) {
                 if (this.stage) {
                     this.stage.audio.setVolume(this.options.volume);
                     this.stage.setSpeed(this.options.speed);
+                    this.stage.vCamId = this.options.vCamId;
                     var renderDirty = false;
                     if (this.stage.quality != this.options.quality) {
                         this.stage.setQuality(this.options.quality);
@@ -4869,7 +4880,8 @@ var PinkFie = (function(moduleResults) {
             fullscreenMode: 'full',
             speed: 1,
             quality: "high",
-            rendermode: "render"
+            rendermode: "render",
+            vCamId: 0,
         }
         wpjsm.exportJS = Player;
     },
@@ -6351,6 +6363,8 @@ var PinkFie = (function(moduleResults) {
                 this.clip = null;
                 this.rootClipTag = null;
                 this.playing = false;
+
+                this.vCamId = 0;
         
                 this.backgroundColor = [255, 255, 255, 1];
         
@@ -6694,40 +6708,72 @@ var PinkFie = (function(moduleResults) {
                 this.avm1.runFrame();
                 this.runActions();
                 if (true) {
-                    //var _parent = this.clip;
-                    //this.executeVCam(_parent, 576);
-                    //this.executeVCam(_parent, 98);
-                    //this.executeVCam(_parent, 234);
-                    //var _parent = this.clip.childByDepth(1);
-                    //this.executeVCam(_parent, 1319);
+                    var _parent = this.clip;
+                    if (this.vCamId) {
+                        this.executeVCamById(_parent, JSON.parse("[" + this.vCamId + "]"));
+                    } else {
+                        _parent.setX(0);
+                        _parent.setY(0);
+                        _parent.setXScale(100);
+                        _parent.setYScale(100);
+                        _parent.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
+                    }
                 }
             }
-            executeVCam(_parent, gs) {
-                if (_parent) {
-                    if (_parent instanceof MovieClip) {
-                        var vCam = _parent.childByDepth(gs);
-                        if (vCam && (vCam instanceof MovieClip)) {
-                            var c = vCam.getColorTransform();
-                            vCam.setVisible(false);
-                            _parent.applyColorTransform([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]);
-                            var width = vCam.getWidth();
-                            var height = vCam.getHeight();
-                            var cX = this.width / 2;
-                            var cY = this.height / 2;
-                            var sX = this.width;
-                            var sY = this.height;
-                            var scaleX = sX / width;
-                            var scaleY = sY / height;
-                            var _x = (cX - (vCam.getX() * scaleX));
-                            var _y = (cY - (vCam.getY() * scaleY));
-                            var _xscale = 100 * scaleX;
-                            var _yscale = 100 * scaleY;
-                            _parent.setX(_x);
-                            _parent.setY(_y);
-                            _parent.setXScale(_xscale);
-                            _parent.setYScale(_yscale);
+            executeVCamById(clip, idList) {
+                var children = clip.iterRenderList();
+                var activeVCam = false;
+                for (var i = 0; i < children.length; i++) {
+                    var mc = children[i];
+                    if (mc instanceof MovieClip) {
+                        if (idList.indexOf(mc.getId()) >= 0) {
+                            activeVCam = true;
+                            this.executeVCam(clip, mc);
+                        } else {
+                            this.executeVCamById(mc, idList);
                         }
                     }
+                }
+                if (clip.hasClipVCam) {
+                    if (!activeVCam) {
+                        console.log("DESACTIVE VCAM", clip);
+                        clip.hasClipVCam = false;
+                        clip.setX(0);
+                        clip.setY(0);
+                        clip.setXScale(100);
+                        clip.setYScale(100);
+                        clip.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);  
+                    }
+                } else {
+                    if (activeVCam) {
+                        if (!clip.hasClipVCam) {
+                            console.log("ACTIVE VCAM", clip);
+                            clip.hasClipVCam = true;
+                        }
+                    }    
+                }
+            }
+            executeVCam(_parent, vCam) {
+                if (vCam && (vCam instanceof MovieClip)) {
+                    var c = vCam.getColorTransform();
+                    vCam.setVisible(false);
+                    _parent.applyColorTransform([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]);
+                    var width = vCam.getWidth();
+                    var height = vCam.getHeight();
+                    var cX = this.width / 2;
+                    var cY = this.height / 2;
+                    var sX = this.width;
+                    var sY = this.height;
+                    var scaleX = sX / width;
+                    var scaleY = sY / height;
+                    var _x = (cX - (vCam.getX() * scaleX));
+                    var _y = (cY - (vCam.getY() * scaleY));
+                    var _xscale = 100 * scaleX;
+                    var _yscale = 100 * scaleY;
+                    _parent.setX(_x);
+                    _parent.setY(_y);
+                    _parent.setXScale(_xscale);
+                    _parent.setYScale(_yscale);
                 }
             }
             runActions() {
@@ -10998,9 +11044,14 @@ var PinkFie = (function(moduleResults) {
                         isClipDepth = false;
                     }
                 }
-                if (clips.length) {
-                    renderer.deactivateMask();
-                    renderer.popMask();
+
+                // orig11.deviantart.net/32ed/f/2012/159/d/4/animation___luna__s_cutie_mark_by_zedrin-d52ta7s.swf
+                var countClip = clips.length;
+                if (countClip) {
+                    while(countClip--) {
+                        renderer.deactivateMask();
+                        renderer.popMask();
+                    }
                 }
             }
             debugRender(ctx) {

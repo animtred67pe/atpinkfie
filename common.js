@@ -27,6 +27,8 @@ var Common = function(player) {
     playerOptions.quality = URLsearchParams("quality");
   }
 
+  playerOptions.vCamId = URLsearchParams("vcam", false) || "";
+
   var swfUrl = URLsearchParams("swfurl");
 
   var autoplay = URLsearchParams("autoplay", true);
