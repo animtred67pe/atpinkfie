@@ -1633,7 +1633,13 @@ var PinkFie = (function(moduleResults) {
         }
         SwfParser.prototype.parseAction = function(data) {
             var action = new Avm1Parser(data);
-            return action.parse();
+            var caches = [];
+            try {
+                caches = action.parse();
+            } catch(e) {
+                console.log(e);
+            }
+            return caches;
         }
         SwfParser.prototype.parseABC = function(data) {
             var abc = new Avm2Parser(data);
@@ -2843,7 +2849,7 @@ var PinkFie = (function(moduleResults) {
                                 value = this.byteStream.readUint16();
                                 break;
                             default:
-                                throw new Error("Invalid value type: " + type + " in ActionPush");
+                                console.log("Invalid value type: " + type + " in ActionPush");
                         }
                         values.push({
                             type: type,
@@ -4139,7 +4145,7 @@ var PinkFie = (function(moduleResults) {
                     this.saveScreenshot();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Flash Download', () => {
+                this.MenuVertical.appendChild(this._createE('Download SWF', () => {
                     this.downloadSwf();
                     this.MenuVertical.style.display = 'none';
                 }));
@@ -4250,7 +4256,7 @@ var PinkFie = (function(moduleResults) {
 
                 var fdgdf = document.createElement("a");
 
-                fdgdf.innerHTML = "Flash Download";
+                fdgdf.innerHTML = "Download SWF";
 
                 fdgdf.onclick = () => {
                     this.downloadSwf();
