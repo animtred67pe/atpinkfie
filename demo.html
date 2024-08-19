@@ -128,16 +128,18 @@
 					SWF Background Color
 				*/
 
-				dfgfd += "<p>compression: " + resultswf.header.compression + "</p>";
-				dfgfd += "<p>version: " + resultswf.header.version + "</p>";
-				dfgfd += "<p>uncompressed length: " + getByteText(resultswf.header.uncompressedLength) + "</p>";
 
-				
-				dfgfd += "<p>resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
-				dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
+				dfgfd += "<p>SWF Compression: " + resultswf.header.compression + "</p>";
+				dfgfd += "<p>SWF Version: " + resultswf.header.version + "</p>";
+				dfgfd += "<p>Uncompressed Length: " + getByteText(resultswf.header.uncompressedLength) + "</p>";
 
-				dfgfd += "<p>frame rate: " + resultswf.movieInfo.frameRate + "</p>";
-				dfgfd += "<p>total frames: " + resultswf.movieInfo.numFrames + "</p>";
+				dfgfd += "<p>ActionScript 3: " + !!player.stage.isActionScript3() + "</p>";
+
+				dfgfd += "<p>Total Frames: " + resultswf.movieInfo.numFrames + "</p>";
+				dfgfd += "<p>Frame Rate: " + resultswf.movieInfo.frameRate + "</p>";
+
+				dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
+				dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
 
 				//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
 

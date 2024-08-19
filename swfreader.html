@@ -32,7 +32,7 @@
 			<br>
 			<div id="demo3" style="overflow: auto; height: 400px; border: 4px solid #fff; border-radius: 10px;"></div>
 			<div id="demo2" style="overflow: auto; height: 400px; border: 4px solid #fff; border-radius: 10px;"></div>
-			<p style="color: #999999;">(c) 2024, <a style="color: #999999;" href="https://www.youtube.com/channel/UCOvoRZ-BUCN_9vdKQckq9gg" target="_blank">ATFSMedia Productions.</a></p>
+			<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
@@ -187,7 +187,9 @@
 				var headerMovie = resultswf.movieInfo;
 				var stageSize = headerMovie.bounds;
 				dfgfd += "compression: " + swfHeader.compression + " version: " + swfHeader.version +  " uncompressed size: " + swfHeader.uncompressedLength + "<br>";
-					dfgfd += "width: " + ((stageSize.xMax - stageSize.xMin) / 20) + " height: " + ((stageSize.yMax - stageSize.yMin) / 20) + " frame rate: " + headerMovie.frameRate + " total frames: " + headerMovie.numFrames + "";
+				dfgfd += "resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
+				dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20);
+				dfgfd += " frame rate: " + headerMovie.frameRate + " total frames: " + headerMovie.numFrames + "";
 				dfgfd += "<h3>SWF Tags</h3> tags length: " + countTags + "";
 				demo.innerHTML = dfgfd;
 				demo2.appendChild(result_tagsElem);
