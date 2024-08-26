@@ -559,17 +559,184 @@
 
 				var s = document.createElement("p");
 				s.textContent = 'Shape' + id;
+
+				this._name = 'Shape' + id;
+
 				this.canvas = document.createElement("canvas");
 				this.canvas.width = 80;
 				this.canvas.height = 80;
 				this.ctx = this.canvas.getContext('2d');
 				this.root.appendChild(this.canvas);
 				this.root.appendChild(s);
+
+				this.canvas.onclick = () => this.downloadPng();
+
 				try {
 					this.renderShape();
 				} catch (e) {
 					console.log("renderShape", e);
 				}
+			}
+			ATShape.prototype.downloadPng = function() {
+				var canvas = document.createElement("canvas");
+				var ctx = canvas.getContext("2d");
+
+				var bounds = {
+					xMin: Infinity,
+					yMin: Infinity,
+					xMax: -Infinity,
+					yMax: -Infinity
+				}
+				var shapes = this.shapeCache;
+				function dfgfd(x, y) {
+					if (x < bounds.xMin) {
+						bounds.xMin = x;
+					}
+					if (y < bounds.yMin) {
+						bounds.yMin = y;
+					}
+					if (x > bounds.xMax) {
+						bounds.xMax = x;
+					}
+					if (y > bounds.yMax) {
+						bounds.yMax = y;
+					}
+				}
+				for (let u = 0; u < shapes.length; u++) {
+					const data = shapes[u];
+					var cmd = data.cmd;
+					for (let i = 0; i < cmd.length; i++) {
+						const cmm = cmd[i];
+						if (cmm[0] == 0) {
+							dfgfd(cmm[1], cmm[2]);
+						} else if (cmm[0] == 1) {
+							dfgfd(cmm[1], cmm[2]);
+							dfgfd(cmm[3], cmm[4]);
+						} else if (cmm[0] == 2) {
+							dfgfd(cmm[1], cmm[2]);
+						}
+					}
+				}
+
+				var minX = bounds.xMin;
+				var minY = bounds.yMin;
+				var maxX = bounds.xMax;
+				var maxY = bounds.yMax;
+
+				var maxWidth = Math.abs(maxX - minX);
+				var maxHeight = Math.abs(maxY - minY);
+
+				var scale = 8;
+
+				canvas.width = (maxWidth * scale) / 20;
+				canvas.height = (maxHeight * scale) / 20;
+
+
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				var m2 = [scale / 20, 0, 0, scale / 20, ((0 - minX) / 20) * scale, ((0 - minY) / 20) * scale];
+				for (let k = 0; k < shapes.length; k++) {
+					ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
+					const data = shapes[k];
+					var obj = data.obj;
+					if (!obj) {
+						continue;
+					}
+					var cmd = data.cmd;
+					ctx.beginPath();
+					_executeCmdCtx2dPath(ctx, cmd);
+					var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
+					var isStroke = ("width" in obj);
+					var styleType = styleObj.type || 0;
+					switch (styleType) {
+						case 0:
+							var color = styleObj.color;
+							var css = 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
+							if (isStroke) {
+								ctx.strokeStyle = css;
+								ctx.lineWidth = obj.width;
+								ctx.lineCap = "round";
+								ctx.lineJoin = "round";
+								ctx.stroke();
+							} else {
+								ctx.fillStyle = css;
+								ctx.fill();
+							}
+							break;
+						case 0x10:
+						case 0x12:
+						case 0x13:
+							var css;
+							var gg = styleObj.gradient;
+							if (!gg) {
+								gg = styleObj.linearGradient;
+							}
+							if (!gg) {
+								gg = styleObj.radialGradient;
+							}
+							var m = gg.matrix;
+							var ggg = m;
+							var type = styleObj.type;
+							if (type !== 16) {
+								ctx.save();
+								ctx.transform(ggg[0], ggg[1], ggg[2], ggg[3], ggg[4], ggg[5]);
+								css = ctx.createRadialGradient(0, 0, 0, 0, 0, 16384);
+							} else {
+								var xy = linearGradientXY(m);
+								css = ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
+							}
+							var records = gg.gradientRecords;
+							var rLength = records.length;
+							for (var rIdx = 0; rIdx < rLength; rIdx++) {
+								var record = records[rIdx];
+								var color = record.color;
+								var rgba = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
+								css.addColorStop(record.ratio, rgba);
+							}
+							if (isStroke) {
+								ctx.strokeStyle = css;
+								ctx.lineWidth = obj.width;
+								ctx.lineCap = "round";
+								ctx.lineJoin = "round";
+								ctx.stroke();
+							} else {
+								ctx.fillStyle = css;
+								ctx.fill();
+							}
+							if (type !== 16) {
+								ctx.restore();
+							}
+							break;
+						case 0x40:
+						case 0x41:
+						case 0x42:
+						case 0x43:
+							var bitmapId = styleObj.bitmapId;
+							var bMatrix = styleObj.bitmapMatrix;
+							var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
+							var image = player.stage.library.characterById(bitmapId);
+							if (image && image.image) {
+								var c = image.image;
+								if (styleType === 0x41 || styleType === 0x43) {
+									ctx.save();
+									ctx.clip();
+									ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									ctx.imageSmoothingEnabled = false;
+									ctx.drawImage(c, 0, 0);
+									ctx.restore();
+								} else {
+									ctx.fillStyle = ctx.createPattern(c, repeat);
+									ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
+									ctx.fill();
+								}
+							}
+							break;
+					}
+				}
+
+				var a = document.createElement("a");
+				a.href = canvas.toDataURL();
+				a.download = this._name + ".png";
+				a.click();
 			}
 			ATShape.prototype.renderShape = function() {
 

@@ -1,11 +1,11 @@
 /*!
 Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
 
-18/08/2024
+26/08/2024
 
 Made in Peru
 
-(c) 2024, ATFSMedia Productions
+(c) 2024 ATFSMedia Productions.
 */
 
 var PinkFie = (function(moduleResults) {
@@ -10256,7 +10256,9 @@ var PinkFie = (function(moduleResults) {
         function cloneObject(src) {
             return JSON.parse(JSON.stringify(src));
         }
-        
+        function checkImageColorTransform(colorTransform) {
+            return (colorTransform[0] !== 1) || (colorTransform[1] !== 1) || (colorTransform[2] !== 1) || colorTransform[4] || colorTransform[5] || colorTransform[6];
+        }
         const MaskState = {
             DrawContent: 0,
             DrawMask: 1,
@@ -10291,9 +10293,61 @@ var PinkFie = (function(moduleResults) {
                 this.width = 0;
                 this.height = 0;
                 this.texture = null;
+                this.isColorTransformCache = false;
+                this.c = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
             }
-            getTexture() {
-                return this.texture;
+            _initColorTransformCache() {
+                this.tmpCanvas = document.createElement("canvas");
+                this.tmpCtx = this.tmpCanvas.getContext("2d");
+                this.isColorTransformCache = true;
+            }
+            getTexture(color) {
+                if (color && checkImageColorTransform(color)) {
+                    if (!this.isColorTransformCache) this._initColorTransformCache();
+                    if (this.c[0] != color[0] || this.c[1] != color[1] || this.c[2] != color[2] || this.c[3] != color[3] || this.c[4] != color[4] || this.c[5] != color[5] || this.c[6] != color[6] || this.c[7] != color[7]) {
+                        var width = this.texture.width;
+                        var height = this.texture.height;
+                        this.tmpCanvas.width = width;
+                        this.tmpCanvas.height = height;
+                        this.tmpCtx.drawImage(this.texture, 0, 0);
+                        var imgData = this.tmpCtx.getImageData(0, 0, width, height);
+                        var pxData = imgData.data;
+                        var idx = 0;
+                        var RedMultiTerm = color[0];
+                        var GreenMultiTerm = color[1];
+                        var BlueMultiTerm = color[2];
+                        var AlphaMultiTerm = color[3];
+                        var RedAddTerm = color[4];
+                        var GreenAddTerm = color[5];
+                        var BlueAddTerm = color[6];
+                        var AlphaAddTerm = color[7];
+                        var length = width * height;
+                        if (length > 0) {
+                            while (length--) {
+                                var R = pxData[idx++];
+                                var G = pxData[idx++];
+                                var B = pxData[idx++];
+                                var A = pxData[idx++];
+                                pxData[idx - 4] = Math.max(0, Math.min((R * RedMultiTerm) + RedAddTerm, 255)) | 0;
+                                pxData[idx - 3] = Math.max(0, Math.min((G * GreenMultiTerm) + GreenAddTerm, 255)) | 0;
+                                pxData[idx - 2] = Math.max(0, Math.min((B * BlueMultiTerm) + BlueAddTerm, 255)) | 0;
+                                pxData[idx - 1] = Math.max(0, Math.min((A * AlphaMultiTerm) + AlphaAddTerm, 255));
+                            }
+                        }
+                        this.tmpCtx.putImageData(imgData, 0, 0);
+                        this.c[0] = color[0];
+                        this.c[1] = color[1];
+                        this.c[2] = color[2];
+                        this.c[3] = color[3];
+                        this.c[4] = color[4];
+                        this.c[5] = color[5];
+                        this.c[6] = color[6];
+                        this.c[7] = color[7];
+                    }
+                    return this.tmpCanvas;
+                } else {
+                    return this.texture;
+                }
             }
             setImage(image) {
                 var canvas = document.createElement("canvas");
@@ -10350,41 +10404,6 @@ var PinkFie = (function(moduleResults) {
             }
             isAllowImageColorTransform() {
                 return (this.quality == "high");
-            }
-            checkImageColorTransform() {
-                if (this.isAllowImageColorTransform()) return this.colorTransform[0] !== 1 || this.colorTransform[1] !== 1 || this.colorTransform[2] !== 1 || this.colorTransform[4] || this.colorTransform[5] || this.colorTransform[6];
-            }
-            generateImageTransform(texture, color) {
-                var width = texture.width;
-                var height = texture.height;
-                this.tmpCanvas.width = width;
-                this.tmpCanvas.height = height;
-                this.tmpCtx.drawImage(texture, 0, 0);
-                var imgData = this.tmpCtx.getImageData(0, 0, width, height);
-                var pxData = imgData.data;
-                var idx = 0;
-                var RedMultiTerm = color[0];
-                var GreenMultiTerm = color[1];
-                var BlueMultiTerm = color[2];
-                var AlphaMultiTerm = color[3];
-                var RedAddTerm = color[4];
-                var GreenAddTerm = color[5];
-                var BlueAddTerm = color[6];
-                var AlphaAddTerm = color[7];
-                var length = width * height;
-                if (length > 0) {
-                    while (length--) {
-                        var R = pxData[idx++];
-                        var G = pxData[idx++];
-                        var B = pxData[idx++];
-                        var A = pxData[idx++];
-                        pxData[idx - 4] = Math.max(0, Math.min((R * RedMultiTerm) + RedAddTerm, 255)) | 0;
-                        pxData[idx - 3] = Math.max(0, Math.min((G * GreenMultiTerm) + GreenAddTerm, 255)) | 0;
-                        pxData[idx - 2] = Math.max(0, Math.min((B * BlueMultiTerm) + BlueAddTerm, 255)) | 0;
-                        pxData[idx - 1] = Math.max(0, Math.min((A * AlphaMultiTerm) + AlphaAddTerm, 255));
-                    }
-                }
-                this.tmpCtx.putImageData(imgData, 0, 0);
             }
             setColorTransform(a, b, c, d, e, f, x, y) {
                 this.colorTransform = [a, b, c, d, e, f, x, y];
@@ -10488,13 +10507,16 @@ var PinkFie = (function(moduleResults) {
                 }
             }
             renderTexture(texture, isSmoothed) {
+                var isA = this.isAllowImageColorTransform();
                 this.ctx.imageSmoothingEnabled = (isSmoothed || false);
                 if (texture) {
                     this.ctx.setTransform(...this.matrixTransform);
-                    this.ctx.drawImage(texture.getTexture(), 0, 0);
+                    if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+                    this.ctx.drawImage(texture.getTexture(isA ? this.colorTransform : null), 0, 0);
                 }
             }
             renderShape(shapeInterval) {
+                var isA = this.isAllowImageColorTransform();
                 for (let i = 0; i < shapeInterval.length; i++) {
                     const si = shapeInterval[i];
                     if (!si) return;
@@ -10567,13 +10589,8 @@ var PinkFie = (function(moduleResults) {
                                 this.ctx.save();
                                 this.ctx.transform(...bMatrix);
                                 this.ctx.imageSmoothingEnabled = (si.isSmoothed || false);
-                                var image = texture.getTexture();
-                                if (this.checkImageColorTransform()) {
-                                    this.generateImageTransform(image, this.colorTransform);
-                                    image = this.tmpCanvas;
-                                } else {
-                                    this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
-                                }
+                                var image = texture.getTexture(isA ? this.colorTransform : null);
+                                if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
                                 var p = this.ctx.createPattern(image, repeat);
                                 this.ctx.fillStyle = p;
                                 this.ctx.fill();
@@ -12253,14 +12270,14 @@ var PinkFie = (function(moduleResults) {
     },
     "src/utils/nellymoser.js": function(wpjsm){
         /*
-        Nellymoser Decoder JS
-        
-        A pure Javascript decoder for the Nellymoser audio codec.
-        
-        (c) 2024, THandPEPeerTDP
-        
-        Made in Peru
-        */
+         * Nellymoser Decoder JS
+         * 
+         * A pure Javascript decoder for the Nellymoser audio codec.
+         * 
+         * (c) 2024 ATFSMedia Productions.
+         * 
+         * Made in Peru
+         */
         
         const Bits = function() {
             this.bytePos = 0;

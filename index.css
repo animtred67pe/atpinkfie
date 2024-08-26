@@ -40,14 +40,14 @@ a {
     color: #000000;
 }
 .dark {
-    background-color:#000;
-    color: #dfd;
+    background-color:#111;
+    color: #ddd;
 }
 .dark .app {
-    color: #dfd;
+    color: #ddd;
 }
 .dark a {
-    color: #dfd;
+    color: #ddd;
 }
 #pinkfie-player{
     width: 640px;
