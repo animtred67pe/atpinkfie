@@ -31,6 +31,9 @@ var Common = function(player) {
 
   var swfUrl = URLsearchParams("swfurl");
 
+  // Derpys Apology
+  if (URLsearchParams("apology", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/50f0d850bca885ee5e6196597cf3964c.wav/get/";
+
   var autoplay = URLsearchParams("autoplay", true);
 
   this.result = {

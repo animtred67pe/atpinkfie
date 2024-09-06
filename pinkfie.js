@@ -4087,6 +4087,8 @@ var PinkFie = (function(moduleResults) {
                 this.isLoad = false;
                 this.loaded = 0;
                 this.loadedTick = 0;
+
+                this.swfData = null;
         
                 this.addMenuVerticals();
                 this.addStatsControls();
@@ -4170,10 +4172,14 @@ var PinkFie = (function(moduleResults) {
                     this.saveScreenshot();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Download SWF', () => {
+
+                this.swfDataElement = this._createE('Download SWF', () => {
                     this.downloadSwf();
                     this.MenuVertical.style.display = 'none';
-                }));
+                });
+
+                this.MenuVertical.appendChild(this.swfDataElement);
+
                 this.MenuVertical.appendChild(this._createE('Full Screen', () => {
                     if (this.fullscreenEnabled) {
                         this._displayMessage[1] = "Full Screen: Off";
@@ -4446,6 +4452,11 @@ var PinkFie = (function(moduleResults) {
                 this.MenuVertical.style.top = (event.clientY - rect.top) + 'px';
                 this.MenuVertical.style.left = (event.clientX - rect.left) + 'px';
                 this.MenuVertical.style.height = 'auto';
+                if (this.swfData) {
+                    this.swfDataElement.style.display = '';
+                } else {
+                    this.swfDataElement.style.display = 'none';
+                }
                 if (this.hasStage() && this.stage.playing) {
                     this.movie_playPause.innerHTML = "Pause";
                 } else {
@@ -4475,8 +4486,9 @@ var PinkFie = (function(moduleResults) {
             }
             downloadSwf() {
                 if (!this.hasStage()) return;
+                if (!this.swfData) return;
                 var j = this.getSwfName();
-                var h = URL.createObjectURL(new Blob([new Uint8Array(this.stage.swfData)]));
+                var h = URL.createObjectURL(this.swfData);
                 var a = document.createElement("a");
                 a.href = h;
                 a.download = j + ".swf";
@@ -4609,12 +4621,12 @@ var PinkFie = (function(moduleResults) {
             }
             beginLoadingSWF() {
                 this.cleanup();
+                this.loadingContainer.style.display = "";
                 this.onstartload.emit();
                 this.loaded = 1;
             }
             loadLoader(loader) {
                 var _this = this;
-                this.loadingContainer.style.display = "";
                 _this.currentLoader = loader;
                 loader.audioContext = this.audioContext;
                 loader.onprogress = function (fs) {
@@ -4644,9 +4656,13 @@ var PinkFie = (function(moduleResults) {
                             const a = dat[i];
                             str += String.fromCharCode(a);
                         }
-                        console.log(str);
                     }
-                    callback(new Blob([new Uint8Array(xhr.response)]));
+                    var dat = new Uint8Array(xhr.response);
+                    if (dat[0] == 82) {
+                        callback(new Blob([new Uint8Array(dat.buffer.slice(0x2c))]));
+                    } else {
+                        callback(new Blob([dat]));
+                    }
                 };
                 xhr.onerror = function () {
                     callback(null);
@@ -4657,13 +4673,16 @@ var PinkFie = (function(moduleResults) {
             }
             loadSwfFromFile(file) {
                 this.beginLoadingSWF();
+                this.loadingContainerProgressText.textContent = "Loading SWF Data";
                 var loader = new Loader(file);
                 this.loadLoader(loader);
             }
             loadSwfFromURL(url) {
                 this.beginLoadingSWF();
+                this.loadingContainerProgressText.textContent = "Loading SWF Data";
                 var _this = this;
                 this.fetchSwfUrl(url, function (file) {
+                    _this.swfData = file;
                     if (file) {
                         var loader = new Loader(file);
                         _this.loadLoader(loader);
@@ -4908,6 +4927,10 @@ var PinkFie = (function(moduleResults) {
                 }
             }
             cleanup() {
+                this.swfData = null;
+                this.loadingContainer.style.display = "none";
+                this.loadingContainerProgressText.textContent = "";
+                this.loadingContainerProgress.style.width = "0%";
                 this.statsE.style.display = "none";
                 this.loaded = 0;
                 this._displayMessage[0] = 0;
@@ -6363,9 +6386,8 @@ var PinkFie = (function(moduleResults) {
             }
             toGlyph(glyph) {
                 var shapeRender = this.movieplayer.renderer.shapeToInterval([{
-                    type: 1,
+                    type: 0,
                     path2d: glyph,
-                    width: 1000,
                     fill: {
                         type: 0,
                         color: [255, 255, 255, 1]
@@ -11175,13 +11197,13 @@ var PinkFie = (function(moduleResults) {
                     var bm = this.boundsMatrix(this.selfBounds(), this.movieplayer.debugTransformStack.getMatrix());
                     var coll = this._debug_colorDisplayType;
                     this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], this.movieplayer.debugTransformStack.getColorTransform());
+                    this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
+                    this.movieplayer.drawTextW(bm.xMin, bm.yMin - 28, 0.25, this.getDisplayName());
+                    this.movieplayer.transformStack.stackPop();
                     this.movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 100, 0, 0, (bm.yMax - bm.yMin) / 100, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
                     ctx.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
                     ctx.setTransform(...this.movieplayer.transformStack.getMatrix());
                     ctx.renderShape(this.movieplayer.debugRectLineShapeRender);
-                    this.movieplayer.transformStack.stackPop();
-                    this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
-                    this.movieplayer.drawTextW(bm.xMin, bm.yMin - 28, 0.25, this.getDisplayName());
                     this.movieplayer.transformStack.stackPop();
                     this.movieplayer.transformStack.stackPop();
                 }

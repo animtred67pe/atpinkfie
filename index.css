@@ -4,6 +4,10 @@ body {
 a {
   cursor: pointer;
   text-decoration: underline;
+  transition: 0.2s;
+}
+a:hover{
+    opacity: 0.8;
 }
 .version {
 	padding-left: 2%;
