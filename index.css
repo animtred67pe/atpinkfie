@@ -1,5 +1,6 @@
-body {
+html {
     font-family: monospace;
+    background-color: #ddd;
 }
 a {
   cursor: pointer;
@@ -38,13 +39,13 @@ a:hover{
 .app{
     width: 640px;
     margin: auto;
-    color: #000000;
+    color: #333;
 }
 .app a{
-    color: #000000;
+    color: #333;
 }
 .dark {
-    background-color:#111;
+    background-color: #111;
     color: #ddd;
 }
 .dark .app {
@@ -56,6 +57,20 @@ a:hover{
 #pinkfie-player{
     width: 640px;
     margin: 0 auto;
+}
+.dropdown {
+    display: inline-block;
+    position: relative;
+}
+.dropdown > select {
+    position: absolute;
+    font: inherit;
+    opacity: 0;
+    cursor: pointer;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
 }
 
 #ggprog {

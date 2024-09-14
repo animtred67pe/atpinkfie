@@ -17,7 +17,7 @@
 				text-decoration: underline;
 			}
 			#pkfcontrols {
-				background-color: rgb(92, 206, 92);
+				background-color: #ccc;
 				height: 40px;
 				overflow: hidden;
 			}
@@ -27,14 +27,14 @@
 			#pkfcontrols .pkfcontrolB {
 				margin: 3px;
 				padding: 5px;
-                background-color: #3f7439;
+                background-color: #666;
 				color: #ffffff;
 				border-radius: 8px;
 				text-decoration-line: none;
 				transition: 0.2s;
 			}
 			#pkfcontrols .pkfcontrolB:hover {
-                background-color: #8bff7e;
+                background-color: #fff;
 				color: #000000;
 				transition: 0.2s;
 			}
@@ -43,12 +43,15 @@
 			}
 			#pinkswfmetadata {
 				float: left;
-				background-color: rgb(92, 206, 92);
+				background-color: #ccc;
 				margin: 0;
 				width: 250px;
 				height: 100%;
 				position: absolute;
 				right: 0px;
+			}
+			#sampleSWFpkf {
+				width: 120px;
 			}
 			.pinkfielogo{
 				width: 75px;
@@ -73,7 +76,7 @@
 			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
 		</div>
 		<div id="pinkswf">
-			<div id="pinkswfmetadata" style="display: none;">
+			<div id="pinkswfmetadata" style="width: 0px; overflow: hidden; transition: 0.2s;">
 				<div style="margin: 0 15px;">
 					<div id="pinkswfmetadataResult"></div>
 				</div>
@@ -87,9 +90,7 @@
 
 			var player = new PinkFie.Player();
 
-			var common = new Common(player);
-
-			player.setOptions(common.result.playerOptions);
+			player.setOptions(Common.playerOptions);
 
 			window.player = player;
 			var playerArea = document.getElementById('pinkswf');
@@ -107,6 +108,12 @@
 						return "" + byte + "B";
 					}
 				}
+			}
+
+			const SC = {
+				"FWS": "Uncompressed",
+				"CWS": "ZLib",
+				"ZWS": "LZMA",
 			}
 
 			function showSwf() {
@@ -129,7 +136,7 @@
 				*/
 
 
-				dfgfd += "<p>SWF Compression: " + resultswf.header.compression + "</p>";
+				dfgfd += "<p>SWF Compression: " + SC[resultswf.header.compression] + "</p>";
 				dfgfd += "<p>SWF Version: " + resultswf.header.version + "</p>";
 				dfgfd += "<p>Uncompressed Length: " + getByteText(resultswf.header.uncompressedLength) + "</p>";
 
@@ -187,7 +194,7 @@
 			player.onload.subscribe(function() {
 				showSwf();
 				if (autoplayL) {
-					player.setOptions({autoplayPolicy: "never"})
+					player.setOptions({autoplayPolicy: "never"});
 					autoplayL = false;
 				}
 			});
@@ -207,11 +214,11 @@
 			}
 
 			enswfmetadata.addEventListener("click", function() {
-				if (pinkswfmetadata.style.display) {
-					pinkswfmetadata.style.display = "";
+				if (pinkswfmetadata.style.width == '0px') {
+					pinkswfmetadata.style.width = "250px";
 					minWW = 250;
 				} else {
-					pinkswfmetadata.style.display = "none";
+					pinkswfmetadata.style.width = "0px";
 					minWW = 0;
 				}
 				_resize_();
@@ -243,6 +250,7 @@
 			function loadSampleSWF(infoSample) {
 				var name = infoSample.name;
 				sampleSWFpkf.value = name;
+				if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
 				if (infoSample.url) {
 					loadSwfUrl(infoSample.url);
 				} else {
@@ -268,10 +276,10 @@
 				g.textContent = name;
 				sampleSWFpkf.appendChild(g);
 			}
-			if (common.result.swfUrl) {
+			if (Common.swfUrl) {
 				player.setOptions({autoplayPolicy: "never"})
 				sampleSWFpkf.value = '';
-				loadSwfUrl(common.result.swfUrl);
+				loadSwfUrl(Common.swfUrl);
 			} else {
 				loadSampleSWF(pinkfieSampleSWF[0]);
 			}

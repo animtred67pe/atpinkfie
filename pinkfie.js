@@ -1,7 +1,7 @@
 /*!
 Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
 
-26/08/2024
+v1.3.1 (2024-09-14)
 
 Made in Peru
 
@@ -4146,7 +4146,7 @@ var PinkFie = (function(moduleResults) {
                         var playingStage = this.stage.playing;
                         if (playingStage) this.stage.pause();
                         this.tick();
-                        var frameResult = prompt("Jump Frame", "false,1");
+                        var frameResult = prompt("Jump Frame", "1");
                         if (frameResult) {
                             var frameA = null;
                             try {
@@ -4154,8 +4154,13 @@ var PinkFie = (function(moduleResults) {
                             } catch(e) {
                             }
                             if (frameA) {
-                                var frame = Math.min(this.stage.clip.totalframes, Math.max(1, (+frameA[1]) || 0));
-                                this.stage.clip.gotoFrame(frame, !frameA[0]);
+                                if (frameA.length > 1) {
+                                    var frame = Math.min(this.stage.clip.totalframes, Math.max(1, (+frameA[1]) || 0));
+                                    this.stage.clip.gotoFrame(frame, !frameA[0]);
+                                } else {
+                                    var frame = Math.min(this.stage.clip.totalframes, Math.max(1, (+frameA[0]) || 0));
+                                    this.stage.clip.gotoFrame(frame, !this.stage.clip.isPlaying);
+                                }
                             }    
                         }
                         this.tick();
@@ -4226,8 +4231,10 @@ var PinkFie = (function(moduleResults) {
                 };
                 rrj2.style = '';
                 rrj2.style.position = 'fixed';
-                rrj2.style.top = '0%';
-                rrj2.style.right = '0%';
+                rrj2.style.display = 'block';
+                rrj2.style.top = '0px';
+                rrj2.style.right = '0px';
+                rrj2.style["background-position"] = '50% 80%';
                 rrj2.innerHTML = "[x]";
                 var rrj3 = document.createElement('label');
                 rrj3.innerHTML = "volume:";
@@ -4243,17 +4250,18 @@ var PinkFie = (function(moduleResults) {
         
                 var rrj3o = document.createElement('label');
                 rrj3o.innerHTML = "speed:";
-                var rrj4o = document.createElement('input');
-                rrj4o.style.width = "80px";
-                rrj4o.type = "range";
-                rrj4o.step = 0.25;
-                rrj4o.max = 2;
-                rrj4o.min = 0.25;
+                var rrj4o = document.createElement('select');
+                rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.5">0.5x<option value="0.75">0.75x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="2">2x<option value="4">4x<option value="8">8x<option value="16">16x<option value="32">32x<option value="64">64x';
                 rrj4o.value = 1;
                 rrj4o.addEventListener('input', () => {
                     this.setOptions({ speed: +rrj4o.value });
                 });
                 this._rrj4o = rrj4o;
+
+                var rrj3oa = document.createElement('label');
+                rrj3oa.innerHTML = "1x";
+
+                this._rrj3oa = rrj3oa;
         
                 var rrj5 = document.createElement('label');
                 rrj5.innerHTML = "Render Mode: ";
@@ -4291,7 +4299,7 @@ var PinkFie = (function(moduleResults) {
 
                 var rrj9 = document.createElement('input');
                 rrj9.type = 'text';
-
+                rrj9.style.width = "80px";
 
                 rrj9.addEventListener("change", () => {
                     if (rrj9.value) {
@@ -4310,6 +4318,8 @@ var PinkFie = (function(moduleResults) {
                 fdgdf.onclick = () => {
                     this.downloadSwf();
                 }
+
+                this.__fdgdf = fdgdf;
         
                 var di3 = document.createElement('a');
                 di3.innerHTML = "View Stats";
@@ -4321,6 +4331,7 @@ var PinkFie = (function(moduleResults) {
                 rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(rrj3o);
                 rrj.appendChild(rrj4o);
+                rrj.appendChild(rrj3oa);
                 rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(rrj5);
                 rrj.appendChild(rrj6);
@@ -4524,6 +4535,7 @@ var PinkFie = (function(moduleResults) {
                 }
                 this._rrj4.value = this.options.volume;
                 this._rrj4o.value = this.options.speed;
+                this._rrj3oa.textContent = this.options.speed + "x";
                 if (this.__rrj8) {
                     this.__rrj8.value = this.options.quality;
                 }
@@ -4646,7 +4658,7 @@ var PinkFie = (function(moduleResults) {
                 };
                 loader.load();
             }
-            fetchSwfUrl(url, callback) {
+            fetchSwfUrl(url, callback, callbackProgress) {
                 var xhr = new XMLHttpRequest();
                 xhr.onload = function () {
                     if (xhr.status !== 200) {
@@ -4663,6 +4675,9 @@ var PinkFie = (function(moduleResults) {
                     } else {
                         callback(new Blob([dat]));
                     }
+                };
+                xhr.onprogress = function (e) {
+                    if (callbackProgress) callbackProgress(e.loaded / e.total);
                 };
                 xhr.onerror = function () {
                     callback(null);
@@ -4683,10 +4698,15 @@ var PinkFie = (function(moduleResults) {
                 var _this = this;
                 this.fetchSwfUrl(url, function (file) {
                     _this.swfData = file;
+                    _this.__fdgdf.style.display = "";
                     if (file) {
                         var loader = new Loader(file);
                         _this.loadLoader(loader);
+                    } else {
+                        _this.loadingContainerProgressText.textContent = "Failed Loading SWF Data";
                     }
+                }, function(r) {
+                    _this.loadingContainerProgress.style.width = (r * 100) + "%";
                 });
             }
             getInfoStage() {
@@ -4734,6 +4754,7 @@ var PinkFie = (function(moduleResults) {
                 dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
                 dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
                 dfgfd += '<p>SWF Background Color: rgb(' + stage.backgroundColor.join(",") + ')</p>';
+                dfgfd += '<p>Sounds Compressions: ' + (stage.audio.getCompressSound().join(" ") || "entry") + '</p>';
         
                 _g.innerHTML = dfgfd;
         
@@ -4824,6 +4845,7 @@ var PinkFie = (function(moduleResults) {
                     this.stage.audio.setVolume(this.options.volume);
                     this.stage.setSpeed(this.options.speed);
                     this.stage.vCamId = this.options.vCamId;
+                    this.stage.vCamShow = this.options.vCamShow;
                     var renderDirty = false;
                     if (this.stage.quality != this.options.quality) {
                         this.stage.setQuality(this.options.quality);
@@ -4902,6 +4924,8 @@ var PinkFie = (function(moduleResults) {
                             hkj += "<br>Frame: " + _u;
                             hkj += "<br>Mouse Point: " + this.stage.mousePosition;
                             hkj += "<br>Playing Audio: " + this.stage.getPlayingAudioCount();
+                            var resultPlayingCompressSound = this.stage.audio.getPlayingCompressSound().join(" ");
+                            if (resultPlayingCompressSound) hkj += "<br>" + resultPlayingCompressSound;
                             this.statsE_R.style.display = "";
                             this.statsE_R.innerHTML = hkj;
                         } else {
@@ -4928,6 +4952,7 @@ var PinkFie = (function(moduleResults) {
             }
             cleanup() {
                 this.swfData = null;
+                this.__fdgdf.style.display = "none";
                 this.loadingContainer.style.display = "none";
                 this.loadingContainerProgressText.textContent = "";
                 this.loadingContainerProgress.style.width = "0%";
@@ -4960,6 +4985,7 @@ var PinkFie = (function(moduleResults) {
             quality: "high",
             rendermode: "render",
             vCamId: 0,
+            vCamShow: false
         }
         wpjsm.exportJS = Player;
     },
@@ -5202,6 +5228,7 @@ var PinkFie = (function(moduleResults) {
             key: [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
             value: [256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 280, 281, 282, 283, 284, 285, 286, 287, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
         }
+
         const ORDER = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
         const LEXT = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99]);
         const LENS = new Uint16Array([3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0]);
@@ -5251,9 +5278,7 @@ var PinkFie = (function(moduleResults) {
                 return value;
             }
             tick(tsTurbo) {
-                if (this.isEnd) {
-                    return;
-                }
+                if (this.isEnd) return;
                 var _buildHuffTable = this.buildHuffTable.bind(this);
                 var _decodeSymbol = this.decodeSymbol.bind(this);
                 var sym = 0;
@@ -5264,6 +5289,7 @@ var PinkFie = (function(moduleResults) {
                 var flag = 0;
                 var _size = this._size;
                 var startTime = Date.now();
+                var codeLengths = new Uint8Array(19);
                 while (true) {
                     flag = _this.readUB(1);
                     var type = _this.readUB(2);
@@ -5289,15 +5315,14 @@ var PinkFie = (function(moduleResults) {
                                     const numLitLengths = _this.readUB(5) + 257;
                                     const numDistLengths = _this.readUB(5) + 1;
                                     const numCodeLengths = _this.readUB(4) + 4;
-                                    var codeLengths = new Uint8Array(19);
                                     for (i = 0; i < numCodeLengths; i++) {
                                         codeLengths[ORDER[i]] = _this.readUB(3);
                                     }
                                     const codeTable = _buildHuffTable(codeLengths);
-                                    codeLengths = null;
+                                    codeLengths.fill(0);
                                     var prevCodeLen = 0;
                                     const maxLengths = numLitLengths + numDistLengths;
-                                    const litLengths = new Array(maxLengths);
+                                    const litLengths = new Uint8Array(maxLengths);
                                     let litLengthSize = 0;
                                     while (litLengthSize < maxLengths) {
                                         sym = _decodeSymbol(_this, codeTable.key, codeTable.value);
@@ -5323,26 +5348,21 @@ var PinkFie = (function(moduleResults) {
                                                 break;
                                             case 16:
                                                 i = _this.readUB(2) + 3;
-                                                while (i--) {
-                                                    litLengths[litLengthSize++] = prevCodeLen;
-                                                }
+                                                litLengths.fill(prevCodeLen, litLengthSize, litLengthSize + i);
+                                                litLengthSize += i;
                                                 break;
                                             case 17:
                                                 i = _this.readUB(3) + 3;
-                                                while (i--) {
-                                                    litLengths[litLengthSize++] = 0;
-                                                }
+                                                litLengthSize += i;
                                                 break;
                                             case 18:
                                                 i = _this.readUB(7) + 11;
-                                                while (i--) {
-                                                    litLengths[litLengthSize++] = 0;
-                                                }
+                                                litLengthSize += i;
                                                 break;
                                         }
                                     }
-                                    distTable = _buildHuffTable(litLengths.splice(numLitLengths, numDistLengths));
-                                    litTable = _buildHuffTable(litLengths);
+                                    distTable = _buildHuffTable(litLengths.subarray(numLitLengths));
+                                    litTable = _buildHuffTable(litLengths.subarray(0, numLitLengths));
                             }
                             sym = 0;
                             while (true) {
@@ -5385,24 +5405,21 @@ var PinkFie = (function(moduleResults) {
                 const blCount = [];
                 const nextCode = [];
                 var maxBits = 0;
-                for (var i = 0; i < length; i++) {
-                    maxBits = Math.max(maxBits, data[i]);
-                }
-                maxBits++;
-                i = length;
+                var i = length;
                 var len = 0;
                 while (i--) {
                     len = data[i];
+                    maxBits = Math.max(maxBits, len);
                     blCount[len] = (blCount[len] || 0) + (len > 0);
                 }
                 var code = 0;
-                for (i = 1; i < maxBits; i++) {
-                    len = i - 1;
+                for (i = 0; i < maxBits; i++) {
+                    len = i;
                     if (!(len in blCount)) {
                         blCount[len] = 0;
                     }
                     code = (code + blCount[len]) << 1;
-                    nextCode[i] = code | 0;
+                    nextCode[i + 1] = code | 0;
                 }
                 var key = [];
                 var value = [];
@@ -6473,6 +6490,7 @@ var PinkFie = (function(moduleResults) {
                 this.playing = false;
 
                 this.vCamId = 0;
+                this.vCamShow = false;
         
                 this.backgroundColor = [255, 255, 255, 1];
         
@@ -6858,7 +6876,7 @@ var PinkFie = (function(moduleResults) {
             executeVCam(_parent, vCam) {
                 if (vCam && (vCam instanceof MovieClip)) {
                     var c = vCam.getColorTransform();
-                    vCam.setVisible(false);
+                    vCam.setVisible(!!this.vCamShow);
 
                     var bounds = vCam.selfBounds();
 
@@ -9058,7 +9076,26 @@ var PinkFie = (function(moduleResults) {
                 this.node = this.audioContext.createGain();
                 this.node.connect(this.audioContext.destination);
                 this.playingAudios = [];
+                this.compressSoundMap = {};
                 this.tickTime = 0;
+            }
+            getCompressSound() {
+                return Object.keys(this.compressSoundMap);
+            }
+            getPlayingCompressSound() {
+                var result = {};
+                for (let i = 0; i < this.playingAudios.length; i++) {
+                    const playingaudio = this.playingAudios[i];
+                    switch (playingaudio.type) {
+                        case "startsound":
+                            result[playingaudio.sound.format.compression] = true;
+                            break;
+                        case "soundstream":
+                            if (playingaudio.audioStreamInfo) result[playingaudio.audioStreamInfo.stream.compression] = true;
+                            break;
+                    }
+                }
+                return Object.keys(result);
             }
             _createPan(input) {
                 var inputNode = this.audioContext.createGain();
@@ -9291,6 +9328,9 @@ var PinkFie = (function(moduleResults) {
         
                 rs._frame = frame;
                 rs._uframe = -1;
+
+                rs.audioStreamInfo = mc.staticData.audioStreamInfo;
+
         
                 rs.playtime = this.audioContext.currentTime;
                 rs.playtime2 = this.tickTime;
@@ -9489,6 +9529,7 @@ var PinkFie = (function(moduleResults) {
                 // info.format.is16Bit
                 // info.format.isStereo
                 // info.format.sampleRate
+                this.compressSoundMap[sound.format.compression] = true;
                 SoundDecoderCall.loadSound(this.audioContext, sound, function (buf) {
                     var s = new Sound();
                     s.setBuffer(buf.buffer);
@@ -9496,6 +9537,9 @@ var PinkFie = (function(moduleResults) {
                 });
             }
             decodeSoundStream(streamInfo, blocks, callback) {
+                if (streamInfo.stream.compression != 'uncompressedUnknownEndian') {
+                    this.compressSoundMap[streamInfo.stream.compression] = true;
+                }
                 SoundDecoderCall.loadSoundStream(this.audioContext, streamInfo, blocks, function (buf) {
                     var s = new SoundStream();
                     s.setBuffer(buf.buffer);
@@ -10398,6 +10442,7 @@ var PinkFie = (function(moduleResults) {
                 this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
         
                 this.maskState = MaskState.DrawContent;
+                this.maskersInProgress = 0;
         
                 this.tmpCanvas = document.createElement("canvas");
                 this.tmpCtx = this.tmpCanvas.getContext("2d");
@@ -10468,9 +10513,7 @@ var PinkFie = (function(moduleResults) {
                 var isStroke = (shape.type == 1);
                 var width = shape.width || 0;
                 var fillInfo = shape.fill;
-                if (!fillInfo) {
-                    return;
-                }
+                if (!fillInfo) return;
                 var cmdResult = this.buildCmd2dPath(shape.path2d);
                 if (fillInfo.type == 0) {
                     return {
@@ -10504,7 +10547,26 @@ var PinkFie = (function(moduleResults) {
                     };
                 }
             }
+            drawingMask() {
+                return this.maskersInProgress > 0;
+            }
             pushMask() {
+                if (this.maskersInProgress == 0) this._pushMask();
+                this.maskersInProgress += 1;
+            }
+            activateMask() {
+                this.maskersInProgress -= 1;
+                if (this.maskersInProgress == 0) this._activateMask();
+            }
+            deactivateMask() {
+                if (this.maskersInProgress == 0) this._deactivateMask();
+                this.maskersInProgress += 1;
+            }
+            popMask() {
+                this.maskersInProgress -= 1;
+                if (this.maskersInProgress == 0) this._popMask();
+            }
+            _pushMask() {
                 // Save the current mask layer so that it can be restored when the mask is popped.
                 if (this.maskState == MaskState.DrawContent) {
                     this.ctx.beginPath();
@@ -10512,115 +10574,119 @@ var PinkFie = (function(moduleResults) {
                     this.maskState = MaskState.DrawMask;
                 }
             }
-            popMask() {
+            _activateMask() {
+                this.ctx.clip();
+                this.maskState = MaskState.DrawContent;
+            }
+            _deactivateMask() {
+                if (this.maskState == MaskState.DrawContent) {
+                    this.maskState = MaskState.ClearMask;
+                }
+            }
+            _popMask() {
                 if (this.maskState == MaskState.ClearMask) {
                     // Pop the previous clipping state.
                     this.ctx.restore();
                     this.maskState = MaskState.DrawContent;
                 }
             }
-            activateMask() {
-                this.ctx.clip();
-                this.maskState = MaskState.DrawContent;
-            }
-            deactivateMask() {
-                if (this.maskState == MaskState.DrawContent) {
-                    this.maskState = MaskState.ClearMask;
-                }
-            }
             renderTexture(texture, isSmoothed) {
-                var isA = this.isAllowImageColorTransform();
-                this.ctx.imageSmoothingEnabled = (isSmoothed || false);
-                if (texture) {
-                    this.ctx.setTransform(...this.matrixTransform);
-                    if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
-                    this.ctx.drawImage(texture.getTexture(isA ? this.colorTransform : null), 0, 0);
+                if (this.maskersInProgress <= 1) {
+                    var isA = this.isAllowImageColorTransform();
+                    this.ctx.imageSmoothingEnabled = (isSmoothed || false);
+                    if (texture) {
+                        this.ctx.setTransform(...this.matrixTransform);
+                        if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+                        this.ctx.drawImage(texture.getTexture(isA ? this.colorTransform : null), 0, 0);
+                    }    
                 }
             }
             renderShape(shapeInterval) {
-                var isA = this.isAllowImageColorTransform();
-                for (let i = 0; i < shapeInterval.length; i++) {
-                    const si = shapeInterval[i];
-                    if (!si) return;
-                    var isStroke = si.isStroke;
-                    var cmd = si.cmd;
-                    var width = si.width || 0;
-                    if (this.maskState == MaskState.DrawMask) {
-                        this.ctx.setTransform(...this.matrixTransform);
-                        cmd(this.ctx);
-                    } else if (this.maskState == MaskState.ClearMask) {
-                        // Canvas backend doesn't have to do anything to clear masks.
-                    } else {
-                        if (si.type == 0) {
-                            var color = si.color;
+                if (this.maskersInProgress <= 1) {
+                    var isA = this.isAllowImageColorTransform();
+                    for (let i = 0; i < shapeInterval.length; i++) {
+                        const si = shapeInterval[i];
+                        if (!si) return;
+                        var isStroke = si.isStroke;
+                        var cmd = si.cmd;
+                        var width = si.width || 0;
+                        if (this.maskState == MaskState.DrawMask) {
                             this.ctx.setTransform(...this.matrixTransform);
-                            this.ctx.beginPath();
                             cmd(this.ctx);
-                            var css = 'rgba(' + generateColorTransform(color, this.colorTransform).join(',') + ')';
-                            if (isStroke) {
-                                this.ctx.lineWidth = width;
-                                this.ctx.lineCap = "round";
-                                this.ctx.lineJoin = "round";
-                                this.ctx.strokeStyle = css;
-                                this.ctx.stroke();
-                            } else {
-                                this.ctx.fillStyle = css;
-                                this.ctx.fill();
-                            }
-                        } else if (si.type == 1) {
-                            var isRadial = si.isRadial;
-                            this.ctx.setTransform(...this.matrixTransform);
-                            this.ctx.beginPath();
-                            cmd(this.ctx);
-                            var css;
-                            if (isRadial) {
-                                css = this.ctx.createRadialGradient((16384 * Math.min(Math.max(si.focal, -0.98), 0.98)), 0, 0, 0, 0, 16384);
-                            } else {
-                                var xy = linearGradientXY(si.matrix);
-                                css = this.ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
-                            }
-                            for (let j = 0; j < si.records.length; j++) {
-                                const rc = si.records[j];
-                                css.addColorStop(rc[1], 'rgba(' + generateColorTransform(rc[0], this.colorTransform).join(',') + ')');
-                            }
-                            if (isRadial) {
-                                this.ctx.save();
-                                this.ctx.transform(...si.matrix);
-                            }
-                            if (isStroke) {
-                                this.ctx.lineWidth = width;
-                                this.ctx.lineCap = "round";
-                                this.ctx.lineJoin = "round";
-                                this.ctx.strokeStyle = css;
-                                this.ctx.stroke();
-                            } else {
-                                this.ctx.fillStyle = css;
-                                this.ctx.fill();
-                            }
-                            if (isRadial) {
-                                this.ctx.restore();
-                            }
-                        } else if (si.type == 2) {
-                            var bMatrix = si.matrix;
-                            var repeat = si.isRepeating ? "repeat" : "no-repeat";
-                            var texture = si.texture;
-                            if (texture) {
+                        } else if (this.maskState == MaskState.ClearMask) {
+                            // Canvas backend doesn't have to do anything to clear masks.
+                        } else {
+                            if (si.type == 0) {
+                                var color = si.color;
                                 this.ctx.setTransform(...this.matrixTransform);
                                 this.ctx.beginPath();
                                 cmd(this.ctx);
-                                this.ctx.save();
-                                this.ctx.transform(...bMatrix);
-                                this.ctx.imageSmoothingEnabled = (si.isSmoothed || false);
-                                var image = texture.getTexture(isA ? this.colorTransform : null);
-                                if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
-                                var p = this.ctx.createPattern(image, repeat);
-                                this.ctx.fillStyle = p;
-                                this.ctx.fill();
-                                this.ctx.globalAlpha = 1;
-                                this.ctx.restore();
+                                var css = 'rgba(' + generateColorTransform(color, this.colorTransform).join(',') + ')';
+                                if (isStroke) {
+                                    this.ctx.lineWidth = width;
+                                    this.ctx.lineCap = "round";
+                                    this.ctx.lineJoin = "round";
+                                    this.ctx.strokeStyle = css;
+                                    this.ctx.stroke();
+                                } else {
+                                    this.ctx.fillStyle = css;
+                                    this.ctx.fill();
+                                }
+                            } else if (si.type == 1) {
+                                var isRadial = si.isRadial;
+                                this.ctx.setTransform(...this.matrixTransform);
+                                this.ctx.beginPath();
+                                cmd(this.ctx);
+                                var css;
+                                if (isRadial) {
+                                    css = this.ctx.createRadialGradient((16384 * Math.min(Math.max(si.focal, -0.98), 0.98)), 0, 0, 0, 0, 16384);
+                                } else {
+                                    var xy = linearGradientXY(si.matrix);
+                                    css = this.ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
+                                }
+                                for (let j = 0; j < si.records.length; j++) {
+                                    const rc = si.records[j];
+                                    css.addColorStop(rc[1], 'rgba(' + generateColorTransform(rc[0], this.colorTransform).join(',') + ')');
+                                }
+                                if (isRadial) {
+                                    this.ctx.save();
+                                    this.ctx.transform(...si.matrix);
+                                }
+                                if (isStroke) {
+                                    this.ctx.lineWidth = width;
+                                    this.ctx.lineCap = "round";
+                                    this.ctx.lineJoin = "round";
+                                    this.ctx.strokeStyle = css;
+                                    this.ctx.stroke();
+                                } else {
+                                    this.ctx.fillStyle = css;
+                                    this.ctx.fill();
+                                }
+                                if (isRadial) {
+                                    this.ctx.restore();
+                                }
+                            } else if (si.type == 2) {
+                                var bMatrix = si.matrix;
+                                var repeat = si.isRepeating ? "repeat" : "no-repeat";
+                                var texture = si.texture;
+                                if (texture) {
+                                    this.ctx.setTransform(...this.matrixTransform);
+                                    this.ctx.beginPath();
+                                    cmd(this.ctx);
+                                    this.ctx.save();
+                                    this.ctx.transform(...bMatrix);
+                                    this.ctx.imageSmoothingEnabled = (si.isSmoothed || false);
+                                    var image = texture.getTexture(isA ? this.colorTransform : null);
+                                    if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+                                    var p = this.ctx.createPattern(image, repeat);
+                                    this.ctx.fillStyle = p;
+                                    this.ctx.fill();
+                                    this.ctx.globalAlpha = 1;
+                                    this.ctx.restore();
+                                }
                             }
                         }
-                    }
+                    }    
                 }
             }
         }
@@ -11142,46 +11208,37 @@ var PinkFie = (function(moduleResults) {
             }
             /// Renders the children of this container in render list order.
             renderChildren() {
-                var clips = [];
-                let isClipDepth = false;
+                let clipDepth = 0;
+                let clipDepthStack = [];
+
                 var children = this.iterRenderList();
-        
+
                 var renderer = this.movieplayer.renderer;
-        
+
                 for (let i = 0; i < children.length; i++) {
                     const child = children[i];
                     let depth = child.getDepth();
-                    const cLen = clips.length;
-                    for (let cIdx = 0; cIdx < cLen; cIdx++) {
-                        const cDepth = clips[cIdx];
-                        if (depth > cDepth) {
-                            clips.splice(cIdx, 1);
-                            renderer.deactivateMask();
-                            renderer.popMask();
-                            break;
-                        }
-                    }
-                    if (child.clipDepth > 0) {
-                        renderer.pushMask();
-                        clips.push(child.clipDepth);
-                        isClipDepth = true;
-                    }
-                    if (child.getVisible()) {
-                        child.render();
-                    }
-                    if (isClipDepth) {
-                        renderer.activateMask();
-                        isClipDepth = false;
-                    }
-                }
-
-                // orig11.deviantart.net/32ed/f/2012/159/d/4/animation___luna__s_cutie_mark_by_zedrin-d52ta7s.swf
-                var countClip = clips.length;
-                if (countClip) {
-                    while(countClip--) {
+                    while ((clipDepth > 0) && (depth > clipDepth)) {
+                        let [prevClipDepth, clipChild] = clipDepthStack.pop();
+                        clipDepth = prevClipDepth;
                         renderer.deactivateMask();
+                        clipChild.render();
                         renderer.popMask();
                     }
+                    if (child.clipDepth > 0) {
+                        clipDepthStack.push([clipDepth, child]);
+                        clipDepth = child.clipDepth;
+                        renderer.pushMask();
+                        child.render();
+                        renderer.activateMask();
+                    } else if (child.getVisible() || renderer.drawingMask()) {
+                        child.render();
+                    }
+                }
+                for (let j = clipDepthStack.length - 1; j >= 0; j--) {
+                    renderer.deactivateMask();
+                    clipDepthStack[j][1].render();
+                    renderer.popMask();
                 }
             }
             debugRender(ctx) {
@@ -11354,20 +11411,20 @@ var PinkFie = (function(moduleResults) {
                 return;
             }
             var buffer = audioContext.createBuffer(channels, this.numSamples, format.sampleRate);
-            this.decodeFormat(format.compression, buffer, channels);
+            this.decodeFormat(format.compression, buffer, channels, 0, this.numSamples);
             if (this.onload) {
                 this.onload({
                     buffer
                 });
             }
         }
-        SoundDecoder.prototype.decodeFormat = function(compression, buffer, channels, pos_buffer) {
+        SoundDecoder.prototype.decodeFormat = function(compression, buffer, channels, pos_buffer, sample_length) {
             switch(compression) {
                 case "uncompressed":
                 case "uncompressedUnknownEndian":
-                    return this.decodePCM(buffer, channels, pos_buffer);
+                    return this.decodePCM(buffer, channels, pos_buffer, sample_length);
                 case "ADPCM":
-                    return this.decodeADPCM(buffer, channels, pos_buffer);
+                    return this.decodeADPCM(buffer, channels, pos_buffer, sample_length);
                 case "nellymoser":
                     return this.decodeNellymoser(buffer, channels, pos_buffer);
                 default:
@@ -11378,7 +11435,7 @@ var PinkFie = (function(moduleResults) {
         // info.format.is16Bit
         // info.format.isStereo
         // info.format.sampleRate
-        SoundDecoder.prototype.decodePCM = function(buffer, channels, pos_buffer) {
+        SoundDecoder.prototype.decodePCM = function(buffer, channels, pos_buffer, sample_length) {
             var _pos_buffer = pos_buffer || 0;
         
             var format = this.formatInfo;
@@ -11391,28 +11448,35 @@ var PinkFie = (function(moduleResults) {
             if (channels == 2) {
                 _right = buffer.getChannelData(1);
             }
-            while(this.byteStream.getBytesAvailable() >= 2) {
-                if (format.is16Bit) {
-                    _left[i] = (this.byteStream.readInt16() / 32768);
-                    if (channels == 2) {
-                        _right[i] = (this.byteStream.readInt16() / 32768);
+            var isEnd = false;
+            let left = 0;
+            let right = 0;
+            while((i - _pos_buffer) < sample_length) {
+                try {
+                    if (!isEnd) {
+                        var h = format.is16Bit ? (this.byteStream.readInt16() / 32768) : ((this.byteStream.readUint8() - 128) / 128);
+                        var j = 0;
+                        if (channels == 2) j = format.is16Bit ? (this.byteStream.readInt16() / 32768) : ((this.byteStream.readUint8() - 128) / 128);
+                        left = h;
+                        if (channels == 2) right = j;
                     }
-                } else {
-                    _left[i] = ((this.byteStream.readUint8() - 128) / 128);
-                    if (channels == 2) {
-                        _right[i] = ((this.byteStream.readUint8() - 128) / 128);
-                    }
+                } catch(e) {
+                    isEnd = true;
+                }
+                _left[i] = left;
+                if (channels == 2) {
+                    _right[i] = right;
                 }
                 i++;
             }
-        
             return i;
         }
-        SoundDecoder.prototype.decodeADPCM = function(buffer, channels, pos_buffer) {
+        SoundDecoder.prototype.decodeADPCM = function(buffer, channels, pos_buffer, sample_length) {
             var byteStream = this.byteStream;
             let adpcmCodeSize = byteStream.getUIBits(2);
             let bits_per_sample = (adpcmCodeSize + 2);
             var _pos_buffer = pos_buffer || 0;
+            var h = _pos_buffer;
             var _left = buffer.getChannelData(0);
             var _right = null;
             if (channels == 2) {
@@ -11420,16 +11484,23 @@ var PinkFie = (function(moduleResults) {
             }
             var decoder = SoundDecoder.SAMPLE_DELTA_CALCULATOR[bits_per_sample - 2];
             let num_channels = channels;
-            var _channels = [{}, {}];
+            var _channels = [{ sample: 0, stepIndex: 0 }, { sample: 0, stepIndex: 0 }];
             let sign_mask = (1 << (bits_per_sample - 1));
-            while(byteStream.getBytesAvailable() > 0) {
+            var isEnd = false;
+            let left = 0;
+            let right = 0;
+            var sample_num = 0;
+            while((h - _pos_buffer) < sample_length) {
                 try {
-                    for (let i = 0; i < num_channels; i++) {
-                        const ch = _channels[i];
-                        ch.sample = byteStream.getSIBits(16);
-                        ch.stepIndex = byteStream.getUIBits(6);
-                    }
-                    for (let i3 = 0; i3 < 4095; i3++) {
+                    if (!isEnd) {
+                        if (sample_num == 0) {
+                            for (let i = 0; i < num_channels; i++) {
+                                const ch = _channels[i];
+                                ch.sample = byteStream.getSIBits(16);
+                                ch.stepIndex = byteStream.getUIBits(6);
+                            }
+                        }
+                        sample_num = (sample_num + 1) % 4095;
                         for (let i2 = 0; i2 < num_channels; i2++) {
                             const ch = _channels[i2];
                             let step = SoundDecoder.STEP_TABLE[ch.stepIndex];
@@ -11457,20 +11528,22 @@ var PinkFie = (function(moduleResults) {
                                 ch.stepIndex = 0;
                             }
                         }
-                        var __left = _channels[0].sample;
-                        var __right = _channels[1].sample;
-                        _left[_pos_buffer] = __left / 0x8000;
+                        left = _channels[0].sample;
                         if (num_channels == 2) {
-                            _right[_pos_buffer] = __right / 0x8000;
+                            right = _channels[1].sample;
                         }
-                        _pos_buffer += 1;
                     }
                 } catch(e) {
                     // ignored
-                    break;
+                    isEnd = true;
                 }
+                _left[h] = left / 0x8000;
+                if (num_channels == 2) {
+                    _right[h] = right / 0x8000;
+                }
+                h += 1;
             }
-            return _pos_buffer;
+            return h;
         }
         SoundDecoder.prototype.decodeMP3 = function() {
         }
@@ -11547,7 +11620,7 @@ var PinkFie = (function(moduleResults) {
                     return;
                 }
                 var buffer = audioContext.createBuffer(channels, this.numSamples, streamStream.sampleRate);
-                this.decodeStreamFormat(streamStream.compression, buffer, channels, blocks);
+                this.decodeStreamFormat(streamStream.compression, buffer, channels, blocks, streamInfo.samplePerBlock);
                 if (this.onload) {
                     this.onload({
                         buffer,
@@ -11561,7 +11634,7 @@ var PinkFie = (function(moduleResults) {
                 }
             }
         }
-        SoundStreamDecoder.prototype.decodeStreamFormat = function (compression, buffer, channels, blocks) {
+        SoundStreamDecoder.prototype.decodeStreamFormat = function (compression, buffer, channels, blocks, sample_length) {
             if (compression == "nellymoser") {
                 this.decodeNellymoser(buffer, channels, 0);
             } else {
@@ -11570,7 +11643,7 @@ var PinkFie = (function(moduleResults) {
                     const block = blocks[i];
                     this.data = block;
                     this.byteStream = new ByteStream(this.data);
-                    var posBuffer = this.decodeFormat(compression, buffer, channels, oPos);
+                    var posBuffer = this.decodeFormat(compression, buffer, channels, oPos, sample_length);
                     oPos = posBuffer;
                 }
             }

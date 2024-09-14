@@ -52,46 +52,31 @@
 		<script src="pinkfie_logo.js"></script>
 		<script src="common.js"></script>
 		<script src="pinkfie.js"></script>
-		<script type="module">
-			var inh = false;
-
+		<script>
 			var player = new PinkFie.Player();
-
-			var common = new Common(player);
-
 			window.player = player;
 			var playerArea = document.getElementById('pinkswf');
-
 			playerArea.appendChild(player.root);
-
-
-			function TSProgress(e) {
-			}
 			function _resize_() {
 				player.resize(window.innerWidth, window.innerHeight);
 			}
 			window.addEventListener("resize", _resize_);
 			_resize_();
-
 			function loadSwfFile(file) {
-				if (inh) {
-					document.title = (file.name || "") + " - PinkFie";
-				}
-				inh = true;
-				TSProgress(0);
+				document.title = (file.name || "") + " - PinkFie";
 				player.loadSwfFromFile(file);
 			}
 			function loadSwfURL(url) {
-				TSProgress(0);
 				player.loadSwfFromURL(url);
 			}
-
+			player.setOptions(Common.playerOptions);
 			player.onload.subscribe(function() {
+				if (!Common.autoplay) {
+					player.setOptions({
+						autoplayPolicy: 'never'
+					});
+				}
 			});
-			player.onprogress.subscribe(TSProgress);
-
-			player.setOptions(common.result.playerOptions);
-			
 			function dropHandler(ev) {
 				ev.preventDefault();
 				if (ev.dataTransfer.items) {
@@ -106,15 +91,13 @@
 			function dragOverHandler(ev) {
 				ev.preventDefault();
 			}
-
 			var drop_zone = document.getElementById("drop_zone");
-
 			drop_zone.ondrop = dropHandler;
 			drop_zone.ondragover = dragOverHandler;
-			if (common.result.swfUrl) {
-				loadSwfURL(common.result.swfUrl);
+			if (Common.swfUrl) {
+				loadSwfURL(Common.swfUrl);
 			} else {
-				loadSwfFile(pinkfieSampleSWF[0].file);       
+				loadSwfURL(pinkfieSampleSWF[0].url);       
 			}
 		</script>
 	</body>

@@ -44,11 +44,13 @@
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
 				<ul>
+					<li><a class="dropdown">Examples SWF<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a></li>
 					<li><a href="demo.html">Player development</a></li>
 					<li><a href="app.html">app.html</a></li>
 					<li><a href="packager.html">HTML Packager</a></li>
 					<li><a href="swfreader.html">Swf Reader Preview</a></li>
 					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
+					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
 					<li><a href="about.html">About</a></li>
 				</ul>
 			</div>
@@ -58,6 +60,7 @@
 			</section>
 		</div>
 		<script src="common.js"></script>
+		<script src="pinkfie_logo.js"></script>
 		<script src="pinkfie.js"></script>
 		<script>
 			function querySelector(selector) {
@@ -69,8 +72,6 @@
 			}
 
 			var player = new PinkFie.Player();
-
-			var common = new Common(player);
 
 			window.player = player;
 
@@ -87,6 +88,8 @@
 			var ssag2 = document.getElementById('ssag2');
 			var playerArea = document.getElementById('pinkfieplayerarea');
 
+			var sampleSWFpkf = document.getElementById("sampleSWFpkf");
+
 			playerArea.appendChild(player.root);
 			fvolumeff.addEventListener('input', function (e) {
 				player.setOptions({
@@ -94,8 +97,8 @@
 				});
 			});
 
-			player.setOptions(common.result.playerOptions);
-			if (!common.result.autoplay) {
+			player.setOptions(Common.playerOptions);
+			if (!Common.autoplay) {
 				player.setOptions({
 					autoplayPolicy: 'never'
 				});
@@ -138,6 +141,7 @@
 
 				demo.innerHTML = dfgfd;
 				demo.style.display = "";
+				demo.title = "ActionScript 3: " + player.stage.isActionScript3() + " Sounds Compressions: " + (player.stage.audio.getCompressSound().join(" ") || "entry");
 			}
 
 			viewbbb2.onclick = function () {
@@ -190,7 +194,9 @@
 				pinkfiemenu.style.display = "none";
 				demo.innerHTML = '';
 				demo.style.display = "none";
-				ggtitle5.textContent = (file.name || "").slice(0, 65);
+				var gGs = (file.name || "").split(".");
+				var typS = gGs.pop();
+				ggtitle5.textContent = (gGs.join(".")).slice(0, 65) + "." + typS;
 
 				player.loadSwfFromFile(file);
 			}
@@ -203,6 +209,57 @@
 				ggtitle5.textContent = "";
 
 				player.loadSwfFromURL(url);
+			}
+
+			function loadSampleSWF(infoSample) {
+				var name = infoSample.name;
+				if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
+				if (infoSample.url) {
+					loadSwfURL(infoSample.url);
+				} else {
+					loadSwfFile(infoSample.file);
+				}
+				sampleSWFpkf.value = "";
+			}
+
+			function downloadPinkFieOldVersions() {
+				var xhr = new XMLHttpRequest();
+				xhr.onload = function() {
+					var uint8 = new Uint8Array(xhr.response, 0x2c);
+					var zipblob = new Blob([uint8]);
+					var a = document.createElement("a");
+					a.href = URL.createObjectURL(zipblob);
+					a.download = "pinkfie old versions.zip";
+					a.click();
+				}
+				xhr.responseType = "arraybuffer";
+				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/6a0428c12460239cf41936031490e09e.wav/get/");
+				xhr.send();
+			}
+
+			var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
+			downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
+
+			sampleSWFpkf.addEventListener("change", () => {
+				var Bval = sampleSWFpkf.value;
+				if (Bval) {
+					for (let k = 0; k < pinkfieSampleSWF.length; k++) {
+						const gd = pinkfieSampleSWF[k];
+						if (gd.name == Bval) {
+							loadSampleSWF(gd);
+							break;
+						}
+					}
+				}
+				ggtitle5.textContent = Bval.slice(0, 60) + ".swf";
+			});
+			for (let i = 0; i < pinkfieSampleSWF.length; i++) {
+				const element = pinkfieSampleSWF[i];
+				var name = element.name;
+				var g = document.createElement('option');
+				g.value = name;
+				g.textContent = name;
+				sampleSWFpkf.appendChild(g);
 			}
 
 			function getDefaultDarkMode() {
@@ -247,8 +304,8 @@
 				toggleDarkMode();
 			});
 
-			if (common.result.swfUrl) {
-				loadSwfURL(common.result.swfUrl);
+			if (Common.swfUrl) {
+				loadSwfURL(Common.swfUrl);
 			}
 
 			var loadprojectfile = document.getElementById('loadswffile');

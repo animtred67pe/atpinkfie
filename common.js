@@ -1,7 +1,7 @@
 // Common code shared between index.html, demo.html etc.
 // This should be loaded after pinkfie.js
 
-var Common = function(player) {
+var Common = (function() {
   function URLsearchParams(name, isBool) {
     var _u = new URL(window.location.href);
     if (isBool) {
@@ -31,14 +31,16 @@ var Common = function(player) {
 
   var swfUrl = URLsearchParams("swfurl");
 
-  // Derpys Apology
-  if (URLsearchParams("apology", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/50f0d850bca885ee5e6196597cf3964c.wav/get/";
-
+  if (!swfUrl) {
+    if (URLsearchParams("apology", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/50f0d850bca885ee5e6196597cf3964c.wav/get/";
+    if (URLsearchParams("snowdrop", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/ce22396713e7678970543dd713529daa.wav/get/";
+  }
+  
   var autoplay = URLsearchParams("autoplay", true);
 
-  this.result = {
+  return {
     playerOptions: playerOptions,
     swfUrl,
     autoplay
   };
-}
+}());
