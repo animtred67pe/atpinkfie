@@ -1,12 +1,16 @@
 /*!
 Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
 
-v1.3.1 (2024-09-14)
+v1.3.2 (2024-10-1)
 
 Made in Peru
 
 (c) 2024 ATFSMedia Productions.
 */
+
+// Happy Hallowen
+
+// with image comment are what happen?
 
 var PinkFie = (function(moduleResults) {
     var moduleInstalls = {};
@@ -4119,73 +4123,57 @@ var PinkFie = (function(moduleResults) {
             addMenuVerticals() {
                 this.MenuVertical = document.createElement('div');
                 this.MenuVertical.className = 'watcher-pinkfie-menu-vertical';
-                this.movie_playPause = this._createE('Pause', () => {
+                this.movie_playPause = this._createE('Pause', (e) => {
+                    e.preventDefault();
                     this.toggleRunning();
                     this.MenuVertical.style.display = 'none';
                 });
                 this.MenuVertical.appendChild(this.movie_playPause);
-                this.movie_playStop = this._createE('Stop', () => {
+                this.movie_playStop = this._createE('Stop', (e) => {
+                    e.preventDefault();
                     this.c_playStop();
                     this.MenuVertical.style.display = 'none';
                 });
                 this.MenuVertical.appendChild(this.movie_playStop);
-                this.MenuVertical.appendChild(this._createE('Rewind', () => {
+                this.MenuVertical.appendChild(this._createE('Rewind', (e) => {
+                    e.preventDefault();
                     this.c_rewind();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Step Forward', () => {
+                this.MenuVertical.appendChild(this._createE('Step Forward', (e) => {
+                    e.preventDefault();
                     this.c_Forward();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Step Back', () => {
+                this.MenuVertical.appendChild(this._createE('Step Back', (e) => {
+                    e.preventDefault();
                     this.c_Back();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.movie_jumpFrame = this._createE('Jump Frame', () => {
-                    if (this.stage && this.stage.clip) {
-                        var playingStage = this.stage.playing;
-                        if (playingStage) this.stage.pause();
-                        this.tick();
-                        var frameResult = prompt("Jump Frame", "1");
-                        if (frameResult) {
-                            var frameA = null;
-                            try {
-                                frameA = JSON.parse("[" + frameResult + "]");
-                            } catch(e) {
-                            }
-                            if (frameA) {
-                                if (frameA.length > 1) {
-                                    var frame = Math.min(this.stage.clip.totalframes, Math.max(1, (+frameA[1]) || 0));
-                                    this.stage.clip.gotoFrame(frame, !frameA[0]);
-                                } else {
-                                    var frame = Math.min(this.stage.clip.totalframes, Math.max(1, (+frameA[0]) || 0));
-                                    this.stage.clip.gotoFrame(frame, !this.stage.clip.isPlaying);
-                                }
-                            }    
-                        }
-                        this.tick();
-                        if (playingStage) this.stage.resume();
-                    }
-                    this.MenuVertical.style.display = 'none';
-                });
-                this.MenuVertical.appendChild(this.movie_jumpFrame);
-                this.MenuVertical.appendChild(this._createE('View Stats', () => {
+                this.MenuVertical.appendChild(this._createE('View Stats', (e) => {
+                    e.preventDefault();
                     this.viewStats();
                     this.MenuVertical.style.display = 'none';
                 }));
-                this.MenuVertical.appendChild(this._createE('Save Screenshot', () => {
+                this.MenuVertical.appendChild(this._createE('Save Screenshot', (e) => {
+                    e.preventDefault();
                     this.saveScreenshot();
                     this.MenuVertical.style.display = 'none';
                 }));
 
-                this.swfDataElement = this._createE('Download SWF', () => {
+                this.swfDataElement = this._createE('Download SWF', (e) => {
+                    e.preventDefault();
                     this.downloadSwf();
                     this.MenuVertical.style.display = 'none';
                 });
 
                 this.MenuVertical.appendChild(this.swfDataElement);
 
-                this.MenuVertical.appendChild(this._createE('Full Screen', () => {
+                this.MenuVertical.appendChild(this._createE('Full Screen', (e) => {
+                    e.preventDefault();
+                    this.setOptions({
+                        fullscreenMode: e.shiftKey ? 'window' : 'full'
+                    });
                     if (this.fullscreenEnabled) {
                         this._displayMessage[1] = "Full Screen: Off";
                         this._displayMessage[0] = 2;
@@ -4199,7 +4187,8 @@ var PinkFie = (function(moduleResults) {
                     }
                     this.MenuVertical.style.display = 'none';
                 }));
-                var rr = this._createE('Settings', () => {
+                var rr = this._createE('Settings', (e) => {
+                    e.preventDefault();
                     this.showSetting();
                     this.MenuVertical.style.display = 'none';
                 });
@@ -4216,14 +4205,14 @@ var PinkFie = (function(moduleResults) {
                 rrj.style = '';
                 rrj.style.overflow = 'auto';
                 rrj.style.position = 'absolute';
-                rrj.style.top = '50%';
+                rrj.style.top = '0';
                 rrj.style.left = '50%';
                 rrj.style.padding = '6px';
-                rrj.style.transform = 'translate(-50%, -50%)';
+                rrj.style.transform = 'translate(-50%, 0)';
                 rrj.style.background = 'rgba(0, 0, 0, 0.6)';
-                rrj.style.width = '300px';
-                rrj.style.height = '200px';
-                rrj.innerHTML = '<h3>Settings</h3>';
+                rrj.style.width = '320px';
+                rrj.style.height = 'auto';
+                rrj.innerHTML = '<h3 style="margin:0;">Settings</h3>';
                 var rrj2 = document.createElement('a');
                 //rrj2.href = "#";
                 rrj2.onclick = () => {
@@ -4240,6 +4229,7 @@ var PinkFie = (function(moduleResults) {
                 rrj3.innerHTML = "volume:";
                 var rrj4 = document.createElement('input');
                 rrj4.type = "range";
+                rrj4.style.width = "80px";
                 rrj4.value = 100;
                 rrj4.max = 100;
                 rrj4.min = 0;
@@ -4251,7 +4241,7 @@ var PinkFie = (function(moduleResults) {
                 var rrj3o = document.createElement('label');
                 rrj3o.innerHTML = "speed:";
                 var rrj4o = document.createElement('select');
-                rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.5">0.5x<option value="0.75">0.75x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="2">2x<option value="4">4x<option value="8">8x<option value="16">16x<option value="32">32x<option value="64">64x';
+                rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.5">0.5x<option value="0.75">0.75x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="1.75">1.75x<option value="2">2x<option value="2.5">2.5x<option value="3">3x<option value="4">4x<option value="8">8x<option value="16">16x<option value="32">32x<option value="64">64x';
                 rrj4o.value = 1;
                 rrj4o.addEventListener('input', () => {
                     this.setOptions({ speed: +rrj4o.value });
@@ -4324,63 +4314,67 @@ var PinkFie = (function(moduleResults) {
                 var di3 = document.createElement('a');
                 di3.innerHTML = "View Stats";
                 di3.onclick = this.viewStats.bind(this);
+
+                var fdfj = document.createElement('input');
+                fdfj.type = 'range';
+                fdfj.value = 1;
+                fdfj.min = 1;
+                fdfj.max = 2;
+
+                fdfj.addEventListener("input", () => {
+                    if (fdfj.value && this.stage) {
+                        var clip = this.stage.clip;
+                        if (clip) clip.gotoFrame(+fdfj.value, !clip.isPlaying);
+                    }
+                });
+
+                this.__fdfj = fdfj;
+
+                var a = document.createElement("label");
+                a.innerHTML = 'Jump Frame';
+
+                var a2 = document.createElement("label");
+                a2.innerHTML = '1/1';
+
+                this.__a2 = a2;
         
                 rrj.appendChild(rrj2);
                 rrj.appendChild(rrj3);
                 rrj.appendChild(rrj4);
-                rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(rrj3o);
                 rrj.appendChild(rrj4o);
                 rrj.appendChild(rrj3oa);
                 rrj.appendChild(document.createElement('br'));
-                rrj.appendChild(rrj5);
-                rrj.appendChild(rrj6);
-                rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(rrj7);
                 rrj.appendChild(rrj8);
-                rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(rrjhg7);
                 rrj.appendChild(rrj9);
                 rrj.appendChild(document.createElement('br'));
-                rrj.appendChild(di3);
+
+                rrj.appendChild(a);
+                rrj.appendChild(fdfj);
+                rrj.appendChild(a2);
+
                 rrj.appendChild(document.createElement('br'));
-                rrj.appendChild(fdgdf);
-        
-                var di = document.createElement('section');
-        
-                di.innerHTML = "<h3>Controls</h3>";
-        
-                var di1 = document.createElement('a');
-                di1.innerHTML = "Resume/Pause";
-                di1.onclick = this.toggleRunning.bind(this);
-        
-                var di2 = document.createElement('a');
-                di2.innerHTML = "Play/Stop";
-                di2.onclick = this.c_playStop.bind(this);
-        
-                var dioh = document.createElement('a');
-                dioh.innerHTML = "Stop Sounds";
-        
-                dioh.onclick = () => {
+                rrj.appendChild(rrj5);
+                rrj.appendChild(rrj6);
+                rrj.appendChild(document.createElement('br'));
+                rrj.appendChild(di3);
+
+
+
+                var fdgdf2 = document.createElement("a");
+
+                fdgdf2.innerHTML = "Stop Sounds";
+
+                fdgdf2.onclick = () => {
                     if (this.stage) {
-                        this.stage.stopSounds();
+                        this.stage.audio.stopAllSounds();
                     }
-                };
-        
-                di.appendChild(di1);
-                di.appendChild(document.createElement('br'));
-                di.appendChild(di2);
-                di.appendChild(document.createElement('br'));
-                di.appendChild(dioh);
-        
-                rrj.appendChild(di);
-        
-                var rrjswfinfo = document.createElement('div');
-                rrjswfinfo.style = '';
-        
-                this._rrjswfinfo = rrjswfinfo;
-        
-                rrj.appendChild(rrjswfinfo);
+                }
+
+                rrj.appendChild(fdgdf2);
+                rrj.appendChild(fdgdf);
         
                 this.settingVertical.appendChild(rrj);
                 this.playerContainer.appendChild(this.settingVertical);
@@ -4451,9 +4445,7 @@ var PinkFie = (function(moduleResults) {
             _createE(name, fun) {
                 var MVG1 = document.createElement('div');
                 MVG1.textContent = name;
-                MVG1.onclick = function () {
-                    fun();
-                };
+                MVG1.onclick = fun.bind(this);
                 return MVG1;
             }
             sendList(event) {
@@ -4727,36 +4719,9 @@ var PinkFie = (function(moduleResults) {
         
                 this.statsE.style.display = "";
         
-                var _g = this._rrjswfinfo;
-        
                 var resultswf = stage.swf;
         
-                var dfgfd = "<h3>SWF Info</h3>";
                 var stageSize = resultswf.movieInfo.bounds;
-        
-                /*
-                    Uncompressed Length
-                    SWF Version
-                    FP Version
-                    ActionScript 3
-                    Total Frames
-                    Frame Rate
-                    SWF Width
-                    SWF Height
-                    SWF Background Color
-                */
-                dfgfd += "<p>Compression: " + SC[resultswf.header.compression] + "</p>";
-                dfgfd += "<p>Uncompressed Length: " + resultswf.header.uncompressedLength + "</p>";
-                dfgfd += "<p>SWF Version: " + resultswf.header.version + "</p>";
-                dfgfd += "<p>ActionScript 3: " + stage.isActionScript3() + "</p>";
-                dfgfd += "<p>Total Frames: " + resultswf.movieInfo.numFrames + "</p>";
-                dfgfd += "<p>Frame Rate: " + resultswf.movieInfo.frameRate + "</p>";
-                dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
-                dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
-                dfgfd += '<p>SWF Background Color: rgb(' + stage.backgroundColor.join(",") + ')</p>';
-                dfgfd += '<p>Sounds Compressions: ' + (stage.audio.getCompressSound().join(" ") || "entry") + '</p>';
-        
-                _g.innerHTML = dfgfd;
         
                 this.playerContainer.insertBefore(stage.root, this.playerContainer.childNodes[0]);
         
@@ -4846,6 +4811,7 @@ var PinkFie = (function(moduleResults) {
                     this.stage.setSpeed(this.options.speed);
                     this.stage.vCamId = this.options.vCamId;
                     this.stage.vCamShow = this.options.vCamShow;
+                    this.stage.allowAvm = this.options.allowAvm;
                     var renderDirty = false;
                     if (this.stage.quality != this.options.quality) {
                         this.stage.setQuality(this.options.quality);
@@ -4862,6 +4828,30 @@ var PinkFie = (function(moduleResults) {
             }
             tick() {
                 this.tickTime = (Date.now() - this.startTime);
+                if (this.isLoad) {
+                    var clip = this.stage.clip;
+                    if (clip) {
+                        this.__a2.textContent = clip.currentFrame + "/" + clip.totalframes;
+                        if (clip.totalframes > 1) {
+                            this.__fdfj.min = 1;
+                            this.__fdfj.max = clip.totalframes;
+                            this.__fdfj.value = clip.currentFrame;
+                            this.__fdfj.disabled = false;
+                        } else {
+                            this.__fdfj.min = 1;
+                            this.__fdfj.max = 2;
+                            this.__fdfj.disabled = true;
+                        }
+                    } else {
+                        this.__fdfj.min = 1;
+                        this.__fdfj.max = 2;
+                        this.__fdfj.disabled = true;
+                    }
+                } else {
+                    this.__fdfj.min = 1;
+                    this.__fdfj.max = 2;
+                    this.__fdfj.disabled = true;
+                }
                 if (this.isLoad) {
                     this.stage.timer.update(Date.now());
                     this.stage.tick();
@@ -4961,7 +4951,6 @@ var PinkFie = (function(moduleResults) {
                 this._displayMessage[0] = 0;
                 this.isLoad = false;
                 this.settingVertical.style.display = 'none';
-                this._rrjswfinfo.innerHTML = '';
                 if (this.currentLoader) {
                     this.currentLoader.cancel();
                     this.currentLoader = null;
@@ -4985,7 +4974,8 @@ var PinkFie = (function(moduleResults) {
             quality: "high",
             rendermode: "render",
             vCamId: 0,
-            vCamShow: false
+            vCamShow: false,
+            allowAvm: false
         }
         wpjsm.exportJS = Player;
     },
@@ -6337,9 +6327,7 @@ var PinkFie = (function(moduleResults) {
         const TransformStack = wpjsm.importJS("src/utils/TransformStack.js");
         const RenderCanvas2d = wpjsm.importJS("src/renderer/Canvas2d.js");
         const pinkfieFont = wpjsm.importJS("src/PinkFieFonts.js");
-        const RenderWebGL = wpjsm.importJS("src/renderer/WebGL.js");
         const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
-        
         
         class Timer {
             constructor() {
@@ -6491,6 +6479,8 @@ var PinkFie = (function(moduleResults) {
 
                 this.vCamId = 0;
                 this.vCamShow = false;
+
+                this.allowAvm = false;
         
                 this.backgroundColor = [255, 255, 255, 1];
         
@@ -6833,14 +6823,12 @@ var PinkFie = (function(moduleResults) {
                 this.needsRender = true;
                 this.avm1.runFrame();
                 this.runActions();
-                if (true) {
-                    var _parent = this.clip;
-                    if (this.vCamId) {
-                        this.executeVCamById(_parent, JSON.parse("[" + this.vCamId + "]"));
-                    } else {
-                        _parent.applyMatrix([1, 0, 0, 1, 0, 0]);
-                        _parent.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
-                    }
+                var _parent = this.clip;
+                if (this.vCamId) {
+                    this.executeVCamById(_parent, JSON.parse("[" + this.vCamId + "]"));
+                } else {
+                    _parent.applyMatrix([1, 0, 0, 1, 0, 0]);
+                    _parent.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
                 }
             }
             executeVCamById(clip, idList) {
@@ -7809,6 +7797,8 @@ var PinkFie = (function(moduleResults) {
                 if ("initialText" in textInfo) {
                     if (!this.is_html) {
                         this.text_html = ("" + textInfo.initialText);
+                    } else {
+                        this.text_html = "TextField" + textInfo.id;
                     }
                 }
                 if ("textColor" in textInfo) {
@@ -8041,6 +8031,7 @@ var PinkFie = (function(moduleResults) {
     },
     "src/display_objects/Avm1Buttom.js": function(wpjsm){
         const DisplayObjectContainer = wpjsm.importJS("src/display_objects/DisplayObjectContainer.js");
+        const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
         
         const typeButton = {
             "up": "buttonStateUp",
@@ -8059,6 +8050,7 @@ var PinkFie = (function(moduleResults) {
                 this.__initialized = false;
                 this._records = null;
                 this._recordSounds = null;
+                this._actions = [];
                 this._recordColorTransforms = null;
                 this._state = "";
                 this.__clickflag = false;
@@ -8082,6 +8074,7 @@ var PinkFie = (function(moduleResults) {
             init(i) {
                 this._records = i.data.records;
                 this._soundInfo = i.soundInfo;
+                this._actions = i.actions;
                 this._recordColorTransforms = i.colorTransforms;
                 this.setId(i.characterId);
             }
@@ -8184,6 +8177,20 @@ var PinkFie = (function(moduleResults) {
             renderSelf() {
                 this.renderChildren();
             }
+            clickAction(typ) {
+                var rootClip = this.getParent();
+                if (rootClip && (rootClip instanceof MovieClip)) {
+                    for (var i = 0; i < this._actions.length; i++) {
+                        var g = this._actions[i];
+                        if (g[typ]) {
+                            this.movieplayer.queueAction(rootClip, {
+                                type: "normal",
+                                caches: g.actionScript
+                            });
+                        }
+                    }
+                }
+            }
             takeHitButton(x, y) {
                 this.movieplayer.buttomTransformStack.stackPush(this.getMatrix(), [1, 1, 1, 1, 0, 0, 0, 0]);
         
@@ -8206,6 +8213,7 @@ var PinkFie = (function(moduleResults) {
                     this.movieplayer.openCursor();
                     if (this.movieplayer.mousePressed) {
                         if (this._state !== 'down') {
+                            this.clickAction("condOverDownToOverUp");
                             this.setState("down");
                         }
                         this.__clickflag = true;
@@ -8232,6 +8240,9 @@ var PinkFie = (function(moduleResults) {
                 this.movieplayer = movieplayer;
                 this.data = data;
                 this.characterId = data.id;
+
+                this.actions = data.actions || [];
+
                 this.soundInfo = {};
                 this.colorTransforms = [];
             }
@@ -9249,6 +9260,7 @@ var PinkFie = (function(moduleResults) {
                         break;
                     }
                 }
+                var rate = +((1000 / this.stage.frameRate).toFixed(1));
                 if (blockFound) {
                     var soundFound = false;
                     var soundStreamBlockRecords = mc.soundStreamBlockRecords;
@@ -9260,7 +9272,7 @@ var PinkFie = (function(moduleResults) {
                             if (block === blo) {
                                 result = {
                                     audioStream: b.audioStream,
-                                    time: (frame - startF) / this.stage.frameRate,
+                                    time: (frame - startF) * (rate / 1000),
                                     startFrame: startF,
                                     isEnd: (g >= (bm.length - 1)),
                                     blocks: bm
@@ -9747,9 +9759,9 @@ var PinkFie = (function(moduleResults) {
             createFunction() {
             }
             runStackFrameForAction(clip, name, caches) {
-                //if (this.movieplayer.version >= 5) return;
-                /*var activation = this.createActivation(caches, clip);
-                activation.runActions();*/
+                if (!this.movieplayer.allowAvm) return;
+                var activation = this.createActivation(caches, clip);
+                activation.runActions();
             }
             fromSwfFunction(activation, actions) {
                 var _constantPool = activation.constantPool.slice(0);
@@ -9826,497 +9838,6 @@ var PinkFie = (function(moduleResults) {
             this.stackCT = [colorTransform];
         }
         wpjsm.exportJS = TransformStack;
-    },
-    "src/renderer/WebGL.js": function(wpjsm){
-        const m3 = wpjsm.importJS("src/renderer/m3.js");
-        
-        class Shader {
-            constructor(gl, program) {
-                this.gl = gl;
-                this.program = program;
-                this.uniformLocations = {};
-                this.attributeLocations = {};
-                const activeUniforms = gl.getProgramParameter(program, this.gl.ACTIVE_UNIFORMS);
-                for (let index = 0; index < activeUniforms; index++) {
-                    const info = gl.getActiveUniform(program, index);
-                    if (!info) {
-                        throw new Error('uniform at index ' + index + ' does not exist');
-                    }
-                    const name = info.name;
-                    const location = gl.getUniformLocation(program, name);
-                    if (!location) {
-                        throw new Error('uniform named ' + name + ' does not exist');
-                    }
-                    this.uniformLocations[name] = location;
-                }
-                const activeAttributes = gl.getProgramParameter(program, this.gl.ACTIVE_ATTRIBUTES);
-                for (let index = 0; index < activeAttributes; index++) {
-                    const info = gl.getActiveAttrib(program, index);
-                    if (!info) {
-                        throw new Error('attribute at index ' + index + ' does not exist');
-                    }
-                    this.attributeLocations[info.name] = gl.getAttribLocation(program, info.name);
-                }
-            }
-            uniform1f(name, value) {
-                const location = this.getUniform(name);
-                this.gl.uniform1f(location, value);
-            }
-            uniform2f(name, a, b) {
-                const location = this.getUniform(name);
-                this.gl.uniform2f(location, a, b);
-            }
-            uniform3f(name, a, b, c) {
-                const location = this.getUniform(name);
-                this.gl.uniform3f(location, a, b, c);
-            }
-            uniform4f(name, a, b, c, d) {
-                const location = this.getUniform(name);
-                this.gl.uniform4f(location, a, b, c, d);
-            }
-            uniformMatrix3(name, value) {
-                const location = this.getUniform(name);
-                this.gl.uniformMatrix3fv(location, false, value);
-            }
-            hasUniform(name) {
-                return this.uniformLocations.hasOwnProperty(name);
-            }
-            getUniform(name) {
-                if (!this.hasUniform(name)) {
-                    throw new Error('uniform of name ' + name + ' does not exist');
-                }
-                return this.uniformLocations[name];
-            }
-            attributeBuffer(name, value, count) {
-                if (!this.hasAttribute(name)) {
-                    throw new Error('attribute of name ' + name + ' does not exist');
-                }
-                const location = this.attributeLocations[name];
-                this.gl.enableVertexAttribArray(location);
-                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, value);
-                this.gl.vertexAttribPointer(location, count, this.gl.FLOAT, false, 0, 0);
-            }
-            hasAttribute(name) {
-                return this.attributeLocations.hasOwnProperty(name);
-            }
-            getAttribute(name) {
-                if (!this.hasAttribute(name)) {
-                    throw new Error('attribute of name ' + name + ' does not exist');
-                }
-                return this.attributeLocations[name];
-            }
-        }
-        const vs2 = `
-        uniform mat3 view_matrix;
-        uniform vec4 mult_color;
-        uniform vec4 add_color;
-        
-        attribute vec2 position;
-        attribute vec4 color;
-        
-        varying vec4 frag_color;
-        
-        void main() {
-          frag_color = clamp(color * mult_color + add_color, 0.0, 1.0);
-          float alpha = clamp(frag_color.a, 0.0, 1.0);
-          frag_color = vec4(frag_color.rgb * alpha, alpha);
-        
-          gl_Position = vec4((view_matrix * vec3(position, 1)).xy, 0.0, 1.0);
-        }`;
-        const fs2 = `
-        precision mediump float;
-        
-        varying vec4 frag_color;
-        
-        void main() {
-          gl_FragColor = frag_color;
-        }`;
-        
-        const MaskState = {
-            NoMask: 0,
-            DrawMaskStencil: 1,
-            DrawMaskedContent: 2,
-            ClearMaskStencil: 3,
-        }
-        
-        const RenderWebGL = function() {
-        
-            this.quality = "high";
-        
-            const canvas = document.createElement('canvas');
-            canvas.width = 360;
-            canvas.height = 360;
-            const gl = canvas.getContext('webgl2', {
-                stencil: true,
-                alpha: true,
-                antialias: false,
-                depth: false,
-                failIfMajorPerformanceCaveat: true,
-                premultipliedAlpha: true
-            });
-        
-            this.canvas = canvas;
-            this.gl = gl;
-        
-            this.shaderColorLine = this.createShader(vs2, fs2);
-        
-            this.maskState = MaskState.NoMask;
-            this.numMasks = 0;
-        
-            this.matrixTransform = [1, 0, 0, 1, 0, 0];
-            this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
-        
-            gl.enable(this.gl.BLEND);
-            gl.blendFuncSeparate(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
-        }
-        RenderWebGL.prototype.createShader = function(vs, fs, definitions) {
-            const program = this.compileProgram(vs, fs, definitions);
-            return new Shader(this.gl, program);
-        }
-        RenderWebGL.prototype.compileProgram = function(vs, fs, definitions) {
-            const vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vs, definitions);
-            const fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fs, definitions);
-            const program = this.gl.createProgram();
-            if (!program) {
-                throw new Error('Cannot create program');
-            }
-            this.gl.attachShader(program, vertexShader);
-            this.gl.attachShader(program, fragmentShader);
-            this.gl.linkProgram(program);
-            if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-                const error = this.gl.getProgramInfoLog(program);
-                this.gl.deleteProgram(program);
-                throw new Error('Program compilation error: ' + error);
-            }
-            return program;
-        }
-        RenderWebGL.prototype.compileShader = function(type, source, definitions) {
-            if (definitions) {
-                for (const def of definitions) {
-                    source = '#define ' + def + '\n' + source;
-                }
-            }
-            const shader = this.gl.createShader(type);
-            if (!shader) {
-                throw new Error('Cannot create shader');
-            }
-            this.gl.shaderSource(shader, source);
-            this.gl.compileShader(shader);
-            if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-                const error = this.gl.getShaderInfoLog(shader);
-                this.gl.deleteShader(shader);
-                throw new Error('Shader compilation error: ' + error);
-            }
-            return shader;
-        }
-        RenderWebGL.prototype.useShader = function(shader) {
-            if (this.currentShader !== shader) {
-                this.gl.useProgram(shader.program);
-                this.currentShader = shader;
-            }
-        }
-        RenderWebGL.prototype.lineToArray = function(ub, x1, y1, x2, y2, siz) {
-            var zdir = Math.atan((x2 - x1) / (y2 - y1)) * 180 / Math.PI;
-            if ((y2 - y1) < 0) {
-                zdir += 180;
-            }
-            zdir += 90;
-            var sine = (Math.sin(zdir * (Math.PI / 180)));
-            var cosine = (Math.cos(zdir * (Math.PI / 180)));
-            var x1a = x1 + (sine * siz);
-            var y1a = y1 + (cosine * siz);
-            var x1b = x1 + (sine * (siz * -1));
-            var y1b = y1 + (cosine * (siz * -1));
-            var x2a = x2 + (sine * siz);
-            var y2a = y2 + (cosine * siz);
-            var x2b = x2 + (sine * (siz * -1));
-            var y2b = y2 + (cosine * (siz * -1));
-            ub.push(x1a);
-            ub.push(y1a);
-            ub.push(x1b);
-            ub.push(y1b);
-            ub.push(x2a);
-            ub.push(y2a);
-            ub.push(x2a);
-            ub.push(y2a);
-            ub.push(x2b);
-            ub.push(y2b);
-            ub.push(x1b);
-            ub.push(y1b);
-            var circleRes = 20;
-            for (var i = 0; i < circleRes; i++) {
-                var i1 = (zdir + (i * (180 / circleRes)));
-                var i2 = i1 + 180;
-                var i3 = i1 + (360 / circleRes);
-                var i4 = i2 + (360 / circleRes);
-                var asine = (Math.sin(i1 * (Math.PI / 180)));
-                var acosine = (Math.cos(i1 * (Math.PI / 180)));
-                var bsine = (Math.sin(i2 * (Math.PI / 180)));
-                var bcosine = (Math.cos(i2 * (Math.PI / 180)));
-                var csine = (Math.sin(i3 * (Math.PI / 180)));
-                var ccosine = (Math.cos(i3 * (Math.PI / 180)));
-                var dsine = (Math.sin(i4 * (Math.PI / 180)));
-                var dcosine = (Math.cos(i4 * (Math.PI / 180)));
-                ub.push(x1);
-                ub.push(y1);
-                ub.push(x1 + (asine * siz));
-                ub.push(y1 + (acosine * siz));
-                ub.push(x1 + (csine * siz));
-                ub.push(y1 + (ccosine * siz));
-                ub.push(x2);
-                ub.push(y2);
-                ub.push(x2 + (bsine * siz));
-                ub.push(y2 + (bcosine * siz));
-                ub.push(x2 + (dsine * siz));
-                ub.push(y2 + (dcosine * siz));
-            }
-        }
-        RenderWebGL.prototype.createFill = function(path2d) {
-            var arrs = [];
-            var arr = [];
-            var posX = 0;
-            var posY = 0;
-            for (let i = 0; i < path2d.length; i++) {
-                const a = path2d[i];
-                switch (a[0]) {
-                    case 0:
-                        arr = [];
-                        arrs.push(arr);
-                        posX = a[1];
-                        posY = a[2];
-                        break;
-                    case 1:
-                        arr.push(posX);
-                        arr.push(posY);
-                        arr.push(a[1]);
-                        arr.push(a[2]);
-                        arr.push(a[3]);
-                        arr.push(a[4]);
-                        posX = a[3];
-                        posY = a[4];
-                        break;
-                    case 2:
-                        arr.push(posX);
-                        arr.push(posY);
-                        arr.push(a[1]);
-                        arr.push(a[2]);
-                        posX = a[1];
-                        posY = a[2];
-                        break;
-                }
-            }
-            if (arr) {
-        
-            } else {
-                return null;
-            }
-        }
-        RenderWebGL.prototype.createStroke = function(path2d, width, color) {
-            var arr = [];
-            var posX = 0;
-            var posY = 0;
-            for (let i = 0; i < path2d.length; i++) {
-                const a = path2d[i];
-                switch (a[0]) {
-                    case 0:
-                        posX = a[1];
-                        posY = a[2];
-                        break;
-                    case 1:
-                        this.lineToArray(arr, posX, posY, a[1], a[2], width);
-                        this.lineToArray(arr, a[1], a[2], a[3], a[4], width);
-                        posX = a[3];
-                        posY = a[4];
-                        break;
-                    case 2:
-                        this.lineToArray(arr, posX, posY, a[1], a[2], width);
-                        posX = a[1];
-                        posY = a[2];
-                        break;
-                }
-            }
-            var bufferPos = this.gl.createBuffer();
-        
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferPos);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(arr), this.gl.STATIC_DRAW);
-        
-            var bufferColor = this.gl.createBuffer();
-            var arrColor = [];
-            for (let d = 0; d < (arr.length / 2); d++) {
-                arrColor.push(color[0] / 255);
-                arrColor.push(color[1] / 255);
-                arrColor.push(color[2] / 255);
-                arrColor.push(color[3]);
-            }
-        
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferColor);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(arrColor), this.gl.STATIC_DRAW);
-        
-            return {
-                bufferPos: bufferPos,
-                bufferColor: bufferColor,
-                num: (arr.length / 2),
-            };
-        }
-        RenderWebGL.prototype.drawBuffer = function(bufInfo, color) {
-        }
-        
-        RenderWebGL.prototype.destroy = function() {
-            var ext = this.gl.getExtension("WEBGL_lose_context");
-            if (ext) {
-                ext.loseContext();
-            }
-        }
-        RenderWebGL.prototype.setQuality = function(quality) {
-            this.quality = quality;
-        }
-        RenderWebGL.prototype.createBufferWithArray = function(buf) {
-            var di = buf.length;
-            var buffer = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, buf, this.gl.STATIC_DRAW);
-            return {
-                buffer: buffer,
-                total: di
-            };
-        }
-        RenderWebGL.prototype.setStencilState = function() {
-            switch(this.maskState) {
-                case MaskState.NoMask:
-                    this.gl.disable(this.gl.STENCIL_TEST);
-                    this.gl.colorMask(true, true, true, true);
-                    break;
-                case MaskState.DrawMaskStencil:
-                    this.gl.enable(this.gl.STENCIL_TEST);
-                    this.gl.stencilFunc(this.gl.EQUAL, this.numMasks - 1, 0xff);
-                    this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.INCR);
-                    this.gl.colorMask(false, false, false, false);
-                    break;
-                case MaskState.DrawMaskedContent:
-                    this.gl.enable(this.gl.STENCIL_TEST);
-                    this.gl.stencilFunc(this.gl.EQUAL, this.numMasks, 0xff);
-                    this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.KEEP);
-                    this.gl.colorMask(true, true, true, true);
-                    break;
-                case MaskState.ClearMaskStencil:
-                    this.gl.enable(this.gl.STENCIL_TEST);
-                    this.gl.stencilFunc(this.gl.EQUAL, this.numMasks, 0xff);
-                    this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.DECR);
-                    this.gl.colorMask(false, false, false, false);
-                    break;
-                    
-            }
-        }
-        RenderWebGL.prototype.pushMask = function() {
-            this.numMasks += 1;
-            this.maskState = MaskState.DrawMaskStencil;
-        }
-        RenderWebGL.prototype.popMask = function() {
-            this.numMasks -= 1;
-            if (this.numMasks == 0) {
-                this.maskState = MaskState.NoMask;
-            } else {
-                this.maskState = MaskState.DrawMaskedContent;
-            }
-        }
-        RenderWebGL.prototype.activateMask = function() {
-            this.maskState = MaskState.DrawMaskedContent;
-        }
-        RenderWebGL.prototype.deactivateMask = function() {
-            this.maskState = MaskState.ClearMaskStencil;
-        }
-        RenderWebGL.prototype.setColorTransform = function(a, b, c, d, e, f, x, y) {
-            this.colorTransform = [a, b, c, d, e, f, x, y];
-        }
-        RenderWebGL.prototype.setTransform = function(a, b, c, d, e, f) {
-            this.matrixTransform = [a, b, c, d, e, f];
-        }
-        RenderWebGL.prototype.resize = function(w, h) {
-            this.canvas.width = w;
-            this.canvas.height = h;
-            this.gl.viewport(0, 0, w, h);
-        }
-        RenderWebGL.prototype.clear = function() {
-            this.setTransform(1, 0, 0, 1, 0, 0);
-            this.setColorTransform(1, 1, 1, 1, 0, 0, 0, 0);
-        }
-        RenderWebGL.prototype.imageToTexture = function() {
-        }
-        RenderWebGL.prototype.shapeToInterval = function(shapeCache) {
-            // 0 fill
-            // 1 stroke
-        
-            // 0 color
-            // 1 gradient
-            // 2 bitmap
-            var result = [];
-            for (let i = 0; i < shapeCache.length; i++) {
-                const si = shapeCache[i];
-                result.push(this.shapeToCanvas(si));
-            }
-            return result;
-        }
-        RenderWebGL.prototype.shapeToCanvas = function(shape) {
-            var isStroke = (shape.type == 1);
-            var width = (shape.width || 2) / 2;
-            var fillInfo = shape.fill;
-            if (!fillInfo) {
-                return;
-            }
-            if (fillInfo.type == 0) {
-                return {
-                    type: 0,
-                    bufferInfo: this.createStroke(shape.path2d, width, fillInfo.color),
-                    isStroke,
-                    width
-                }
-            } else if (fillInfo.type == 1) {
-                return null;
-            } else if (fillInfo.type == 2) {
-                return null;
-            }
-        }
-        RenderWebGL.prototype.renderTexture = function() {
-        }
-        RenderWebGL.prototype.renderShape = function(shapeInterval) {
-            this.setStencilState();
-            for (let i = 0; i < shapeInterval.length; i++) {
-                const si = shapeInterval[i];
-                if (!si) return;
-                var isStroke = si.isStroke;
-                var cmd = si.cmd;
-                var width = si.width || 0;
-                if (si.type == 0) {
-                    var bufferInfo = si.bufferInfo;
-                    this.useShader(this.shaderColorLine);
-                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferInfo.bufferPos);
-                    this.currentShader.attributeBuffer("position", bufferInfo.bufferPos, 2);
-                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferInfo.bufferColor);
-                    this.currentShader.attributeBuffer("color", bufferInfo.bufferColor, 4);
-        
-                    var matrix = m3.projection(this.canvas.width, this.canvas.height);
-                    m3.multiply(matrix, [
-                        this.matrixTransform[0], this.matrixTransform[1], 0,
-                        this.matrixTransform[2], this.matrixTransform[3], 0,
-                        this.matrixTransform[4], this.matrixTransform[5], 1
-                    ]);
-        
-                    this.currentShader.uniformMatrix3("view_matrix", matrix);
-                    this.currentShader.uniform4f('mult_color', this.colorTransform[0], this.colorTransform[1], this.colorTransform[2], this.colorTransform[3]);
-                    this.currentShader.uniform4f('add_color', this.colorTransform[4] / 255, this.colorTransform[5] / 255, this.colorTransform[6] / 255, this.colorTransform[7] / 255);
-                    this.gl.drawArrays(this.gl.TRIANGLES, 0, bufferInfo.num);
-                } else if (si.type == 1) {
-                } else if (si.type == 2) {
-                }
-            }
-        }
-        RenderWebGL.prototype.clear = function() {
-            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-            this.gl.clearColor(1, 1, 1, 1);
-            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-        }
-        
-        wpjsm.exportJS = RenderWebGL;
     },
     "src/renderer/Canvas2d.js": function(wpjsm){
         function cloneObject(src) {
@@ -11670,17 +11191,63 @@ var PinkFie = (function(moduleResults) {
             loadSoundStream
         }
     },
+
+    /*
+     * @@@@@@@@%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%################****************************+****++++++++++++++++++++++++++++#
+     * @@@@@@@@%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%%####%%%#######**###**********+++++++++++++++++++++++++++++++++++++++++++++++#
+     * @@@@@@@@@@%%#%%%%%%%%%%%%%%%%%%%%%%#*+=-----::::::::::::::::+#**+**++++++++++++++++++++++++++++++++++++===++===+===#
+     * @@@@@@@@@%%%#%%%%%%%%%%%%%%%%#+=---------:-::::::::::::.......:#++++++++++++++++++++++++=======+===================*
+     * @@@@@@@@%%%%#%%%%%%%%%%%%#+=-----------:::::::::::::............:*=++++++++++++++++================================*
+     * @@@@@@%%%%%%#%%%%%%%%%+=======-------:::::::::::::................-*++++++++++===================-=-=--=--------===*
+     * @@@@@%%%%%%%#%%%%%*++==========----:::::::-::::::::::........ .  ..:#*+++========================----------------==*
+     * @@@@@%%%%%%%#%%%*++++=======-------:-----:-:::::.....................=*+====++=======------------:::--:::::::-:::::*
+     * @@@@%%%%%%%%#%+++++=======--------------::-:::....................:...:*##=---*=====-.............  ..      ..  .. +
+     * @@%%%%%%%%%*=++++=======---=------------:::::...   ......:...........-*-:----:-*===--.............   .       .  .. +
+     * @@%%%%%%%*++=+++============---------==+***++++====-:::............-+---=====--*==---.............   .    .  ..  ..+
+     * %%%%%%@#+++*#@%+===========--=+##**++===========--:..  :*:.......:*--=======+-:=*=---.............   .   ... ..   .+
+     * %%%%%%**#@%%#+==========*##*++++++++======-=+#*++++=-......:::::=#==========*=--#---:.............   .   ..  ..   .+
+     * %%%@#*%%%%@+=+=====+*%%###*++++========---::...:==-.....::::::=*#===========*:::*---:.............       ..       .+
+     * %%@#%%%%%%+==+==+%%##*#%#=:-**=+=+====-:.............:--=++++==+*=========+#-:::*---:.............       ..       .+
+     * %%@@%%%%@*+==+*%#####*#+::::-+*+======-:.....:-++++++--==================+*:::::*-::: ............       ..       .+
+     * %%%%%%%@#++=*%#####**##=:::*@*#+======-:...*-.. .  .=+==+===============+-:::::+-::::   ..........       ..       .+
+     * %%%%%%%%+*%########**#%@@@@@@#*+=====--..=:....    ..%#===#*++*##======:::::::-+:::::    .........       ..       .+
+     * %%%%%%@#@%%########*#*%%@@@@@+=*========+.. ..    .:#@@*--:*===========-::-:::*::::::     ........       ..       .+
+     * %%%%%%%%%%%########*#-::%@@@#:=++=====+=::%-.. ..=%@@@@*--:-##**+======-::-:=*::::::.   .  .......       .        .+
+     * %%%%%%%%%%%#*#####*##--#@@%=::++====+*=::*@@@@@@@%@@@@@+-:::#+=========-:-+#+-::::::.   ... .....                 .+
+     * %%%%%%%%%%%#*#####*#+::::::::-*=====++:..###@@@@%@@@@@#:::::*==++=====**=#-:::::::::.   ..........             ... +
+     * %%%%%%%%%%%#*#####*#=:-------#+=====*-::....=@@%@@@@@*..:::-*========+=..+-:::::::::.   .........            ..    +
+     * %%%%%%%%%%%#*#####*#*:------#+======*:::.:+%@@@%%@@%:....::*=========#:..*-::::::::::::::::::::::..................+
+     * %%%%%%%%%%%#######%%#+=---+%+=======*:::::.:+#%%%+.. .. ..+=---::--=*:...+--:::::::::::::::::::::..................+
+     * %%%%%%%%%%%######%+=======-=+=======*-:::::::....:::.....=-......:-*....-+--:::::::::.:............................+
+     * %%%%%%%%%%%#######========+++=======++::::::::::::::::--#-:.... .--....:=---::::::::-.     ....     ...     ..    .+
+     * %%%%%%%%%%%#######++++++++++++=======++::::::::::::::-+#==---:.:+......:+----::::--::....         ....             +
+     * %%%%%%%%%%%######%*++++++++++++========##+::::::::-=**+=====-=+.  .....+------:---:::.          ... ..             +
+     * %%%%%%%%%%%##%####%#++++++#%%%%%+==========++****+=========*+:..  ....+=-----------::.         ........            +
+     * %%%%%%%%%%%##%#######%%%%#%#%*=-#=======================++:...... ...++------------::.         ..........          +
+     * @%%%%%%%%%%##%#############@+--=#=====================++::..........++---------------.         ................ ...+
+     * @%%%%%%%%%%##%#############%%*+------------------====*-............*+====------------.        .................... +
+     * @@%%%%%%%%%##%#%###################*******####+=::--+-............++=======----=-----.  .........................  +
+     * @@@%%%%%%%%##%%########%#########**********#---:::::=..=-.:::....=*=============-==--......................... .   +
+     * @@@@%%%%%%%##%%#%######%###########******#+------::=--*+:::::...:#=============------.....................  . ..   +
+     * @@@@@%%%%%%%#%%%%######%%###########****#=------=-:*+-+::::::...*+==+++============-=........................ .    +
+     * @@@@@@%%%%%%#%%%%%#####%%%%#############=-----:::.+#.--::::::..=*++==================.............    .       .....+
+     * @@@@@@%%%%%%#%%%%%%####%%%%############=-----::...=..+-::::::..#+++++++====================------------------------*
+     * @@@@@@@@%%%%#%%%%%%%%#%%%%%%%########%===----::.....-*:::::::.=*++++++++++==============================-==--------*
+     * @@@@@@@@@@@%#%%%%%%%%%%%%%%%%%%%####%+==----:::::::-++:::::::.*++**#********+++++=============================----=*
+     * @@@@@@@@@@%%#%%%%%%%%%%%%%%%%%%%%%###=----::::::--==*=---::::-%+----------+*+=-=+#+=====+**+=-::::::--=+**=========*
+     * @@@@@@@@@@@%#%%%%%%%%%%%%%%%%%%%%%##+-----:::::-==++*=--=%=--=*==========------=#+-=##=.::::::::.....:....:++======*
+     * @@@@@@@@@@@%%%%%%%%%%%%@%%%%%%%%%%##=----------=++++#+-+#+%=-=*+===========--=+*#=-+**+#-:::::::::::...::..::*+===+#
+     * @@@@@@@@@@@%%%%%%%%%%%%@%%%%%%%%%%#%=-==-----==+++++**-#+*#*-=#+++++++============+#+===*#+*#=:::::::-::::::::=#+++#
+     * @@@@@@@@@@@%%%%%%%%%%%%@%@%%%%%%%%%%===========++++++#=#+#++#=#++++++++++++==++++++#*====#*++*+---------:---:::-#++#
+     * @@@@@@@@@@@%%%%%%%%%%%%@@@%%%%%%%%%%++++++++++=+*++++#+**#+++*%#+++++++++++%%***+++++++++#%***#+#-------------:-+**#
+     * @@@@@@@@@@@%%%%%%%%%%%%@@@@@%%%%%%%@*++++++++++++*****%#*%*+++++++++++++++++++#+++**##+*#=+%**#%##---------------#*#
+     * @@@@@@@@@@@%%%%%%%%%%%%@@@@@@@%%%%%@*++++++++++++******@**%*++++++++++++++++*%#++++++**====#**#@##=============**#*%
+     * @@@@@@@@@@@%%%%%%%%%%%%@@@@@@@@@%%@@#*++++++++++++******#***%#***++++*+*#%#*++++**##*++++==*######+============*#%#%
+     * @@@@@@@@@@@%%@%%%%%%%%%@@@@@@@@@@@@@@%*************************#%%%%%%%%%%%%%##*===+*++*+++*%####%+++++++++++++*%##%
+     */
+
     "src/avm1/Activation.js": function(wpjsm){
         const Avm1ValueTypes = wpjsm.importJS("src/avm1/ValueTypes.js");
-        
-        /*
-        SWFv3: 90%
-        SWFv4: 30%
-        SWFv5: 10%
-        SWFv6: 0%
-        SWFv7: 0%
-        SWFv8: 0%
-        */
         
         const Avm1ReturnType = {
             implicit: 0,
@@ -12866,6 +12433,7 @@ var PinkFie = (function(moduleResults) {
         }
     },
     "src/avm1/Property.js": function(wpjsm){
+
         class Avm1Property {
             constructor() {
                 this.props = Object.create(null);

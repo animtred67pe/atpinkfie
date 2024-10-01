@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>PinkFie - Player</title>
+		<title>PinkFie Player</title>
 		<link rel="stylesheet" type="text/css" href="pinkfie.css">
 		<style type="text/css">
             body {
@@ -148,8 +148,6 @@
 				dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
 				dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
 
-				//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
-
 				pinkswfmetadataResult.innerHTML = dfgfd;
 
 			}
@@ -225,7 +223,7 @@
 			});
 			enswfmetadata.addEventListener("contextmenu", function(e) {
                 e.preventDefault();
-                player.downloadSwf();
+                player.showSetting();
 			});
 			
 			function dropHandler(ev) {
