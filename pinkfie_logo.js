@@ -1,216 +1,77 @@
-(function(){
-  var _pinkfieSampleSWF = [];
-  _pinkfieSampleSWF.push({
-    name: "PinkFie Logo",
-    playerOptions: {vCamId: '', allowAvm: false},
+window.pinkfieSampleSWF = [
+	{"name":"PinkFie Logo","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4081f087eb3e51d2a5eb7517f1614da9"},
+	
+	{"name":"--- My Little Pony Animations ---"},
+	
+	{"name":"584966_derpycardcaptor (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c1235a2f67fbb40c92f290156db43319"},
+	{"name":"Sonic VS Rainbow Dash","playerOptions":{"vCamId":"","allowAvm":false},"md5":"bc4a7945e41a49c1de24e780dab7ffb3"},
+	{"name":"my_little_pony_dota_2_by_yudhaikeledai","playerOptions":{"vCamId":"","allowAvm":true},"md5":"14b852c9bcc9b5245a39ba30a7d76356"},
+	{"name":"592113_DWTA1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"deba4fdfab28e24c149592311ae87921"},
+	{"name":"the pink aisle by viva reverie","playerOptions":{"vCamId":"12","allowAvm":false},"md5":"045f3ba25aea408172a7309386dab524"},
+	{"name":"Pony Star Racers","playerOptions":{"vCamId":"64","allowAvm":false},"md5":"88a694068e926ad6de33da4a0352591d"},
+	{"name":"d4dpjxl-2bbe737f-94de-48fe-b4c6-8d589d5e32f3","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"08d8844765e724caef3762d6da335caf"},
+	{"name":"chaotic_wedding_by_mrponiator-d5fw609","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"21ba7e34f6de1d3ce7fc9e0540e4e2d4"},
+	{"name":"d7ohyz7","playerOptions":{"vCamId":"","allowAvm":false},"md5":"738da8c279d4933bd284618446d24fa4"},
+	{"name":"FIM_Ep1 (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"147","allowAvm":true},"md5":"800dc2c3477d8566750f9504a34ae8f8"},
+	{"name":"d82lacq-f2c28159-5609-4268-a688-05a3bf28014d","playerOptions":{"vCamId":"","allowAvm":false},"md5":"a5115e33cb0877de1051df2a4cb2cf0b"},
+	{"name":"586435_derpychristmas_Scene_1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48938e6686788cb63c47a3a36a7cd114"},
+	{"name":"you_are_a_pirate_by_dileak-d64874w","playerOptions":{"vCamId":"","allowAvm":false},"md5":"438ddd9ef20d4ce78432c2f1e583ff9a"},
+	{"name":"594246_Ponyponypoo3hurrrr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5ce6c2f6c15e6f911583888cf7456795"},
+	{"name":"589225_Yaplappershy","playerOptions":{"vCamId":"29","allowAvm":false},"md5":"caabd51d72d5bc780561d3939ab0e785"},
+	
+	{"name":"Free Flash Download 1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"bf97df219ee530db2f96d025c2864254"},
+	{"name":"Free Flash Download 2","playerOptions":{"vCamId":"","allowAvm":false},"md5":"7aa51ef0eb4e95124d5bea3e7c43b4f6"},
+	{"name":"Free Flash Download 3","playerOptions":{"vCamId":"","allowAvm":false},"md5":"d8f4d9aee2132ab4133821d2d67929c4"},
+	{"name":"Free Flash Download 4","playerOptions":{"vCamId":"","allowAvm":false},"md5":"57b0443657403a50f1af0335192f6ffd"},
+	{"name":"Free Flash Download 5","playerOptions":{"vCamId":"","allowAvm":false},"md5":"b341cb606f854fcd7905796011794429"},
+	{"name":"Free Flash Download 6","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c590d12a8a8123afdddf18d055a45976"},
+	{"name":"Free Flash Download 7","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ffb08fbe47d835217ccee70bba851ba7"},
+	{"name":"Free Flash Download 8 (Reupload)","playerOptions":{"vCamId":"","allowAvm":false},"md5":"014cf4e56fe208057d8ed8f13bc792eb"},
+	{"name":"Production Flash Download 1","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"fbf851fad446bf7bc34f57489138cf6d"},
+	{"name":"Production Flash Download 2","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"9ba045f1d10038ee71209d7471123468"},
+	
+	{"name":"--- Pencilmation Animations ---"},
 
-    url: "https://assets.scratch.mit.edu/internalapi/asset/4081f087eb3e51d2a5eb7517f1614da9.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Derpy Cardcaptor",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/c1235a2f67fbb40c92f290156db43319.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pencilmation #3",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/5b9660856a8c3e01866c28795e25c0d3.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pencilmation #4",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/8313680772aa60c96ba26bc75da3a619.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pencilmation #6",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/d121dc001f479480f485eba274aed7df.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pencilmation Hallowen",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/ea359414f27a14ef4a69dd398ae87169.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Sonic VS Rainbow Dash",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/bc4a7945e41a49c1de24e780dab7ffb3.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "594681_silkroad-FL",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/4d7b45abf0510b40db2908a788d67883.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Night Mare",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/734b3523c9bf3f9a76d15625135e9051.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "514132_falling_slime (CLICK RIGHT TO PLAY)",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/06eb2dbf2c31ea8ec1aceb3b068354a8.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pencilmation xmas",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/5b7b0a52434bb4933c57c258fc2379d2.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "my_little_pony_dota_2_by_yudhaikeledai",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/14b852c9bcc9b5245a39ba30a7d76356.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "591616_greece-ng",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/96fc7b16d8050a39fc0074a95815d2c5.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "571667_hank_color_flash",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/4bc85bc16b00b2802320505ed87d7194.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "600733_pen25_FL",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/80e5ab539bb1e8adbd39a7509b2cb04b.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 1",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/bf97df219ee530db2f96d025c2864254.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 2",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/7aa51ef0eb4e95124d5bea3e7c43b4f6.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 3",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/d8f4d9aee2132ab4133821d2d67929c4.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 4",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/57b0443657403a50f1af0335192f6ffd.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 5",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/b341cb606f854fcd7905796011794429.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 6",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/c590d12a8a8123afdddf18d055a45976.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 7",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/ffb08fbe47d835217ccee70bba851ba7.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Free Flash Download 8 (Reupload)",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/014cf4e56fe208057d8ed8f13bc792eb.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "275345_PENCILMATION2",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/c18ab1729fe9b7755e4e73420f0c216b.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "535509_pen14_flash",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/7a11396265c291aefa00bde193244c0e.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "592113_DWTA1",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/deba4fdfab28e24c149592311ae87921.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "touhou mojipittan reisen udongein inaba tewi takenoko animal ears flash lowres music video parody usamimi",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/85b6e9c40905ba9a1062bd98b0802c55.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "529574_gameoverse1ng",
-    playerOptions: {vCamId: '164', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/58f1b0244e355baa140ec44121f6f430.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "The Pink Aisle",
-    playerOptions: {vCamId: '12', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/045f3ba25aea408172a7309386dab524.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Pony Star Racers",
-    playerOptions: {vCamId: '64', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/88a694068e926ad6de33da4a0352591d.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "610858_p031_ng",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/c75c7bb429ba3601d54301ee64c4e4d0.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "d4dpjxl-2bbe737f-94de-48fe-b4c6-8d589d5e32f3",
-    playerOptions: {vCamId: '2', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/08d8844765e724caef3762d6da335caf.wav/get/"
-  });
-  // credit of swfchan
-  _pinkfieSampleSWF.push({
-    name: "Production Flash Download 1",
-    playerOptions: {vCamId: '2', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/fbf851fad446bf7bc34f57489138cf6d.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Production Flash Download 2",
-    playerOptions: {vCamId: '2', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/9ba045f1d10038ee71209d7471123468.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "chaotic_wedding_by_mrponiator-d5fw609",
-    playerOptions: {vCamId: '2', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/21ba7e34f6de1d3ce7fc9e0540e4e2d4.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "d7ohyz7",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/738da8c279d4933bd284618446d24fa4.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "607393_A_Way_Past_20%25_Cooler_Chri.swf",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/ec3ebaed9e0407d310b31080d9c7bf37.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "Bug of Ruffle",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/52ab3a7a56c946991777a9b086ff8788.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "FIM_Ep1 (CLICK RIGHT TO PLAY)",
-    playerOptions: {vCamId: '147', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/800dc2c3477d8566750f9504a34ae8f8.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "172844_pencil",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/4edb187be1bfeacc6d2de7227d0ae057.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "597775_hank19_work-FL",
-    playerOptions: {vCamId: '', allowAvm: true},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/49a7d72566daedf15ac8c4eaf2f604b9.wav/get/"
-  });
-  _pinkfieSampleSWF.push({
-    name: "609952_p301_ng",
-    playerOptions: {vCamId: '', allowAvm: false},
-    url: "https://assets.scratch.mit.edu/internalapi/asset/5095e8cc230aa7134a6fd6d5b786bb4c.wav/get/"
-  });
-  window.pinkfieSampleSWF = _pinkfieSampleSWF;
-}());
+	{"name":"172844_pencil","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4edb187be1bfeacc6d2de7227d0ae057"},
+	{"name":"275345_PENCILMATION2","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c18ab1729fe9b7755e4e73420f0c216b"},
+	{"name":"Pencilmation #3","playerOptions":{"vCamId":"","allowAvm":true},"md5":"5b9660856a8c3e01866c28795e25c0d3"},
+	{"name":"Pencilmation #4","playerOptions":{"vCamId":"","allowAvm":true},"md5":"8313680772aa60c96ba26bc75da3a619"},
+	{"name":"Pencilmation #6","playerOptions":{"vCamId":"","allowAvm":true},"md5":"d121dc001f479480f485eba274aed7df"},
+	{"name":"Pencilmation #7","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3724b2aa1415867cbf3d4b434325f5bb"},
+	{"name":"Pencilmation #8","playerOptions":{"vCamId":"","allowAvm":true},"md5":"2158fdea3dcb5d6e92f10d98eef9bbd7"},
+	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
+	{"name":"Pencilmation xmas","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5b7b0a52434bb4933c57c258fc2379d2"},
+	{"name":"594681_silkroad-FL","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4d7b45abf0510b40db2908a788d67883"},
+	{"name":"591616_greece-ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"96fc7b16d8050a39fc0074a95815d2c5"},
+	{"name":"571667_hank_color_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4bc85bc16b00b2802320505ed87d7194"},
+	{"name":"600733_pen25_FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"80e5ab539bb1e8adbd39a7509b2cb04b"},
+	{"name":"535509_pen14_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"7a11396265c291aefa00bde193244c0e"},
+	{"name":"610858_p031_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c75c7bb429ba3601d54301ee64c4e4d0"},
+	{"name":"609952_p301_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5095e8cc230aa7134a6fd6d5b786bb4c"},
+	{"name":"597775_hank19_work-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"49a7d72566daedf15ac8c4eaf2f604b9"},
+	{"name":"588909_caveman_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ac48d427128355ecf444380071ffc30f"},
+	{"name":"563189_hank_facebook_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"664485343b73a86969dae3611c31a1fa"},
+	{"name":"503715_pencilmation_lost_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"a79d7856a88e0a1674794c75fd56b794"},
+	
+	{"name":"--- Other ---"},
+
+	{"name":"514132_falling_slime (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"06eb2dbf2c31ea8ec1aceb3b068354a8"},
+	{"name":"Night Mare","playerOptions":{"vCamId":"","allowAvm":false},"md5":"734b3523c9bf3f9a76d15625135e9051"},
+	{"name":"touhou mojipittan reisen udongein inaba tewi takenoko animal ears flash lowres music video parody usamimi","playerOptions":{"vCamId":"","allowAvm":false},"md5":"85b6e9c40905ba9a1062bd98b0802c55"},
+	{"name":"529574_gameoverse1ng","playerOptions":{"vCamId":"164","allowAvm":false},"md5":"58f1b0244e355baa140ec44121f6f430"},
+	{"name":"Over_9000_Licks_Animation_by_EvilNickJr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"cdc8ef301ef136f4bb107dce6e58473d"},
+	{"name":"Animator_vs_Animation","playerOptions":{"vCamId":"","allowAvm":false},"md5":"fa36553cd282cb07267a0d9d71b0967d"},
+	{"name":"647751_outtake4-ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"b4cd1660e53ffa76e682544602a3f7ae"},
+	{"name":"てすといんとうほう","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4f3f26d9c2c099190078e7a8e658c0c3"},
+	{"name":"182050_DE_aztec","playerOptions":{"vCamId":"","allowAvm":false},"md5":"59b2413ffedabf179970f7992c83f2c3"},
+	{"name":"saturday_morning_watchmen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"34d0981ae9848c59b8b69b2c6133e713"},
+
+	
+	{"name":"--- Any full versions ---"},
+
+	{"name":"595663_hank11_vegetables-FL (contains VP6)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"64e5d259f08feb0a9bd810f6624938ce"},
+	{"name":"mlp_flash__blueray_swing_by_mlpblueray-d7jeoee","playerOptions":{"vCamId":"","allowAvm":false},"md5":"13cfb02a88c05d346770d24448146438"},
+	{"name":"607393_A_Way_Past_20%25_Cooler_Chri.swf","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ec3ebaed9e0407d310b31080d9c7bf37"},
+	{"name":"Bug of Ruffle","playerOptions":{"vCamId":"","allowAvm":false},"md5":"52ab3a7a56c946991777a9b086ff8788"},
+
+];

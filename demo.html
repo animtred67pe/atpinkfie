@@ -90,6 +90,8 @@
 
 			var player = new PinkFie.Player();
 
+			player.debugSample = true;
+
 			player.setOptions(Common.playerOptions);
 
 			window.player = player;
@@ -191,6 +193,7 @@
 
 			player.onload.subscribe(function() {
 				showSwf();
+				player.debugSample = false;
 				if (autoplayL) {
 					player.setOptions({autoplayPolicy: "never"});
 					autoplayL = false;
@@ -249,9 +252,11 @@
 				var name = infoSample.name;
 				sampleSWFpkf.value = name;
 				if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
-				if (infoSample.url) {
+				if (infoSample.md5) {
+					loadSwfUrl("https://assets.scratch.mit.edu/internalapi/asset/" + infoSample.md5 + ".wav/get/");
+				} else if (infoSample.url) {
 					loadSwfUrl(infoSample.url);
-				} else {
+				} else if (infoSample.file) {
 					loadSwfFile(infoSample.file);
 				}
 			}
@@ -275,10 +280,12 @@
 				sampleSWFpkf.appendChild(g);
 			}
 			if (Common.swfUrl) {
+				player.debugSample = false;
 				player.setOptions({autoplayPolicy: "never"})
 				sampleSWFpkf.value = '';
 				loadSwfUrl(Common.swfUrl);
 			} else {
+				sampleSWFpkf.value = '';
 				loadSampleSWF(pinkfieSampleSWF[0]);
 			}
 		</script>

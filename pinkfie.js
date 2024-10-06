@@ -1,16 +1,16 @@
 /*!
-Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
+ * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
+ * 
+ * v1.3.3 (2024-10-5)
+ * 
+ * Made in Peru
+ * 
+ * (c) 2024 ATFSMedia Productions.
+ */
 
-v1.3.2 (2024-10-1)
+// Happy Hallowen!!!
 
-Made in Peru
-
-(c) 2024 ATFSMedia Productions.
-*/
-
-// Happy Hallowen
-
-// with image comment are what happen?
+// with image comment are what happens?
 
 var PinkFie = (function(moduleResults) {
     var moduleInstalls = {};
@@ -4093,6 +4093,8 @@ var PinkFie = (function(moduleResults) {
                 this.loadedTick = 0;
 
                 this.swfData = null;
+
+                this.debugSample = false;
         
                 this.addMenuVerticals();
                 this.addStatsControls();
@@ -4711,6 +4713,8 @@ var PinkFie = (function(moduleResults) {
             setStage(stage) {
                 this.stage = stage;
                 this.loaded = 2;
+
+                stage.debugSample = this.debugSample;
         
                 this.applyOptionsToStage();
                 this.applyResizeStage();
@@ -6481,6 +6485,8 @@ var PinkFie = (function(moduleResults) {
                 this.vCamShow = false;
 
                 this.allowAvm = false;
+
+                this.debugSample = false;
         
                 this.backgroundColor = [255, 255, 255, 1];
         
@@ -6817,6 +6823,7 @@ var PinkFie = (function(moduleResults) {
                 }
                 mc.postInstantiation(null, null, false);
                 mc.setIsRoot(true);
+                mc.debugSample = this.debugSample;
                 this.clip = mc;
             }
             runFrame() {
@@ -8424,6 +8431,8 @@ var PinkFie = (function(moduleResults) {
                 // flags
                 this.isPlaying = true;
                 this.isLoop = true;
+
+                this.debugSample = false;
         
                 /// Whether this `MovieClip` has run its initial frame.
                 this.INITIALIZED = false;
@@ -8480,6 +8489,10 @@ var PinkFie = (function(moduleResults) {
                 switch (nextFrame) {
                     case "next":
                         this.currentFrame++;
+                        if (this.debugSample) {
+                            this.stop();
+                            this.debugSample = false;
+                        }
                         break;
                     case "first":
                         if (this.isLoop) {

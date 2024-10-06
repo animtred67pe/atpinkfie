@@ -49,14 +49,14 @@
 					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
 					<li><a href="https://www.youtube.com/post/UgkxRTwQE-6kEB-lqEDQfc-OauZBRVkwNYiz" target="_blank">Feedback</a></li>
-					<li><a href="about.html">About</a></li>
+					<li><a href="about.html">credits</a></li>
 				</ul>
 			</div>
 			<section>
 				<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
 				<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 			</section>
-			<a style="color: #aaa; position:fixed; bottom: 10px; right: 10px;" href="https://animtred67pe.github.io/pinkfie-v2/">New version of PinkFie v2</a>
+			<a style="color: #777; position:fixed; bottom: 10px; right: 10px;" href="https://animtred67pe.github.io/pinkfie-v2/">New version of PinkFie v2</a>
 		</div>
 		<script src="common.js"></script>
 		<script src="pinkfie_logo.js"></script>
@@ -214,9 +214,11 @@
 				function loadSampleSWF(infoSample) {
 					var name = infoSample.name;
 					if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
-					if (infoSample.url) {
+					if (infoSample.md5) {
+						loadSwfURL("https://assets.scratch.mit.edu/internalapi/asset/" + infoSample.md5 + ".wav/get/");
+					} else if (infoSample.url) {
 						loadSwfURL(infoSample.url);
-					} else {
+					} else if (infoSample.file) {
 						loadSwfFile(infoSample.file);
 					}
 					sampleSWFpkf.value = "";
