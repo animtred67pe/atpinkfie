@@ -4306,6 +4306,8 @@ var PinkFie = (function(moduleResults) {
                 var fdgdf = document.createElement("a");
 
                 fdgdf.innerHTML = "Download SWF";
+                
+                fdgdf.style.margin = "4px";
 
                 fdgdf.onclick = () => {
                     this.downloadSwf();
@@ -4315,6 +4317,7 @@ var PinkFie = (function(moduleResults) {
         
                 var di3 = document.createElement('a');
                 di3.innerHTML = "View Stats";
+                di3.style.margin = "4px";
                 di3.onclick = this.viewStats.bind(this);
 
                 var fdfj = document.createElement('input');
@@ -4368,6 +4371,8 @@ var PinkFie = (function(moduleResults) {
                 var fdgdf2 = document.createElement("a");
 
                 fdgdf2.innerHTML = "Stop Sounds";
+
+                fdgdf2.style.margin = "4px";
 
                 fdgdf2.onclick = () => {
                     if (this.stage) {
@@ -10995,6 +11000,8 @@ var PinkFie = (function(moduleResults) {
                         if (channels == 2) right = j;
                     }
                 } catch(e) {
+                    left = 0;
+                    right = 0;
                     isEnd = true;
                 }
                 _left[i] = left;
@@ -11069,6 +11076,8 @@ var PinkFie = (function(moduleResults) {
                     }
                 } catch(e) {
                     // ignored
+                    left = 0;
+                    right = 0;
                     isEnd = true;
                 }
                 _left[h] = left / 0x8000;

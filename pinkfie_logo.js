@@ -1,6 +1,13 @@
 window.pinkfieSampleSWF = [
 	{"name":"PinkFie Logo","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4081f087eb3e51d2a5eb7517f1614da9"},
 	
+	{"name":"--- Hallowen & Christmas Animations ---"},
+	
+	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
+	{"name":"Pencilmation xmas","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5b7b0a52434bb4933c57c258fc2379d2"},
+	{"name":"586719_Cupcakes","playerOptions":{"vCamId":"","allowAvm":false},"md5":"0e213e937d88614a214adc9fc52ec6df"},
+	{"name":"586435_derpychristmas_Scene_1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48938e6686788cb63c47a3a36a7cd114"},
+	
 	{"name":"--- My Little Pony Animations ---"},
 	
 	{"name":"584966_derpycardcaptor (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c1235a2f67fbb40c92f290156db43319"},
@@ -14,10 +21,12 @@ window.pinkfieSampleSWF = [
 	{"name":"d7ohyz7","playerOptions":{"vCamId":"","allowAvm":false},"md5":"738da8c279d4933bd284618446d24fa4"},
 	{"name":"FIM_Ep1 (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"147","allowAvm":true},"md5":"800dc2c3477d8566750f9504a34ae8f8"},
 	{"name":"d82lacq-f2c28159-5609-4268-a688-05a3bf28014d","playerOptions":{"vCamId":"","allowAvm":false},"md5":"a5115e33cb0877de1051df2a4cb2cf0b"},
-	{"name":"586435_derpychristmas_Scene_1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48938e6686788cb63c47a3a36a7cd114"},
 	{"name":"you_are_a_pirate_by_dileak-d64874w","playerOptions":{"vCamId":"","allowAvm":false},"md5":"438ddd9ef20d4ce78432c2f1e583ff9a"},
 	{"name":"594246_Ponyponypoo3hurrrr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5ce6c2f6c15e6f911583888cf7456795"},
 	{"name":"589225_Yaplappershy","playerOptions":{"vCamId":"29","allowAvm":false},"md5":"caabd51d72d5bc780561d3939ab0e785"},
+	{"name":"d5i5j9s-3fb8a9ba-5059-49de-8814-884a3d49f608","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5faded2c4df15316e2b7ff2f23269741"},
+	{"name":"1392669941","playerOptions":{"vCamId":"","allowAvm":false},"md5":"d540dd88d0e071ffa69c03a49a604cb2"},
+	{"name":"Cupcakes HD","playerOptions":{"vCamId":"43","allowAvm":false},"md5":"4940a47aafd09b04a7a54ee5188ed06a"},
 	
 	{"name":"Free Flash Download 1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"bf97df219ee530db2f96d025c2864254"},
 	{"name":"Free Flash Download 2","playerOptions":{"vCamId":"","allowAvm":false},"md5":"7aa51ef0eb4e95124d5bea3e7c43b4f6"},
@@ -39,8 +48,6 @@ window.pinkfieSampleSWF = [
 	{"name":"Pencilmation #6","playerOptions":{"vCamId":"","allowAvm":true},"md5":"d121dc001f479480f485eba274aed7df"},
 	{"name":"Pencilmation #7","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3724b2aa1415867cbf3d4b434325f5bb"},
 	{"name":"Pencilmation #8","playerOptions":{"vCamId":"","allowAvm":true},"md5":"2158fdea3dcb5d6e92f10d98eef9bbd7"},
-	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
-	{"name":"Pencilmation xmas","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5b7b0a52434bb4933c57c258fc2379d2"},
 	{"name":"594681_silkroad-FL","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4d7b45abf0510b40db2908a788d67883"},
 	{"name":"591616_greece-ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"96fc7b16d8050a39fc0074a95815d2c5"},
 	{"name":"571667_hank_color_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4bc85bc16b00b2802320505ed87d7194"},
@@ -52,23 +59,26 @@ window.pinkfieSampleSWF = [
 	{"name":"588909_caveman_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ac48d427128355ecf444380071ffc30f"},
 	{"name":"563189_hank_facebook_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"664485343b73a86969dae3611c31a1fa"},
 	{"name":"503715_pencilmation_lost_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"a79d7856a88e0a1674794c75fd56b794"},
-	
-	{"name":"--- Other ---"},
 
+	{"name":"--- Other ---"},
+	{"name":"602924_DG_010","playerOptions":{"vCamId":"","allowAvm":false},"md5":"602fb434274cfb63f0677112ff7ff592"},
 	{"name":"514132_falling_slime (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"06eb2dbf2c31ea8ec1aceb3b068354a8"},
 	{"name":"Night Mare","playerOptions":{"vCamId":"","allowAvm":false},"md5":"734b3523c9bf3f9a76d15625135e9051"},
 	{"name":"touhou mojipittan reisen udongein inaba tewi takenoko animal ears flash lowres music video parody usamimi","playerOptions":{"vCamId":"","allowAvm":false},"md5":"85b6e9c40905ba9a1062bd98b0802c55"},
 	{"name":"529574_gameoverse1ng","playerOptions":{"vCamId":"164","allowAvm":false},"md5":"58f1b0244e355baa140ec44121f6f430"},
 	{"name":"Over_9000_Licks_Animation_by_EvilNickJr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"cdc8ef301ef136f4bb107dce6e58473d"},
 	{"name":"Animator_vs_Animation","playerOptions":{"vCamId":"","allowAvm":false},"md5":"fa36553cd282cb07267a0d9d71b0967d"},
-	{"name":"647751_outtake4-ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"b4cd1660e53ffa76e682544602a3f7ae"},
 	{"name":"てすといんとうほう","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4f3f26d9c2c099190078e7a8e658c0c3"},
 	{"name":"182050_DE_aztec","playerOptions":{"vCamId":"","allowAvm":false},"md5":"59b2413ffedabf179970f7992c83f2c3"},
 	{"name":"saturday_morning_watchmen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"34d0981ae9848c59b8b69b2c6133e713"},
-
 	
+	{"name":"577249_outtake3","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3c367204f92256c3a9c6237c2cfb7b5f"},
+	{"name":"647751_outtake4-ng","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b4cd1660e53ffa76e682544602a3f7ae"},
+
 	{"name":"--- Any full versions ---"},
 
+	{"name":"611872_p032_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"95d4a13dcd7a937b70aea314ac052f35"},
+	{"name":"594095_ask06_coffee-NG","playerOptions":{"vCamId":"","allowAvm":false},"md5":"85712a331a6c78d9a05e29e45120e959"},
 	{"name":"595663_hank11_vegetables-FL (contains VP6)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"64e5d259f08feb0a9bd810f6624938ce"},
 	{"name":"mlp_flash__blueray_swing_by_mlpblueray-d7jeoee","playerOptions":{"vCamId":"","allowAvm":false},"md5":"13cfb02a88c05d346770d24448146438"},
 	{"name":"607393_A_Way_Past_20%25_Cooler_Chri.swf","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ec3ebaed9e0407d310b31080d9c7bf37"},
