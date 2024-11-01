@@ -27,7 +27,7 @@
 			<h1>PinkFie<span class="version"></span></h1>
 			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
-				<a id="loadswffile">Open Swf</a>
+				<a id="loadswffile">Open .swf</a>
 				<a id="ssag2">Close</a>
 				<label id="ggtitle5"></label>
 			</div>
@@ -41,7 +41,7 @@
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
 				<ul>
-					<li><a class="dropdown">examples swf<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a></li>
+					<li><a class="dropdown">SWF Examples<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a></li>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
 					<li><a href="packager.html">HTML Packager</a></li>
@@ -54,9 +54,9 @@
 			</div>
 			<section>
 				<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
-				<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
+				<p style="color: #888;">created by <a style="color: #888;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 			</section>
-			<a style="color: #777; position:fixed; bottom: 10px; right: 10px;" href="https://animtred67pe.github.io/pinkfie-v2/">New version of PinkFie v2</a>
+			<a style="color: #080; position:fixed; bottom: 10px; right: 10px; text-shadow: 0px 0px 10px rgba(122, 122, 122, 1);" href="https://animtred67pe.github.io/pinkfie-v2/">New version of PinkFie v2</a>
 		</div>
 		<script src="common.js"></script>
 		<script src="pinkfie_logo.js"></script>
@@ -141,7 +141,12 @@
 
 					demo.innerHTML = dfgfd;
 					demo.style.display = "";
-					demo.title = "ActionScript 3: " + player.stage.isActionScript3() + " Sounds Compressions: " + (player.stage.audio.getCompressSound().join(" ") || "entry");
+					demo.title = "ActionScript 3: " +
+						player.stage.isActionScript3() +
+						" Sounds Compressions: " +
+						(player.stage.audio.getCompressSound().join(",") || "entry") +
+						" DisplayObject Types: " +
+						(player.stage.getDisplayTypes().join(",") || "entry");
 				}
 
 				viewbbb2.onclick = function () {

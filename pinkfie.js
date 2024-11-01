@@ -1,14 +1,12 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.3 (2024-10-5)
+ * v1.3.31 (2024-11-1)
  * 
  * Made in Peru
  * 
  * (c) 2024 ATFSMedia Productions.
  */
-
-// Happy Hallowen!!!
 
 // with image comment are what happens?
 
@@ -2566,7 +2564,7 @@ var PinkFie = (function(moduleResults) {
             var startOffset = byteStream.position;
             var obj = {};
             obj.streamId = byteStream.readUint16();
-            byteStream.readUint16();
+            obj.frameNum = byteStream.readUint16();
             var sub = byteStream.position - startOffset;
             var dataLength = length - sub;
             obj.videoData = byteStream.readBytes(dataLength);
@@ -4243,7 +4241,7 @@ var PinkFie = (function(moduleResults) {
                 var rrj3o = document.createElement('label');
                 rrj3o.innerHTML = "speed:";
                 var rrj4o = document.createElement('select');
-                rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.5">0.5x<option value="0.75">0.75x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="1.75">1.75x<option value="2">2x<option value="2.5">2.5x<option value="3">3x<option value="4">4x<option value="8">8x<option value="16">16x<option value="32">32x<option value="64">64x';
+                rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.33">0.33x<option value="0.5">0.5x<option value="0.75">0.75x<option value="0.85">0.85x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="1.75">1.75x<option value="2">2x<option value="2.5">2.5x<option value="3">3x<option value="4">4x<option value="8">8x<option value="16">16x<option value="32">32x<option value="64">64x';
                 rrj4o.value = 1;
                 rrj4o.addEventListener('input', () => {
                     this.setOptions({ speed: +rrj4o.value });
@@ -4259,7 +4257,7 @@ var PinkFie = (function(moduleResults) {
                 rrj5.innerHTML = "Render Mode: ";
         
                 var rrj6 = document.createElement('select');
-                rrj6.innerHTML = '<option value="render">shapes<option value="bounds">display bounds';
+                rrj6.innerHTML = '<option value="render">render<option value="render with bounds">render with display bounds<option value="bounds without render">display bounds without render';
                 rrj6.addEventListener("change", () => {
                     if (rrj6.value) {
                         this.setOptions({
@@ -4354,19 +4352,20 @@ var PinkFie = (function(moduleResults) {
                 rrj.appendChild(rrj8);
                 rrj.appendChild(rrjhg7);
                 rrj.appendChild(rrj9);
+
+                rrj.appendChild(document.createElement('br'));
+
+                rrj.appendChild(rrj5);
+                rrj.appendChild(rrj6);
+
                 rrj.appendChild(document.createElement('br'));
 
                 rrj.appendChild(a);
                 rrj.appendChild(fdfj);
                 rrj.appendChild(a2);
+                rrj.appendChild(document.createElement('br'));
 
-                rrj.appendChild(document.createElement('br'));
-                rrj.appendChild(rrj5);
-                rrj.appendChild(rrj6);
-                rrj.appendChild(document.createElement('br'));
                 rrj.appendChild(di3);
-
-
 
                 var fdgdf2 = document.createElement("a");
 
@@ -4821,6 +4820,9 @@ var PinkFie = (function(moduleResults) {
                     this.stage.vCamId = this.options.vCamId;
                     this.stage.vCamShow = this.options.vCamShow;
                     this.stage.allowAvm = this.options.allowAvm;
+                    this.stage.wth = this.options.wth;
+                    this.stage.interpolation = this.options.interpolation;
+                    this.stage.useLastBound = this.stage.wth ? true : this.options.interpolation;
                     var renderDirty = false;
                     if (this.stage.quality != this.options.quality) {
                         this.stage.setQuality(this.options.quality);
@@ -4984,7 +4986,9 @@ var PinkFie = (function(moduleResults) {
             rendermode: "render",
             vCamId: 0,
             vCamShow: false,
-            allowAvm: false
+            allowAvm: false,
+            wth: false,
+            interpolation: false
         }
         wpjsm.exportJS = Player;
     },
@@ -5864,8 +5868,6 @@ var PinkFie = (function(moduleResults) {
                 if (alphaData) {
                     var width = image.width;
                     var height = image.height;
-                    var dat = ZLib.decompress(alphaData, (width * height), 0);
-                    var adata = new Uint8Array(dat);
                     var canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
@@ -5873,6 +5875,8 @@ var PinkFie = (function(moduleResults) {
                     imageContext.drawImage(image, 0, 0, width, height);
                     var imgData = imageContext.getImageData(0, 0, width, height);
                     var pxData = imgData.data;
+                    var dat = ZLib.decompress(alphaData, (width * height), 0);
+                    var adata = new Uint8Array(dat);
                     var pxIdx = 3;
                     var len = width * height;
                     for (var i = 0; i < len; i++) {
@@ -6503,6 +6507,8 @@ var PinkFie = (function(moduleResults) {
                 this.renderer = new RenderCanvas2d();
         
                 this.canvas = this.renderer.canvas;
+
+                this.canvas.style["image-rendering"] = "pixelated";
         
                 this.root.appendChild(this.canvas);
         
@@ -6511,6 +6517,10 @@ var PinkFie = (function(moduleResults) {
         
                 this.audio = new AudioBackend(this);
                 this.avm1 = new Avm1(this);
+
+                this.useLastBound = false;
+                this.wth = false;
+                this.interpolation = false;
         
                 this.transformStack = new TransformStack();
                 this.debugTransformStack = new TransformStack();
@@ -6593,7 +6603,8 @@ var PinkFie = (function(moduleResults) {
             }
             _onmouseup(e) {
                 this.updateMouseUp(e);
-                if (e.target === this.canvas) e.preventDefault();
+                if (e.target === this.canvas)
+                    e.preventDefault();
             }
             _onmousemove(e) {
                 this.updateMouse(e);
@@ -6620,9 +6631,8 @@ var PinkFie = (function(moduleResults) {
             _ontouchmove(e) {
                 for (var i = 0; i < e.changedTouches.length; i++) {
                     const t = e.changedTouches[i];
-                    if (e.target === this.canvas) {
+                    if (e.target === this.canvas) 
                         this.updateMouse(t);
-                    }
                 }
             }
             updateMouse(e) {
@@ -6684,6 +6694,9 @@ var PinkFie = (function(moduleResults) {
             stopAllSounds() {
                 this.audio.stopAllSounds(false);
             }
+            getDisplayTypes() {
+                return Object.keys(this.library.getDisplayTypes());
+            }
             queueAction(clip, action, isUnload) {
                 let _action = {};
                 _action.clip = clip;
@@ -6693,6 +6706,18 @@ var PinkFie = (function(moduleResults) {
             }
             popAction() {
                 return this.actionQueue.pop();
+            }
+            getScaleBoundsText() {
+                var scaleW = this._width / 640;
+                var scaleH = this._height / 360;
+                var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
+
+                if (this.quality == "low") {
+                    scale *= 0.5;
+                } else if (this.quality == "medium") {
+                    scale *= 0.8;
+                }
+                return scale
             }
             getRectStage() {
                 var _movieCanvas = this.canvas;
@@ -6714,6 +6739,9 @@ var PinkFie = (function(moduleResults) {
             hitStageMouse() {
                 return true;
             }
+            getTickForFrameRate() {
+                return Math.min(1, ((1 - (10 * (1 / this.frameRate))) * this.speed) * (0.8 * this.speed));
+            }
             getPlayingAudioCount() {
                 return this.audio.getPlayingAudioCount();
             }
@@ -6728,6 +6756,10 @@ var PinkFie = (function(moduleResults) {
                             while (this.tickTime >= this._startOffset) {
                                 this.runFrame();
                                 this._startOffset += rate;
+                            }
+                            if (this.useLastBound) {
+                                this.updateDebugLast();
+                                if (this.interpolation) this.needsRender = true;
                             }
                             this.audio.tick();
                             this.buttomTransformStack.stackPush([1 / 20, 0, 0, 1 / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
@@ -6756,6 +6788,47 @@ var PinkFie = (function(moduleResults) {
                         this.needsRender = false;
                     }
                 }
+            }
+            updateDebugLast() {
+                var parent = this.clip;
+                if (parent) {
+                    this.updateDebugLastChild(parent);
+                }
+            }
+            updateDebugLastChild(child) {
+                if (child.isContainer()) {
+                    var children = child.iterRenderList();
+                    for (var i = 0; i < children.length; i++) {
+                        var c = children[i];
+                        this.updateDebugLastChild(c);
+                    }
+                }
+                child.debugSetLastMC(false, child.getMatrix(), child.getColorTransform());
+                child.debugSetLastBound(false, child.selfBounds());
+            }
+            getChildrenTypes() {
+                var types = [];
+                var resultTypes = this.getChildTypes(this.clip);
+                for (var i = 0; i < resultTypes.length; i++) {
+                    var c = resultTypes[i];
+                    types.push(c.displayType);
+                }
+                return types;
+            }
+            getChildTypes(child) {
+                var types = [];
+                if (child.isContainer()) {
+                    var children = child.iterRenderList();
+                    for (var i = 0; i < children.length; i++) {
+                        var c = children[i];
+                        var resultTypes = this.getChildTypes(c);
+                        for (var l = 0; l < resultTypes.length; l++) {
+                            types.push(resultTypes[l]);
+                        }
+                    }
+                }
+                types.push(child);
+                return types;
             }
             timeUpdate() {
                 this.tickTime = (this.timer.getTime() - this._starttime) * this.speed;
@@ -6828,7 +6901,8 @@ var PinkFie = (function(moduleResults) {
                 }
                 mc.postInstantiation(null, null, false);
                 mc.setIsRoot(true);
-                mc.debugSample = this.debugSample;
+                mc._debug_matrix = [1,0,0,1,0,0];
+                mc._debug_colorTransform = [1,1,1,1,0,0,0,0];
                 this.clip = mc;
             }
             runFrame() {
@@ -6837,13 +6911,23 @@ var PinkFie = (function(moduleResults) {
                 this.runActions();
                 var _parent = this.clip;
                 if (this.vCamId) {
-                    this.executeVCamById(_parent, JSON.parse("[" + this.vCamId + "]"));
+                    var resultVcamId = null;
+                    var useScaleStage = false;
+                    try {
+                        resultVcamId = JSON.parse("[" + this.vCamId + "]");
+                    } catch(e) {
+                    }
+                    if (resultVcamId) {
+                        if (resultVcamId[0] == "USS") 
+                            useScaleStage = true;
+                        this.executeVCamById(_parent, resultVcamId, useScaleStage);
+                    }
                 } else {
                     _parent.applyMatrix([1, 0, 0, 1, 0, 0]);
                     _parent.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
                 }
             }
-            executeVCamById(clip, idList) {
+            executeVCamById(clip, idList, useScaleStage) {
                 var children = clip.iterRenderList();
                 var activeVCam = false;
                 for (var i = 0; i < children.length; i++) {
@@ -6851,9 +6935,9 @@ var PinkFie = (function(moduleResults) {
                     if (mc instanceof MovieClip) {
                         if (idList.indexOf(mc.getId()) >= 0) {
                             activeVCam = true;
-                            this.executeVCam(clip, mc);
+                            this.executeVCam(clip, mc, useScaleStage);
                         } else {
-                            this.executeVCamById(mc, idList);
+                            this.executeVCamById(mc, idList, useScaleStage);
                         }
                     }
                 }
@@ -6873,7 +6957,7 @@ var PinkFie = (function(moduleResults) {
                     }
                 }
             }
-            executeVCam(_parent, vCam) {
+            executeVCam(_parent, vCam, useScaleStage) {
                 if (vCam && (vCam instanceof MovieClip)) {
                     var c = vCam.getColorTransform();
                     vCam.setVisible(!!this.vCamShow);
@@ -6884,6 +6968,11 @@ var PinkFie = (function(moduleResults) {
                     var camH = Math.abs(bounds.yMax - bounds.yMin) / 20;
                     var sw = this.width;
                     var sh = this.height;
+
+                    if (useScaleStage) {
+                        camW = sw;
+                        camH = sh;
+                    }
 
                     var w = camW * vCam.getXScale();
                     var h = camH * vCam.getYScale();
@@ -6897,7 +6986,7 @@ var PinkFie = (function(moduleResults) {
 
                     invertMat(matrix);
                     scaleMat(matrix, vCam.getXScale(), vCam.getYScale());
-                    translateMat(matrix, w / 2, h / 2);
+                    translateMat(matrix, (w / 2), (h / 2));
                     scaleMat(matrix, _scaleX, _scaleY);
 
                     matrix[4] *= 20;
@@ -6967,7 +7056,8 @@ var PinkFie = (function(moduleResults) {
             }
             render() {
                 this.renderer.clear();
-                var isR = this.renderType == "render";
+                var isR = this.renderType !== "bounds without render";
+                var isB = (this.renderType == "bounds without render") || (this.renderType == "render with bounds");
                 this.renderer.setTransform(this.canvas.width, 0, 0, this.canvas.height, 0, 0);
                 if (isR) {
                     this.renderer.setColorTransform(this.backgroundColor[0] / 255, this.backgroundColor[1] / 255, this.backgroundColor[2] / 255, this.backgroundColor[3], 0, 0, 0, 0);
@@ -6978,17 +7068,16 @@ var PinkFie = (function(moduleResults) {
                 if (this.clip && this.isLoad) {
                     if (isR) {
                         this.transformStack.stackPush([(this.canvas.width / this.width) / 20, 0, 0, (this.canvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-                    } else {
-                        this.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-                    }
-                    this.debugTransformStack.stackPush([(this.canvas.width / this.width) / 20, 0, 0, (this.canvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-                    if (isR) {
                         this.clip.render();
-                    } else {
+                        this.transformStack.stackPop();
+                    } 
+                    if (isB) {
+                        this.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+                        this.debugTransformStack.stackPush([(this.canvas.width / this.width) / 20, 0, 0, (this.canvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
                         this.clip.debugRender(this.renderer);
+                        this.debugTransformStack.stackPop();
+                        this.transformStack.stackPop();    
                     }
-                    this.debugTransformStack.stackPop();
-                    this.transformStack.stackPop();
                 }
             }
             drawTextW(x, y, scal, txt) {
@@ -7124,8 +7213,7 @@ var PinkFie = (function(moduleResults) {
                     };
                 }
             }
-            renderShape(sh, m2, colorTransform) {
-                var shapeRender = sh.shapeRender;
+            renderShape(shapeRender, m2, colorTransform) {
                 this.renderer.setColorTransform(...colorTransform);
                 this.renderer.setTransform(...m2);
                 this.renderer.renderShape(shapeRender);
@@ -7197,7 +7285,7 @@ var PinkFie = (function(moduleResults) {
                 // Noop
             }
             selfBounds() {
-                var r = this.shapeData.getShape(0).bounds;
+                var r = this.shapeData.bounds;
                 return r;
             }
             renderSelf() {
@@ -7212,22 +7300,17 @@ var PinkFie = (function(moduleResults) {
                 this.movieplayer = movieplayer;
                 this.data = data;
                 this.characterId = data.id;
-                this.shapeCache = null;
+                this.bounds = data.bounds;
+                this.shapeRender = null;
             }
             getShape() {
-                if (!this.shapeCache) {
-                    this.initShapeCache();
+                if (!this.shapeRender) {
+                    var resultShape = shapeUtils.convert(this.data.shapes, "shape");
+                    this.shapeRender = this.movieplayer.registerShape(resultShape);
                 }
-                return this.shapeCache;
+                return this.shapeRender;
             }
-            initShapeCache() {
-                var resultShape = shapeUtils.convert(this.data.shapes, "shape");
-                var shapeRender = this.movieplayer.registerShape(resultShape);
-                this.shapeCache = {
-                    bounds: this.data.bounds,
-                    shapes: resultShape,
-                    shapeRender
-                };
+            getCache() {
             }
             instantiate() {
                 var shape = Shape.createNew(this.movieplayer);
@@ -7281,8 +7364,8 @@ var PinkFie = (function(moduleResults) {
                 this.ratio = ratio;
             }
             selfBounds() {
-                var bounds = this.morphShapeData.getShape(this.ratio).bounds;
-                return bounds;
+                var frame = this.morphShapeData.getFrame(this.ratio);
+                return frame.bounds;
             }
             renderSelf() {
                 this.morphShapeData.render(this.ratio);
@@ -7298,10 +7381,12 @@ var PinkFie = (function(moduleResults) {
                 this.morphCaches = [];
             }
             getShape(ratio) {
-                if (!this.morphCaches[ratio]) {
-                    this.morphCaches[ratio] = this.getMorph(ratio);
+                var frame = this.getFrame(ratio);
+                if (!frame.shapeRender) {
+                    var resultCache = shapeUtils.convert(frame.shape, "morphshape");
+                    frame.shapeRender = this.movieplayer.registerShape(resultCache);
                 }
-                return this.morphCaches[ratio];
+                return frame.shapeRender;
             }
             instantiate() {
                 var shape = MorphShape.createNew(this.movieplayer);
@@ -7311,17 +7396,14 @@ var PinkFie = (function(moduleResults) {
             render(ratio) {
                 var m2 = this.movieplayer.transformStack.getMatrix();
                 var rColorTransform = this.movieplayer.transformStack.getColorTransform();
-                this.movieplayer.renderShape(this.getShape(ratio), m2, rColorTransform);
+                var renderShape = this.getShape(ratio);
+                this.movieplayer.renderShape(renderShape, m2, rColorTransform);
             }
-            getMorph(ratio) {
-                var resultMorph = this.buildMorphFrame(ratio / 65535);
-                var resultCache = shapeUtils.convert(resultMorph.shapes, "morphshape");
-                var shapeRender = this.movieplayer.registerShape(resultCache);
-                return {
-                    bounds: resultMorph.bounds,
-                    shapes: resultCache,
-                    shapeRender
-                };
+            getFrame(ratio) {
+                if (!this.morphCaches[ratio]) {
+                    this.morphCaches[ratio] = this.buildMorphFrame(ratio / 65535);
+                }
+                return this.morphCaches[ratio];
             }
             lerpTwips(start, end, per) {
                 var startPer = 1 - per;
@@ -7622,7 +7704,7 @@ var PinkFie = (function(moduleResults) {
             }
             buildMorphFrame(per) {
                 // Interpolate MorphShapes into a Shape.
-                var shapes = {
+                var shape = {
                     lineStyles: [],
                     fillStyles: [],
                     shapeRecords: []
@@ -7631,19 +7713,20 @@ var PinkFie = (function(moduleResults) {
                 var lineStyles = cloneObject(this.data.morphLineStyles);
                 var fillStyles = cloneObject(this.data.morphFillStyles);
                 for (var i = 0; i < lineStyles.length; i++) {
-                    shapes.lineStyles[i] = this.lerpLine(lineStyles[i], per);
+                    shape.lineStyles[i] = this.lerpLine(lineStyles[i], per);
                 }
                 for (var i = 0; i < fillStyles.length; i++) {
-                    shapes.fillStyles[i] = this.lerpFill(fillStyles[i], per);
+                    shape.fillStyles[i] = this.lerpFill(fillStyles[i], per);
                 }
         
-                shapes.shapeRecords = this.buildEdges(per);
+                shape.shapeRecords = this.buildEdges(per);
         
-                var bounds = shapeUtils.calculateShapeBounds(shapes.shapeRecords);
+                var bounds = shapeUtils.calculateShapeBounds(shape.shapeRecords);
         
                 return {
                     bounds,
-                    shapes
+                    shape,
+                    shapeRender: null
                 };
             }
         }
@@ -7810,7 +7893,7 @@ var PinkFie = (function(moduleResults) {
                     if (!this.is_html) {
                         this.text_html = ("" + textInfo.initialText);
                     } else {
-                        this.text_html = "TextField" + textInfo.id;
+                        this.text_html = "TextField";
                     }
                 }
                 if ("textColor" in textInfo) {
@@ -7894,6 +7977,8 @@ var PinkFie = (function(moduleResults) {
             constructor() {
                 super();
                 this.__size = [0, 0];
+
+                this._ratio = 0;
         
                 this._debug_colorDisplayType = [255, 100, 100, 1];
                 this.displayType = "Video";
@@ -7917,9 +8002,12 @@ var PinkFie = (function(moduleResults) {
                     yMax: this.__size[1] * 20,
                 };
             }
+            setRatio(ratio) {
+                this._ratio = ratio;
+            }
             renderSelf() {
                 var renderer = this.movieplayer.renderer;
-        
+
                 this.movieplayer.transformStack.stackPush([(this.__size[0] * 20), 0, 0, (this.__size[1] * 20), 0, 0], [1, 0, 0, 1, 0, 0, 0, 0]);
         
                 var m2 = this.movieplayer.transformStack.getMatrix();
@@ -7930,7 +8018,9 @@ var PinkFie = (function(moduleResults) {
                 renderer.renderShape(this.movieplayer.backgroundShapeRender);
         
                 this.movieplayer.transformStack.stackPop();
-        
+                this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0, 0, 0, 0]);
+                this.movieplayer.drawTextW(0, 0, 8, this.staticData.data.codec + ": " + this._ratio);
+                this.movieplayer.transformStack.stackPop();
             }
         }
         class DefineVideoData {
@@ -7947,6 +8037,7 @@ var PinkFie = (function(moduleResults) {
                 var v = VideoDisplay.createNew(this.movieplayer);
                 v.__size[0] = this.width;
                 v.__size[1] = this.height;
+                v.staticData = this;
                 return v;
             }
             preloadSwfFrame(tag, stage) {
@@ -8161,6 +8252,12 @@ var PinkFie = (function(moduleResults) {
                     // Initialize new child.
                     child.postInstantiation(null, null, false);
                     child.runFrameAvm1();
+
+                    if (this.movieplayer.useLastBound) {
+                        child.debugSetLastMC(true, child.getMatrix(), child.getColorTransform());
+                        child.debugSetLastBound(true, child.selfBounds());
+                    }
+                    
                     this.replaceAtDepth(depth, child);
                 }
         
@@ -8809,6 +8906,11 @@ var PinkFie = (function(moduleResults) {
                     // In AVM2 we add them in `construct_frame` so calling this causes
                     // duplicate frames
                     child.runFrameAvm1();
+
+                    if (this.movieplayer.useLastBound) {
+                        child.debugSetLastMC(true, child.getMatrix(), child.getColorTransform());
+                        child.debugSetLastBound(true, child.selfBounds());    
+                    }
                 } else {
                     console.log("Unable to instantiate display node id, reason being");
                 }
@@ -9020,6 +9122,23 @@ var PinkFie = (function(moduleResults) {
                 } else {
                     console.log("Character id doesn't exist");
                 }
+            }
+            getDisplayTypes() {
+                var resultTypes = {};
+                var characters = this.characters;
+                for (var i = 0; i < characters.length; i++) {
+                    var c = characters[i];
+                    if (c) {
+                        var displayType = c.displayType;
+                        if (displayType) {
+                            if (!(displayType in resultTypes)) {
+                                resultTypes[displayType] = [];
+                            }
+                            resultTypes[displayType].push(c);
+                        }    
+                    }
+                }
+                return resultTypes;
             }
             instantiateDisplayObject(character) {
                 switch (character.displayType) {
@@ -9965,6 +10084,9 @@ var PinkFie = (function(moduleResults) {
                 this.texture = canvas;
             }
         }
+        function sameBlendMode(first, second) {
+            return first == second;
+        }
         class RenderCanvas2d {
             constructor() {
                 this.canvas = document.createElement("canvas");
@@ -9982,6 +10104,7 @@ var PinkFie = (function(moduleResults) {
         
                 this.maskState = MaskState.DrawContent;
                 this.maskersInProgress = 0;
+                this.blendModes = ["normal"];
         
                 this.tmpCanvas = document.createElement("canvas");
                 this.tmpCtx = this.tmpCanvas.getContext("2d");
@@ -10129,6 +10252,46 @@ var PinkFie = (function(moduleResults) {
                     this.maskState = MaskState.DrawContent;
                 }
             }
+            pushBlendMode(blendMode) {
+                if (!sameBlendMode(this.blendModes[this.blendModes.length - 1], blendMode)) this.applyBlendMode(blendMode);
+                this.blendModes.push(blendMode);
+            }
+            popBlendMode() {
+                let old = this.blendModes.pop();
+                let current = this.blendModes[this.blendModes.length - 1] || "normal";
+                if (!sameBlendMode(old, current)) this.applyBlendMode(current);
+            }
+            applyBlendMode(blendMode) {
+                var mode = 'source-over';
+                switch(blendMode) {
+                    case "multiply":
+                        mode = 'multiply';
+                        break;
+                    case "screen":
+                        mode = 'screen';
+                        break;
+                    case "lighten":
+                        mode = 'lighten';
+                        break;
+                    case "darken":
+                        mode = 'darken';
+                        break;
+                    case "difference":
+                    case "subtract":
+                        mode = 'difference';
+                        break;
+                    case "add":
+                        mode = 'lighter';
+                        break;
+                    case "overlay":
+                        mode = 'overlay';
+                        break;
+                    case "hardlight":
+                        mode = 'hard-light';
+                        break;
+                }
+                this.ctx.globalCompositeOperation = mode;
+            }
             renderTexture(texture, isSmoothed) {
                 if (this.maskersInProgress <= 1) {
                     var isA = this.isAllowImageColorTransform();
@@ -10260,7 +10423,7 @@ var PinkFie = (function(moduleResults) {
         
                 this.matrix = [1, 0, 0, 1, 0, 0];
                 this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
-                this.blendMode = null;
+                this.blendMode = "normal";
                 this.filters = [];
         
                 this.id = 0;
@@ -10294,6 +10457,10 @@ var PinkFie = (function(moduleResults) {
                 this.displayType = "Base";
                 this.coll = [0, 0, 0, 1];
                 this._debug_colorDisplayType = [0, 0, 0, 1];
+                this._debug_boundsLast = { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
+                this._debug_matrix = [0,0,0,0,0,0];
+                this._debug_colorTransform = [0,0,0,1,255,255,255,0];
+
             }
             boundsMatrix(bounds, matrix) {
                 var no = Number.MAX_VALUE;
@@ -10345,6 +10512,29 @@ var PinkFie = (function(moduleResults) {
                 this.matrix[4] = matrix[4];
                 this.matrix[5] = matrix[5];
             }
+            getBlendMode() {
+                return this.blendMode;
+            }
+            setBlendMode(mode) {
+                this.blendMode = mode;
+            }
+
+            getRenderMatrix() {
+                /*return [
+                    this.matrix[0] + (Math.random() * 0.0025),
+                    this.matrix[1],
+                    this.matrix[2],
+                    this.matrix[3] + (Math.random() * 0.0025),
+                    this.matrix[4] - (Math.random() * 10),
+                    this.matrix[5] - (Math.random() * 10),
+                ]*/
+                return this.movieplayer.useLastBound ? this._debug_matrix : this.matrix;
+            }
+            getRenderColorTransform() {
+                return this.movieplayer.useLastBound ? this._debug_colorTransform : this.colorTransform;
+                //return this.colorTransform;
+            }
+
             getDepth() {
                 return this.depth;
             }
@@ -10492,10 +10682,13 @@ var PinkFie = (function(moduleResults) {
                     if ("colorTransform" in placeObject) {
                         this.applyColorTransform(placeObject.colorTransform); // ColorTransform
                     }
+                    if ("blendMode" in placeObject) {
+                        this.setBlendMode(placeObject.blendMode);
+                    }
                     if ("visible" in placeObject) { // Visible
                         this.setVisible(!!placeObject.visible);
                     }
-                    if (this.displayType == "MorphShape") {
+                    if (this.displayType == "MorphShape" || this.displayType == "Video") {
                         if ("ratio" in placeObject) {
                             this.setRatio(placeObject.ratio);
                         }
@@ -10527,14 +10720,78 @@ var PinkFie = (function(moduleResults) {
                 this.renderBase();
             }
             renderBase() {
-                this.movieplayer.transformStack.stackPush(this.getMatrix(), this.getColorTransform());
+                let blendMode = this.getBlendMode();
+                let blendNotNormal = (blendMode != "normal");
+                if (blendNotNormal) this.movieplayer.renderer.pushBlendMode(blendMode);
+                this.movieplayer.transformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
                 this.renderSelf();
+                if (blendNotNormal) this.movieplayer.renderer.popBlendMode();
                 this.movieplayer.transformStack.stackPop();
             }
             renderSelf() { }
+            debugSetLastBound(isSet, b) {
+                if (isSet) {
+                    this._debug_boundsLast.xMin = b.xMin;
+                    this._debug_boundsLast.yMin = b.yMin;
+                    this._debug_boundsLast.xMax = b.xMax;
+                    this._debug_boundsLast.yMax = b.yMax;  
+                } else {
+                    var val = (this.movieplayer.wth == 1) ? 0.04 : this.movieplayer.getTickForFrameRate();
+                    this._debug_boundsLast.xMin += (b.xMin - this._debug_boundsLast.xMin) * val;
+                    this._debug_boundsLast.yMin += (b.yMin - this._debug_boundsLast.yMin) * val;
+                    this._debug_boundsLast.xMax += (b.xMax - this._debug_boundsLast.xMax) * val;
+                    this._debug_boundsLast.yMax += (b.yMax - this._debug_boundsLast.yMax) * val;    
+                }
+            }
+            debugSetLastMC(isSet, m, c) {
+                if (isSet) {
+                    if (this.movieplayer.wth == 1) {
+                        this._debug_matrix[0] = Math.random();
+                        this._debug_matrix[1] = Math.random();
+                        this._debug_matrix[2] = Math.random();
+                        this._debug_matrix[3] = Math.random();
+                        this._debug_matrix[4] = m[4];
+                        this._debug_matrix[5] = m[5];
+                    } else {
+                        this._debug_matrix[0] = m[0];
+                        this._debug_matrix[1] = m[1];
+                        this._debug_matrix[2] = m[2];
+                        this._debug_matrix[3] = m[3];
+                        this._debug_matrix[4] = m[4];
+                        this._debug_matrix[5] = m[5];
+                    }
+                    this._debug_colorTransform[0] = c[0];
+                    this._debug_colorTransform[1] = c[1];
+                    this._debug_colorTransform[2] = c[2];
+                    this._debug_colorTransform[3] = c[3];
+                    this._debug_colorTransform[4] = c[4];
+                    this._debug_colorTransform[5] = c[5];
+                    this._debug_colorTransform[6] = c[6];
+                    this._debug_colorTransform[7] = c[7];
+                } else {
+                    var val = (this.movieplayer.wth == 1) ? 0.04 : this.movieplayer.getTickForFrameRate();
+                    this._debug_colorTransform[0] += ((c[0] - this._debug_colorTransform[0]) * val);
+                    this._debug_colorTransform[1] += ((c[1] - this._debug_colorTransform[1]) * val);
+                    this._debug_colorTransform[2] += ((c[2] - this._debug_colorTransform[2]) * val);
+                    this._debug_colorTransform[3] += ((c[3] - this._debug_colorTransform[3]) * val);
+                    this._debug_colorTransform[4] += ((c[4] - this._debug_colorTransform[4]) * val);
+                    this._debug_colorTransform[5] += ((c[5] - this._debug_colorTransform[5]) * val);
+                    this._debug_colorTransform[6] += ((c[6] - this._debug_colorTransform[6]) * val);
+                    this._debug_colorTransform[7] += ((c[7] - this._debug_colorTransform[7]) * val);
+                    if (this.movieplayer.wth == 2) return;
+                    this._debug_matrix[0] += ((m[0] - this._debug_matrix[0]) * val);
+                    this._debug_matrix[1] += ((m[1] - this._debug_matrix[1]) * val);
+                    this._debug_matrix[2] += ((m[2] - this._debug_matrix[2]) * val);
+                    this._debug_matrix[3] += ((m[3] - this._debug_matrix[3]) * val);
+                    this._debug_matrix[4] += ((m[4] - this._debug_matrix[4]) * val);
+                    this._debug_matrix[5] += ((m[5] - this._debug_matrix[5]) * val);
+                }
+            }
             debugRender(ctx) {
-                this.movieplayer.debugTransformStack.stackPush(this.getMatrix(), this.getColorTransform());
+                this.movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
                 var b = this.selfBounds();
+                if (this.movieplayer.useLastBound) 
+                    b = this._debug_boundsLast;
                 var bm = this.boundsMatrix(b, this.movieplayer.debugTransformStack.getMatrix());
                 var coll = this._debug_colorDisplayType;
                 var collC = [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0];
@@ -10553,7 +10810,7 @@ var PinkFie = (function(moduleResults) {
                 ctx.renderShape(this.movieplayer.debugRectLineShapeRender);
                 this.movieplayer.transformStack.stackPop();
                 this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
-                this.movieplayer.drawTextW(bm.xMin, bm.yMin - 15, 0.25, this.getDisplayName());
+                this.movieplayer.drawTextW(bm.xMin, (bm.yMin - (15 * this.movieplayer.getScaleBoundsText())), 0.25 * this.movieplayer.getScaleBoundsText(), this.getDisplayName());
                 this.movieplayer.transformStack.stackPop();
                 this.movieplayer.transformStack.stackPop();
                 this.movieplayer.debugTransformStack.stackPop();
@@ -10781,7 +11038,7 @@ var PinkFie = (function(moduleResults) {
                 }
             }
             debugRender(ctx) {
-                this.movieplayer.debugTransformStack.stackPush(this.getMatrix(), this.getColorTransform());
+                this.movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
                 var children = this.iterRenderList();
                 for (let i = 0; i < children.length; i++) {
                     const child = children[i];
@@ -10790,11 +11047,16 @@ var PinkFie = (function(moduleResults) {
                     }
                 }
                 if (!this.isRoot()) {
-                    var bm = this.boundsMatrix(this.selfBounds(), this.movieplayer.debugTransformStack.getMatrix());
+                    var b = this.selfBounds();
+                    if (this.movieplayer.useLastBound) {
+                        this.debugSetLastBound(false, b);
+                        b = this._debug_boundsLast;
+                    }
+                    var bm = this.boundsMatrix(b, this.movieplayer.debugTransformStack.getMatrix());
                     var coll = this._debug_colorDisplayType;
                     this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], this.movieplayer.debugTransformStack.getColorTransform());
                     this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
-                    this.movieplayer.drawTextW(bm.xMin, bm.yMin - 28, 0.25, this.getDisplayName());
+                    this.movieplayer.drawTextW(bm.xMin, bm.yMin - (28 * this.movieplayer.getScaleBoundsText()), (0.25 * this.movieplayer.getScaleBoundsText()), this.getDisplayName());
                     this.movieplayer.transformStack.stackPop();
                     this.movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 100, 0, 0, (bm.yMax - bm.yMin) / 100, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
                     ctx.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
@@ -11034,13 +11296,12 @@ var PinkFie = (function(moduleResults) {
             while((h - _pos_buffer) < sample_length) {
                 try {
                     if (!isEnd) {
-                        if (sample_num == 0) {
+                        if (sample_num == 0) 
                             for (let i = 0; i < num_channels; i++) {
                                 const ch = _channels[i];
                                 ch.sample = byteStream.getSIBits(16);
                                 ch.stepIndex = byteStream.getUIBits(6);
                             }
-                        }
                         sample_num = (sample_num + 1) % 4095;
                         for (let i2 = 0; i2 < num_channels; i2++) {
                             const ch = _channels[i2];
@@ -11048,31 +11309,17 @@ var PinkFie = (function(moduleResults) {
                             let data = byteStream.getUIBits(bits_per_sample);
                             let magnitude = (data & (sign_mask - 1));
                             let delta = decoder(step, magnitude);
-                            var result_sample = 0;
-                            if (data & sign_mask) {
-                                result_sample = (ch.sample - delta);
-                                if (result_sample < -32768) {
-                                    result_sample = -32768;
-                                }
-                            } else {
-                                result_sample = (ch.sample + delta);
-                                if (result_sample > 32767) {
-                                    result_sample = 32767;
-                                }
-                            }
-                            ch.sample = result_sample;
+                            if (data & sign_mask) ch.sample -= delta;
+                            else ch.sample += delta;
+                            if (ch.sample < -32768) ch.sample = -32768;
+                            if (ch.sample > 32767) ch.sample = 32767;
                             ch.stepIndex += SoundDecoder.INDEX_TABLE[bits_per_sample - 2][magnitude];
-                            if (ch.stepIndex > 88) {
-                                ch.stepIndex = 88;
-                            }
-                            if (ch.stepIndex < 0) {
-                                ch.stepIndex = 0;
-                            }
+                            if (ch.stepIndex > 88) ch.stepIndex = 88;
+                            if (ch.stepIndex < 0) ch.stepIndex = 0;
                         }
                         left = _channels[0].sample;
-                        if (num_channels == 2) {
-                            right = _channels[1].sample;
-                        }
+                        if (num_channels == 2) right = _channels[1].sample;
+                        
                     }
                 } catch(e) {
                     // ignored
@@ -11081,9 +11328,7 @@ var PinkFie = (function(moduleResults) {
                     isEnd = true;
                 }
                 _left[h] = left / 0x8000;
-                if (num_channels == 2) {
-                    _right[h] = right / 0x8000;
-                }
+                if (num_channels == 2) _right[h] = right / 0x8000;
                 h += 1;
             }
             return h;

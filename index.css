@@ -5,7 +5,6 @@ html {
 a {
   cursor: pointer;
   text-decoration: underline;
-  transition: 0.2s;
 }
 a:hover{
     opacity: 0.8;
@@ -17,12 +16,6 @@ a:hover{
 }
 .dark .version {
 	color: rgb(194, 194, 194);
-}
-#pinkfiestage{
-    transition: opacity .2s;
-}
-#demo{
-    transition: opacity .2s;
 }
 
 /* Theme changer */
@@ -71,28 +64,4 @@ a:hover{
     left: 0px;
     width: 100%;
     height: 100%;
-}
-
-#ggprog {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    width: 100%;
-    height: 100%;
-    transition: opacity .2s;
-}
-#ggprog[state=loaded] {
-  opacity: 0;
-}
-#ggprogbar {
-    width: 0%;
-    height: 100%;
-    background-color: rgba(100, 100, 100, 0.75);
-    transition: .2s;
-}
-#ggprog[state=error] #ggprogbar {
-  background: rgba(253, 0, 0, 0.75);
 }

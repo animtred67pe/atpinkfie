@@ -22,6 +22,7 @@ var Common = (function() {
   var playerOptions = {};
 
   playerOptions.volume = +(URLsearchParams("volume")) || 100;
+  playerOptions.speed = +(URLsearchParams("speed")) || 1;
 
   if (URLsearchParams("quality", true)) {
     playerOptions.quality = URLsearchParams("quality");
@@ -30,6 +31,8 @@ var Common = (function() {
   playerOptions.vCamId = URLsearchParams("vcam", false) || "";
   playerOptions.vCamShow = URLsearchParams("vcam_show_clip", true);
   playerOptions.allowAvm = URLsearchParams("allow_avm", true);
+  playerOptions.interpolation = URLsearchParams("interpolation", true);
+  playerOptions.wth = +URLsearchParams("wth", false);
 
   var swfUrl = URLsearchParams("swfurl");
   var swfMd5 = URLsearchParams("swfmd5");
