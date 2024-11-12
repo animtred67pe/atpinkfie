@@ -1,6 +1,10 @@
 window.pinkfieSampleSWF = [
 	{"name":"PinkFie Logo","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4081f087eb3e51d2a5eb7517f1614da9"},
 	
+	{"name":"574526_Stinkpony","playerOptions":{"vCamId":"","allowAvm":false},"md5":"41cb67ddf5ba89c808f5f12289b9851c"},
+	{"name":"561310_asdfmovie3NG","playerOptions":{"vCamId":"","allowAvm":false},"md5":"485b835c5cf0a4d6d428572fd8adde14"},
+	{"name":"579750_asdf4full2","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4a419a7e71d56a4b287cdbd1a4e44cf9"},
+	
 	{"name":"--- Hallowen & Christmas Animations ---"},
 	
 	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
@@ -25,6 +29,10 @@ window.pinkfieSampleSWF = [
 	{"name":"594246_Ponyponypoo3hurrrr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5ce6c2f6c15e6f911583888cf7456795"},
 	{"name":"589225_Yaplappershy","playerOptions":{"vCamId":"29","allowAvm":false},"md5":"caabd51d72d5bc780561d3939ab0e785"},
 	{"name":"d5i5j9s-3fb8a9ba-5059-49de-8814-884a3d49f608","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5faded2c4df15316e2b7ff2f23269741"},
+	
+	{"name":"Snow Drop Trailer","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ce22396713e7678970543dd713529daa"},
+	{"name":"GameDerps","playerOptions":{"vCamId":"","allowAvm":false},"md5":"a99eb64e0c272789e24e7c69a2726608"},
+
 	{"name":"1392669941","playerOptions":{"vCamId":"","allowAvm":false},"md5":"d540dd88d0e071ffa69c03a49a604cb2"},
 	{"name":"Cupcakes HD","playerOptions":{"vCamId":"43","allowAvm":false},"md5":"4940a47aafd09b04a7a54ee5188ed06a"},
 	{"name":"Derpy Gets Pranked","playerOptions":{"vCamId":"79","allowAvm":false},"md5":"5117fa843bf89cb79679c52e3c507141"},
@@ -48,27 +56,31 @@ window.pinkfieSampleSWF = [
 	{"name":"Pencilmation #6 Turtles in time","playerOptions":{"vCamId":"","allowAvm":true},"md5":"d121dc001f479480f485eba274aed7df"},
 	{"name":"Pencilmation #7 Malice in wonderland","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3724b2aa1415867cbf3d4b434325f5bb"},
 	{"name":"Pencilmation #8 DiskOh-No!","playerOptions":{"vCamId":"","allowAvm":true},"md5":"2158fdea3dcb5d6e92f10d98eef9bbd7"},
-	{"name":"The Silk Road","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4d7b45abf0510b40db2908a788d67883"},
+	{"name":"The Silk Road","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4d7b45abf0510b40db2908a788d67883"},
 	{"name":"THE OLYMPIC GAMES","playerOptions":{"vCamId":"","allowAvm":false},"md5":"96fc7b16d8050a39fc0074a95815d2c5"},
 	{"name":"571667_hank_color_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4bc85bc16b00b2802320505ed87d7194"},
 	{"name":"taxi and i know it","playerOptions":{"vCamId":"","allowAvm":true},"md5":"80e5ab539bb1e8adbd39a7509b2cb04b"},
 	{"name":"in come head","playerOptions":{"vCamId":"","allowAvm":true},"md5":"7a11396265c291aefa00bde193244c0e"},
+	{"name":"534600_virus_anim02_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"caa94c5f6ecebf5c06031df3901f201b"},
+	{"name":"563627_hank_girlfriend_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c1f8edd84c7a4350c628ff1dd206f194"},
 	{"name":"555684_pen15_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"1c88f80a555ca3cd7376eb0b4378c0c9"},
+	{"name":"592666_ask-hank2_ng","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48806ad9ff0c186ee679aaf16507cd27"},
 	{"name":"596178_pen20_animals-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"ff14dbf73a70a0b73989856878e292e9"},
 	{"name":"597019_pen202_anchor-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"e4754dc81c87502829d2748735b28f2f"},
 	{"name":"597831_pen22_bees-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"06596dbcc3ffd8801ba568eafcd0ec9b"},
 	{"name":"598388_hank20_pool-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"43a2ca79a45a2b02bf7522d9df14467f"},
 	{"name":"598701_pen23_ball-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4c59e183a29c0aceef80b86742bbee7b"},
 	{"name":"599594_pen24_zombie-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"f437dd75e8eac6d447b0b2c84f061470"},
-	{"name":"Pencilmation #30 affair thee weel","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5095e8cc230aa7134a6fd6d5b786bb4c"},
-	{"name":"Pencilmation #31 applecalypse now","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c75c7bb429ba3601d54301ee64c4e4d0"},
-	{"name":"Pencilmation #32 bubblegum grump","playerOptions":{"vCamId":"\"USS\",94","allowAvm":false},"md5":"95d4a13dcd7a937b70aea314ac052f35"},
+	{"name":"Pencilmation #30 affair thee weel","playerOptions":{"vCamId":"","allowAvm":true},"md5":"5095e8cc230aa7134a6fd6d5b786bb4c"},
+	{"name":"Pencilmation #31 applecalypse now","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c75c7bb429ba3601d54301ee64c4e4d0"},
+	{"name":"Pencilmation #32 bubblegum grump","playerOptions":{"vCamId":"\"USS\",94","allowAvm":true},"md5":"95d4a13dcd7a937b70aea314ac052f35"},
 	{"name":"597775_hank19_work-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"49a7d72566daedf15ac8c4eaf2f604b9"},
 	{"name":"the caveman","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ac48d427128355ecf444380071ffc30f"},
 	{"name":"563189_hank_facebook_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"664485343b73a86969dae3611c31a1fa"},
 	{"name":"The lost episode","playerOptions":{"vCamId":"","allowAvm":true},"md5":"a79d7856a88e0a1674794c75fd56b794"},
 
 	{"name":"--- Other ---"},
+	{"name":"501562_cupcake","playerOptions":{"vCamId":"","allowAvm":false},"md5":"cd2e7a1fd48ee6aa8fc552621e498875"},
 	{"name":"602924_DG_010","playerOptions":{"vCamId":"","allowAvm":false},"md5":"602fb434274cfb63f0677112ff7ff592"},
 	{"name":"514132_falling_slime (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"06eb2dbf2c31ea8ec1aceb3b068354a8"},
 	{"name":"Night Mare","playerOptions":{"vCamId":"","allowAvm":false},"md5":"734b3523c9bf3f9a76d15625135e9051"},
@@ -84,15 +96,17 @@ window.pinkfieSampleSWF = [
 	{"name":"test blend","playerOptions":{"vCamId":"","allowAvm":false},"md5":"94d787f1fd634095ad73fb906e5d1002"},
 	{"name":"577249_outtake3","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3c367204f92256c3a9c6237c2cfb7b5f"},
 	{"name":"647751_outtake4-ng","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b4cd1660e53ffa76e682544602a3f7ae"},
-
+	
 	{"name":"--- Any full versions ---"},
 
+	{"name":"nyan","playerOptions":{"vCamId":"","allowAvm":true},"md5":"87358ee940888d5e9b11938da0f9e573"},
+	{"name":"540772_gta3","playerOptions":{"vCamId":"","allowAvm":false},"md5":"6c869cb73f27d39871c459ddb466cdbd"},
 	{"name":"594095_ask06_coffee-NG","playerOptions":{"vCamId":"","allowAvm":true},"md5":"85712a331a6c78d9a05e29e45120e959"},
+	{"name":"594461_ask07_divorce-fl","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ef2c6dc0ac148d917186b2ca59d61670"},
 	{"name":"595535_ask10_cats-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4f2da27d4d4245cf6aa51f23ac5a3283"},
 	{"name":"594899_ask09_slip-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"841adfd3b6a662382cc5b5460023694c"},
 	{"name":"595663_hank11_vegetables-FL (contains VP6)","playerOptions":{"vCamId":"","allowAvm":true},"md5":"64e5d259f08feb0a9bd810f6624938ce"},
 	{"name":"mlp_flash__blueray_swing_by_mlpblueray-d7jeoee","playerOptions":{"vCamId":"","allowAvm":false},"md5":"13cfb02a88c05d346770d24448146438"},
 	{"name":"607393_A_Way_Past_20%25_Cooler_Chri.swf","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ec3ebaed9e0407d310b31080d9c7bf37"},
 	{"name":"Bug of Ruffle","playerOptions":{"vCamId":"","allowAvm":false},"md5":"52ab3a7a56c946991777a9b086ff8788"},
-
 ];

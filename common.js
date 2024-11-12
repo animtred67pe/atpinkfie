@@ -39,8 +39,6 @@ var Common = (function() {
 
   if (!swfUrl) {
     if (URLsearchParams("apology", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/50f0d850bca885ee5e6196597cf3964c.wav/get/";
-    if (URLsearchParams("snowdrop", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/ce22396713e7678970543dd713529daa.wav/get/";
-    if (URLsearchParams("gamederps", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/a99eb64e0c272789e24e7c69a2726608.wav/get/";
     if (swfMd5) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/" + swfMd5 + ".wav/get/";
   }
   
