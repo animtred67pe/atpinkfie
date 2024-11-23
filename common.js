@@ -38,11 +38,17 @@ var Common = (function() {
   var swfMd5 = URLsearchParams("swfmd5");
 
   if (!swfUrl) {
-    if (URLsearchParams("apology", true)) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/50f0d850bca885ee5e6196597cf3964c.wav/get/";
-    if (swfMd5) swfUrl = "https://assets.scratch.mit.edu/internalapi/asset/" + swfMd5 + ".wav/get/";
+    if (URLsearchParams("apology", true)) swfUrl = ["50f0d850bca885ee5e6196597cf3964c"];
+    if (swfMd5) swfUrl = swfMd5.split("_");
   }
   
   var autoplay = URLsearchParams("autoplay", true);
+
+  if (URLsearchParams("viral", true)) {
+    playerOptions.wth = 1;
+    playerOptions.speed = 2;
+    playerOptions.quality = "low";
+  }
 
   return {
     playerOptions: playerOptions,

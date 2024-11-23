@@ -220,7 +220,7 @@
 					var name = infoSample.name;
 					if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
 					if (infoSample.md5) {
-						loadSwfURL("https://assets.scratch.mit.edu/internalapi/asset/" + infoSample.md5 + ".wav/get/");
+						loadSwfURL(infoSample.md5.split("_"));
 					} else if (infoSample.url) {
 						loadSwfURL(infoSample.url);
 					} else if (infoSample.file) {

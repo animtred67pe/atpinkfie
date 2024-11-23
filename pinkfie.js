@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.32 (2024-11-11)
+ * v1.3.33 (2024-11-23)
  * 
  * Made in Peru
  * 
@@ -4654,23 +4654,10 @@ var PinkFie = (function(moduleResults) {
                 };
                 loader.load();
             }
-            fetchSwfUrl(url, callback, callbackProgress) {
+            fetchSwfMd5(md5, callback, callbackProgress) {
                 var xhr = new XMLHttpRequest();
                 xhr.onload = function () {
-                    if (xhr.status !== 200) {
-                        var str = '';
-                        var dat = new Uint8Array(xhr.response);
-                        for (let i = 0; i < dat.length; i++) {
-                            const a = dat[i];
-                            str += String.fromCharCode(a);
-                        }
-                    }
-                    var dat = new Uint8Array(xhr.response);
-                    if (dat[0] == 82) {
-                        callback(new Blob([new Uint8Array(dat.buffer.slice(0x2c))]));
-                    } else {
-                        callback(new Blob([dat]));
-                    }
+                    callback(new Uint8Array(xhr.response.slice(0x2c)));
                 };
                 xhr.onprogress = function (e) {
                     if (callbackProgress) callbackProgress(e.loaded / e.total);
@@ -4679,8 +4666,69 @@ var PinkFie = (function(moduleResults) {
                     callback(null);
                 };
                 xhr.responseType = "arraybuffer";
-                xhr.open("GET", url);
+                xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
                 xhr.send();
+            }
+            fetchSwfUrl(url, callback, callbackProgress) {
+                var _this = this;
+                var xhr = new XMLHttpRequest();
+                if (Array.isArray(url)) {
+                    var result = [];
+                    var id_md5 = 0;
+                    function _excgfd() {
+                        if (result.length > 1) {
+                            var len = 0;
+                            for (var i = 0; i < result.length; i++) {
+                                len += result[i].length;
+                            }
+                            var res = new Uint8Array(len);
+                            var offest = 0;
+                            for (var i = 0; i < result.length; i++) {
+                                res.set(result[i], offest);
+                                offest += result[i].length;
+                            }
+                            callback(new Blob([res]), null);
+                        } else {
+                            callback(new Blob([result[0]]), null);
+                        }
+                    }
+                    function _next() {
+                        _this.fetchSwfMd5(url[id_md5], function(res) {
+                            if (!res) {
+                                callback(null, "failed md5");
+                                return;
+                            }
+                            id_md5++;
+                            result.push(res);
+                            if (id_md5 >= url.length) {
+                                _excgfd();
+                            } else {
+                                _next();
+                            }
+                        }, function(_p) {
+                            if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length));
+                        });
+                    }
+                    _next();
+                } else {
+                    xhr.onload = function () {
+                        if (xhr.status !== 200) {
+                            callback(null, xhr.status || xhr.statusText);
+                        } else {
+                            var dat = new Uint8Array(xhr.response);
+                            callback(new Blob([dat]), null);
+                        }
+                    };
+                    xhr.onprogress = function (e) {
+                        if (callbackProgress) callbackProgress(e.loaded / e.total);
+                    };
+                    xhr.onerror = function () {
+                        callback(null, "unknown");
+                    };
+                    xhr.responseType = "arraybuffer";
+                    xhr.open("GET", url);
+                    xhr.send();
+                }
             }
             loadSwfFromFile(file) {
                 this.beginLoadingSWF();
@@ -4690,16 +4738,16 @@ var PinkFie = (function(moduleResults) {
             }
             loadSwfFromURL(url) {
                 this.beginLoadingSWF();
-                this.loadingContainerProgressText.textContent = "Loading SWF Data";
+                this.loadingContainerProgressText.textContent = "Loading SWF URL";
                 var _this = this;
-                this.fetchSwfUrl(url, function (file) {
+                this.fetchSwfUrl(url, function (file, status) {
                     _this.swfData = file;
                     _this.__fdgdf.style.display = "";
                     if (file) {
                         var loader = new Loader(file);
                         _this.loadLoader(loader);
                     } else {
-                        _this.loadingContainerProgressText.textContent = "Failed Loading SWF Data";
+                        _this.loadingContainerProgressText.textContent = "Failed to load SWF: " + status;
                     }
                 }, function(r) {
                     _this.loadingContainerProgress.style.width = (r * 100) + "%";
@@ -5261,7 +5309,7 @@ var PinkFie = (function(moduleResults) {
                 var value = 0;
                 for (var i = 0; i < length; i++) {
                     if (this.bit_offset === 8) {
-                        this.bit_buffer = this.readNumber(1);
+                        this.bit_buffer = this.stream[this.byte_offset++];
                         this.bit_offset = 0;
                     }
                     value |= (this.bit_buffer & (1 << this.bit_offset++) ? 1 : 0) << i;
@@ -6279,7 +6327,7 @@ var PinkFie = (function(moduleResults) {
         
                 var swfparser = new SwfParser(swfData);
                 swfparser.onprogress = function (fs) {
-                    _this.progressText = ((fs[0] > 0) ? 'Building Tags ' : 'Compressing SWF ') + (getByteText(swfparser.getProgress().bytesLoaded) + " / " + getByteText(swfparser.getProgress().bytesTotal));
+                    _this.progressText = ((fs[0] > 0) ? 'Building Tags ' : 'Descompressing SWF ') + (getByteText(swfparser.getProgress().bytesLoaded) + " / " + getByteText(swfparser.getProgress().bytesTotal));
                     if (_this.onprogress) {
                         _this.onprogress(fs);
                     }
@@ -10770,7 +10818,7 @@ var PinkFie = (function(moduleResults) {
                     this._debug_colorTransform[6] = c[6];
                     this._debug_colorTransform[7] = c[7];
                 } else {
-                    var val = (this.movieplayer.wth == 1) ? 0.04 : this.movieplayer.getTickForFrameRate();
+                    var val = (this.movieplayer.wth == 1) ? (0.04 * (this.movieplayer.speed / 2)) : this.movieplayer.getTickForFrameRate();
                     this._debug_colorTransform[0] += ((c[0] - this._debug_colorTransform[0]) * val);
                     this._debug_colorTransform[1] += ((c[1] - this._debug_colorTransform[1]) * val);
                     this._debug_colorTransform[2] += ((c[2] - this._debug_colorTransform[2]) * val);
@@ -11553,7 +11601,7 @@ var PinkFie = (function(moduleResults) {
         Avm1Activation.prototype.runActions = function() {
             var caches = this.caches;
             var cLength = caches.length;
-            console.log(caches);
+            //console.log(caches);
             this.pos = 0;
             while(this.pos < cLength) { 
                 var aScript = caches[this.pos];
@@ -11567,8 +11615,8 @@ var PinkFie = (function(moduleResults) {
                         }
                     }
                 } else {
-                    console.log(aScript);
-                    console.log(Avm1Activation.actionLibrary[aScript.opcode]);
+                    //console.log(aScript);
+                    //console.log(Avm1Activation.actionLibrary[aScript.opcode]);
                     return Avm1ValueTypes.originalUndefined;
                 }
                 this.pos = aScript.end;

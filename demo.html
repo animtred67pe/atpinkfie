@@ -253,7 +253,7 @@
 				sampleSWFpkf.value = name;
 				if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
 				if (infoSample.md5) {
-					loadSwfUrl("https://assets.scratch.mit.edu/internalapi/asset/" + infoSample.md5 + ".wav/get/");
+					loadSwfUrl(infoSample.md5.split("_"));
 				} else if (infoSample.url) {
 					loadSwfUrl(infoSample.url);
 				} else if (infoSample.file) {
