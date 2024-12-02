@@ -1,24 +1,24 @@
 window.pinkfieSampleSWF = [
 	{"name":"PinkFie Logo","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4081f087eb3e51d2a5eb7517f1614da9"},
-	
-	{"name":"574526_Stinkpony","playerOptions":{"vCamId":"","allowAvm":false},"md5":"41cb67ddf5ba89c808f5f12289b9851c"},
-	{"name":"561310_asdfmovie3NG","playerOptions":{"vCamId":"","allowAvm":false},"md5":"485b835c5cf0a4d6d428572fd8adde14"},
-	{"name":"579750_asdf4full2","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4a419a7e71d56a4b287cdbd1a4e44cf9"},
-	
-	{"name":"--- Hallowen & Christmas Animations ---"},
-	
-	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
-	{"name":"Pencilmation xmas","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5b7b0a52434bb4933c57c258fc2379d2"},
-	{"name":"586719_Cupcakes","playerOptions":{"vCamId":"","allowAvm":false},"md5":"0e213e937d88614a214adc9fc52ec6df"},
-	{"name":"586435_derpychristmas_Scene_1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48938e6686788cb63c47a3a36a7cd114"},
-	
+
 	{"name":"--- My Little Pony Animations ---"},
 	
-	{"name":"584966_derpycardcaptor (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c1235a2f67fbb40c92f290156db43319"},
+	{"name":"d4y9q8g-9ebe2d3f-fb4f-4ad8-ace2-c1b7fce7b264","playerOptions":{"vCamId":"","allowAvm":true},"md5":"59543b72f58ba78ac00dea979ee01255"},
+	{"name":"mlp_thinking_with_portals__delivery_service_by_yudhaikeledai-d4nnv2q","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b9930177ade6652d22eb3e0951d36ea9"},
+	{"name":"mlp_thinking_with_portals__prank_by_yudhaikeledai-d4n7vum","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b102fa02a6e5dcdbc5c4302559f2d919"},
+	{"name":"mlp_thinking_with_portals__home_alone_by_yudhaikeledai-d4umnwu","playerOptions":{"vCamId":"","allowAvm":true},"md5":"14cc86637e421ddbcc8d6b7e6bca0cba"},
+	{"name":"mlp_thinking_with_portals__rainbow_highway_by_yudhaikeledai-d4qxo1z","playerOptions":{"vCamId":"","allowAvm":true},"md5":"f4c95e333c37995e7a8f02b628bdb25e"},
+	{"name":"d4n7vum-e50baa44-324a-4f64-ab0e-7dab395b977b","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b102fa02a6e5dcdbc5c4302559f2d919"},
+	{"name":"mlp_thinking_with_portals__lamp_maintenance_by_yudhaikeledai-d4pc5tl","playerOptions":{"vCamId":"","allowAvm":true},"md5":"947a131884f0072d95dce469953bdf69"},
+
+	{"name":"584966_derpycardcaptor","playerOptions":{"vCamId":"","allowAvm":false},"md5":"c1235a2f67fbb40c92f290156db43319"},
+	{"name":"derpy_cardcaptor_by_alfa995-d4hylo3","playerOptions":{"vCamId":"","allowAvm":false},"md5":"7a87574ceacaa0773849a8ccfc2e9f1d"},
+
 	{"name":"Sonic VS Rainbow Dash","playerOptions":{"vCamId":"","allowAvm":false},"md5":"bc4a7945e41a49c1de24e780dab7ffb3"},
 	{"name":"my_little_pony_dota_2_by_yudhaikeledai","playerOptions":{"vCamId":"","allowAvm":true},"md5":"14b852c9bcc9b5245a39ba30a7d76356"},
 	{"name":"592113_DWTA1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"deba4fdfab28e24c149592311ae87921"},
 	{"name":"the pink aisle by viva reverie","playerOptions":{"vCamId":"12","allowAvm":false},"md5":"045f3ba25aea408172a7309386dab524"},
+	{"name":"we_re_going_for_a_ride_by_greentl-d6svgai","playerOptions":{"vCamId":"61","allowAvm":false},"md5":"1dafcb590a6b955bf1bfba974fa24805"},
 	{"name":"Pony Star Racers","playerOptions":{"vCamId":"64","allowAvm":false},"md5":"88a694068e926ad6de33da4a0352591d"},
 	{"name":"d4dpjxl-2bbe737f-94de-48fe-b4c6-8d589d5e32f3","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"08d8844765e724caef3762d6da335caf"},
 	{"name":"chaotic_wedding_by_mrponiator-d5fw609","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"21ba7e34f6de1d3ce7fc9e0540e4e2d4"},
@@ -29,7 +29,7 @@ window.pinkfieSampleSWF = [
 	{"name":"594246_Ponyponypoo3hurrrr","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5ce6c2f6c15e6f911583888cf7456795"},
 	{"name":"589225_Yaplappershy","playerOptions":{"vCamId":"29","allowAvm":false},"md5":"caabd51d72d5bc780561d3939ab0e785"},
 	{"name":"d5i5j9s-3fb8a9ba-5059-49de-8814-884a3d49f608","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5faded2c4df15316e2b7ff2f23269741"},
-	
+
 	{"name":"Snow Drop Trailer","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ce22396713e7678970543dd713529daa"},
 	{"name":"GameDerps","playerOptions":{"vCamId":"","allowAvm":false},"md5":"a99eb64e0c272789e24e7c69a2726608"},
 
@@ -54,7 +54,14 @@ window.pinkfieSampleSWF = [
 	{"name":"deviantART_SWF_3","playerOptions":{"vCamId":"","allowAvm":false},"md5":"57b0443657403a50f1af0335192f6ffd"},
 	{"name":"Production Flash Download 1","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"fbf851fad446bf7bc34f57489138cf6d"},
 	{"name":"Production Flash Download 2","playerOptions":{"vCamId":"2","allowAvm":false},"md5":"9ba045f1d10038ee71209d7471123468"},
+	{"name":"586435_derpychristmas_Scene_1","playerOptions":{"vCamId":"","allowAvm":false},"md5":"48938e6686788cb63c47a3a36a7cd114"},
 	
+	{"name":"d52vhk4-31a436a3-62b7-4e1e-9d72-9330fc736ce6","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4b5a0cda656d5dfff9aa081365199baa"},
+	{"name":"d60z648-ab7d9d41-fef2-4719-b230-cbd0e7a2ccfb","playerOptions":{"vCamId":"","allowAvm":false},"md5":"afbfc91e3d0d0ec9afe34081d68bb16c"},
+	{"name":"dcs4w0z-8b110625-1eb0-4458-a4a1-b041c219a1fe","playerOptions":{"vCamId":"","allowAvm":false},"md5":"25b0efc9f3719ebd9ff3600535f9fd9c"},
+	{"name":"dcy0s5v-c924eb1e-01e9-430f-aee5-15a9772bf6ac","playerOptions":{"vCamId":"","allowAvm":false},"md5":"686c277db07fc23055eb96feca8e8f1d"},
+	{"name":"mlp_goodbye_my_friend_by_swomswom-d4tv2oe","playerOptions":{"vCamId":"","allowAvm":false},"md5":"55d39ee9852ecd342fbc9dc329fcb949"},
+
 	{"name":"--- Pencilmation Animations ---"},
 
 	{"name":"172844_pencil","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4edb187be1bfeacc6d2de7227d0ae057"},
@@ -65,6 +72,8 @@ window.pinkfieSampleSWF = [
 	{"name":"Pencilmation #6 Turtles in time","playerOptions":{"vCamId":"","allowAvm":true},"md5":"d121dc001f479480f485eba274aed7df"},
 	{"name":"Pencilmation #7 Malice in wonderland","playerOptions":{"vCamId":"","allowAvm":true},"md5":"3724b2aa1415867cbf3d4b434325f5bb"},
 	{"name":"Pencilmation #8 DiskOh-No!","playerOptions":{"vCamId":"","allowAvm":true},"md5":"2158fdea3dcb5d6e92f10d98eef9bbd7"},
+	{"name":"Pencilmation #10","playerOptions":{"vCamId":"","allowAvm":true},"md5":"7269de00574a4b327b2e52cc3bc8b4af"},
+
 	{"name":"Home is where the hurt is","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4bb1f22c8dbc027c42e9f9a420f4615e_f05f4385cfa5d4127d6947411e1f559f"},
 	{"name":"589832_history_ng","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b2f541511fdcad8a6a0b8a9bd7a47ef5_1676f3f25a6e0beec85394d488650089"},
 	{"name":"The Silk Road","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4d7b45abf0510b40db2908a788d67883"},
@@ -74,6 +83,9 @@ window.pinkfieSampleSWF = [
 	{"name":"star wombs","playerOptions":{"vCamId":"","allowAvm":true},"md5":"7d55504cfacc7ffd74c2c132e190fde5_9860a565b420021a54ae230d926bc79a"},
 	{"name":"flower power","playerOptions":{"vCamId":"","allowAvm":true},"md5":"41b43a2c6ea6c83dfd8398102f041c45_eb07e6fdd31f3e03d7430c81159b4879"},
 	{"name":"abracadabraham lincoln","playerOptions":{"vCamId":"","allowAvm":true},"md5":"afa1c3964de2118559b762b52f8bc2c2_d2b932e58de1a50a3a9431192a29d47c"},
+	{"name":"524220_pen13","playerOptions":{"vCamId":"","allowAvm":true},"md5":"92313d71baf80a07d0aa7eee208572ce"},
+	{"name":"527526_pen14_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"6f36a190a3c5ee0c5d0f342be917ea42"},
+	{"name":"574298_new_pencilmation_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"52bed3b8049b82261335663e54b57f0e"},
 	{"name":"in come head","playerOptions":{"vCamId":"","allowAvm":true},"md5":"7a11396265c291aefa00bde193244c0e"},
 	{"name":"534600_virus_anim02_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"caa94c5f6ecebf5c06031df3901f201b"},
 	{"name":"563627_hank_girlfriend_flash","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c1f8edd84c7a4350c628ff1dd206f194"},
@@ -85,6 +97,8 @@ window.pinkfieSampleSWF = [
 	{"name":"598388_hank20_pool-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"43a2ca79a45a2b02bf7522d9df14467f"},
 	{"name":"598701_pen23_ball-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"4c59e183a29c0aceef80b86742bbee7b"},
 	{"name":"599594_pen24_zombie-FL","playerOptions":{"vCamId":"","allowAvm":true},"md5":"f437dd75e8eac6d447b0b2c84f061470"},
+	{"name":"Pencilmation Hallowen","playerOptions":{"vCamId":"","allowAvm":false},"md5":"ea359414f27a14ef4a69dd398ae87169"},
+	{"name":"Pencilmation xmas","playerOptions":{"vCamId":"","allowAvm":false},"md5":"5b7b0a52434bb4933c57c258fc2379d2"},
 	{"name":"Pencilmation #30 affair thee weel","playerOptions":{"vCamId":"","allowAvm":true},"md5":"5095e8cc230aa7134a6fd6d5b786bb4c"},
 	{"name":"Pencilmation #31 applecalypse now","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c75c7bb429ba3601d54301ee64c4e4d0"},
 	{"name":"Pencilmation #32 bubblegum grump","playerOptions":{"vCamId":"\"USS\",94","allowAvm":true},"md5":"95d4a13dcd7a937b70aea314ac052f35"},
@@ -95,6 +109,9 @@ window.pinkfieSampleSWF = [
 	{"name":"573881_frank_introduction_flash","playerOptions":{"vCamId":"48","allowAvm":true},"md5":"4dc8871c7ee5b6bc51891a4503ea425f"},
 
 	{"name":"--- Other ---"},
+	{"name":"574526_Stinkpony","playerOptions":{"vCamId":"","allowAvm":false},"md5":"41cb67ddf5ba89c808f5f12289b9851c"},
+	{"name":"561310_asdfmovie3NG","playerOptions":{"vCamId":"","allowAvm":false},"md5":"485b835c5cf0a4d6d428572fd8adde14"},
+	{"name":"579750_asdf4full2","playerOptions":{"vCamId":"","allowAvm":false},"md5":"4a419a7e71d56a4b287cdbd1a4e44cf9"},
 	{"name":"Night Mare","playerOptions":{"vCamId":"","allowAvm":true},"md5":"734b3523c9bf3f9a76d15625135e9051"},
 	{"name":"529574_gameoverse1ng (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"164","allowAvm":true},"md5":"58f1b0244e355baa140ec44121f6f430"},
 	{"name":"530219_gameoverse2ng (RIGHT CLICK TO PLAY)","playerOptions":{"vCamId":"176","allowAvm":true},"md5":"206188242939405ed4f3d4cbd75a313b"},
@@ -107,13 +124,17 @@ window.pinkfieSampleSWF = [
 	{"name":"647751_outtake4-ng","playerOptions":{"vCamId":"","allowAvm":true},"md5":"b4cd1660e53ffa76e682544602a3f7ae"},
 	{"name":"Albuquerque - THE MOVIE","playerOptions":{"vCamId":"","allowAvm":false},"md5":"7fd60c9102be88e883f91989c7a90a85_fcbe7d92a1160a377a4e42dfcd96e22b"},
 	{"name":"535312_South_Park_PSA_MOVIE","playerOptions":{"vCamId":"48","allowAvm":true},"md5":"cc92ca0b23186d0f824f41ab69a4301e"},
-	{"name":"612143_NG_SANDWICH","playerOptions":{"vCamId":"48","allowAvm":true},"md5":"5880c86b22e2cbc484d9ad6f992ed3b1"},
+	{"name":"612143_NG_SANDWICH","playerOptions":{"vCamId":"","allowAvm":true},"md5":"5880c86b22e2cbc484d9ad6f992ed3b1"},
+	{"name":"537681_sailor_pokemoon_intro","playerOptions":{"vCamId":"","allowAvm":true},"md5":"6778cf13ce3523c00c2a28f7e3905a13"},
+	{"name":"553798_castle_crashers_barbarian","playerOptions":{"vCamId":"109","allowAvm":true},"md5":"35275c5dc55c185e6b2f675baed258b1"},
+	{"name":"555272_Castle_crashers_troll","playerOptions":{"vCamId":"166","allowAvm":true},"md5":"efbf889bf87c81c6cb96293511e28067"},
+	{"name":"553388_sailor_pokemoon_episode_1","playerOptions":{"vCamId":"295","allowAvm":true},"md5":"5befe5ac9584f2bd700cfb576c9e4bd6"},
+	{"name":"556729_C","playerOptions":{"vCamId":"290","allowAvm":true},"md5":"20f968f7246b4fd539861f24af9c49ce"},
+	{"name":"586719_Cupcakes","playerOptions":{"vCamId":"","allowAvm":false},"md5":"0e213e937d88614a214adc9fc52ec6df"},
 
 	{"name":"--- Any full versions ---"},
 
-	{"name":"H. Hank","playerOptions":{"vCamId":"","allowAvm":true},"md5":"c0883af0a796e333f4b502e5c6d08406_1ff6b34cbf4ff1c10b9574c3b7408e79"},
 	{"name":"nyan","playerOptions":{"vCamId":"","allowAvm":true},"md5":"87358ee940888d5e9b11938da0f9e573"},
 	{"name":"mlp_flash__blueray_swing_by_mlpblueray-d7jeoee","playerOptions":{"vCamId":"","allowAvm":false},"md5":"13cfb02a88c05d346770d24448146438"},
 	{"name":"Bug of Ruffle","playerOptions":{"vCamId":"","allowAvm":false},"md5":"52ab3a7a56c946991777a9b086ff8788"},
-
 ];

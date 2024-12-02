@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.33 (2024-11-23)
+ * v1.3.34 (2024-12-1)
  * 
  * Made in Peru
  * 
