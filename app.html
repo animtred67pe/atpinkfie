@@ -46,7 +46,7 @@
 			}
 		</style>
 	</head>
-	<body id="drop_zone">
+	<body>
 		<div id="pinkswf"></div>
         <p id="loadedegfdg"></p>
 		<script src="common.js"></script>
@@ -90,9 +90,8 @@
 			function dragOverHandler(ev) {
 				ev.preventDefault();
 			}
-			var drop_zone = document.getElementById("drop_zone");
-			drop_zone.ondrop = dropHandler;
-			drop_zone.ondragover = dragOverHandler;
+			window.ondrop = dropHandler;
+			window.ondragover = dragOverHandler;
 			if (Common.swfUrl) {
 				loadSwfURL(Common.swfUrl);
 			} else {

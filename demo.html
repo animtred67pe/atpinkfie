@@ -244,8 +244,8 @@
 				ev.preventDefault();
 			}
 
-			playerArea.ondrop = dropHandler;
-			playerArea.ondragover = dragOverHandler;
+			window.ondrop = dropHandler;
+			window.ondragover = dragOverHandler;
 
 
 			function loadSampleSWF(infoSample) {

@@ -19,7 +19,7 @@
 		  }());
 		</script>
     </head>
-    <body id="drop_zone">
+    <body>
 		<div class="theme-select">
 		  <a class="switch-theme">switch theme</a>
 		</div>
@@ -47,6 +47,7 @@
 					<li><a href="packager.html">HTML Packager</a></li>
 					<li><a href="swfreader.html">Swf Reader Preview</a></li>
 					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
+					<li><a href="videopreview.html">Video Preview</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
 					<li><a href="https://scratch.mit.edu/projects/1025145662/" target="_blank">Feedback</a></li>
 					<li><a href="about.html">credits</a></li>
@@ -141,11 +142,13 @@
 
 					demo.innerHTML = dfgfd;
 					demo.style.display = "";
+
+					var soundsC = player.stage.audio.getCompressSound();
+					var videosC = player.stage.getCompressVideo();
+
 					demo.title = "ActionScript 3: " +
 						player.stage.isActionScript3() +
-						" Sounds Compressions: " +
-						(player.stage.audio.getCompressSound().join(",") || "entry") +
-						" DisplayObject Types: " +
+						(soundsC.length ? (" Sounds Compressions: " + soundsC.join(",")) : "") + (videosC.length ? (" Videos Codec: " + videosC.join(",")) : "") + " DisplayObject Types: " +
 						(player.stage.getDisplayTypes().join(",") || "entry");
 				}
 
@@ -189,10 +192,8 @@
 					ev.preventDefault();
 				}
 
-				var drop_zone = document.getElementById("drop_zone");
-
-				drop_zone.ondrop = dropHandler;
-				drop_zone.ondragover = dragOverHandler;
+				window.ondrop = dropHandler;
+				window.ondragover = dragOverHandler;
 
 				function loadSwfFile(file) {
 					pinkfiestage.style.display = "";
