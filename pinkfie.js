@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.4 (2024-12-12)
+ * v1.3.41 (2024-12-15)
  * 
  * Made in Peru
  */
@@ -432,7 +432,6 @@ var PinkFie = (function(moduleResults) {
 								}
 							}
 						}
-						this.playingAudios.push(this.playSound(sound, soundinfo, mc));
 					} else if (soundinfo.info.event == "start") {
 						var isS = false;
 						for (let i = 0; i < this.playingAudios.length; i++) {
@@ -2948,6 +2947,7 @@ var PinkFie = (function(moduleResults) {
 						return;
 					}
 				} else {
+					if (!this.decoded_frame) return;
 					res = this.decoded_frame[1];
 				}
 				this.decoded_frame = [frameId, res];
@@ -2963,11 +2963,6 @@ var PinkFie = (function(moduleResults) {
 					renderer.renderTexture(this.decoded_frame[1], this.isSmoothed);	
 				}
 				this.movieplayer.transformStack.stackPop();
-				if (this.movieplayer.wth != 0) {
-					this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0, 0, 0, 0]);
-					this.movieplayer.drawTextW(0, 0, 8, this.staticData.data.codec + ": " + this._ratio);
-					this.movieplayer.transformStack.stackPop();	
-				}
 			}
 		}
 		class DefineVideoData {
@@ -2985,6 +2980,7 @@ var PinkFie = (function(moduleResults) {
 				v.__size[0] = this.width;
 				v.__size[1] = this.height;
 				v.staticData = this;
+				v.setId(this.data.id);
 				return v;
 			}
 			preloadSwfFrame(tag, stage) {
@@ -3541,15 +3537,14 @@ var PinkFie = (function(moduleResults) {
 						if (this.debugSample) {
 							this.stop();
 							this.debugSample = false;
+						} else {
+							if ((!this.isLoop) && (this.currentFrame == this.totalframes)) {
+								this.stop();
+							}	
 						}
 						break;
 					case "first":
-						if (this.isLoop) {
-							this.runGoto(1, true);
-						} else {
-							this.stop();
-							this.isLoop = true;
-						}
+						this.runGoto(1, true);
 						return;
 					case "same":
 						this.stop();
@@ -11271,14 +11266,14 @@ var PinkFie = (function(moduleResults) {
 			}
 
 			getRenderMatrix() {
-				/*return [
-					this.matrix[0] + (Math.random() * 0.0025),
-					this.matrix[1],
-					this.matrix[2],
-					this.matrix[3] + (Math.random() * 0.0025),
-					this.matrix[4] - (Math.random() * 10),
-					this.matrix[5] - (Math.random() * 10),
-				]*/
+				//return [
+				//	this.matrix[0] + (Math.random() * 0.0015),
+				//	this.matrix[1],
+				//	this.matrix[2],
+				//	this.matrix[3] + (Math.random() * 0.0015),
+				//	this.matrix[4] - (Math.random() * 5),
+				//	this.matrix[5] - (Math.random() * 5),
+				//];
 				return this.movieplayer.useLastBound ? this._debug_matrix : this.matrix;
 			}
 			getRenderColorTransform() {
@@ -12547,6 +12542,8 @@ var PinkFie = (function(moduleResults) {
 				this.allowAvm = false;
 
 				this.debugSample = false;
+
+				this.renderScaleType = 0;
 		
 				this.backgroundColor = [255, 255, 255, 1];
 		
@@ -12572,6 +12569,7 @@ var PinkFie = (function(moduleResults) {
 				this.useLastBound = false;
 				this.wth = false;
 				this.interpolation = false;
+				this.unloop = false;
 		
 				this.transformStack = new TransformStack();
 				this.debugTransformStack = new TransformStack();
@@ -12736,6 +12734,9 @@ var PinkFie = (function(moduleResults) {
 			getInstanceCounter() {
 				return this.instanceCounter;
 			}
+			getTotalFrames() {
+				return this.rootClipTag.frameCount;
+			}
 			addInstanceCounter() {
 				return this.instanceCounter++;
 			}
@@ -12779,6 +12780,7 @@ var PinkFie = (function(moduleResults) {
 				} else if (this.quality == "medium") {
 					scale *= 0.8;
 				}
+
 				return scale
 			}
 			getRectStage() {
@@ -12931,6 +12933,17 @@ var PinkFie = (function(moduleResults) {
 					this.clip.stop();
 				}
 			}
+			clipGetLoop() {
+				if (this.clip) {
+					return this.clip.isLoop;
+				}
+				return false;
+			}
+			clipSetLoop(value) {
+				if (this.clip) {
+					this.clip.isLoop = value;
+				}
+			}
 			togglePlayRootMovie() {
 				if (this.clip) {
 					if (this.clip.isPlaying) {
@@ -12968,6 +12981,7 @@ var PinkFie = (function(moduleResults) {
 				}
 				mc.postInstantiation(null, null, false);
 				mc.setIsRoot(true);
+				mc.isLoop = !this.unloop;
 				mc._debug_matrix = [1,0,0,1,0,0];
 				mc._debug_colorTransform = [1,1,1,1,0,0,0,0];
 				this.clip = mc;
@@ -13105,8 +13119,8 @@ var PinkFie = (function(moduleResults) {
 					qScale *= (window.devicePixelRatio || 1);
 				}
 		
-				var _w = Math.floor(this.width * scale);
-				var _h = Math.floor(this.height * scale);
+				var _w = this.renderScaleType ? w : Math.floor(this.width * scale);
+				var _h = this.renderScaleType ? h : Math.floor(this.height * scale);
 		
 				this.renderer.resize(_w * qScale, _h * qScale);
 		
@@ -13133,14 +13147,26 @@ var PinkFie = (function(moduleResults) {
 				}
 				this.renderer.renderShape(this.backgroundShapeRender);
 				if (this.clip && this.isLoad) {
+					var tx = 0;
+					var ty = 0;
+					var scaleX;
+					var scaleY;
+					if (this.renderScaleType) {
+						scaleX = scaleY = 1;
+						tx = ((this.canvas.width / 2) - (this.width / 2));
+						ty = ((this.canvas.height / 2) - (this.height / 2));
+					} else {
+						scaleX = (this.canvas.width / this.width);
+						scaleY = (this.canvas.height / this.height);
+					}
 					if (isR) {
-						this.transformStack.stackPush([(this.canvas.width / this.width) / 20, 0, 0, (this.canvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+						this.transformStack.stackPush([scaleX / 20, 0, 0, scaleY / 20, tx, ty], [1, 1, 1, 1, 0, 0, 0, 0]);
 						this.clip.render();
 						this.transformStack.stackPop();
 					} 
 					if (isB) {
 						this.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-						this.debugTransformStack.stackPush([(this.canvas.width / this.width) / 20, 0, 0, (this.canvas.height / this.height) / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+						this.debugTransformStack.stackPush([scaleX / 20, 0, 0, scaleY / 20, tx, ty], [1, 1, 1, 1, 0, 0, 0, 0]);
 						this.clip.debugRender(this.renderer);
 						this.debugTransformStack.stackPop();
 						this.transformStack.stackPop();    
@@ -13456,27 +13482,44 @@ var PinkFie = (function(moduleResults) {
 					this.MenuVertical.style.display = 'none';
 				});
 				this.MenuVertical.appendChild(this.movie_playPause);
+
+				var controlsMC = [];
+
 				this.movie_playStop = this._createE('Stop', (e) => {
 					e.preventDefault();
 					this.c_playStop();
 					this.MenuVertical.style.display = 'none';
 				});
-				this.MenuVertical.appendChild(this.movie_playStop);
-				this.MenuVertical.appendChild(this._createE('Rewind', (e) => {
+
+				this.movie_loopButton = this._createE('Loop: OFF', (e) => {
+					e.preventDefault();
+					this.c_loop();
+					this.MenuVertical.style.display = 'none';
+				});
+				controlsMC.push(this.movie_playStop);
+				controlsMC.push(this.movie_loopButton);
+				controlsMC.push(this._createE('Rewind', (e) => {
 					e.preventDefault();
 					this.c_rewind();
 					this.MenuVertical.style.display = 'none';
 				}));
-				this.MenuVertical.appendChild(this._createE('Step Forward', (e) => {
+				controlsMC.push(this._createE('Step Forward', (e) => {
 					e.preventDefault();
 					this.c_Forward();
 					this.MenuVertical.style.display = 'none';
 				}));
-				this.MenuVertical.appendChild(this._createE('Step Back', (e) => {
+				controlsMC.push(this._createE('Step Back', (e) => {
 					e.preventDefault();
 					this.c_Back();
 					this.MenuVertical.style.display = 'none';
 				}));
+
+				for (var i = 0; i < controlsMC.length; i++) {
+					this.MenuVertical.appendChild(controlsMC[i]);	
+				}
+
+				this._controlsMC = controlsMC;
+
 				this.MenuVertical.appendChild(this._createE('View Stats', (e) => {
 					e.preventDefault();
 					this.viewStats();
@@ -13574,11 +13617,6 @@ var PinkFie = (function(moduleResults) {
 					this.setOptions({ speed: +rrj4o.value });
 				});
 				this._rrj4o = rrj4o;
-
-				var rrj3oa = document.createElement('label');
-				rrj3oa.innerHTML = "1x";
-
-				this._rrj3oa = rrj3oa;
 		
 				var rrj5 = document.createElement('label');
 				rrj5.innerHTML = "Render Mode: ";
@@ -13673,7 +13711,6 @@ var PinkFie = (function(moduleResults) {
 				rrj.appendChild(rrj4);
 				rrj.appendChild(rrj3o);
 				rrj.appendChild(rrj4o);
-				rrj.appendChild(rrj3oa);
 				rrj.appendChild(document.createElement('br'));
 				rrj.appendChild(rrj7);
 				rrj.appendChild(rrj8);
@@ -13837,9 +13874,17 @@ var PinkFie = (function(moduleResults) {
 				}
 				return false;
 			}
+			isLoopMovie() {
+				if (!this.hasStage()) return false;
+				return this.stage.clipGetLoop();
+			}
 			c_playStop() {
 				if (!this.hasStage()) return;
 				this.stage.togglePlayRootMovie();
+			}
+			c_loop() {
+				if (!this.hasStage()) return;
+				this.stage.clipSetLoop(!this.stage.clipGetLoop());
 			}
 			c_rewind() {
 				if (!this.hasStage()) return;
@@ -13860,7 +13905,6 @@ var PinkFie = (function(moduleResults) {
 				}
 				this._rrj4.value = this.options.volume;
 				this._rrj4o.value = this.options.speed;
-				this._rrj3oa.textContent = this.options.speed + "x";
 				if (this.__rrj8) {
 					this.__rrj8.value = this.options.quality;
 				}
@@ -14092,26 +14136,28 @@ var PinkFie = (function(moduleResults) {
 			setStage(stage) {
 				this.stage = stage;
 				this.loaded = 2;
-
 				stage.debugSample = this.debugSample;
-		
 				this.applyOptionsToStage();
 				this.applyResizeStage();
-		
 				this.isLoad = true;
-		
 				this.statsE.style.display = "";
-		
-				var resultswf = stage.swf;
-		
-				var stageSize = resultswf.movieInfo.bounds;
-		
+				var totalframes = stage.getTotalFrames();
+				if (totalframes > 1) {
+					this.__fdfj.min = 1;
+					this.__fdfj.max = totalframes;
+					this.__fdfj.value = 1;
+				} else {
+					this.__fdfj.min = 1;
+					this.__fdfj.max = 2;
+					this.__fdfj.value = 1;
+				}
+				this.__a2.textContent = 1 + "/" + totalframes;
+				for (var i = 0; i < this._controlsMC.length; i++) {
+					this._controlsMC[i].style.display = (totalframes > 1) ? "" : "none";
+				}
 				this.playerContainer.insertBefore(stage.root, this.playerContainer.childNodes[0]);
-		
 				this.loadingContainer.style.display = "none";
-		
 				this.applyAutoplayPolicy(this.options.autoplayPolicy);
-		
 				this.onload.emit(stage);
 			}
 			applyAutoplayPolicy(policy) {
@@ -14197,6 +14243,7 @@ var PinkFie = (function(moduleResults) {
 					this.stage.allowAvm = this.options.allowAvm;
 					this.stage.wth = this.options.wth;
 					this.stage.interpolation = this.options.interpolation;
+					this.stage.unloop = this.options.unloop;
 					this.stage.useLastBound = this.stage.wth ? true : this.options.interpolation;
 					var renderDirty = false;
 					if (this.stage.quality != this.options.quality) {
@@ -14224,28 +14271,21 @@ var PinkFie = (function(moduleResults) {
 							this.__fdfj.value = clip.currentFrame;
 							this.__fdfj.disabled = false;
 						} else {
-							this.__fdfj.min = 1;
-							this.__fdfj.max = 2;
 							this.__fdfj.disabled = true;
 						}
 					} else {
-						this.__fdfj.min = 1;
-						this.__fdfj.max = 2;
 						this.__fdfj.disabled = true;
 					}
 				} else {
-					this.__fdfj.min = 1;
-					this.__fdfj.max = 2;
 					this.__fdfj.disabled = true;
 				}
 				if (this.isLoad) {
 					this.stage.timer.update(Date.now());
 					this.stage.tick();
-					if (this.isPlayMovie()) {
-						this.movie_playStop.innerHTML = "Stop";
-					} else {
-						this.movie_playStop.innerHTML = "Play";
-					}
+					if (this.isPlayMovie()) this.movie_playStop.innerHTML = "Stop";
+					else this.movie_playStop.innerHTML = "Play";
+					if (this.isLoopMovie()) this.movie_loopButton.innerHTML = "Loop: ON";
+					else this.movie_loopButton.innerHTML = "Loop: OFF";
 					if (this._displayMessage[0] == 1) {
 						if ((!this.stage.playing)) {
 							this._displayMessage[2] = this.tickTime;
@@ -14328,6 +14368,9 @@ var PinkFie = (function(moduleResults) {
 			}
 			cleanup() {
 				this.swfData = null;
+				this.__fdfj.min = 1;
+				this.__fdfj.max = 2;
+				this.__fdfj.value = 1;
 				this.__fdgdf.style.display = "none";
 				this.loadingContainer.style.display = "none";
 				this.loadingContainerProgressText.textContent = "";
@@ -14337,6 +14380,9 @@ var PinkFie = (function(moduleResults) {
 				this._displayMessage[0] = 0;
 				this.isLoad = false;
 				this.settingVertical.style.display = 'none';
+				for (var i = 0; i < this._controlsMC.length; i++) {
+					this._controlsMC[i].style.display = "none";
+				}
 				if (this.currentLoader) {
 					this.currentLoader.cancel();
 					this.currentLoader = null;
@@ -14363,6 +14409,7 @@ var PinkFie = (function(moduleResults) {
 			vCamShow: false,
 			allowAvm: false,
 			wth: false,
+			unloop: false,
 			interpolation: false
 		}
 		wpjsm.exportJS = Player;
@@ -16417,7 +16464,7 @@ var PinkFie = (function(moduleResults) {
 			while (sceneCount--) {
 				obj.sceneInfo.push({
 					offset: byteStream.getU30(),
-					name: decodeURIComponent(byteStream.readStringWithUntil())
+					name: byteStream.readStringWithUntil()
 				});
 			}
 			var frameLabelCount = byteStream.getU30();
@@ -16425,7 +16472,7 @@ var PinkFie = (function(moduleResults) {
 			while (frameLabelCount--) {
 				obj.frameInfo.push({
 					num: byteStream.getU30(),
-					label: decodeURIComponent(byteStream.readStringWithUntil())
+					label: byteStream.readStringWithUntil()
 				});
 			}
 			return obj;

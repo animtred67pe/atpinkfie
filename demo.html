@@ -86,208 +86,210 @@
 		<script src="common.js"></script>
 		<script src="pinkfie.js"></script>
 		<script>
-			var autoplayL = true;
+			(function() {
+				var autoplayL = true;
 
-			var player = new PinkFie.Player();
+				var player = new PinkFie.Player();
 
-			player.debugSample = true;
+				player.debugSample = true;
 
-			player.setOptions(Common.playerOptions);
+				player.setOptions(Common.playerOptions);
 
-			window.player = player;
-			var playerArea = document.getElementById('pinkswf');
-			var pinkswfmetadata = document.getElementById("pinkswfmetadata");
-			var enswfmetadata = document.getElementById("enswfmetadata");
-			var pinkswfmetadataResult = document.getElementById("pinkswfmetadataResult");
+				window.player = player;
+				var playerArea = document.getElementById('pinkswf');
+				var pinkswfmetadata = document.getElementById("pinkswfmetadata");
+				var enswfmetadata = document.getElementById("enswfmetadata");
+				var pinkswfmetadataResult = document.getElementById("pinkswfmetadataResult");
 
-			function getByteText(byte) {
-				if (byte >= 1000000) {
-					return "" + (Math.floor(byte / 10000) / 100) + "MB";
-				} else {
-					if (byte >= 1000) {
-						return "" + Math.floor(byte / 1000) + "KB";
+				function getByteText(byte) {
+					if (byte >= 1000000) {
+						return "" + (Math.floor(byte / 10000) / 100) + "MB";
 					} else {
-						return "" + byte + "B";
-					}
-				}
-			}
-
-			const SC = {
-				"FWS": "Uncompressed",
-				"CWS": "ZLib",
-				"ZWS": "LZMA",
-			}
-
-			function showSwf() {
-
-				var resultswf = player.stage.swf;
-				var dfgfd = "";
-				
-				var stageSize = resultswf.movieInfo.bounds;
-
-				/*
-					Uncompressed Length
-					SWF Version
-					FP Version
-					ActionScript 3
-					Total Frames
-					Frame Rate
-					SWF Width
-					SWF Height
-					SWF Background Color
-				*/
-
-
-				dfgfd += "<p>SWF Compression: " + SC[resultswf.header.compression] + "</p>";
-				dfgfd += "<p>SWF Version: " + resultswf.header.version + "</p>";
-				dfgfd += "<p>Uncompressed Length: " + getByteText(resultswf.header.uncompressedLength) + "</p>";
-
-				dfgfd += "<p>ActionScript 3: " + !!player.stage.isActionScript3() + "</p>";
-
-				dfgfd += "<p>Total Frames: " + resultswf.movieInfo.numFrames + "</p>";
-				dfgfd += "<p>Frame Rate: " + resultswf.movieInfo.frameRate + "</p>";
-
-				dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
-				dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
-
-				pinkswfmetadataResult.innerHTML = dfgfd;
-
-			}
-
-			var swffileName = "";
-
-			var minHH = 40;
-			var minWW = 0;
-
-			var loadprojectfile = document.getElementById('loadswffile');
-			var pkfcontrols = document.getElementById('pkfcontrols');
-			var ggtitle5 = document.getElementById("ggtitle5");
-
-			var sampleSWFpkf = document.getElementById("sampleSWFpkf");
-
-			playerArea.appendChild(player.root);
-
-			function _resize_() {
-				pkfcontrols.style.width = window.innerWidth + "px";
-				pkfcontrols.style.display = '';
-				playerArea.style.width = (window.innerWidth - minWW) + "px";
-				playerArea.style.height = (window.innerHeight - minHH) + "px";
-				player.resize(window.innerWidth - minWW, window.innerHeight - minHH);
-			}
-			window.addEventListener("resize", _resize_);
-			_resize_();
-
-			function loadSwfFile(file) {
-				pinkswfmetadataResult.innerHTML = "";
-				swffileName = (file.name || "");
-                ggtitle5.textContent = (file.name || "No file selected.");
-				player.loadSwfFromFile(file);
-			}
-
-			function loadSwfUrl(url) {
-				pinkswfmetadataResult.innerHTML = "";
-				swffileName = "";
-                ggtitle5.textContent = "No file selected.";
-				player.loadSwfFromURL(url);
-			}
-
-			player.onload.subscribe(function() {
-				showSwf();
-				player.debugSample = false;
-				if (autoplayL) {
-					player.setOptions({autoplayPolicy: "never"});
-					autoplayL = false;
-				}
-			});
-			loadprojectfile.onclick = function () {
-				var sa = document.createElement('input');
-				sa.type = 'file';
-				sa.accept = '.swf';
-				sa.addEventListener('change', function (e) {
-					var file = e.target.files[0];
-					if (!file) {
-						return;
-					}
-					sampleSWFpkf.value = '';
-					loadSwfFile(file);
-				}, false);
-				sa.click();
-			}
-
-			enswfmetadata.addEventListener("click", function() {
-				if (pinkswfmetadata.style.width == '0px') {
-					pinkswfmetadata.style.width = "250px";
-					minWW = 250;
-				} else {
-					pinkswfmetadata.style.width = "0px";
-					minWW = 0;
-				}
-				_resize_();
-			});
-			enswfmetadata.addEventListener("contextmenu", function(e) {
-                e.preventDefault();
-                player.showSetting();
-			});
-			
-			function dropHandler(ev) {
-				ev.preventDefault();
-				if (ev.dataTransfer.items) {
-					[...ev.dataTransfer.items].forEach((item, i) => {
-					if (item.kind === 'file') {
-						const file = item.getAsFile();
-						loadSwfFile(file);
-					}
-					});
-				}
-			}
-			function dragOverHandler(ev) {
-				ev.preventDefault();
-			}
-
-			window.ondrop = dropHandler;
-			window.ondragover = dragOverHandler;
-
-
-			function loadSampleSWF(infoSample) {
-				var name = infoSample.name;
-				sampleSWFpkf.value = name;
-				if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
-				if (infoSample.md5) {
-					loadSwfUrl(infoSample.md5.split("_"));
-				} else if (infoSample.url) {
-					loadSwfUrl(infoSample.url);
-				} else if (infoSample.file) {
-					loadSwfFile(infoSample.file);
-				}
-			}
-			sampleSWFpkf.addEventListener("change", () => {
-				if (sampleSWFpkf.value) {
-					for (let k = 0; k < pinkfieSampleSWF.length; k++) {
-						const gd = pinkfieSampleSWF[k];
-						if (gd.name == sampleSWFpkf.value) {
-							loadSampleSWF(gd);
-							break;
+						if (byte >= 1000) {
+							return "" + Math.floor(byte / 1000) + "KB";
+						} else {
+							return "" + byte + "B";
 						}
 					}
 				}
-			});
-			for (let i = 0; i < pinkfieSampleSWF.length; i++) {
-				const element = pinkfieSampleSWF[i];
-				var name = element.name;
-				var g = document.createElement('option');
-				g.value = name;
-				g.textContent = name;
-				sampleSWFpkf.appendChild(g);
-			}
-			if (Common.swfUrl) {
-				player.debugSample = false;
-				player.setOptions({autoplayPolicy: "never"})
-				sampleSWFpkf.value = '';
-				loadSwfUrl(Common.swfUrl);
-			} else {
-				sampleSWFpkf.value = '';
-				loadSampleSWF(pinkfieSampleSWF[0]);
-			}
+
+				const SC = {
+					"FWS": "Uncompressed",
+					"CWS": "ZLib",
+					"ZWS": "LZMA",
+				}
+
+				function showSwf() {
+
+					var resultswf = player.stage.swf;
+					var dfgfd = "";
+					
+					var stageSize = resultswf.movieInfo.bounds;
+
+					/*
+						Uncompressed Length
+						SWF Version
+						FP Version
+						ActionScript 3
+						Total Frames
+						Frame Rate
+						SWF Width
+						SWF Height
+						SWF Background Color
+					*/
+
+
+					dfgfd += "<p>SWF Compression: " + SC[resultswf.header.compression] + "</p>";
+					dfgfd += "<p>SWF Version: " + resultswf.header.version + "</p>";
+					dfgfd += "<p>Uncompressed Length: " + getByteText(resultswf.header.uncompressedLength) + "</p>";
+
+					dfgfd += "<p>ActionScript 3: " + !!player.stage.isActionScript3() + "</p>";
+
+					dfgfd += "<p>Total Frames: " + resultswf.movieInfo.numFrames + "</p>";
+					dfgfd += "<p>Frame Rate: " + resultswf.movieInfo.frameRate + "</p>";
+
+					dfgfd += "<p>SWF Width: " + ((stageSize.xMax - stageSize.xMin) / 20) + "</p>";
+					dfgfd += "<p>SWF Height: " + ((stageSize.yMax - stageSize.yMin) / 20) + "</p>";
+
+					pinkswfmetadataResult.innerHTML = dfgfd;
+
+				}
+
+				var swffileName = "";
+
+				var minHH = 40;
+				var minWW = 0;
+
+				var loadprojectfile = document.getElementById('loadswffile');
+				var pkfcontrols = document.getElementById('pkfcontrols');
+				var ggtitle5 = document.getElementById("ggtitle5");
+
+				var sampleSWFpkf = document.getElementById("sampleSWFpkf");
+
+				playerArea.appendChild(player.root);
+
+				function _resize_() {
+					pkfcontrols.style.width = window.innerWidth + "px";
+					pkfcontrols.style.display = '';
+					playerArea.style.width = (window.innerWidth - minWW) + "px";
+					playerArea.style.height = (window.innerHeight - minHH) + "px";
+					player.resize(window.innerWidth - minWW, window.innerHeight - minHH);
+				}
+				window.addEventListener("resize", _resize_);
+				_resize_();
+
+				function loadSwfFile(file) {
+					pinkswfmetadataResult.innerHTML = "";
+					swffileName = (file.name || "");
+	                ggtitle5.textContent = (file.name || "No file selected.");
+					player.loadSwfFromFile(file);
+				}
+
+				function loadSwfUrl(url) {
+					pinkswfmetadataResult.innerHTML = "";
+					swffileName = "";
+	                ggtitle5.textContent = "No file selected.";
+					player.loadSwfFromURL(url);
+				}
+
+				player.onload.subscribe(function() {
+					showSwf();
+					player.debugSample = false;
+					if (autoplayL) {
+						player.setOptions({autoplayPolicy: "never"});
+						autoplayL = false;
+					}
+				});
+				loadprojectfile.onclick = function () {
+					var sa = document.createElement('input');
+					sa.type = 'file';
+					sa.accept = '.swf';
+					sa.addEventListener('change', function (e) {
+						var file = e.target.files[0];
+						if (!file) {
+							return;
+						}
+						sampleSWFpkf.value = '';
+						loadSwfFile(file);
+					}, false);
+					sa.click();
+				}
+
+				enswfmetadata.addEventListener("click", function() {
+					if (pinkswfmetadata.style.width == '0px') {
+						pinkswfmetadata.style.width = "250px";
+						minWW = 250;
+					} else {
+						pinkswfmetadata.style.width = "0px";
+						minWW = 0;
+					}
+					_resize_();
+				});
+				enswfmetadata.addEventListener("contextmenu", function(e) {
+	                e.preventDefault();
+	                player.showSetting();
+				});
+				
+				function dropHandler(ev) {
+					ev.preventDefault();
+					if (ev.dataTransfer.items) {
+						[...ev.dataTransfer.items].forEach((item, i) => {
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
+						});
+					}
+				}
+				function dragOverHandler(ev) {
+					ev.preventDefault();
+				}
+
+				window.ondrop = dropHandler;
+				window.ondragover = dragOverHandler;
+
+
+				function loadSampleSWF(infoSample) {
+					var name = infoSample.name;
+					sampleSWFpkf.value = name;
+					if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
+					if (infoSample.md5) {
+						loadSwfUrl(infoSample.md5.split("_"));
+					} else if (infoSample.url) {
+						loadSwfUrl(infoSample.url);
+					} else if (infoSample.file) {
+						loadSwfFile(infoSample.file);
+					}
+				}
+				sampleSWFpkf.addEventListener("change", () => {
+					if (sampleSWFpkf.value) {
+						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
+							const gd = pinkfieSampleSWF[k];
+							if (gd.name == sampleSWFpkf.value) {
+								loadSampleSWF(gd);
+								break;
+							}
+						}
+					}
+				});
+				for (let i = 0; i < pinkfieSampleSWF.length; i++) {
+					const element = pinkfieSampleSWF[i];
+					var name = element.name;
+					var g = document.createElement('option');
+					g.value = name;
+					g.textContent = name;
+					sampleSWFpkf.appendChild(g);
+				}
+				if (Common.swfUrl) {
+					player.debugSample = false;
+					player.setOptions({autoplayPolicy: "never"})
+					sampleSWFpkf.value = '';
+					loadSwfUrl(Common.swfUrl);
+				} else {
+					sampleSWFpkf.value = '';
+					loadSampleSWF(pinkfieSampleSWF[0]);
+				}	
+			}());
 		</script>
 	</body>
 </html>

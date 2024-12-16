@@ -1,4 +1,4 @@
-// Common code shared between index.html, demo.html etc.
+// Common code shared between index.html, demo.html, app.html etc.
 // This should be loaded after pinkfie.js
 
 var Common = (function() {
@@ -32,6 +32,7 @@ var Common = (function() {
   playerOptions.vCamShow = URLsearchParams("vcam_show_clip", true);
   playerOptions.allowAvm = URLsearchParams("allow_avm", true);
   playerOptions.interpolation = URLsearchParams("interpolation", true);
+  playerOptions.unloop = URLsearchParams("unloop", true);
   playerOptions.wth = +URLsearchParams("wth", false);
 
   var swfUrl = URLsearchParams("swfurl");

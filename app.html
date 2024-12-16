@@ -52,51 +52,56 @@
 		<script src="common.js"></script>
 		<script src="pinkfie.js"></script>
 		<script>
-			var player = new PinkFie.Player();
-			window.player = player;
-			var playerArea = document.getElementById('pinkswf');
-			playerArea.appendChild(player.root);
-			function _resize_() {
-				player.resize(window.innerWidth, window.innerHeight);
-			}
-			window.addEventListener("resize", _resize_);
-			_resize_();
-			function loadSwfFile(file) {
-				document.title = (file.name || "") + " - PinkFie";
-				player.loadSwfFromFile(file);
-			}
-			function loadSwfURL(url) {
-				player.loadSwfFromURL(url);
-			}
-			player.setOptions(Common.playerOptions);
-			player.onload.subscribe(function() {
-				if (!Common.autoplay) {
-					player.setOptions({
-						autoplayPolicy: 'never'
-					});
+			(function() {
+				var player = new PinkFie.Player();
+				window.player = player;
+				var playerArea = document.getElementById('pinkswf');
+				playerArea.appendChild(player.root);
+				function _resize_() {
+					player.resize(window.innerWidth, window.innerHeight);
 				}
-			});
-			function dropHandler(ev) {
-				ev.preventDefault();
-				if (ev.dataTransfer.items) {
-					[...ev.dataTransfer.items].forEach((item, i) => {
-					if (item.kind === 'file') {
-						const file = item.getAsFile();
-						loadSwfFile(file);
+				window.addEventListener("resize", _resize_);
+				_resize_();
+				function loadSwfFile(file) {
+					document.title = (file.name || "") + " - PinkFie";
+					player.loadSwfFromFile(file);
+				}
+				function loadSwfURL(url) {
+					player.loadSwfFromURL(url);
+				}
+				player.setOptions(Common.playerOptions);
+				function dropHandler(ev) {
+					ev.preventDefault();
+					if (ev.dataTransfer.items) {
+						[...ev.dataTransfer.items].forEach((item, i) => {
+						if (item.kind === 'file') {
+							const file = item.getAsFile();
+							loadSwfFile(file);
+						}
+						});
 					}
-					});
 				}
-			}
-			function dragOverHandler(ev) {
-				ev.preventDefault();
-			}
-			window.ondrop = dropHandler;
-			window.ondragover = dragOverHandler;
-			if (Common.swfUrl) {
-				loadSwfURL(Common.swfUrl);
-			} else {
-				loadSwfURL(["4081f087eb3e51d2a5eb7517f1614da9"]);       
-			}
+				function dragOverHandler(ev) {
+					ev.preventDefault();
+				}
+				window.ondrop = dropHandler;
+				window.ondragover = dragOverHandler;
+				if (Common.swfUrl) {
+					if (!Common.autoplay) {
+						player.setOptions({
+							autoplayPolicy: 'never'
+						});
+					}
+					loadSwfURL(Common.swfUrl);
+				} else {
+					if (!Common.autoplay) {
+						player.setOptions({
+							autoplayPolicy: 'never'
+						});
+					}
+					loadSwfURL(["4081f087eb3e51d2a5eb7517f1614da9"]);       
+				}	
+			}());
 		</script>
 	</body>
 </html>

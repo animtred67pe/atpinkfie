@@ -25,7 +25,7 @@
 		</div>
 		<div class="app">
 			<h1>PinkFie<span class="version"></span></h1>
-			<p title="Feedback is welcome! Please report any bugs">The Flash Player emulator in Javascript, is still in development.</p>
+			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open .swf</a>
 				<a id="ssag2">Close</a>
@@ -315,7 +315,7 @@
 				if (Common.swfUrl) {
 					loadSwfURL(Common.swfUrl);
 				}
-
+				
 				var loadprojectfile = document.getElementById('loadswffile');
 				loadprojectfile.onclick = function() {
 					var sa = document.createElement('input');
@@ -329,7 +329,7 @@
 						loadSwfFile(file);
 					}, false);
 					sa.click();
-				}	
+				}
 			}());
 		</script>
     </body>
