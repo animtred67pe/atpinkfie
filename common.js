@@ -40,6 +40,7 @@ var Common = (function() {
 
   if (!swfUrl) {
     if (URLsearchParams("apology", true)) swfUrl = ["50f0d850bca885ee5e6196597cf3964c"];
+    if (URLsearchParams("gotta_catch_em_all_again", true)) swfUrl = ["c09da91a1b96cb3f061dd634605b5c15"];
     if (swfMd5) swfUrl = swfMd5.split("_");
   }
   

@@ -207,12 +207,55 @@ window.pinkfieSampleSWF = (function() {
 			"name": "--- My Little Pony Animations ---"
 		},
 		{
+			"name": "guardianfull8v2loader_by_1n33d4hug-d7y8lz1",
+			"md5": "200cb9d6fbf02a30add188244e6c69a1_7e383a22fb070f0afaa8400770e35f6b",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			}
+		},
+		{
+			"name": "meanwhile_at_the_super_awesome_base____by_zedrin-d53m3me",
+			"md5": "55489e4052b1cbc84e429211b056a4ae",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": true
+			}
+		},
+		{
+			"name": "snowdrop__redirect__by_zedrin-d5yr5mk",
+			"md5": "343724b1a59309c66362c034b9aa3b77",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": true
+			}
+		},
+		{
 			"name": "marvel_ous_wubs___commission_by_alfa995-d4zzcdf",
 			"md5": "07c899dc9c0968236e91021e45cba41f",
 			"playerOptions": {
 				"vCamId": "",
 				"allowAvm": false,
 				"unloop": true
+			}
+		},
+		{
+			"name": "derpy_has_something_to_say_by_zombiezephyr-d4hcyt5",
+			"md5": "7ec293accecfad37ae2aabdc9405cd41",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "go_by_captainhoers-d5kyve1",
+			"md5": "2a21b72b36a9eff1ddec97ee6fa540f1",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
 			}
 		},
 		{
@@ -257,8 +300,24 @@ window.pinkfieSampleSWF = (function() {
 			}
 		},
 		{
+			"name": "my_little_freddy_pizza_is_magic__freddy_s_troll_pa_by_toxicalien2014-d895jxc",
+			"md5": "d7c1edc14e3afe0c5d6b4a3f8fb7ae40",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
 			"name": "Gotta Catch'em All Again - commission by *alfa995",
 			"md5": "c09da91a1b96cb3f061dd634605b5c15",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "for_sibsy__wild_fire_hellion_by_alfa995-d51091t",
+			"md5": "ffc2b17bb5cb6f30b5b53f7d89a6e39e",
 			"playerOptions": {
 				"vCamId": "",
 				"allowAvm": false
@@ -1303,10 +1362,34 @@ window.pinkfieSampleSWF = (function() {
 		{
 			"name": "573881_frank_introduction_flash",
 			"playerOptions": {
-				"vCamId": "48",
+				"vCamId": "",
 				"allowAvm": true
 			},
 			"md5": "4dc8871c7ee5b6bc51891a4503ea425f"
+		},
+		{
+			"name": "300599_generic_cartoons_vol_1",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			},
+			"md5": "f92373c0a8bfa0948ee856b427983103"
+		},
+		{
+			"name": "572782_hank_speaks_flash",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			},
+			"md5": "35458e4808acbc4654373a65b7dc984a"
+		},
+		{
+			"name": "315658_generic_cartoon_volume_2",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			},
+			"md5": "1a942555b9a445c8dadf88c401277496"
 		},
 		{
 			"name": "--- Other ---"
@@ -1602,6 +1685,22 @@ window.pinkfieSampleSWF = (function() {
 		{
 			"name": "d4bdvio-3bb5178d-f097-43b7-8451-58f83571c100",
 			"md5": "f377374c12cf7c6811c9197f27689004",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			name: "angry_birds_vs_mario_animation_by_yudhaikeledai-d39yllq",
+			md5: "db00870f44b70b7c81cc33599e61721c",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			}
+		},
+		{
+			name: "winter_walk_cycle_by_megajamesstudios-d5merx6",
+			md5: "366c28a225cafb1a898ceb063f1585e3",
 			"playerOptions": {
 				"vCamId": "",
 				"allowAvm": false

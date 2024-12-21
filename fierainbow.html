@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>F_I_E R_A_I_N_B_O_W - PinkFie</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="pinkfie.css">
+    <style>
+      body {
+        background: #111;
+        color: #fff;
+        font-family: monospace;
+      }
+      a {
+        cursor: pointer;
+        text-decoration: underline;
+        color: #fff;
+      }
+      #playlist11 .pinkfie-player-root {
+        float: left;
+        margin: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="./" style="position: fixed; top: 10px; right: 10px;">back</a>
+    <a id="loadswffile">Open SWF</a>
+    <a id="playswf">Play</a>
+    <div id="playlist11"></div>
+		<script src="pinkfie.js"></script>
+    <script>
+      var playlistarea = document.getElementById("playlist11");
+      var playswf = document.getElementById("playswf");
+      var players = [];
+      players.push(new PinkFie.Player());
+      players.push(new PinkFie.Player());
+      players.push(new PinkFie.Player());
+      players.push(new PinkFie.Player());
+      players.push(new PinkFie.Player());
+      players.push(new PinkFie.Player());
+      for (let i = 0; i < players.length; i++) {
+        const ply = players[i];
+        ply.resize(580, 400);
+        ply.onload.subscribe(function() {
+          ply.setOptions({
+            autoplayPolicy: 'never'
+          });  
+        });
+        playlistarea.appendChild(ply.root);
+      }
+      function loadSwfFile(file) {
+        for (let i = 0; i < players.length; i++) {
+          const ply = players[i];
+          ply.loadSwfFromFile(file);
+        }
+			}
+      playswf.onclick = function() {
+        for (let i = 0; i < players.length; i++) {
+          const ply = players[i];
+          ply.toggleRunning();
+        }
+			}
+			var loadprojectfile = document.getElementById('loadswffile');
+			loadprojectfile.onclick = function() {
+				var sa = document.createElement('input');
+				sa.type = 'file';
+				sa.accept = '.swf';
+				sa.addEventListener('change', function(e) {
+					var file = e.target.files[0];
+					if (!file) {
+						return;
+					}
+					loadSwfFile(file);
+				}, false);
+				sa.click();
+			}
+      for (let i = 0; i < players.length; i++) {
+        const ply = players[i];
+        ply.loadSwfFromURL(["6c5bf868415fe30b9e190e6a8969e212"]);
+      }
+    </script>
+  </body>
+</html>
