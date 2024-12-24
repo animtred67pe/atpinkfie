@@ -204,7 +204,55 @@ window.pinkfieSampleSWF = (function() {
 			}
 		},
 		{
+			"name": "Icelandic Pirates",
+			"md5": "a04ddeaefa6ce08bf9751bfcd22511a9",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
 			"name": "--- My Little Pony Animations ---"
+		},
+		{
+			"name": "mlp__slender_mane_just_wanted_to_be_your_friend_by_toxicalien2014-d7v6ecq",
+			"md5": "e2c91e58aebb33e81de9a724d862fd48",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "mlp__randomness_is_magic__british_ponies_by_toxicalien2014-d84sm7t",
+			"md5": "9b01b5900dd9dcd01eeb91d98743d6ac",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "mlp__something_pointless_vol__2_by_tsubukichan-d4olgxv",
+			"md5": "596957788ca0f086b3b9288d5f086aea",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "mlp__randomness_is_magic__900_bits_for_a_cd___by_toxicalien2014-d7xxy3k",
+			"md5": "80c33344679692daafefa4906a860caa",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "twilight_sparkle_learns_fire_fighting_by_codefox421-d5b4xjh",
+			"md5": "2b698bfc1ba2eddf83f109dc74b93d53",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
 		},
 		{
 			"name": "guardianfull8v2loader_by_1n33d4hug-d7y8lz1",
@@ -1701,6 +1749,54 @@ window.pinkfieSampleSWF = (function() {
 		{
 			name: "winter_walk_cycle_by_megajamesstudios-d5merx6",
 			md5: "366c28a225cafb1a898ceb063f1585e3",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "angry_birds__the_shaman_bird_by_yudhaikeledai-d45tq1u",
+			"md5": "dd7e9a868a1a46d5f25c6fa6a456436b",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			}
+		},
+		{
+			"name": "FLASH",
+			"md5": "4e690ba199cf27e774d2cbc18e341fbc",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			}
+		},
+		{
+			"name": "episode1",
+			"md5": "4bdba628e155a72fb5904b3974cf0952",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			}
+		},
+		{
+			"name": "abc_metalero_by_noidused-d9vmd5v",
+			"md5": "449c74120c2f9d46184db50fd3d2a4b7",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
+			}
+		},
+		{
+			"name": "bukkake",
+			"md5": "e49eac692902775fbb714628d7c2727e",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "607328_xmas",
+			"md5": "d6e50963100bedfa973df09aef083b62",
 			"playerOptions": {
 				"vCamId": "",
 				"allowAvm": false
