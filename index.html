@@ -73,6 +73,8 @@
 					return el;
 				}
 
+    			var initialTitle = document.title;
+
 				var player = new PinkFie.Player();
 
 				window.player = player;
@@ -160,6 +162,7 @@
 					player.showSetting();
 				}
 				function oohid() {
+					document.title = initialTitle;
 					pinkfiestage.style.display = "none";
 					demo.innerHTML = '';
 					demo.style.display = "none";
@@ -197,6 +200,7 @@
 				window.ondragover = dragOverHandler;
 
 				function loadSwfFile(file) {
+					document.title = initialTitle;
 					pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
 					demo.innerHTML = '';
@@ -209,6 +213,7 @@
 				}
 
 				function loadSwfURL(url) {
+					document.title = initialTitle;
 					pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
 					demo.style.display = "none";
@@ -229,6 +234,7 @@
 						loadSwfFile(infoSample.file);
 					}
 					sampleSWFpkf.value = "";
+              		document.title = name + ' - PinkFie';
 				}
 
 				function downloadPinkFieOldVersions() {

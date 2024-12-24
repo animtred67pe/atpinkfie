@@ -93,6 +93,8 @@
 
 				player.debugSample = true;
 
+    			var initialTitle = document.title;
+
 				player.setOptions(Common.playerOptions);
 
 				window.player = player;
@@ -179,6 +181,7 @@
 				_resize_();
 
 				function loadSwfFile(file) {
+					document.title = initialTitle;
 					pinkswfmetadataResult.innerHTML = "";
 					swffileName = (file.name || "");
 	                ggtitle5.textContent = (file.name || "No file selected.");
@@ -186,6 +189,7 @@
 				}
 
 				function loadSwfUrl(url) {
+					document.title = initialTitle;
 					pinkswfmetadataResult.innerHTML = "";
 					swffileName = "";
 	                ggtitle5.textContent = "No file selected.";
@@ -248,7 +252,6 @@
 				window.ondrop = dropHandler;
 				window.ondragover = dragOverHandler;
 
-
 				function loadSampleSWF(infoSample) {
 					var name = infoSample.name;
 					sampleSWFpkf.value = name;
@@ -260,6 +263,7 @@
 					} else if (infoSample.file) {
 						loadSwfFile(infoSample.file);
 					}
+					document.title = name + " - PinkFie";
 				}
 				sampleSWFpkf.addEventListener("change", () => {
 					if (sampleSWFpkf.value) {
@@ -288,6 +292,7 @@
 				} else {
 					sampleSWFpkf.value = '';
 					loadSampleSWF(pinkfieSampleSWF[0]);
+					document.title = initialTitle;
 				}	
 			}());
 		</script>
