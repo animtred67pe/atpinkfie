@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.42 (2024-12-24)
+ * v1.3.44 (2024-12-31)
  * 
  * Made in Peru
  */
@@ -1080,7 +1080,7 @@ var PinkFie = (function(moduleResults) {
 		}
 		// SWFv3
 		actionLibrary[0x81] = function(activation, aScript) { // ActionGotoFrame
-			activation.clip.gotoFrame(aScript.frame + 1, false);
+			activation.clip.gotoFrame(aScript.frame + 1, true);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x83] = function(activation, aScript) { // ActionGetURL
@@ -2845,6 +2845,8 @@ var PinkFie = (function(moduleResults) {
 				this.keyframes = [];
 
 				this.decoded_frame = null;
+
+				this._debug_decoder_time = 0;
 		
 				this._debug_colorDisplayType = [255, 100, 100, 1];
 				this.displayType = "Video";
@@ -2941,7 +2943,9 @@ var PinkFie = (function(moduleResults) {
 						frameId,
 					};
 					try {
+						var _ = Date.now();
 						res = decodeVideoStreamFrame(stream, encframe, this.movieplayer.renderer);
+						this._debug_decoder_time = Date.now() - _;
 					} catch(e) {
 						console.log("Got error when seeking to video frame " + frameId + ":", e);
 						return;
@@ -2951,6 +2955,13 @@ var PinkFie = (function(moduleResults) {
 					res = this.decoded_frame[1];
 				}
 				this.decoded_frame = [frameId, res];
+			}
+			getDebugVideoText() {
+				if (this.isInstantiated) {
+					return this.staticData.data.codec + ":" + this.getId() + " " + this._debug_decoder_time + "ms";
+				} else {
+					return "";
+				}
 			}
 			renderSelf() {
 				var renderer = this.movieplayer.renderer;
@@ -4413,103 +4424,143 @@ var PinkFie = (function(moduleResults) {
 		const asI16 = function(num) {
 			return (num << 16) >> 16;
 		}
-		const asU32 = function(num) {
-			return num >>> 0;
+		const num_signum = function(num) {
+			if (num > 0) {
+				return 1;
+			} else if (num == 0) {
+				return 0;
+			} else {
+				return -1;
+			}
 		}
-		const asI32 = function(num) {
-			return num | 0;
+		function num_clamp(value, a, b) {
+			return Math.max(Math.min(value, b), a);
 		}
-		const is_gob_error = function(type) {
-			return (type == "InvalidGobHeader");
+		function asfgdgdfg(value, min, max) {
+			return (value >= min) && (value <= max);
 		}
-		const is_macroblock_error = function(type) {
-			return (type == "InvalidMacroblockCodedBits") || (type == "InvalidMacroblockHeader");
+		function op_cmp(a, b) {
+			if (a > b) {
+				return "greater";
+			} else if (a < b) {
+				return "less";
+			} else {
+				return "equal";
+			}
 		}
 		const is_eof_error = function(type) {
 			return (type == "EndOfFile") || (type == "_");
 		}
-
-		const Picture = function() {
-			this.version = 0; // u8
-			this.temporal_reference = 0; // u16
-			this.format = null; // SourceFormat
-			this.options = null; // PictureOption
-			this.has_plusptype = false; // bool
-			this.has_opptype = false; // bool
-			this.picture_type = null; // PictureTypeCode
-			this.motion_vector_range = null; // MotionVectorRange
-			this.slice_submode = null; // SliceSubmode
-			this.scalability_layer = null; // ScalabilityLayer
-			this.reference_picture_selection_mode = null; // ReferencePictureSelectionMode
-			this.prediction_reference = 0; // u16
-			this.backchannel_message = null; // BackchannelMessage
-			this.reference_picture_resampling = null; // ReferencePictureResampling
-			this.quantizer = 0; // u8
-			this.multiplex_bitstream = 0; // u8
-			this.pb_reference = 0; // u8
-			this.pb_quantizer = null; // BPictureQuantizer
-			this.extra = []; // Vec u8
-		};
-
-		const PixelAspectRatio = function(type, value) {
-			this.type = type;
-			this.value = (value || null);
+		class Picture {
+			constructor() {
+				this.version = 0;
+				this.temporal_reference = 0;
+				this.format = null;
+				this.options = null;
+				this.has_plusptype = false;
+				this.has_opptype = false;
+				this.picture_type = null;
+				this.motion_vector_range = null;
+				this.slice_submode = null;
+				this.scalability_layer = null;
+				this.reference_picture_selection_mode = null;
+				this.prediction_reference = 0;
+				this.backchannel_message = null;
+				this.reference_picture_resampling = null;
+				this.quantizer = 0;
+				this.multiplex_bitstream = 0;
+				this.pb_reference = 0;
+				this.pb_quantizer = null;
+				this.extra = [];
+			}
+		}
+		class PixelAspectRatio {
+			constructor(type, value) {
+				this.type = type;
+				this.value = (value || null);
+			}
 		}
 		PixelAspectRatio.Square = 1;
 		PixelAspectRatio.Par12_11 = 2;
 		PixelAspectRatio.Par10_11 = 3;
 		PixelAspectRatio.Par16_11 = 4;
 		PixelAspectRatio.Par40_33 = 5;
-		PixelAspectRatio.Reserved = 6; // u8
-		PixelAspectRatio.Extended = 7; // { parWidth: u8, parHeight: u8 }
-
-		const CustomPictureFormat = function(pixelAspectRatio, pictureWidthIndication, pictureHeightIndication) {
-			this.pixelAspectRatio = pixelAspectRatio;
-			this.pictureWidthIndication = pictureWidthIndication;
-			this.pictureHeightIndication = pictureHeightIndication;
+		PixelAspectRatio.Reserved = 6;
+		PixelAspectRatio.Extended = 7;
+		class CustomPictureFormat {
+			constructor(pixelAspectRatio, pictureWidthIndication, pictureHeightIndication) {
+				this.pixelAspectRatio = pixelAspectRatio;
+				this.pictureWidthIndication = pictureWidthIndication;
+				this.pictureHeightIndication = pictureHeightIndication;
+			}
 		}
-
-		const MotionVectorRange = function(type) {
-			this.type = type;
+		class MotionVectorRange {
+			constructor(type) {
+				this.type = type;
+			}
 		}
 		MotionVectorRange.Extended = 0;
 		MotionVectorRange.Unlimited = 1;
-
-		const SourceFormat = function(type, value) {
-			this.type = type;
-			this.value = (value || null);
+		class SourceFormat {
+			constructor(type, value) {
+				this.type = type;
+				this.value = (value || null);
+			}
+			intoWidthAndHeight() {
+				switch (this.type) {
+					case SourceFormat.SubQcif:
+						return [128, 96];
+					case SourceFormat.QuarterCif:
+						return [176, 144];
+					case SourceFormat.FullCif:
+						return [352, 288];
+					case SourceFormat.FourCif:
+						return [704, 576];
+					case SourceFormat.SixteenCif:
+						return [1408, 1152];
+					case SourceFormat.Reserved:
+						return null;
+					case SourceFormat.Extended:
+						return [this.value.pictureWidthIndication, this.value.pictureHeightIndication];
+				}
+			}
 		}
-
 		SourceFormat.SubQcif = 1;
 		SourceFormat.QuarterCif = 2;
 		SourceFormat.FullCif = 3;
 		SourceFormat.FourCif = 4;
 		SourceFormat.SixteenCif = 5;
 		SourceFormat.Reserved = 6;
-		SourceFormat.Extended = 7; // value CustomPictureFormat
-
-		SourceFormat.prototype.intoWidthAndHeight = function() {
-			switch(this.type) {
-				case SourceFormat.SubQcif:
-					return [128, 96];
-				case SourceFormat.QuarterCif:
-					return [176, 144];
-				case SourceFormat.FullCif:
-					return [352, 288];
-				case SourceFormat.FourCif:
-					return [704, 576];
-				case SourceFormat.SixteenCif:
-					return [1408, 1152];
-				case SourceFormat.Reserved:
-					return null;
-				case SourceFormat.Extended:
-					return [this.value.pictureWidthIndication, this.value.pictureHeightIndication];
+		SourceFormat.Extended = 7;
+		class PictureTypeCode {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
 			}
-		}
-
-		const PictureTypeCode = function(type, value) {
-			this.type = type;
-			this.value = value;
+			is_any_pbframe() {
+				return (this.type == PictureTypeCode.PbFrame) || (this.type == PictureTypeCode.ImprovedPbFrame);
+			}
+			is_disposable() {
+				return this.type == PictureTypeCode.DisposablePFrame;
+			}
+			getType() {
+				switch (this.type) {
+					case PictureTypeCode.IFrame:
+						return "IFrame";
+					case PictureTypeCode.PFrame:
+						return "PFrame";
+					case PictureTypeCode.PbFrame:
+						return "PbFrame";
+					case PictureTypeCode.EiFrame:
+						return "EiFrame";
+					case PictureTypeCode.EpFrame:
+						return "EpFrame";
+					case PictureTypeCode.Reserved:
+						return "Reserved";
+					case PictureTypeCode.DisposablePFrame:
+						return "DisposablePFrame";
+				}
+			}
 		}
 		PictureTypeCode.IFrame = 1;
 		PictureTypeCode.PFrame = 2;
@@ -4518,73 +4569,46 @@ var PinkFie = (function(moduleResults) {
 		PictureTypeCode.BFrame = 5;
 		PictureTypeCode.EiFrame = 6;
 		PictureTypeCode.EpFrame = 7;
-		PictureTypeCode.Reserved = 8; // u8
+		PictureTypeCode.Reserved = 8;
 		PictureTypeCode.DisposablePFrame = 9;
-
-		PictureTypeCode.prototype.is_any_pbframe = function() {
-			return (this.type == PictureTypeCode.PbFrame) || (this.type == PictureTypeCode.ImprovedPbFrame);
-		}
-		PictureTypeCode.prototype.is_disposable = function() {
-			return this.type == PictureTypeCode.DisposablePFrame;
-		}
-		PictureTypeCode.prototype.getType = function() {
-			switch(this.type) {
-				case PictureTypeCode.IFrame:
-					return "IFrame";
-				case PictureTypeCode.PFrame:
-					return "PFrame";
-				case PictureTypeCode.PbFrame:
-					return "PbFrame";
-				case PictureTypeCode.EiFrame:
-					return "EiFrame";
-				case PictureTypeCode.EpFrame:
-					return "EpFrame";
-				case PictureTypeCode.Reserved:
-					return "Reserved";
-				case PictureTypeCode.DisposablePFrame:
-					return "DisposablePFrame";
+		class DecodedDctBlock {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
 			}
 		}
-
-		const DecodedDctBlock = function(type, value) {
-			this.type = type;
-			this.value = value;
-		}
 		DecodedDctBlock.Zero = 1;
-		DecodedDctBlock.Dc = 2; // f32
-		DecodedDctBlock.Horiz = 3; // [f32; 8]
-		DecodedDctBlock.Vert = 4; // [f32; 8]
-		DecodedDctBlock.Full = 5; // [[f32; 8]; 8]
-
-		const PictureOption = function() {
-			this.USE_SPLIT_SCREEN = false;
-			this.USE_DOCUMENT_CAMERA = false;
-			this.RELEASE_FULL_PICTURE_FREEZE = false;
-			this.UNRESTRICTED_MOTION_VECTORS = false;
-			this.SYNTAX_BASED_ARITHMETIC_CODING = false;
-			this.ADVANCED_PREDICTION = false;
-			this.ADVANCED_INTRA_CODING = false;
-			this.DEBLOCKING_FILTER = false;
-			this.SLICE_STRUCTURED = false;
-			this.REFERENCE_PICTURE_SELECTION = false;
-			this.INDEPENDENT_SEGMENT_DECODING = false;
-			this.ALTERNATIVE_INTER_VLC = false;
-			this.MODIFIED_QUANTIZATION = false;
-			this.REFERENCE_PICTURE_RESAMPLING = false;
-			this.REDUCED_RESOLUTION_UPDATE = false;
-			this.ROUNDING_TYPE_ONE = false;
-			this.USE_DEBLOCKER = false;
+		DecodedDctBlock.Dc = 2;
+		DecodedDctBlock.Horiz = 3;
+		DecodedDctBlock.Vert = 4;
+		DecodedDctBlock.Full = 5;
+		class PictureOption {
+			constructor() {
+				this.USE_SPLIT_SCREEN = false;
+				this.USE_DOCUMENT_CAMERA = false;
+				this.RELEASE_FULL_PICTURE_FREEZE = false;
+				this.UNRESTRICTED_MOTION_VECTORS = false;
+				this.SYNTAX_BASED_ARITHMETIC_CODING = false;
+				this.ADVANCED_PREDICTION = false;
+				this.ADVANCED_INTRA_CODING = false;
+				this.DEBLOCKING_FILTER = false;
+				this.SLICE_STRUCTURED = false;
+				this.REFERENCE_PICTURE_SELECTION = false;
+				this.INDEPENDENT_SEGMENT_DECODING = false;
+				this.ALTERNATIVE_INTER_VLC = false;
+				this.MODIFIED_QUANTIZATION = false;
+				this.REFERENCE_PICTURE_RESAMPLING = false;
+				this.REDUCED_RESOLUTION_UPDATE = false;
+				this.ROUNDING_TYPE_ONE = false;
+				this.USE_DEBLOCKER = false;
+			}
+			static empty() {
+				return new PictureOption();
+			}
 		}
-		PictureOption.empty = function() {
-			return new PictureOption();
-		}
-
 		function decodeSorensonPType(reader) {
-			// with_transaction
 			var source_format, bit_count;
-
 			var dgf = reader.readBits(3);
-
 			switch(dgf) {
 				case 0:
 					source_format = null;
@@ -4618,15 +4642,12 @@ var PinkFie = (function(moduleResults) {
 					source_format = new SourceFormat(SourceFormat.Reserved);
 					bit_count = 0;
 			}
-			if (source_format === null) { // source_format.is_none()
+			if (source_format === null) {
 				let customWidth = reader.readBits(bit_count);
 				let customHeight = reader.readBits(bit_count);
-
 				source_format = new SourceFormat(SourceFormat.Extended, new CustomPictureFormat(new PixelAspectRatio(PixelAspectRatio.Square), customWidth, customHeight));
 			}
-
 			var fdgd = reader.readBits(2);
-
 			var pictureType;
 			switch(fdgd) {
 				case 0:
@@ -4642,63 +4663,56 @@ var PinkFie = (function(moduleResults) {
 					pictureType = new PictureTypeCode(PictureTypeCode.Reserved, fdgd);
 					break;
 			}
-
 			let options = PictureOption.empty();
-
 			if (asU8(reader.readBits(1)) == 1) {
 				options.USE_DEBLOCKER = true;
 			}
-
 			return [source_format, pictureType, options];
 		}
-
-		const DecodedPicture = function(picture_header, format) {
-			let [w, h] = format.intoWidthAndHeight();
-
-			let luma_samples = w * h;
-			let luma = new Uint8Array(luma_samples);
-
-			let chroma_w = Math.ceil(w / 2.0);
-			let chroma_h = Math.ceil(h / 2.0);
-
-			let chroma_samples = chroma_w * chroma_h;
-
-			let chroma_b = new Uint8Array(chroma_samples);
-			let chroma_r = new Uint8Array(chroma_samples);
-
-			this.picture_header = picture_header; // Picture
-			this.format = format; // SourceFormat
-			this.luma = luma; // Vec u8
-			this.chroma_b = chroma_b; // Vec u8
-			this.chroma_r = chroma_r; // Vec u8
-			this.chroma_samples_per_row = chroma_w;
-		}
-		DecodedPicture.prototype.as_yuv = function() {
-			return [this.luma, this.chroma_b, this.chroma_r];
-		}
-		DecodedPicture.prototype.as_header = function() {
-			return this.picture_header;
-		}
-		DecodedPicture.prototype.as_luma_mut = function() {
-			return this.luma;
-		}
-		DecodedPicture.prototype.as_chroma_b_mut = function() {
-			return this.chroma_b;
-		}
-		DecodedPicture.prototype.as_chroma_r_mut = function() {
-			return this.chroma_r;
-		}
-		DecodedPicture.prototype.as_luma = function() {
-			return this.luma;
-		}
-		DecodedPicture.prototype.as_chroma_b = function() {
-			return this.chroma_b;
-		}
-		DecodedPicture.prototype.as_chroma_r = function() {
-			return this.chroma_r;
-		}
-		DecodedPicture.prototype.luma_samples_per_row = function() {
-			return this.format.intoWidthAndHeight()[0];
+		class DecodedPicture {
+			constructor(picture_header, format) {
+				let [w, h] = format.intoWidthAndHeight();
+				let luma_samples = w * h;
+				let luma = new Uint8Array(luma_samples);
+				let chroma_w = Math.ceil(w / 2.0);
+				let chroma_h = Math.ceil(h / 2.0);
+				let chroma_samples = chroma_w * chroma_h;
+				let chroma_b = new Uint8Array(chroma_samples);
+				let chroma_r = new Uint8Array(chroma_samples);
+				this.picture_header = picture_header;
+				this.format = format;
+				this.luma = luma;
+				this.chroma_b = chroma_b;
+				this.chroma_r = chroma_r;
+				this.chroma_samples_per_row = chroma_w;
+			}
+			as_yuv() {
+				return [this.luma, this.chroma_b, this.chroma_r];
+			}
+			as_header() {
+				return this.picture_header;
+			}
+			as_luma_mut() {
+				return this.luma;
+			}
+			as_chroma_b_mut() {
+				return this.chroma_b;
+			}
+			as_chroma_r_mut() {
+				return this.chroma_r;
+			}
+			as_luma() {
+				return this.luma;
+			}
+			as_chroma_b() {
+				return this.chroma_b;
+			}
+			as_chroma_r() {
+				return this.chroma_r;
+			}
+			luma_samples_per_row() {
+				return this.format.intoWidthAndHeight()[0];
+			}
 		}
 		function decodePei(reader) {
 			var data = [];
@@ -4712,10 +4726,7 @@ var PinkFie = (function(moduleResults) {
 			}
 			return data;
 		}
-
 		function decodePicture(reader, decoderOptions, previous_picture) {
-			//with_transaction_union
-
 			var skippedBits = reader.recognizeStartCode(false);
 			reader.skipBits(17 + skippedBits);
 			var gob_id = reader.readBits(5);
@@ -4725,7 +4736,6 @@ var PinkFie = (function(moduleResults) {
 				var quantizer = reader.readBits(5);
 				var extra = decodePei(reader);
 				var result = new Picture();
-
 				result.version = gob_id;
 				result.temporal_reference = temporalReference;
 				result.format = source_format;
@@ -4735,9 +4745,7 @@ var PinkFie = (function(moduleResults) {
 				result.picture_type = pictureType;
 				result.quantizer = quantizer;
 				result.extra = extra;
-
 				result.motion_vector_range = new MotionVectorRange(MotionVectorRange.Unlimited);
-
 				result.slice_submode = null;
 				result.scalability_layer = null;
 				result.reference_picture_selection_mode = null;
@@ -4747,94 +4755,85 @@ var PinkFie = (function(moduleResults) {
 				result.multiplex_bitstream = null;
 				result.pb_reference = null;
 				result.pb_quantizer = null;
-
 				return result;
 			}
 		}
-
-		const CodedBlockPattern = function(codes_luma, codes_chroma_b, codes_chroma_r) {
-			this.codes_luma = codes_luma;
-			this.codes_chroma_b = codes_chroma_b;
-			this.codes_chroma_r = codes_chroma_r;
-		}
-
-		function op_cmp(a, b) {
-			if (a > b) {
-				return "greater";
-			} else if (a < b) {
-				return "less";
-			} else {
-				return "equal";
+		class CodedBlockPattern {
+			constructor(codes_luma, codes_chroma_b, codes_chroma_r) {
+				this.codes_luma = codes_luma;
+				this.codes_chroma_b = codes_chroma_b;
+				this.codes_chroma_r = codes_chroma_r;
 			}
 		}
-
-		const HalfPel = function(n) {
-			this.n = n; // i16
-		}
-		HalfPel.zero = function() {
-			return new HalfPel(0);
-		}
-		HalfPel.from = function(float) {
-			return new HalfPel(asI16(Math.floor(float * 2))); // TODO ((float * 2.0).floor() as i16)
-		}
-		HalfPel.from_unit = function(unit) {
-			return new HalfPel(asI16(unit));
-		}
-		HalfPel.prototype.is_mv_within_range = function(range) {
-			return -range.n <= this.n && this.n < range.n;
-		}
-		HalfPel.prototype.invert = function() {
-			switch(op_cmp(this.n, 0)) {
-				case "greater":
-					return new HalfPel(this.n - 64);
-				case "less":
-					return new HalfPel(this.n + 64);
-				case "equal":
-					return this;
+		class HalfPel {
+			constructor(n) {
+				this.n = n;
 			}
-		}
-		HalfPel.prototype.average_sum_of_mvs = function() {
-			let whole = (this.n >> 4) << 1; // div 8
-			let frac = this.n & 0x0F;
-			if (asfgdgdfg(frac, 0, 2)) {
-				return new HalfPel(whole);
-			} else if (asfgdgdfg(frac, 14, 15)) {
-				return new HalfPel(whole + 2);
-			} else {
-				return new HalfPel(whole + 1);
-			} 
-		}
-		HalfPel.prototype.median_of = function(mhs, rhs) {
-			var num_self = this.n;
-			var num_mhs = mhs.n;
-			var num_rhs = rhs.n;
-			if (num_self > num_mhs) {
-				if (num_rhs > num_mhs) {
-					if (num_rhs > num_self) {
+			static zero() {
+				return new HalfPel(0);
+			}
+			static from(float) {
+				return new HalfPel(asI16(Math.floor(float * 2)));
+			}
+			static from_unit(unit) {
+				return new HalfPel(asI16(unit));
+			}
+			is_mv_within_range(range) {
+				return -range.n <= this.n && this.n < range.n;
+			}
+			invert() {
+				switch (op_cmp(this.n, 0)) {
+					case "greater":
+						return new HalfPel(this.n - 64);
+					case "less":
+						return new HalfPel(this.n + 64);
+					case "equal":
 						return this;
+				}
+			}
+			average_sum_of_mvs() {
+				let whole = (this.n >> 4) << 1;
+				let frac = this.n & 0x0F;
+				if (asfgdgdfg(frac, 0, 2)) {
+					return new HalfPel(whole);
+				} else if (asfgdgdfg(frac, 14, 15)) {
+					return new HalfPel(whole + 2);
+				} else {
+					return new HalfPel(whole + 1);
+				}
+			}
+			median_of(mhs, rhs) {
+				var num_self = this.n;
+				var num_mhs = mhs.n;
+				var num_rhs = rhs.n;
+				if (num_self > num_mhs) {
+					if (num_rhs > num_mhs) {
+						if (num_rhs > num_self) {
+							return this;
+						} else {
+							return rhs;
+						}
 					} else {
+						return mhs;
+					}
+				} else if (num_mhs > num_rhs) {
+					if (num_rhs > num_self) {
 						return rhs;
+					} else {
+						return this;
 					}
 				} else {
 					return mhs;
 				}
-			} else if (num_mhs > num_rhs) {
-				if (num_rhs > num_self) {
-					return rhs;
-				} else {
-					return this;
-				}
-			} else {
-				return mhs;
 			}
-		}
-		HalfPel.prototype.into_lerp_parameters = function() {
-			if (this.n % 2 == 0) {
-				return [asI16(this.n / 2), false];
-			} else if (this.n < 0) {
-				return [asI16(this.n / 2 - 1), true];
-			} else {
-				return [asI16(this.n / 2), true];
+			into_lerp_parameters() {
+				if (this.n % 2 == 0) {
+					return [asI16(this.n / 2), false];
+				} else if (this.n < 0) {
+					return [asI16(this.n / 2 - 1), true];
+				} else {
+					return [asI16(this.n / 2), true];
+				}
 			}
 		}
 		HalfPel.STANDARD_RANGE = new HalfPel(32);
@@ -4842,70 +4841,85 @@ var PinkFie = (function(moduleResults) {
 		HalfPel.EXTENDED_RANGE_QUADCIF = new HalfPel(128);
 		HalfPel.EXTENDED_RANGE_SIXTEENCIF = new HalfPel(256);
 		HalfPel.EXTENDED_RANGE_BEYONDCIF = new HalfPel(512);
-
-		const MotionVector = function(n1, n2) {
-			this.n1 = n1;
-			this.n2 = n2;
-		}
-		MotionVector.zero = function() {
-			return new MotionVector(HalfPel.zero(), HalfPel.zero());
-		}
-		MotionVector.prototype.median_of = function(mhs, rhs) {
-			return new MotionVector(
-				this.n1.median_of(mhs.n1, rhs.n1),
-				this.n2.median_of(mhs.n2, rhs.n2)
-			);
-		}
-		MotionVector.prototype.into_lerp_parameters = function() {
-			return [this.n1.into_lerp_parameters(), this.n2.into_lerp_parameters()];
-		}
-		MotionVector.prototype.add = function(rhs) {
-			var g1 = asI16(this.n1.n + rhs.n1.n);
-			var g2 = asI16(this.n2.n + rhs.n2.n);
-			return new MotionVector(new HalfPel(g1), new HalfPel(g2));
-		}
-		MotionVector.prototype.average_sum_of_mvs = function() {
-			return new MotionVector(this.n1.average_sum_of_mvs(), this.n2.average_sum_of_mvs());
-		}
-
-		const IntraDc = function(n) {
-			this.n = n; // u8
-		}
-		IntraDc.from_u8 = function(value) {
-			if (value == 0 || value == 128) {
-				return null;
-			} else {
-				return new IntraDc(value);
+		class MotionVector {
+			constructor(n1, n2) {
+				this.n1 = n1;
+				this.n2 = n2;
+			}
+			static zero() {
+				return new MotionVector(HalfPel.zero(), HalfPel.zero());
+			}
+			median_of(mhs, rhs) {
+				return new MotionVector(this.n1.median_of(mhs.n1, rhs.n1), this.n2.median_of(mhs.n2, rhs.n2));
+			}
+			into_lerp_parameters() {
+				return [this.n1.into_lerp_parameters(), this.n2.into_lerp_parameters()];
+			}
+			add(rhs) {
+				var g1 = asI16(this.n1.n + rhs.n1.n);
+				var g2 = asI16(this.n2.n + rhs.n2.n);
+				return new MotionVector(new HalfPel(g1), new HalfPel(g2));
+			}
+			average_sum_of_mvs() {
+				return new MotionVector(this.n1.average_sum_of_mvs(), this.n2.average_sum_of_mvs());
 			}
 		}
-		IntraDc.prototype.into_level = function() {
-			if (this.n == 0xFF) {
-				return 1024;
-			} else {
-				return asI16(asI16(asU16(this.n)) << 3);
+		class IntraDc {
+			constructor(n) {
+				this.n = n;
+			}
+			static from_u8(value) {
+				if (value == 0 || value == 128) {
+					return null;
+				} else {
+					return new IntraDc(value);
+				}
+			}
+			into_level() {
+				if (this.n == 0xFF) {
+					return 1024;
+				} else {
+					return asI16(asI16(asU16(this.n)) << 3);
+				}
 			}
 		}
-
-		const TCoefficient = function(is_short, run, level) {
-			this.is_short = is_short;
-			this.run = run;
-			this.level = level;
+		class TCoefficient {
+			constructor(is_short, run, level) {
+				this.is_short = is_short;
+				this.run = run;
+				this.level = level;
+			}
 		}
-
-		const Block = function(intradc, tcoef) {
-			this.intradc = intradc;
-			this.tcoef = tcoef;
+		class Block {
+			constructor(intradc, tcoef) {
+				this.intradc = intradc;
+				this.tcoef = tcoef;
+			}
 		}
-
-		const VlcEntry = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class VlcEntry {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
 		VlcEntry.End = 1;
 		VlcEntry.Fork = 2;
-
-		const MacroblockType = function(type) {
-			this.type = type;
+		class MacroblockType {
+			constructor(type) {
+				this.type = type;
+			}
+			is_inter() {
+				return this.type == MacroblockType.Inter || this.type == MacroblockType.InterQ || this.type == MacroblockType.Inter4V || this.type == MacroblockType.Inter4Vq;
+			}
+			is_intra() {
+				return (this.type == MacroblockType.Intra) || (this.type == MacroblockType.IntraQ);
+			}
+			has_fourvec() {
+				return this.type == MacroblockType.Inter4V || this.type == MacroblockType.Inter4Vq;
+			}
+			has_quantizer() {
+				return this.type == MacroblockType.InterQ || this.type == MacroblockType.IntraQ || this.type == MacroblockType.Inter4Vq;
+			}
 		}
 		MacroblockType.Inter = 1;
 		MacroblockType.InterQ = 2;
@@ -4913,308 +4927,27 @@ var PinkFie = (function(moduleResults) {
 		MacroblockType.Intra = 4;
 		MacroblockType.IntraQ = 5;
 		MacroblockType.Inter4Vq = 6;
-		MacroblockType.prototype.is_inter = function() {
-			return this.type == MacroblockType.Inter || this.type == MacroblockType.InterQ || this.type == MacroblockType.Inter4V || this.type == MacroblockType.Inter4Vq;
-		}
-		MacroblockType.prototype.is_intra = function() {
-			return (this.type == MacroblockType.Intra) || (this.type == MacroblockType.IntraQ);
-		}
-		MacroblockType.prototype.has_fourvec = function() {
-			return this.type == MacroblockType.Inter4V || this.type == MacroblockType.Inter4Vq;
-		}
-		MacroblockType.prototype.has_quantizer = function() {
-			return this.type == MacroblockType.InterQ || this.type == MacroblockType.IntraQ || this.type == MacroblockType.Inter4Vq;
-		}
-
-		const Macroblock = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class Macroblock {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
 		Macroblock.Uncoded = 1;
 		Macroblock.Stuffing = 2;
 		Macroblock.Coded = 3;
-		Macroblock.prototype.macroblock_type = function() {
-
-		}
-
-		const BlockPatternEntry = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class BlockPatternEntry {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
 		BlockPatternEntry.Stuffing = 1;
 		BlockPatternEntry.Invalid = 2;
-		BlockPatternEntry.Valid = 3; // (MacroblockType, bool, bool)
-
-		const MCBPC_I_TABLE = [
-			new VlcEntry(VlcEntry.Fork, [2, 1]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(
-				BlockPatternEntry.Valid,
-				[new MacroblockType(MacroblockType.Intra), false, false]
-			)),
-			new VlcEntry(VlcEntry.Fork, [6, 3]),
-			new VlcEntry(VlcEntry.Fork, [4, 5]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(
-				BlockPatternEntry.Valid,
-				[new MacroblockType(MacroblockType.Intra), true, false]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(
-				BlockPatternEntry.Valid,
-				[new MacroblockType(MacroblockType.Intra), true, true]
-			)),
-			new VlcEntry(VlcEntry.Fork, [8, 7]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Intra),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [10, 9]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [14, 11]),
-			new VlcEntry(VlcEntry.Fork, [12, 13]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [16, 20]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)),
-			new VlcEntry(VlcEntry.Fork, [17, 15]),
-			new VlcEntry(VlcEntry.Fork, [18, 15]),
-			new VlcEntry(VlcEntry.Fork, [15, 19]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Stuffing)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					false,
-					true
-				]
-			)),
-		];
-		const MCBPC_P_TABLE = [
-			new VlcEntry(VlcEntry.Fork, [2, 1]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [6, 3]),
-			new VlcEntry(VlcEntry.Fork, [4, 5]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4V),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.InterQ),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [10, 7]),
-			new VlcEntry(VlcEntry.Fork, [8, 9]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [16, 11]),
-			new VlcEntry(VlcEntry.Fork, [13, 12]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Intra),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [14, 15]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [24, 17]),
-			new VlcEntry(VlcEntry.Fork, [18, 21]),
-			new VlcEntry(VlcEntry.Fork, [19, 20]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4V),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4V),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [22, 23]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.InterQ),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.InterQ),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [30, 25]),
-			new VlcEntry(VlcEntry.Fork, [27, 26]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Intra),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [28, 29]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Intra),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4V),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [36, 31]),
-			new VlcEntry(VlcEntry.Fork, [33, 32]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Intra),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [34, 35]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.InterQ),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [40, 37]),
-			new VlcEntry(VlcEntry.Fork, [38, 39]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					true,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.IntraQ),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [42, 41]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Stuffing)),
-			new VlcEntry(VlcEntry.Fork, [43, 44]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)),
-			new VlcEntry(VlcEntry.Fork, [45, 46]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4Vq),
-					false,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.Fork, [47, 50]),
-			new VlcEntry(VlcEntry.Fork, [48, 49]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4Vq),
-					false,
-					true
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)),
-			new VlcEntry(VlcEntry.Fork, [51, 52]),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4Vq),
-					true,
-					false
-				]
-			)),
-			new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid,
-				[
-					new MacroblockType(MacroblockType.Inter4Vq),
-					true,
-					true
-				]
-			)),
-		];
-
-		const MODB_TABLE = [
-			new VlcEntry(VlcEntry.Fork, [1, 2]),
-			new VlcEntry(VlcEntry.End, [false, false]),
-			new VlcEntry(VlcEntry.Fork, [3, 4]),
-			new VlcEntry(VlcEntry.End, [false, true]),
-			new VlcEntry(VlcEntry.End, [true, true])
-		];
-
+		BlockPatternEntry.Valid = 3;
+		const MCBPC_I_TABLE = [new VlcEntry(VlcEntry.Fork, [2, 1]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), false, false])), new VlcEntry(VlcEntry.Fork, [6, 3]), new VlcEntry(VlcEntry.Fork, [4, 5]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), true, true])), new VlcEntry(VlcEntry.Fork, [8, 7]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), false, true])), new VlcEntry(VlcEntry.Fork, [10, 9]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), false, false])), new VlcEntry(VlcEntry.Fork, [14, 11]), new VlcEntry(VlcEntry.Fork, [12, 13]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), true, true])), new VlcEntry(VlcEntry.Fork, [16, 20]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)), new VlcEntry(VlcEntry.Fork, [17, 15]), new VlcEntry(VlcEntry.Fork, [18, 15]), new VlcEntry(VlcEntry.Fork, [15, 19]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Stuffing)), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), false, true]))];
+		const MCBPC_P_TABLE = [new VlcEntry(VlcEntry.Fork, [2, 1]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter), false, false])), new VlcEntry(VlcEntry.Fork, [6, 3]), new VlcEntry(VlcEntry.Fork, [4, 5]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4V), false, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.InterQ), false, false])), new VlcEntry(VlcEntry.Fork, [10, 7]), new VlcEntry(VlcEntry.Fork, [8, 9]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter), false, true])), new VlcEntry(VlcEntry.Fork, [16, 11]), new VlcEntry(VlcEntry.Fork, [13, 12]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), false, false])), new VlcEntry(VlcEntry.Fork, [14, 15]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), false, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter), true, true])), new VlcEntry(VlcEntry.Fork, [24, 17]), new VlcEntry(VlcEntry.Fork, [18, 21]), new VlcEntry(VlcEntry.Fork, [19, 20]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4V), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4V), false, true])), new VlcEntry(VlcEntry.Fork, [22, 23]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.InterQ), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.InterQ), false, true])), new VlcEntry(VlcEntry.Fork, [30, 25]), new VlcEntry(VlcEntry.Fork, [27, 26]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), true, true])), new VlcEntry(VlcEntry.Fork, [28, 29]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), false, true])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4V), true, true])), new VlcEntry(VlcEntry.Fork, [36, 31]), new VlcEntry(VlcEntry.Fork, [33, 32]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Intra), true, false])), new VlcEntry(VlcEntry.Fork, [34, 35]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), false, true])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.InterQ), true, true])), new VlcEntry(VlcEntry.Fork, [40, 37]), new VlcEntry(VlcEntry.Fork, [38, 39]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), true, true])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.IntraQ), true, false])), new VlcEntry(VlcEntry.Fork, [42, 41]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Stuffing)), new VlcEntry(VlcEntry.Fork, [43, 44]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)), new VlcEntry(VlcEntry.Fork, [45, 46]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4Vq), false, false])), new VlcEntry(VlcEntry.Fork, [47, 50]), new VlcEntry(VlcEntry.Fork, [48, 49]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4Vq), false, true])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Invalid)), new VlcEntry(VlcEntry.Fork, [51, 52]), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4Vq), true, false])), new VlcEntry(VlcEntry.End, new BlockPatternEntry(BlockPatternEntry.Valid, [new MacroblockType(MacroblockType.Inter4Vq), true, true]))];
+		const MODB_TABLE = [new VlcEntry(VlcEntry.Fork, [1, 2]), new VlcEntry(VlcEntry.End, [false, false]), new VlcEntry(VlcEntry.Fork, [3, 4]), new VlcEntry(VlcEntry.End, [false, true]), new VlcEntry(VlcEntry.End, [true, true])];
 		function decode_cbpb(reader) {
 			let cbp0 = reader.readBits(1) == 1;
 			let cbp1 = reader.readBits(1) == 1;
@@ -5224,42 +4957,7 @@ var PinkFie = (function(moduleResults) {
 			let cbp5 = reader.readBits(1) == 1;
 			return new CodedBlockPattern([cbp0, cbp1, cbp2, cbp3], cbp4, cbp5);
 		}
-
-		const CBPY_TABLE_INTRA = [
-			new VlcEntry(VlcEntry.Fork, [1, 24]),
-			new VlcEntry(VlcEntry.Fork, [2, 17]),
-			new VlcEntry(VlcEntry.Fork, [3, 12]),
-			new VlcEntry(VlcEntry.Fork, [4, 9]),
-			new VlcEntry(VlcEntry.Fork, [5, 6]),
-			new VlcEntry(VlcEntry.End, null), // not a valid prefix
-			new VlcEntry(VlcEntry.Fork, [7, 8]),
-			new VlcEntry(VlcEntry.End, [false, true, true, false]),
-			new VlcEntry(VlcEntry.End, [true, false, false, true]),
-			new VlcEntry(VlcEntry.Fork, [10, 11]),
-			new VlcEntry(VlcEntry.End, [true, false, false, false]),
-			new VlcEntry(VlcEntry.End, [false, true, false, false]),
-			new VlcEntry(VlcEntry.Fork, [13, 16]),
-			new VlcEntry(VlcEntry.Fork, [14, 15]),
-			new VlcEntry(VlcEntry.End, [false, false, true, false]),
-			new VlcEntry(VlcEntry.End, [false, false, false, true]),
-			new VlcEntry(VlcEntry.End, [false, false, false, false]),
-			new VlcEntry(VlcEntry.Fork, [18, 21]),
-			new VlcEntry(VlcEntry.Fork, [19, 20]),
-			new VlcEntry(VlcEntry.End, [true, true, false, false]),
-			new VlcEntry(VlcEntry.End, [true, false, true, false]),
-			new VlcEntry(VlcEntry.Fork, [22, 23]),
-			new VlcEntry(VlcEntry.End, [true, true, true, false]),
-			new VlcEntry(VlcEntry.End, [false, true, false, true]),
-			new VlcEntry(VlcEntry.Fork, [25, 32]),
-			new VlcEntry(VlcEntry.Fork, [26, 29]),
-			new VlcEntry(VlcEntry.Fork, [27, 28]),
-			new VlcEntry(VlcEntry.End, [true, true, false, true]),
-			new VlcEntry(VlcEntry.End, [false, false, true, true]),
-			new VlcEntry(VlcEntry.Fork, [30, 31]),
-			new VlcEntry(VlcEntry.End, [true, false, true, true]),
-			new VlcEntry(VlcEntry.End, [false, true, true, true]),
-			new VlcEntry(VlcEntry.End, [true, true, true, true]),
-		];
+		const CBPY_TABLE_INTRA = [new VlcEntry(VlcEntry.Fork, [1, 24]), new VlcEntry(VlcEntry.Fork, [2, 17]), new VlcEntry(VlcEntry.Fork, [3, 12]), new VlcEntry(VlcEntry.Fork, [4, 9]), new VlcEntry(VlcEntry.Fork, [5, 6]), new VlcEntry(VlcEntry.End, null), new VlcEntry(VlcEntry.Fork, [7, 8]), new VlcEntry(VlcEntry.End, [false, true, true, false]), new VlcEntry(VlcEntry.End, [true, false, false, true]), new VlcEntry(VlcEntry.Fork, [10, 11]), new VlcEntry(VlcEntry.End, [true, false, false, false]), new VlcEntry(VlcEntry.End, [false, true, false, false]), new VlcEntry(VlcEntry.Fork, [13, 16]), new VlcEntry(VlcEntry.Fork, [14, 15]), new VlcEntry(VlcEntry.End, [false, false, true, false]), new VlcEntry(VlcEntry.End, [false, false, false, true]), new VlcEntry(VlcEntry.End, [false, false, false, false]), new VlcEntry(VlcEntry.Fork, [18, 21]), new VlcEntry(VlcEntry.Fork, [19, 20]), new VlcEntry(VlcEntry.End, [true, true, false, false]), new VlcEntry(VlcEntry.End, [true, false, true, false]), new VlcEntry(VlcEntry.Fork, [22, 23]), new VlcEntry(VlcEntry.End, [true, true, true, false]), new VlcEntry(VlcEntry.End, [false, true, false, true]), new VlcEntry(VlcEntry.Fork, [25, 32]), new VlcEntry(VlcEntry.Fork, [26, 29]), new VlcEntry(VlcEntry.Fork, [27, 28]), new VlcEntry(VlcEntry.End, [true, true, false, true]), new VlcEntry(VlcEntry.End, [false, false, true, true]), new VlcEntry(VlcEntry.Fork, [30, 31]), new VlcEntry(VlcEntry.End, [true, false, true, true]), new VlcEntry(VlcEntry.End, [false, true, true, true]), new VlcEntry(VlcEntry.End, [true, true, true, true])];
 		function decode_dquant(reader) {
 			switch(reader.readBits(2)) {
 				case 0:
@@ -5274,141 +4972,9 @@ var PinkFie = (function(moduleResults) {
 					throw new Error("InternalDecoderError");
 			}
 		}
-
-		const MVD_TABLE = [
-			new VlcEntry(VlcEntry.Fork, [2, 1]),
-			new VlcEntry(VlcEntry.End, 0.0),
-			new VlcEntry(VlcEntry.Fork, [6, 3]),
-			new VlcEntry(VlcEntry.Fork, [4, 5]),
-			new VlcEntry(VlcEntry.End, 0.5),
-			new VlcEntry(VlcEntry.End, -0.5),
-			new VlcEntry(VlcEntry.Fork, [10, 7]),
-			new VlcEntry(VlcEntry.Fork, [8, 9]),
-			new VlcEntry(VlcEntry.End, 1.0),
-			new VlcEntry(VlcEntry.End, -1.0),
-			new VlcEntry(VlcEntry.Fork, [14, 11]),
-			new VlcEntry(VlcEntry.Fork, [12, 13]),
-			new VlcEntry(VlcEntry.End, 1.5),
-			new VlcEntry(VlcEntry.End, -1.5),
-			new VlcEntry(VlcEntry.Fork, [26, 15]),
-			new VlcEntry(VlcEntry.Fork, [19, 16]),
-			new VlcEntry(VlcEntry.Fork, [17, 18]),
-			new VlcEntry(VlcEntry.End, 2.0),
-			new VlcEntry(VlcEntry.End, -2.0),
-			new VlcEntry(VlcEntry.Fork, [23, 20]),
-			new VlcEntry(VlcEntry.Fork, [21, 22]),
-			new VlcEntry(VlcEntry.End, 2.5),
-			new VlcEntry(VlcEntry.End, -2.5),
-			new VlcEntry(VlcEntry.Fork, [24, 25]),
-			new VlcEntry(VlcEntry.End, 3.0),
-			new VlcEntry(VlcEntry.End, -3.0),
-			new VlcEntry(VlcEntry.Fork, [50, 27]),
-			new VlcEntry(VlcEntry.Fork, [31, 28]),
-			new VlcEntry(VlcEntry.Fork, [29, 30]),
-			new VlcEntry(VlcEntry.End, 3.5),
-			new VlcEntry(VlcEntry.End, -3.5),
-			new VlcEntry(VlcEntry.Fork, [39, 32]),
-			new VlcEntry(VlcEntry.Fork, [36, 33]),
-			new VlcEntry(VlcEntry.Fork, [34, 35]),
-			new VlcEntry(VlcEntry.End, 4.0),
-			new VlcEntry(VlcEntry.End, -4.0),
-			new VlcEntry(VlcEntry.Fork, [37, 38]),
-			new VlcEntry(VlcEntry.End, 4.5),
-			new VlcEntry(VlcEntry.End, -4.5),
-			new VlcEntry(VlcEntry.Fork, [43, 40]),
-			new VlcEntry(VlcEntry.Fork, [41, 42]),
-			new VlcEntry(VlcEntry.End, 5.0),
-			new VlcEntry(VlcEntry.End, -5.0),
-			new VlcEntry(VlcEntry.Fork, [47, 44]),
-			new VlcEntry(VlcEntry.Fork, [45, 46]),
-			new VlcEntry(VlcEntry.End, 5.5),
-			new VlcEntry(VlcEntry.End, -5.5),
-			new VlcEntry(VlcEntry.Fork, [48, 49]),
-			new VlcEntry(VlcEntry.End, 6.0),
-			new VlcEntry(VlcEntry.End, -6.0),
-			new VlcEntry(VlcEntry.Fork, [82, 51]),
-			new VlcEntry(VlcEntry.Fork, [67, 52]),
-			new VlcEntry(VlcEntry.Fork, [60, 53]),
-			new VlcEntry(VlcEntry.Fork, [57, 54]),
-			new VlcEntry(VlcEntry.Fork, [55, 56]),
-			new VlcEntry(VlcEntry.End, 6.5),
-			new VlcEntry(VlcEntry.End, -6.5),
-			new VlcEntry(VlcEntry.Fork, [58, 59]),
-			new VlcEntry(VlcEntry.End, 7.0),
-			new VlcEntry(VlcEntry.End, -7.0),
-			new VlcEntry(VlcEntry.Fork, [64, 61]),
-			new VlcEntry(VlcEntry.Fork, [62, 63]),
-			new VlcEntry(VlcEntry.End, 7.5),
-			new VlcEntry(VlcEntry.End, -7.5),
-			new VlcEntry(VlcEntry.Fork, [65, 66]),
-			new VlcEntry(VlcEntry.End, 8.0),
-			new VlcEntry(VlcEntry.End, -8.0),
-			new VlcEntry(VlcEntry.Fork, [75, 68]),
-			new VlcEntry(VlcEntry.Fork, [72, 69]),
-			new VlcEntry(VlcEntry.Fork, [70, 71]),
-			new VlcEntry(VlcEntry.End, 8.5),
-			new VlcEntry(VlcEntry.End, -8.5),
-			new VlcEntry(VlcEntry.Fork, [73, 74]),
-			new VlcEntry(VlcEntry.End, 9.0),
-			new VlcEntry(VlcEntry.End, -9.0),
-			new VlcEntry(VlcEntry.Fork, [79, 76]),
-			new VlcEntry(VlcEntry.Fork, [77, 78]),
-			new VlcEntry(VlcEntry.End, 9.5),
-			new VlcEntry(VlcEntry.End, -9.5),
-			new VlcEntry(VlcEntry.Fork, [80, 81]),
-			new VlcEntry(VlcEntry.End, 10.0),
-			new VlcEntry(VlcEntry.End, -10.0),
-			new VlcEntry(VlcEntry.Fork, [98, 83]),
-			new VlcEntry(VlcEntry.Fork, [91, 84]),
-			new VlcEntry(VlcEntry.Fork, [88, 85]),
-			new VlcEntry(VlcEntry.Fork, [86, 87]),
-			new VlcEntry(VlcEntry.End, 10.5),
-			new VlcEntry(VlcEntry.End, -10.5),
-			new VlcEntry(VlcEntry.Fork, [89, 90]),
-			new VlcEntry(VlcEntry.End, 11.0),
-			new VlcEntry(VlcEntry.End, -11.0),
-			new VlcEntry(VlcEntry.Fork, [95, 92]),
-			new VlcEntry(VlcEntry.Fork, [93, 94]),
-			new VlcEntry(VlcEntry.End, 11.5),
-			new VlcEntry(VlcEntry.End, -11.5),
-			new VlcEntry(VlcEntry.Fork, [96, 97]),
-			new VlcEntry(VlcEntry.End, 12.0),
-			new VlcEntry(VlcEntry.End, -12.0),
-			new VlcEntry(VlcEntry.Fork, [114, 99]),
-			new VlcEntry(VlcEntry.Fork, [107, 100]),
-			new VlcEntry(VlcEntry.Fork, [104, 101]),
-			new VlcEntry(VlcEntry.Fork, [102, 103]),
-			new VlcEntry(VlcEntry.End, 12.5),
-			new VlcEntry(VlcEntry.End, -12.5),
-			new VlcEntry(VlcEntry.Fork, [105, 106]),
-			new VlcEntry(VlcEntry.End, 13.0),
-			new VlcEntry(VlcEntry.End, -13.0),
-			new VlcEntry(VlcEntry.Fork, [111, 108]),
-			new VlcEntry(VlcEntry.Fork, [109, 110]),
-			new VlcEntry(VlcEntry.End, 13.5),
-			new VlcEntry(VlcEntry.End, -13.5),
-			new VlcEntry(VlcEntry.Fork, [112, 113]),
-			new VlcEntry(VlcEntry.End, 14.0),
-			new VlcEntry(VlcEntry.End, -14.0),
-			new VlcEntry(VlcEntry.Fork, [122, 115]),
-			new VlcEntry(VlcEntry.Fork, [119, 116]),
-			new VlcEntry(VlcEntry.Fork, [117, 118]),
-			new VlcEntry(VlcEntry.End, 14.5),
-			new VlcEntry(VlcEntry.End, -14.5),
-			new VlcEntry(VlcEntry.Fork, [120, 121]),
-			new VlcEntry(VlcEntry.End, 15.0),
-			new VlcEntry(VlcEntry.End, -15.0),
-			new VlcEntry(VlcEntry.Fork, [129, 123]),
-			new VlcEntry(VlcEntry.Fork, [127, 124]),
-			new VlcEntry(VlcEntry.Fork, [125, 126]),
-			new VlcEntry(VlcEntry.End, 15.5),
-			new VlcEntry(VlcEntry.End, -15.5),
-			new VlcEntry(VlcEntry.Fork, [129, 128]),
-			new VlcEntry(VlcEntry.End, -16.0),
-			new VlcEntry(VlcEntry.End, null)
-		];
+		const MVD_TABLE = [new VlcEntry(VlcEntry.Fork, [2, 1]), new VlcEntry(VlcEntry.End, 0.0), new VlcEntry(VlcEntry.Fork, [6, 3]), new VlcEntry(VlcEntry.Fork, [4, 5]), new VlcEntry(VlcEntry.End, 0.5), new VlcEntry(VlcEntry.End, -0.5), new VlcEntry(VlcEntry.Fork, [10, 7]), new VlcEntry(VlcEntry.Fork, [8, 9]), new VlcEntry(VlcEntry.End, 1.0), new VlcEntry(VlcEntry.End, -1.0), new VlcEntry(VlcEntry.Fork, [14, 11]), new VlcEntry(VlcEntry.Fork, [12, 13]), new VlcEntry(VlcEntry.End, 1.5), new VlcEntry(VlcEntry.End, -1.5), new VlcEntry(VlcEntry.Fork, [26, 15]), new VlcEntry(VlcEntry.Fork, [19, 16]), new VlcEntry(VlcEntry.Fork, [17, 18]), new VlcEntry(VlcEntry.End, 2.0), new VlcEntry(VlcEntry.End, -2.0), new VlcEntry(VlcEntry.Fork, [23, 20]), new VlcEntry(VlcEntry.Fork, [21, 22]), new VlcEntry(VlcEntry.End, 2.5), new VlcEntry(VlcEntry.End, -2.5), new VlcEntry(VlcEntry.Fork, [24, 25]), new VlcEntry(VlcEntry.End, 3.0), new VlcEntry(VlcEntry.End, -3.0), new VlcEntry(VlcEntry.Fork, [50, 27]), new VlcEntry(VlcEntry.Fork, [31, 28]), new VlcEntry(VlcEntry.Fork, [29, 30]), new VlcEntry(VlcEntry.End, 3.5), new VlcEntry(VlcEntry.End, -3.5), new VlcEntry(VlcEntry.Fork, [39, 32]), new VlcEntry(VlcEntry.Fork, [36, 33]), new VlcEntry(VlcEntry.Fork, [34, 35]), new VlcEntry(VlcEntry.End, 4.0), new VlcEntry(VlcEntry.End, -4.0), new VlcEntry(VlcEntry.Fork, [37, 38]), new VlcEntry(VlcEntry.End, 4.5), new VlcEntry(VlcEntry.End, -4.5), new VlcEntry(VlcEntry.Fork, [43, 40]), new VlcEntry(VlcEntry.Fork, [41, 42]), new VlcEntry(VlcEntry.End, 5.0), new VlcEntry(VlcEntry.End, -5.0), new VlcEntry(VlcEntry.Fork, [47, 44]), new VlcEntry(VlcEntry.Fork, [45, 46]), new VlcEntry(VlcEntry.End, 5.5), new VlcEntry(VlcEntry.End, -5.5), new VlcEntry(VlcEntry.Fork, [48, 49]), new VlcEntry(VlcEntry.End, 6.0), new VlcEntry(VlcEntry.End, -6.0), new VlcEntry(VlcEntry.Fork, [82, 51]), new VlcEntry(VlcEntry.Fork, [67, 52]), new VlcEntry(VlcEntry.Fork, [60, 53]), new VlcEntry(VlcEntry.Fork, [57, 54]), new VlcEntry(VlcEntry.Fork, [55, 56]), new VlcEntry(VlcEntry.End, 6.5), new VlcEntry(VlcEntry.End, -6.5), new VlcEntry(VlcEntry.Fork, [58, 59]), new VlcEntry(VlcEntry.End, 7.0), new VlcEntry(VlcEntry.End, -7.0), new VlcEntry(VlcEntry.Fork, [64, 61]), new VlcEntry(VlcEntry.Fork, [62, 63]), new VlcEntry(VlcEntry.End, 7.5), new VlcEntry(VlcEntry.End, -7.5), new VlcEntry(VlcEntry.Fork, [65, 66]), new VlcEntry(VlcEntry.End, 8.0), new VlcEntry(VlcEntry.End, -8.0), new VlcEntry(VlcEntry.Fork, [75, 68]), new VlcEntry(VlcEntry.Fork, [72, 69]), new VlcEntry(VlcEntry.Fork, [70, 71]), new VlcEntry(VlcEntry.End, 8.5), new VlcEntry(VlcEntry.End, -8.5), new VlcEntry(VlcEntry.Fork, [73, 74]), new VlcEntry(VlcEntry.End, 9.0), new VlcEntry(VlcEntry.End, -9.0), new VlcEntry(VlcEntry.Fork, [79, 76]), new VlcEntry(VlcEntry.Fork, [77, 78]), new VlcEntry(VlcEntry.End, 9.5), new VlcEntry(VlcEntry.End, -9.5), new VlcEntry(VlcEntry.Fork, [80, 81]), new VlcEntry(VlcEntry.End, 10.0), new VlcEntry(VlcEntry.End, -10.0), new VlcEntry(VlcEntry.Fork, [98, 83]), new VlcEntry(VlcEntry.Fork, [91, 84]), new VlcEntry(VlcEntry.Fork, [88, 85]), new VlcEntry(VlcEntry.Fork, [86, 87]), new VlcEntry(VlcEntry.End, 10.5), new VlcEntry(VlcEntry.End, -10.5), new VlcEntry(VlcEntry.Fork, [89, 90]), new VlcEntry(VlcEntry.End, 11.0), new VlcEntry(VlcEntry.End, -11.0), new VlcEntry(VlcEntry.Fork, [95, 92]), new VlcEntry(VlcEntry.Fork, [93, 94]), new VlcEntry(VlcEntry.End, 11.5), new VlcEntry(VlcEntry.End, -11.5), new VlcEntry(VlcEntry.Fork, [96, 97]), new VlcEntry(VlcEntry.End, 12.0), new VlcEntry(VlcEntry.End, -12.0), new VlcEntry(VlcEntry.Fork, [114, 99]), new VlcEntry(VlcEntry.Fork, [107, 100]), new VlcEntry(VlcEntry.Fork, [104, 101]), new VlcEntry(VlcEntry.Fork, [102, 103]), new VlcEntry(VlcEntry.End, 12.5), new VlcEntry(VlcEntry.End, -12.5), new VlcEntry(VlcEntry.Fork, [105, 106]), new VlcEntry(VlcEntry.End, 13.0), new VlcEntry(VlcEntry.End, -13.0), new VlcEntry(VlcEntry.Fork, [111, 108]), new VlcEntry(VlcEntry.Fork, [109, 110]), new VlcEntry(VlcEntry.End, 13.5), new VlcEntry(VlcEntry.End, -13.5), new VlcEntry(VlcEntry.Fork, [112, 113]), new VlcEntry(VlcEntry.End, 14.0), new VlcEntry(VlcEntry.End, -14.0), new VlcEntry(VlcEntry.Fork, [122, 115]), new VlcEntry(VlcEntry.Fork, [119, 116]), new VlcEntry(VlcEntry.Fork, [117, 118]), new VlcEntry(VlcEntry.End, 14.5), new VlcEntry(VlcEntry.End, -14.5), new VlcEntry(VlcEntry.Fork, [120, 121]), new VlcEntry(VlcEntry.End, 15.0), new VlcEntry(VlcEntry.End, -15.0), new VlcEntry(VlcEntry.Fork, [129, 123]), new VlcEntry(VlcEntry.Fork, [127, 124]), new VlcEntry(VlcEntry.Fork, [125, 126]), new VlcEntry(VlcEntry.End, 15.5), new VlcEntry(VlcEntry.End, -15.5), new VlcEntry(VlcEntry.Fork, [129, 128]), new VlcEntry(VlcEntry.End, -16.0), new VlcEntry(VlcEntry.End, null)];
 		function decode_motion_vector(reader, picture, running_options) {
-			if (false) {
+			if (running_options.UNRESTRICTED_MOTION_VECTORS && picture.has_plusptype) {
 				let x = reader.read_umv();
 				let y = reader.read_umv();
 				return new MotionVector(x, y);
@@ -5423,22 +4989,17 @@ var PinkFie = (function(moduleResults) {
 				return new MotionVector(x, y);
 			}
 		}
-
 		function decode_macroblock(reader, picture, running_options) {
 			return reader.withTransaction(function(reader) {
-				// with_transaction
 				let is_coded = 0;
-				if (picture.picture_type.type == PictureTypeCode.IFrame) { // matches!(picture.picture_type, PictureTypeCode::IFrame)
+				if (picture.picture_type.type == PictureTypeCode.IFrame) {
 					is_coded = 0;
 				} else {
 					is_coded = reader.readBits(1);
 				}
-
 				if (is_coded == 0) {
 					var mcbpc = null;
-
 					var picture_type = picture.picture_type;
-
 					switch(picture_type.type) {
 						case PictureTypeCode.IFrame:
 							mcbpc = reader.readVLC(MCBPC_I_TABLE);
@@ -5449,11 +5010,9 @@ var PinkFie = (function(moduleResults) {
 						default:
 							throw new Error("UnimplementedDecoding");
 					}
-
 					var mb_type = null;
 					var codes_chroma_b = null;
 					var codes_chroma_r = null;
-
 					switch(mcbpc.type) {
 						case BlockPatternEntry.Stuffing:
 							return new Macroblock(Macroblock.Stuffing);
@@ -5465,10 +5024,8 @@ var PinkFie = (function(moduleResults) {
 							codes_chroma_r = mcbpc.value[2];
 							break;
 					}
-
 					var has_cbpb = null;
 					var has_mvdb = null;
-
 					if (picture_type.type == PictureTypeCode.PbFrame) {
 						var ergf = reader.readVLC(MODB_TABLE);
 						has_cbpb = ergf[0];
@@ -5477,38 +5034,30 @@ var PinkFie = (function(moduleResults) {
 						has_cbpb = false;
 						has_mvdb = false;
 					}
-
 					let codes_luma = null;
 					if (mb_type.is_intra()) {
 						var dfgs = reader.readVLC(CBPY_TABLE_INTRA);
-						if (dfgs === null)
-							throw new Error("InvalidMacroblockCodedBits");
+						if (dfgs === null) throw new Error("InvalidMacroblockCodedBits");
 						codes_luma = dfgs;
 					} else {
 						var dfgs = reader.readVLC(CBPY_TABLE_INTRA);;
-						if (dfgs === null)
-							throw new Error("InvalidMacroblockCodedBits");
+						if (dfgs === null) throw new Error("InvalidMacroblockCodedBits");
 						codes_luma = [!dfgs[0], !dfgs[1], !dfgs[2], !dfgs[3]];
 					}
-
 					let coded_block_pattern_b = null;
 					if (has_cbpb) {
 						coded_block_pattern_b = decode_cbpb(reader);
 					}
-
 					let d_quantizer = null;
-
 					if (running_options.MODIFIED_QUANTIZATION) {
 						throw new Error("UnimplementedDecoding");
 					} else if (mb_type.has_quantizer()) {
 						d_quantizer = decode_dquant(reader);
 					}
-
 					let motion_vector = null;
 					if (mb_type.is_inter() || picture_type.is_any_pbframe()) {
 						motion_vector = decode_motion_vector(reader, picture, running_options);
 					}
-
 					let addl_motion_vectors = null;
 					if (mb_type.has_fourvec()) {
 						let mv2 = decode_motion_vector(reader, picture, running_options);
@@ -5542,632 +5091,15 @@ var PinkFie = (function(moduleResults) {
 				}
 			});
 		}
-
-		const ShortTCoefficient = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class ShortTCoefficient {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
 		ShortTCoefficient.EscapeToLong = 1;
 		ShortTCoefficient.Run = 2;
-
-		const TCOEF_TABLE = [
-			new VlcEntry(VlcEntry.Fork, [8, 1]),
-			new VlcEntry(VlcEntry.Fork, [2, 3]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-			last: false,
-			run: 0,
-			level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [4, 5]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [6, 7]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 2,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [28, 9]),
-			new VlcEntry(VlcEntry.Fork, [15, 10]),
-			new VlcEntry(VlcEntry.Fork, [12, 11]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 0,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [13, 14]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 4,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 3,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [16, 23]),
-			new VlcEntry(VlcEntry.Fork, [17, 20]),
-			new VlcEntry(VlcEntry.Fork, [18, 19]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 9,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 8,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [21, 22]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 7,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 6,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [25, 24]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 5,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [26, 27]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.Fork, [52, 29]),
-			new VlcEntry(VlcEntry.Fork, [37, 30]),
-			new VlcEntry(VlcEntry.Fork, [31, 34]),
-			new VlcEntry(VlcEntry.Fork, [32, 33]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 4,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 3,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [35, 36]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 2,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 1,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [38, 45]),
-			new VlcEntry(VlcEntry.Fork, [39, 42]),
-			new VlcEntry(VlcEntry.Fork, [40, 41]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 8,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 7,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [43, 44]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 6,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 5,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [46, 49]),
-			new VlcEntry(VlcEntry.Fork, [47, 48]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 12,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 11,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [50, 51]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 10,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 4,
-			})),
-			new VlcEntry(VlcEntry.Fork, [90, 53]),
-			new VlcEntry(VlcEntry.Fork, [69, 54]),
-			new VlcEntry(VlcEntry.Fork, [55, 62]),
-			new VlcEntry(VlcEntry.Fork, [56, 59]),
-			new VlcEntry(VlcEntry.Fork, [57, 58]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 11,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 10,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [60, 61]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 9,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 14,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [63, 66]),
-			new VlcEntry(VlcEntry.Fork, [64, 65]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 13,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 2,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [67, 68]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 5,
-			})),
-			new VlcEntry(VlcEntry.Fork, [77, 70]),
-			new VlcEntry(VlcEntry.Fork, [71, 74]),
-			new VlcEntry(VlcEntry.Fork, [72, 73]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 15,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 14,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [75, 76]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 13,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 12,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [78, 85]),
-			new VlcEntry(VlcEntry.Fork, [79, 82]),
-			new VlcEntry(VlcEntry.Fork, [80, 81]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 16,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 15,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [83, 84]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 4,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 3,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [86, 89]),
-			new VlcEntry(VlcEntry.Fork, [87, 88]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 7,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 6,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 16,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [124, 91]),
-			new VlcEntry(VlcEntry.Fork, [92, 109]),
-			new VlcEntry(VlcEntry.Fork, [93, 102]),
-			new VlcEntry(VlcEntry.Fork, [94, 99]),
-			new VlcEntry(VlcEntry.Fork, [95, 98]),
-			new VlcEntry(VlcEntry.Fork, [96, 97]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 9,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 8,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 24,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [100, 101]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 23,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 22,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [103, 106]),
-			new VlcEntry(VlcEntry.Fork, [104, 105]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 21,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 20,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [107, 108]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 19,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 18,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [110, 117]),
-			new VlcEntry(VlcEntry.Fork, [111, 114]),
-			new VlcEntry(VlcEntry.Fork, [112, 113]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 17,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 0,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [115, 116]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 22,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 21,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [118, 121]),
-			new VlcEntry(VlcEntry.Fork, [119, 120]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 20,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 19,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [122, 123]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 18,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 17,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [174, 125]),
-			new VlcEntry(VlcEntry.Fork, [127, 126]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.EscapeToLong)),
-			new VlcEntry(VlcEntry.Fork, [128, 143]),
-			new VlcEntry(VlcEntry.Fork, [129, 136]),
-			new VlcEntry(VlcEntry.Fork, [130, 133]),
-			new VlcEntry(VlcEntry.Fork, [131, 132]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 12,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 5,
-			})),
-			new VlcEntry(VlcEntry.Fork, [134, 135]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 23,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 24,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [137, 140]),
-			new VlcEntry(VlcEntry.Fork, [138, 139]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 29,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 30,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [141, 142]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 31,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 32,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [144, 159]),
-			new VlcEntry(VlcEntry.Fork, [145, 152]),
-			new VlcEntry(VlcEntry.Fork, [146, 149]),
-			new VlcEntry(VlcEntry.Fork, [147, 148]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 6,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 2,
-				level: 4,
-			})),
-			new VlcEntry(VlcEntry.Fork, [150, 151]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 4,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 5,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.Fork, [153, 156]),
-			new VlcEntry(VlcEntry.Fork, [154, 155]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 6,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 10,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [157, 158]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 25,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 26,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [160, 167]),
-			new VlcEntry(VlcEntry.Fork, [161, 164]),
-			new VlcEntry(VlcEntry.Fork, [162, 163]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 33,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 34,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [165, 166]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 35,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 36,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [168, 171]),
-			new VlcEntry(VlcEntry.Fork, [169, 170]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 37,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 38,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [172, 173]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 39,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 40,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [190, 175]),
-			new VlcEntry(VlcEntry.Fork, [176, 183]),
-			new VlcEntry(VlcEntry.Fork, [177, 180]),
-			new VlcEntry(VlcEntry.Fork, [178, 179]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 9,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 8,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [181, 182]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 7,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 6,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.Fork, [184, 187]),
-			new VlcEntry(VlcEntry.Fork, [185, 186]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 5,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 3,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.Fork, [188, 189]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 2,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 1,
-				level: 4,
-			})),
-			new VlcEntry(VlcEntry.Fork, [198, 191]),
-			new VlcEntry(VlcEntry.Fork, [192, 195]),
-			new VlcEntry(VlcEntry.Fork, [193, 194]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 28,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 27,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [196, 197]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 26,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 25,
-				level: 1,
-			})),
-			new VlcEntry(VlcEntry.Fork, [206, 199]),
-			new VlcEntry(VlcEntry.Fork, [200, 203]),
-			new VlcEntry(VlcEntry.Fork, [201, 202]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 1,
-				level: 2,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: true,
-				run: 0,
-				level: 3,
-			})),
-			new VlcEntry(VlcEntry.Fork, [204, 205]),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 11,
-			})),
-			new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {
-				last: false,
-				run: 0,
-				level: 10,
-			})),
-			new VlcEntry(VlcEntry.End, null)
-		]
-
+		const TCOEF_TABLE = [new VlcEntry(VlcEntry.Fork, [8, 1]),new VlcEntry(VlcEntry.Fork, [2, 3]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 1})),new VlcEntry(VlcEntry.Fork, [4, 5]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 1})),new VlcEntry(VlcEntry.Fork, [6, 7]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 2,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 2})),new VlcEntry(VlcEntry.Fork, [28, 9]),new VlcEntry(VlcEntry.Fork, [15, 10]),new VlcEntry(VlcEntry.Fork, [12, 11]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 0,level: 1})),new VlcEntry(VlcEntry.Fork, [13, 14]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 4,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 3,level: 1})),new VlcEntry(VlcEntry.Fork, [16, 23]),new VlcEntry(VlcEntry.Fork, [17, 20]),new VlcEntry(VlcEntry.Fork, [18, 19]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 9,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 8,level: 1})),new VlcEntry(VlcEntry.Fork, [21, 22]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 7,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 6,level: 1})),new VlcEntry(VlcEntry.Fork, [25, 24]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 5,level: 1})),new VlcEntry(VlcEntry.Fork, [26, 27]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 3})),new VlcEntry(VlcEntry.Fork, [52, 29]),new VlcEntry(VlcEntry.Fork, [37, 30]),new VlcEntry(VlcEntry.Fork, [31, 34]),new VlcEntry(VlcEntry.Fork, [32, 33]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 4,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 3,level: 1})),new VlcEntry(VlcEntry.Fork, [35, 36]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 2,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 1,level: 1})),new VlcEntry(VlcEntry.Fork, [38, 45]),new VlcEntry(VlcEntry.Fork, [39, 42]),new VlcEntry(VlcEntry.Fork, [40, 41]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 8,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 7,level: 1})),new VlcEntry(VlcEntry.Fork, [43, 44]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 6,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 5,level: 1})),new VlcEntry(VlcEntry.Fork, [46, 49]),new VlcEntry(VlcEntry.Fork, [47, 48]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 12,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 11,level: 1})),new VlcEntry(VlcEntry.Fork, [50, 51]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 10,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 4})),new VlcEntry(VlcEntry.Fork, [90, 53]),new VlcEntry(VlcEntry.Fork, [69, 54]),new VlcEntry(VlcEntry.Fork, [55, 62]),new VlcEntry(VlcEntry.Fork, [56, 59]),new VlcEntry(VlcEntry.Fork, [57, 58]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 11,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 10,level: 1})),new VlcEntry(VlcEntry.Fork, [60, 61]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 9,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 14,level: 1})),new VlcEntry(VlcEntry.Fork, [63, 66]),new VlcEntry(VlcEntry.Fork, [64, 65]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 13,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 2,level: 2})),new VlcEntry(VlcEntry.Fork, [67, 68]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 3})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 5})),new VlcEntry(VlcEntry.Fork, [77, 70]),new VlcEntry(VlcEntry.Fork, [71, 74]),new VlcEntry(VlcEntry.Fork, [72, 73]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 15,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 14,level: 1})),new VlcEntry(VlcEntry.Fork, [75, 76]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 13,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 12,level: 1})),new VlcEntry(VlcEntry.Fork, [78, 85]),new VlcEntry(VlcEntry.Fork, [79, 82]),new VlcEntry(VlcEntry.Fork, [80, 81]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 16,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 15,level: 1})),new VlcEntry(VlcEntry.Fork, [83, 84]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 4,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 3,level: 2})),new VlcEntry(VlcEntry.Fork, [86, 89]),new VlcEntry(VlcEntry.Fork, [87, 88]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 7})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 6})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 16,level: 1})),new VlcEntry(VlcEntry.Fork, [124, 91]),new VlcEntry(VlcEntry.Fork, [92, 109]),new VlcEntry(VlcEntry.Fork, [93, 102]),new VlcEntry(VlcEntry.Fork, [94, 99]),new VlcEntry(VlcEntry.Fork, [95, 98]),new VlcEntry(VlcEntry.Fork, [96, 97]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 9})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 8})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 24,level: 1})),new VlcEntry(VlcEntry.Fork, [100, 101]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 23,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 22,level: 1})),new VlcEntry(VlcEntry.Fork, [103, 106]),new VlcEntry(VlcEntry.Fork, [104, 105]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 21,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 20,level: 1})),new VlcEntry(VlcEntry.Fork, [107, 108]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 19,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 18,level: 1})),new VlcEntry(VlcEntry.Fork, [110, 117]),new VlcEntry(VlcEntry.Fork, [111, 114]),new VlcEntry(VlcEntry.Fork, [112, 113]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 17,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 0,level: 2})),new VlcEntry(VlcEntry.Fork, [115, 116]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 22,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 21,level: 1})),new VlcEntry(VlcEntry.Fork, [118, 121]),new VlcEntry(VlcEntry.Fork, [119, 120]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 20,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 19,level: 1})),new VlcEntry(VlcEntry.Fork, [122, 123]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 18,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 17,level: 1})),new VlcEntry(VlcEntry.Fork, [174, 125]),new VlcEntry(VlcEntry.Fork, [127, 126]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.EscapeToLong)),new VlcEntry(VlcEntry.Fork, [128, 143]),new VlcEntry(VlcEntry.Fork, [129, 136]),new VlcEntry(VlcEntry.Fork, [130, 133]),new VlcEntry(VlcEntry.Fork, [131, 132]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 12})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 5})),new VlcEntry(VlcEntry.Fork, [134, 135]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 23,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 24,level: 1})),new VlcEntry(VlcEntry.Fork, [137, 140]),new VlcEntry(VlcEntry.Fork, [138, 139]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 29,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 30,level: 1})),new VlcEntry(VlcEntry.Fork, [141, 142]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 31,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 32,level: 1})),new VlcEntry(VlcEntry.Fork, [144, 159]),new VlcEntry(VlcEntry.Fork, [145, 152]),new VlcEntry(VlcEntry.Fork, [146, 149]),new VlcEntry(VlcEntry.Fork, [147, 148]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 6})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 2,level: 4})),new VlcEntry(VlcEntry.Fork, [150, 151]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 4,level: 3})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 5,level: 3})),new VlcEntry(VlcEntry.Fork, [153, 156]),new VlcEntry(VlcEntry.Fork, [154, 155]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 6,level: 3})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 10,level: 2})),new VlcEntry(VlcEntry.Fork, [157, 158]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 25,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 26,level: 1})),new VlcEntry(VlcEntry.Fork, [160, 167]),new VlcEntry(VlcEntry.Fork, [161, 164]),new VlcEntry(VlcEntry.Fork, [162, 163]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 33,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 34,level: 1})),new VlcEntry(VlcEntry.Fork, [165, 166]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 35,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 36,level: 1})),new VlcEntry(VlcEntry.Fork, [168, 171]),new VlcEntry(VlcEntry.Fork, [169, 170]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 37,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 38,level: 1})),new VlcEntry(VlcEntry.Fork, [172, 173]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 39,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 40,level: 1})),new VlcEntry(VlcEntry.Fork, [190, 175]),new VlcEntry(VlcEntry.Fork, [176, 183]),new VlcEntry(VlcEntry.Fork, [177, 180]),new VlcEntry(VlcEntry.Fork, [178, 179]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 9,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 8,level: 2})),new VlcEntry(VlcEntry.Fork, [181, 182]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 7,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 6,level: 2})),new VlcEntry(VlcEntry.Fork, [184, 187]),new VlcEntry(VlcEntry.Fork, [185, 186]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 5,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 3,level: 3})),new VlcEntry(VlcEntry.Fork, [188, 189]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 2,level: 3})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 1,level: 4})),new VlcEntry(VlcEntry.Fork, [198, 191]),new VlcEntry(VlcEntry.Fork, [192, 195]),new VlcEntry(VlcEntry.Fork, [193, 194]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 28,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 27,level: 1})),new VlcEntry(VlcEntry.Fork, [196, 197]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 26,level: 1})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 25,level: 1})),new VlcEntry(VlcEntry.Fork, [206, 199]),new VlcEntry(VlcEntry.Fork, [200, 203]),new VlcEntry(VlcEntry.Fork, [201, 202]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 1,level: 2})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: true,run: 0,level: 3})),new VlcEntry(VlcEntry.Fork, [204, 205]),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 11})),new VlcEntry(VlcEntry.End, new ShortTCoefficient(ShortTCoefficient.Run, {last: false,run: 0,level: 10})),new VlcEntry(VlcEntry.End, null)];
 		function decode_block(reader, decoder_options, picture, running_options, macroblock_type, tcoef_present) {
 			return reader.withTransaction(function(reader) {
 				let intradc = null;
@@ -6217,21 +5149,9 @@ var PinkFie = (function(moduleResults) {
 				return new Block(intradc, tcoef);
 			});
 		}
-
-		const num_signum = function(num) {
-			if (num > 0) {
-				return 1;
-			} else if (num == 0) {
-				return 0;
-			} else {
-				return -1;
-			}
-		}
-
 		const DEZIGZAG_MAPPING = [[0, 0], [1, 0], [0, 1], [0, 2], [1, 1], [2, 0], [3, 0], [2, 1], [1, 2], [0, 3], [0, 4], [1, 3], [2, 2], [3, 1], [4, 0], [5, 0], [4, 1], [3, 2], [2, 3], [1, 4], [0, 5], [0, 6], [1, 5], [2, 4], [3, 3], [4, 2], [5, 1], [6, 0], [7, 0], [6, 1], [5, 2], [4, 3], [3, 4], [2, 5], [1, 6], [0, 7], [1, 7], [2, 6], [3, 5], [4, 4], [5, 3], [6, 2], [7, 1], [7, 2], [6, 3], [5, 4], [4, 5], [3, 6], [2, 7], [3, 7], [4, 6], [5, 5], [6, 4], [7, 3], [7, 4], [6, 5], [5, 6], [4, 7], [5, 7], [6, 6], [7, 5], [7, 6], [6, 7], [7, 7]]
-
 		function inverse_rle(encoded_block, levels, pos, blk_per_line, quant) {
-			let block_id = asI32(pos[0] / 8) + (asI32(pos[1] / 8) * blk_per_line);
+			let block_id = ((pos[0] / 8) | 0) + (((pos[1] / 8) | 0) * blk_per_line);
 			if (encoded_block.tcoef.length == 0) {
 				if (encoded_block.intradc) {
 					let dc_level = encoded_block.intradc.into_level();
@@ -6255,9 +5175,7 @@ var PinkFie = (function(moduleResults) {
 				for (var i = 0; i < encoded_block.tcoef.length; i++) {
 					var tcoef = encoded_block.tcoef[i];
 					zigzag_index += tcoef.run;
-					if (zigzag_index >= DEZIGZAG_MAPPING.length) {
-						return; // TODO
-					}
+					if (zigzag_index >= DEZIGZAG_MAPPING.length) return;
 					let [zig_x, zig_y] = DEZIGZAG_MAPPING[zigzag_index];
 					let dequantized_level = asI16(quant) * ((2 * Math.abs(tcoef.level)) + 1);
 					let parity = null;
@@ -6302,23 +5220,6 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
-		function decode_gob(reader, _decoder_options) {
-			// with_transaction_union
-			return reader.withTransactionUnion(function(reader) {
-				let skipped_bits = reader.recognizeStartCode(false);
-				if (skipped_bits === null) {
-					throw new Error("InvalidGobHeader");
-				}
-				reader.skipBits(17 + skipped_bits);
-				let gob_id = reader.readBits(5);
-				if (gob_id == 0 || gob_id == 15) {
-					return null;
-				}
-				throw new Error("UnimplementedDecoding");
-			});
-		}
-
 		function read_sample(pixel_array, samples_per_row, num_rows, pos) {
 			let [x, y] = pos;
 			let _x = num_clamp(x, 0, samples_per_row - 1);
@@ -6332,18 +5233,13 @@ var PinkFie = (function(moduleResults) {
 				return asU8(sample_a);
 			}
 		}
-
-		function asfgdgdfg(value, min, max) {
-			return (value >= min) && (value <= max);
-		}
-
 		function gather_block(pixel_array, samples_per_row, pos, mv, target) {
 			var g = mv.into_lerp_parameters();
 			let [x_delta, x_interp] = g[0];
 			let [y_delta, y_interp] = g[1];
-			let src_x = asI32(pos[0] + x_delta);
-			let src_y = asI32(pos[1] + y_delta);
-			let array_height = asI32(pixel_array.length / samples_per_row);
+			let src_x = (pos[0] + x_delta) | 0;
+			let src_y = (pos[1] + y_delta) | 0;
+			let array_height = (pixel_array.length / samples_per_row) | 0;
 			let block_cols = num_clamp((samples_per_row - pos[0]), 0, 8);
 			let block_rows = num_clamp((array_height - pos[1]), 0, 8);
 			if (!x_interp && !y_interp) {
@@ -6389,9 +5285,8 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
 		function gather(mb_types, reference_picture, mvs, mb_per_line, new_picture) {
-			for (var i = 0; i < mb_types.length; i++) { // TODO mb_types.iter().zip(mvs.iter()).enumerate()
+			for (var i = 0; i < mb_types.length; i++) {
 				var mb_type = mb_types[i];
 				var mv = mvs[i];
 				if (mb_type.is_inter()) {
@@ -6414,19 +5309,7 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-		function num_clamp(value, a, b) {
-			return Math.max(Math.min(value, b), a);
-		}
-		const BASIS_TABLE = [
-			new Float32Array([0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677]),
-			new Float32Array([0.98078525, 0.8314696, 0.5555702, 0.19509023, -0.19509032, -0.55557036, -0.83146966, -0.9807853]),
-			new Float32Array([0.9238795, 0.38268343, -0.38268352, -0.9238796, -0.9238795, -0.38268313, 0.3826836, 0.92387956]),
-			new Float32Array([0.8314696, -0.19509032, -0.9807853, -0.55557, 0.55557007, 0.98078525, 0.19509007, -0.8314698]),
-			new Float32Array([0.70710677, -0.70710677, -0.70710665, 0.707107, 0.70710677, -0.70710725, -0.70710653,  0.7071068]),
-			new Float32Array([0.5555702, -0.9807853, 0.19509041, 0.83146936, -0.8314698, -0.19508928, 0.9807853, -0.55557007]),
-			new Float32Array([0.38268343, -0.9238795, 0.92387974, -0.3826839, -0.38268384, 0.9238793, -0.92387974,  0.3826839]),
-			new Float32Array([0.19509023, -0.55557, 0.83146936, -0.9807852, 0.98078525, -0.83147013, 0.55557114, -0.19508967])
-		];
+		const BASIS_TABLE = [new Float32Array([0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677, 0.70710677]), new Float32Array([0.98078525, 0.8314696, 0.5555702, 0.19509023, -0.19509032, -0.55557036, -0.83146966, -0.9807853]), new Float32Array([0.9238795, 0.38268343, -0.38268352, -0.9238796, -0.9238795, -0.38268313, 0.3826836, 0.92387956]), new Float32Array([0.8314696, -0.19509032, -0.9807853, -0.55557, 0.55557007, 0.98078525, 0.19509007, -0.8314698]), new Float32Array([0.70710677, -0.70710677, -0.70710665, 0.707107, 0.70710677, -0.70710725, -0.70710653,  0.7071068]), new Float32Array([0.5555702, -0.9807853, 0.19509041, 0.83146936, -0.8314698, -0.19508928, 0.9807853, -0.55557007]), new Float32Array([0.38268343, -0.9238795, 0.92387974, -0.3826839, -0.38268384, 0.9238793, -0.92387974,  0.3826839]), new Float32Array([0.19509023, -0.55557, 0.83146936, -0.9807852, 0.98078525, -0.83147013, 0.55557114, -0.19508967])];
 		function idct_1d(input, output) {
 			output.fill(0);
 			for (var i = 0; i < output.length; i++) {
@@ -6436,8 +5319,8 @@ var PinkFie = (function(moduleResults) {
 			}
 		}
 		function idct_channel(block_levels, output, blk_per_line, output_samples_per_line) {
-			let output_height = asI32(output.length / output_samples_per_line);
-			let blk_height = asI32(block_levels.length / blk_per_line);
+			let output_height = (output.length / output_samples_per_line) | 0;
+			let blk_height = (block_levels.length / blk_per_line) | 0;
 			let idct_intermediate = [new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8)];
 			let idct_output = [new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8), new Float32Array(8)];
 			for (var y_base = 0; y_base < blk_height; y_base++) {
@@ -6520,12 +5403,10 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
 		function predict_candidate(predictor_vectors, current_predictors, mb_per_line, index) {
 			let current_mb = predictor_vectors.length;
 			let col_index = current_mb % mb_per_line;
 			let mv1_pred = null;
-
 			switch(index) {
 				case 0:
 				case 2:
@@ -6542,8 +5423,7 @@ var PinkFie = (function(moduleResults) {
 				default:
 					throw new Error("unreachable");
 			}
-
-			let line_index = asI32(current_mb / mb_per_line);
+			let line_index = (current_mb / mb_per_line) | 0;
 			let last_line_mb = (saturatingSub(line_index, 1) * mb_per_line) + col_index;
 			let mv2_pred = null;
 			switch(index) {
@@ -6596,29 +5476,14 @@ var PinkFie = (function(moduleResults) {
 			}
 			return mv1_pred.median_of(mv2_pred, mv3_pred);
 		}
-
 		function halfpel_decode(current_picture, running_options, predictor, mvd, is_x) {
 			let range = HalfPel.STANDARD_RANGE;
 			let out = new HalfPel(asI16(mvd.n + predictor.n));
-			if (running_options.UNRESTRICTED_MOTION_VECTORS && !current_picture.as_header().has_plusptype) {
-				if (predictor.is_mv_within_range(HalfPel.STANDARD_RANGE)) {
-					return out;
-				} else {
-					range = HalfPel.EXTENDED_RANGE;
-				}
-			} else {
-				var rrh = current_picture.as_header().motion_vector_range;
-				if (rrh) rrh = rrh.type == MotionVectorRange.Extended;
-				if (running_options.UNRESTRICTED_MOTION_VECTORS && rrh) {
-					console.log(current_picture.format);
-				}
-			}
 			if (!out.is_mv_within_range(range)) {
 				out = new HalfPel(asI16(mvd.invert().n + predictor.n));
 			}
 			return out;
 		}
-
 		function mv_decode(current_picture, running_options, predictor, mvd) {
 			let mvx = mvd.n1;
 			let mvy = mvd.n2;
@@ -6628,355 +5493,306 @@ var PinkFie = (function(moduleResults) {
 			let out_y = halfpel_decode(current_picture, running_options, cpy, mvy, false);
 			return new MotionVector(out_x, out_y);
 		}
-
-		const H263State = function(decoderOptions) {
-			this.decoderOptions = decoderOptions;
-			this.last_picture = null;
-			this.reference_picture = null;
-			this.running_options = PictureOption.empty();
-			this.reference_states = new Map();
-		}
-		H263State.prototype.isSorenson = function() {
-			return this.decoderOptions.sorensonSpark;
-		}
-		H263State.prototype.getLastPicture = function() {
-			if (this.last_picture === null) { // self.last_picture.is_none()
-				return null;
-			} else {
-				return this.reference_states.get(this.last_picture);
-			}
-		}
-		H263State.prototype.getReferencePicture = function() {
-			if (this.reference_picture === null) {
-				return null;
-			} else {
-				return this.reference_states.get(this.reference_picture);
-			}
-		}
-		function map_remove_entry(_, fg) {
-			return _.get(fg);
-		}
-		H263State.prototype.cleanup_buffers = function() {
-			var r1 = this.last_picture;
-			let last_picture = map_remove_entry(this.reference_states, r1);
-			let r2 = this.reference_picture;
-			let reference_picture = map_remove_entry(this.reference_states, r2);
-			this.reference_states = new Map();
-			if (last_picture) {
-				this.reference_states.set(r1, last_picture);
-			}
-			if (reference_picture) {
-				//this.reference_states.set(r2, reference_picture);
-			}
-		}
-		H263State.prototype.parsePicture = function(reader, previous_picture) {
-			return decodePicture(reader, this.decoderOptions, previous_picture);
-		}
-		H263State.prototype.decodeNextPicture = function(reader) {
-			// with_transaction
-			let next_picture = this.parsePicture(reader, this.getLastPicture());
-			var next_running_options = null;
-			if (next_picture.has_plusptype && next_picture.has_opptype) {
-				console.log("has_plusptype has_opptype");
-				next_running_options = next_picture.options;
-			} else if (next_picture.has_plusptype) {
-				console.log("has_plusptype");
-				// (next_picture.options & !*OPPTYPE_OPTIONS) | (self.running_options & *OPPTYPE_OPTIONS)
-			} else {
-				next_running_options = next_picture.options;
-			}
-			let format = null;
-			if (next_picture.format) {
-				format = next_picture.format;
-			} else if (next_picture.picture_type.type == PictureTypeCode.IFrame) {
-				throw new Error("PictureFormatMissing");
-			} else {
-				var ref_format = null;
-				var rfgh = this.getLastPicture();
-				if (rfgh !== null) {
-					ref_format = rfgh.format;
-				} else {
-					throw new Error("PictureFormatMissing");
-				}
-				format = ref_format;
-			}
-
-			let reference_picture = this.getReferencePicture();
-			let output_dimensions = format.intoWidthAndHeight();
-			let mb_per_line = Math.ceil(output_dimensions[0] / 16.0);
-			let mb_height = Math.ceil(output_dimensions[1] / 16.0);
-			let level_dimensions = [mb_per_line * 16, mb_height * 16];
-			let in_force_quantizer = next_picture.quantizer;
-			var MAX_L = mb_per_line * mb_height;
-			let predictor_vectors = []; // all previously decoded MVDs
-			let macroblock_types = [];
-			let next_decoded_picture = new DecodedPicture(next_picture, format);
-			var luma_levels = new Array(level_dimensions[0] * level_dimensions[1] / 64);
-			var chroma_b_levels = new Array(level_dimensions[0] * level_dimensions[1] / 4 / 64);
-			var chroma_r_levels = new Array(level_dimensions[0] * level_dimensions[1] / 4 / 64);
-			for (var i = 0; i < luma_levels.length; i++) 
-				luma_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
-			for (var i = 0; i < chroma_b_levels.length; i++) 
-				chroma_b_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
-			for (var i = 0; i < chroma_r_levels.length; i++) 
-				chroma_r_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
-			while((reader.bitAva() > 0) && (macroblock_types.length < MAX_L)) { // TODO
-				let mb;
-				try {
-					mb = decode_macroblock(reader, next_decoded_picture.as_header(), next_running_options);
-				} catch(e) {
-					mb = e.message;
-				}
-				let pos = [
-					Math.floor(macroblock_types.length % mb_per_line) * 16,
-					Math.floor(macroblock_types.length / mb_per_line) * 16
-				];
-				let motion_vectors = [];
-				for (var i = 0; i < 4; i++) 
-					motion_vectors.push(MotionVector.zero());
-				var mb_type = null;
-				var isStuffing = false;
-				if (typeof mb == "string") {
-					if (is_eof_error(mb)) {
-						console.log("eof");
-						break;
-					} else {
-						throw new Error(mb);
-					}
-				} else {
-					switch(mb.type) {
-						case Macroblock.Stuffing:
-							isStuffing = true;
-							break;
-						case Macroblock.Uncoded: 
-							if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) {
-								throw new Error("UncodedIFrameBlocks");
-							}
-							mb_type = new MacroblockType(MacroblockType.Inter);
-							break;
-						case Macroblock.Coded: 
-							var res = mb.value;
-							let quantizer = asI8(asI8(in_force_quantizer) + ((res.d_quantizer === null) ? 0 : res.d_quantizer));
-							in_force_quantizer = asU8(num_clamp(quantizer, 1, 31));
-							if (res.mb_type.is_inter()) {
-								let mv1 = res.motion_vector;
-								if (mv1 === null) 
-									mv1 = MotionVector.zero();
-								let mpred1 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 0);
-								motion_vectors[0] = mv_decode(next_decoded_picture, next_running_options, mpred1, mv1);
-								var addl_motion_vectors = res.addl_motion_vectors;
-								if (addl_motion_vectors) {
-									let mpred2 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 1);
-									motion_vectors[1] = mv_decode(next_decoded_picture, next_running_options, mpred2, addl_motion_vectors[0]);
-
-									let mpred3 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 2);
-									motion_vectors[2] = mv_decode(next_decoded_picture, next_running_options, mpred3, addl_motion_vectors[1]);
-
-									let mpred4 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 3);
-									motion_vectors[3] = mv_decode(next_decoded_picture, next_running_options, mpred4, addl_motion_vectors[2]);
-								} else {
-									motion_vectors[1] = motion_vectors[0];
-									motion_vectors[2] = motion_vectors[0];
-									motion_vectors[3] = motion_vectors[0];
-								};
-							}
-
-							let luma0 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[0]);
-							inverse_rle(luma0, luma_levels, pos, level_dimensions[0] / 8, in_force_quantizer);
-							
-							let luma1 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[1]);
-							inverse_rle(luma1, luma_levels, [pos[0] + 8, pos[1]], level_dimensions[0] / 8, in_force_quantizer);
-						 
-							let luma2 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[2]);
-							inverse_rle(luma2, luma_levels, [pos[0], pos[1] + 8], level_dimensions[0] / 8, in_force_quantizer);
-							
-							let luma3 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[3]);
-							inverse_rle(luma3, luma_levels, [pos[0] + 8, pos[1] + 8], level_dimensions[0] / 8, in_force_quantizer);
-
-							let chroma_b = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_chroma_b);
-							inverse_rle(chroma_b, chroma_b_levels, [pos[0] / 2, pos[1] / 2], mb_per_line, in_force_quantizer);
-
-							let chroma_r = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_chroma_r);
-							inverse_rle(chroma_r, chroma_r_levels, [pos[0] / 2, pos[1] / 2], mb_per_line, in_force_quantizer);
-							
-							mb_type = res.mb_type;
-							break;
-					}
-					if (isStuffing) continue;
-				}
-				predictor_vectors.push(motion_vectors);
-				macroblock_types.push(mb_type);  
-			}
-			while (predictor_vectors.length < MAX_L) predictor_vectors.push(MotionVector.zero());
-			while (macroblock_types.length < MAX_L) macroblock_types.push(new MacroblockType(MacroblockType.Inter));
-			gather(macroblock_types, reference_picture, predictor_vectors, mb_per_line, next_decoded_picture);
-			idct_channel(luma_levels, next_decoded_picture.as_luma_mut(), mb_per_line * 2, (output_dimensions[0]));
-			let chroma_samples_per_row = next_decoded_picture.chroma_samples_per_row;
-			idct_channel(chroma_b_levels, next_decoded_picture.as_chroma_b_mut(), mb_per_line, chroma_samples_per_row);
-			idct_channel(chroma_r_levels, next_decoded_picture.as_chroma_r_mut(), mb_per_line, chroma_samples_per_row);
-			if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) {
+		class H263State {
+			constructor(decoderOptions) {
+				this.decoderOptions = decoderOptions;
+				this.last_picture = null;
 				this.reference_picture = null;
+				this.running_options = PictureOption.empty();
+				this.reference_states = new Map();
 			}
-			let this_tr = next_decoded_picture.as_header().temporal_reference;
-			this.last_picture = this_tr;
-			if (!next_decoded_picture.as_header().picture_type.is_disposable()) {
-				this.reference_picture = this_tr;
+			isSorenson() {
+				return this.decoderOptions.sorensonSpark;
 			}
-			this.reference_states.set(this_tr, next_decoded_picture);
-			this.cleanup_buffers();
-		}
-
-		const H263Reader = function(source) {
-			this.source = source;
-			this.bitsRead = 0;
-		}
-		H263Reader.prototype.readBits = function(bitsNeeded) {
-			let r = this.peekBits(bitsNeeded);
-			this.skipBits(bitsNeeded);
-			return r;
-		};
-		H263Reader.prototype.readSignedBits = function(bitsNeeded) {
-			let uval = this.readBits(bitsNeeded);
-			var shift = 32 - bitsNeeded;
-			return (uval << shift) >> shift;
-		};
-		H263Reader.prototype.peekBits = function(bitsNeeded) {
-			if (bitsNeeded == 0) {
-				return 0; // T::zero
-			}
-			let accum = 0; // T::zero
-			var i = bitsNeeded;
-			let last_bits_read = this.bitsRead;
-			while (i--) {
-				if (bitsNeeded == 0) 
-					break;
-				let bytes_read = Math.floor(this.bitsRead / 8);
-				let bits_read = (this.bitsRead % 8);
-				if (bytes_read >= this.source.length) {
-					throw new Error("EndOfFile");
+			getLastPicture() {
+				if (this.last_picture === null) {
+					return null;
+				} else {
+					return this.reference_states.get(this.last_picture);
 				}
-				let byte = this.source[bytes_read];
-				accum <<= 1;
-				accum |= ((byte >> (7 - bits_read)) & 0x1);
-				this.bitsRead++;
 			}
-
-			this.bitsRead = last_bits_read;
-
-			return accum;
-		}
-		H263Reader.prototype.skipBits = function(bits_to_skip) {
-			this.bitsRead += bits_to_skip;
-		}
-		H263Reader.prototype.readUint8 = function() {
-			return this.readBits(8);
-		}
-		H263Reader.prototype.recognizeStartCode = function(in_error) {
-			return this.withLookahead(function(reader) {
-				let max_skip_bits = reader.realignmentBits();
-				let skip_bits = 0;
-				let maybe_code = reader.peekBits(17);
-				while (maybe_code != 1) {
-					if (!in_error && skip_bits > max_skip_bits) {
-						return null;
+			getReferencePicture() {
+				if (this.reference_picture === null) {
+					return null;
+				} else {
+					return this.reference_states.get(this.reference_picture);
+				}
+			}
+			cleanup_buffers() {
+				var r1 = this.last_picture;
+				let last_picture = this.reference_states.get(r1);
+				this.reference_states = new Map();
+				if (last_picture) {
+					this.reference_states.set(r1, last_picture);
+				}
+			}
+			parsePicture(reader, previous_picture) {
+				return decodePicture(reader, this.decoderOptions, previous_picture);
+			}
+			decodeNextPicture(reader) {
+				let next_picture = this.parsePicture(reader, this.getLastPicture());
+				var next_running_options = next_picture.options;
+				let format = null;
+				if (next_picture.format) {
+					format = next_picture.format;
+				} else if (next_picture.picture_type.type == PictureTypeCode.IFrame) {
+					throw new Error("PictureFormatMissing");
+				} else {
+					var ref_format = null;
+					var rfgh = this.getLastPicture();
+					if (rfgh !== null) {
+						ref_format = rfgh.format;
+					} else {
+						throw new Error("PictureFormatMissing");
 					}
-					reader.skipBits(1);
-					skip_bits += 1;
-					maybe_code = reader.peekBits(17);
+					format = ref_format;
 				}
-				return skip_bits;
-			})
+				let reference_picture = this.getReferencePicture();
+				let output_dimensions = format.intoWidthAndHeight();
+				let mb_per_line = Math.ceil(output_dimensions[0] / 16.0);
+				let mb_height = Math.ceil(output_dimensions[1] / 16.0);
+				let level_dimensions = [mb_per_line * 16, mb_height * 16];
+				let in_force_quantizer = next_picture.quantizer;
+				var MAX_L = mb_per_line * mb_height;
+				let predictor_vectors = [];
+				let macroblock_types = [];
+				let next_decoded_picture = new DecodedPicture(next_picture, format);
+				var luma_levels = new Array(level_dimensions[0] * level_dimensions[1] / 64);
+				var chroma_b_levels = new Array(level_dimensions[0] * level_dimensions[1] / 4 / 64);
+				var chroma_r_levels = new Array(level_dimensions[0] * level_dimensions[1] / 4 / 64);
+				for (var i = 0; i < luma_levels.length; i++) luma_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
+				for (var i = 0; i < chroma_b_levels.length; i++) chroma_b_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
+				for (var i = 0; i < chroma_r_levels.length; i++) chroma_r_levels[i] = new DecodedDctBlock(DecodedDctBlock.Zero);
+				while (macroblock_types.length < MAX_L) {
+					let mb;
+					try {
+						mb = decode_macroblock(reader, next_decoded_picture.as_header(), next_running_options);
+					} catch (e) {
+						mb = e.message;
+					}
+					let pos = [Math.floor(macroblock_types.length % mb_per_line) * 16, Math.floor(macroblock_types.length / mb_per_line) * 16];
+					let motion_vectors = [MotionVector.zero(), MotionVector.zero(), MotionVector.zero(), MotionVector.zero()];
+					var mb_type = null;
+					var isStuffing = false;
+					if (typeof mb == "string") {
+						if (is_eof_error(mb)) {
+							break;
+						} else {
+							throw new Error(mb);
+						}
+					} else {
+						switch (mb.type) {
+							case Macroblock.Stuffing:
+								isStuffing = true;
+								break;
+							case Macroblock.Uncoded:
+								if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) throw new Error("UncodedIFrameBlocks");
+								mb_type = new MacroblockType(MacroblockType.Inter);
+								break;
+							case Macroblock.Coded:
+								var res = mb.value;
+								let quantizer = asI8(asI8(in_force_quantizer) + ((res.d_quantizer === null) ? 0 : res.d_quantizer));
+								in_force_quantizer = asU8(num_clamp(quantizer, 1, 31));
+								if (res.mb_type.is_inter()) {
+									let mv1 = res.motion_vector;
+									if (mv1 === null) mv1 = MotionVector.zero();
+									let mpred1 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 0);
+									motion_vectors[0] = mv_decode(next_decoded_picture, next_running_options, mpred1, mv1);
+									var addl_motion_vectors = res.addl_motion_vectors;
+									if (addl_motion_vectors) {
+										let mpred2 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 1);
+										motion_vectors[1] = mv_decode(next_decoded_picture, next_running_options, mpred2, addl_motion_vectors[0]);
+										let mpred3 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 2);
+										motion_vectors[2] = mv_decode(next_decoded_picture, next_running_options, mpred3, addl_motion_vectors[1]);
+										let mpred4 = predict_candidate(predictor_vectors, motion_vectors, mb_per_line, 3);
+										motion_vectors[3] = mv_decode(next_decoded_picture, next_running_options, mpred4, addl_motion_vectors[2]);
+									} else {
+										motion_vectors[1] = motion_vectors[0];
+										motion_vectors[2] = motion_vectors[0];
+										motion_vectors[3] = motion_vectors[0];
+									};
+								}
+								let luma0 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[0]);
+								inverse_rle(luma0, luma_levels, pos, level_dimensions[0] / 8, in_force_quantizer);
+								let luma1 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[1]);
+								inverse_rle(luma1, luma_levels, [pos[0] + 8, pos[1]], level_dimensions[0] / 8, in_force_quantizer);
+								let luma2 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[2]);
+								inverse_rle(luma2, luma_levels, [pos[0], pos[1] + 8], level_dimensions[0] / 8, in_force_quantizer);
+								let luma3 = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_luma[3]);
+								inverse_rle(luma3, luma_levels, [pos[0] + 8, pos[1] + 8], level_dimensions[0] / 8, in_force_quantizer);
+								let chroma_b = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_chroma_b);
+								inverse_rle(chroma_b, chroma_b_levels, [pos[0] / 2, pos[1] / 2], mb_per_line, in_force_quantizer);
+								let chroma_r = decode_block(reader, this.decoderOptions, next_decoded_picture.as_header(), next_running_options, res.mb_type, res.coded_block_pattern.codes_chroma_r);
+								inverse_rle(chroma_r, chroma_r_levels, [pos[0] / 2, pos[1] / 2], mb_per_line, in_force_quantizer);
+								mb_type = res.mb_type;
+								break;
+						}
+						if (isStuffing) continue;
+					}
+					predictor_vectors.push(motion_vectors);
+					macroblock_types.push(mb_type);
+				}
+				while (predictor_vectors.length < MAX_L) predictor_vectors.push(MotionVector.zero());
+				while (macroblock_types.length < MAX_L) macroblock_types.push(new MacroblockType(MacroblockType.Inter));
+				gather(macroblock_types, reference_picture, predictor_vectors, mb_per_line, next_decoded_picture);
+				idct_channel(luma_levels, next_decoded_picture.as_luma_mut(), mb_per_line * 2, (output_dimensions[0]));
+				let chroma_samples_per_row = next_decoded_picture.chroma_samples_per_row;
+				idct_channel(chroma_b_levels, next_decoded_picture.as_chroma_b_mut(), mb_per_line, chroma_samples_per_row);
+				idct_channel(chroma_r_levels, next_decoded_picture.as_chroma_r_mut(), mb_per_line, chroma_samples_per_row);
+				if (next_decoded_picture.as_header().picture_type.type == PictureTypeCode.IFrame) this.reference_picture = null;
+				let this_tr = next_decoded_picture.as_header().temporal_reference;
+				this.last_picture = this_tr;
+				if (!next_decoded_picture.as_header().picture_type.is_disposable()) this.reference_picture = this_tr;
+				this.reference_states.set(this_tr, next_decoded_picture);
+				this.cleanup_buffers();
+			}
 		}
-		H263Reader.prototype.realignmentBits = function() {
-			return (8 - (this.bitsRead % 8)) % 8;
-		}
-		H263Reader.prototype.checkpoint = function() {
-			return this.bitsRead;
-		}
-		H263Reader.prototype.readVLC = function(table) {
-			var index = 0;
-			while(true) {
-				var res = table[index];
-				if (res) {
-					switch(res.type) {
-						case VlcEntry.End:
-							return res.value; // clone
-						case VlcEntry.Fork:
-							let next_bit = this.readBits(1);
-							if (next_bit == 0) {
-								index = res.value[0];
-							} else {
-								index = res.value[1];
-							}
+		class H263Reader {
+			constructor(source) {
+				this.source = source;
+				this.bitsRead = 0;
+			}
+			readBits(bitsNeeded) {
+				let r = this.peekBits(bitsNeeded);
+				this.skipBits(bitsNeeded);
+				return r;
+			}
+			readSignedBits(bitsNeeded) {
+				let uval = this.readBits(bitsNeeded);
+				var shift = 32 - bitsNeeded;
+				return (uval << shift) >> shift;
+			}
+			peekBits(bitsNeeded) {
+				if (bitsNeeded == 0) return 0;
+				let accum = 0;
+				var i = bitsNeeded;
+				let last_bits_read = this.bitsRead;
+				while (i--) {
+					if (bitsNeeded == 0)
+						break;
+					let bytes_read = Math.floor(this.bitsRead / 8);
+					let bits_read = (this.bitsRead % 8);
+					if (bytes_read >= this.source.length) {
+						throw new Error("EndOfFile");
+					}
+					let byte = this.source[bytes_read];
+					accum <<= 1;
+					accum |= ((byte >> (7 - bits_read)) & 0x1);
+					this.bitsRead++;
+				}
+				this.bitsRead = last_bits_read;
+				return accum;
+			}
+			skipBits(bits_to_skip) {
+				this.bitsRead += bits_to_skip;
+			}
+			readUint8() {
+				return this.readBits(8);
+			}
+			recognizeStartCode(in_error) {
+				return this.withLookahead(function (reader) {
+					let max_skip_bits = reader.realignmentBits();
+					let skip_bits = 0;
+					let maybe_code = reader.peekBits(17);
+					while (maybe_code != 1) {
+						if (!in_error && skip_bits > max_skip_bits) {
+							return null;
+						}
+						reader.skipBits(1);
+						skip_bits += 1;
+						maybe_code = reader.peekBits(17);
+					}
+					return skip_bits;
+				});
+			}
+			realignmentBits() {
+				return (8 - (this.bitsRead % 8)) % 8;
+			}
+			checkpoint() {
+				return this.bitsRead;
+			}
+			readVLC(table) {
+				var index = 0;
+				while (true) {
+					var res = table[index];
+					if (res) {
+						switch (res.type) {
+							case VlcEntry.End:
+								return res.value;
+							case VlcEntry.Fork:
+								let next_bit = this.readBits(1);
+								if (next_bit == 0) {
+									index = res.value[0];
+								} else {
+									index = res.value[1];
+								}
+								break;
+						}
+					} else {
+						throw new Error("InternalDecoderError");
+					}
+				}
+			}
+			read_umv() {
+				let start = this.readBits(1);
+				if (start == 1) return HalfPel.from_unit(0);
+				let mantissa = 0;
+				let bulk = 1;
+				while (bulk < 4096) {
+					var r = this.readBits(2);
+					switch (r) {
+						case 0b00:
+							return HalfPel.from_unit(mantissa + bulk);
+						case 0b10:
+							return HalfPel.from_unit(-(mantissa + bulk));
+						case 0b01:
+							mantissa <<= 1;
+							bulk <<= 1;
+							break;
+						case 0b11:
+							mantissa = mantissa << 1 | 1;
+							bulk <<= 1;
 							break;
 					}
-				} else {
-					throw new Error("InternalDecoderError");
 				}
+				throw new Error("InvalidMvd");
 			}
-		}
-		H263Reader.prototype.read_umv = function() {
-			let start = this.readBits(1);
-			if (start == 1) 
-				return HalfPel.from_unit(0);
-			let mantissa = 0;
-			let bulk = 1; 
-			while (bulk < 4096) {
-				var r = this.readBits(2);
-				switch(r) {
-					case 0b00: 
-						return HalfPel.from_unit(mantissa + bulk);
-					case 0b10: 
-						return HalfPel.from_unit(-(mantissa + bulk));
-					case 0b01: 
-						mantissa <<= 1;
-						bulk <<= 1;
-						break;
-					case 0b11: 
-						mantissa = mantissa << 1 | 1;
-						bulk <<= 1;
-						break;
+			bitAva() {
+				return (this.source.length * 8) - this.bitsRead;
+			}
+			rollback(checkpoint) {
+				if (checkpoint > (this.source.length * 8)) throw new Error("InternalDecoderError");
+				this.bitsRead = checkpoint;
+			}
+			withTransaction(f) {
+				var checkpoint = this.checkpoint();
+				let result;
+				try {
+					result = f(this);
+				} catch (e) {
+					this.rollback(checkpoint);
+					throw e;
 				}
+				return result;
 			}
-			throw new Error("InvalidMvd");
-		}
-		H263Reader.prototype.bitAva = function() {
-			return (this.source.length * 8) - this.bitsRead;
-		}
-		H263Reader.prototype.rollback = function(checkpoint) {
-			if (checkpoint > (this.source.length * 8)) {
-				throw new Error("InternalDecoderError");
+			withTransactionUnion(f) {
+				var checkpoint = this.checkpoint();
+				let result;
+				try {
+					result = f(this);
+					if (result === null) this.rollback(checkpoint);
+				} catch (e) {
+					this.rollback(checkpoint);
+					throw e;
+				}
+				return result;
 			}
-			this.bitsRead = checkpoint;
-		}
-		H263Reader.prototype.withTransaction = function(f) {
-			var checkpoint = this.checkpoint();
-			let result;
-			try {
-				result = f(this);
-			} catch(e) {
+			withLookahead(f) {
+				var checkpoint = this.checkpoint();
+				let result = f(this);
 				this.rollback(checkpoint);
-				throw e;
+				return result;
 			}
-			return result;
-		}
-		H263Reader.prototype.withTransactionUnion = function(f) {
-			var checkpoint = this.checkpoint();
-			let result;
-			try {
-				result = f(this);
-				if (result === null) this.rollback(checkpoint);
-			} catch(e) {
-				this.rollback(checkpoint);
-				throw e;
-			}
-			return result;
-		}
-		H263Reader.prototype.withLookahead = function(f) {
-			var checkpoint = this.checkpoint();
-			let result = f(this);
-			this.rollback(checkpoint);
-			return result;
 		}
 		wpjsm.exportJS = {
 			H263Reader,
@@ -6990,47 +5806,40 @@ var PinkFie = (function(moduleResults) {
 		const asU8 = function(num) {
 			return (num << 24) >>> 24;
 		}
-		const asU32 = function(num) {
-			return num >>> 0;
-		}
-		const asI32 = function(num) {
-			return num | 0;
-		}
 		const asI16 = function(num) {
 			return (num << 16) >> 16;
 		}
 		const asU16 = function(num) {
 			return (num << 16) >>> 16;
 		}
-		const asI8 = function(num) {
-			return (num << 24) >> 24;
+		const asU32 = function(num) {
+			return num >>> 0;
 		}
-		const wrapping_mul_i16 = function(a, b) {
-			return asI16(a * b);
-		}
-		const Bits = function(src) {
-			this.src = src;
-			this.bytePos = 0;
-			this.bitPos = 0;
-		}
-		Bits.prototype.read = function(n) {
-			var value = 0;
-			while (n--) (value <<= 1), (value |= this.readBit());
-			return value;
-		}
-		Bits.prototype.readBit = function() {
-			var val = (this.src[this.bytePos] >> (7 - this.bitPos++)) & 0x1;
-			if (this.bitPos > 7) {
-				this.bytePos++;
+		class Bits {
+			constructor(src) {
+				this.src = src;
+				this.bytePos = 0;
 				this.bitPos = 0;
 			}
-			return val;
-		}
-		Bits.prototype.read_bool = function() {
-			return !!this.readBit();
-		}
-		Bits.prototype.tell = function() {
-			return (this.bytePos * 8) + this.bitPos;
+			read(n) {
+				var value = 0;
+				while (n--) (value <<= 1), (value |= this.readBit());
+				return value;
+			}
+			readBit() {
+				var val = (this.src[this.bytePos] >> (7 - this.bitPos++)) & 0x1;
+				if (this.bitPos > 7) {
+					this.bytePos++;
+					this.bitPos = 0;
+				}
+				return val;
+			}
+			read_bool() {
+				return !!this.readBit();
+			}
+			tell() {
+				return (this.bytePos * 8) + this.bitPos;
+			}
 		}
 		function edge_emu(src, xpos, ypos, bw, bh, dst, dstride, comp, align) {
 			let stride = src.get_stride(comp);
@@ -7071,200 +5880,157 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
-		const MV = function(x, y) {
-			this.x = asI16(x);
-			this.y = asI16(y);
-		}
-		MV.prototype.add = function(other) {
-			return new MV(this.x + other.x, this.y + other.y);
-		}
-		MV.prototype.eq = function(other) {
-			return (this.x == other.x) && (this.y == other.y);
+		class MV {
+			constructor(x, y) {
+				this.x = asI16(x);
+				this.y = asI16(y);
+			}
+			add(other) {
+				return new MV(this.x + other.x, this.y + other.y);
+			}
+			eq(other) {
+				return (this.x == other.x) && (this.y == other.y);
+			}
 		}
 		const ZERO_MV = new MV(0, 0);
-
 		const ZIGZAG = new Uint32Array([0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63]);
-
-		//// formats ////
-
-		const MAX_CHROMATONS = 5;
-
-		const YUVSubmodel = function(type) {
-			this.type = type;
+		class YUVSubmodel {
+			constructor(type) {
+				this.type = type;
+			}
 		}
 		YUVSubmodel.YCbCr = 1;
 		YUVSubmodel.YIQ = 2;
 		YUVSubmodel.YUVJ = 3;
-
-		const ColorModel = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class ColorModel {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
-		ColorModel.RGB = 1; // RGBSubmodel
-		ColorModel.YUV = 2; // YUVSubmodel
+		ColorModel.RGB = 1;
+		ColorModel.YUV = 2;
 		ColorModel.CMYK = 3;
 		ColorModel.HSV = 4;
 		ColorModel.LAB = 5;
 		ColorModel.XYZ = 6;
-
-		const NAPixelChromaton = function(data) {
-			this.h_ss = data.h_ss;
-			this.v_ss = data.v_ss;
-			this.packed = data.packed;
-			this.depth = data.depth;
-			this.shift = data.shift;
-			this.comp_offs = data.comp_offs;
-			this.next_elem = data.next_elem;
-		}
-		NAPixelChromaton.prototype.get_subsampling = function() {
-			return [this.h_ss, this.v_ss]; // self.h_ss, self.v_ss
-		}
-		NAPixelChromaton.prototype.is_packed = function() {
-			return this.packed;
-		}
-		NAPixelChromaton.prototype.get_depth = function() {
-			return this.depth;
-		}
-		NAPixelChromaton.prototype.get_shift = function() {
-			return this.shift;
-		}
-		NAPixelChromaton.prototype.get_offset = function() {
-			return this.comp_offs;
-		}
-		NAPixelChromaton.prototype.get_step = function() {
-			return this.next_elem;
-		}
-		NAPixelChromaton.prototype.get_width = function(width) {
-			return (width + ((1 << this.h_ss) - 1)) >> this.h_ss;
-		}
-		NAPixelChromaton.prototype.get_height = function(height) {
-			return (height + ((1 << this.v_ss) - 1)) >> this.v_ss;
-		}
-		NAPixelChromaton.prototype.get_linesize = function(width) {
-			let d = this.depth;
-			if (this.packed) {
-				return (this.get_width(width) * d + d - 1) >> 3;
-			} else {
-				return this.get_width(width);
+		class NAPixelChromaton {
+			constructor(data) {
+				this.h_ss = data.h_ss;
+				this.v_ss = data.v_ss;
+				this.packed = data.packed;
+				this.depth = data.depth;
+				this.shift = data.shift;
+				this.comp_offs = data.comp_offs;
+				this.next_elem = data.next_elem;
+			}
+			get_subsampling() {
+				return [this.h_ss, this.v_ss];
+			}
+			is_packed() {
+				return this.packed;
+			}
+			get_depth() {
+				return this.depth;
+			}
+			get_shift() {
+				return this.shift;
+			}
+			get_offset() {
+				return this.comp_offs;
+			}
+			get_step() {
+				return this.next_elem;
+			}
+			get_width(width) {
+				return (width + ((1 << this.h_ss) - 1)) >> this.h_ss;
+			}
+			get_height(height) {
+				return (height + ((1 << this.v_ss) - 1)) >> this.v_ss;
+			}
+			get_linesize(width) {
+				let d = this.depth;
+				if (this.packed) {
+					return (this.get_width(width) * d + d - 1) >> 3;
+				} else {
+					return this.get_width(width);
+				}
+			}
+			get_data_size() {
+				let nh = (height + ((1 << this.v_ss) - 1)) >> this.v_ss;
+				return (this.get_linesize(width) * nh);
 			}
 		}
-		NAPixelChromaton.prototype.get_data_size = function() {
-			let nh = (height + ((1 << this.v_ss) - 1)) >> this.v_ss;
-			return (this.get_linesize(width) * nh);
+		class NAPixelFormaton {
+			constructor(data) {
+				this.model = data.model;
+				this.components = data.components;
+				this.comp_info = data.comp_info;
+				this.elem_size = data.elem_size;
+				this.be = data.be;
+				this.alpha = data.alpha;
+				this.palette = data.palette;
+			}
+			get_model() {
+				return this.model;
+			}
+			get_num_comp() {
+				return this.components;
+			}
+			get_chromaton(i) {
+				return this.comp_info[i];
+			}
+			is_be() {
+				return this.be;
+			}
+			has_alpha() {
+				return this.alpha;
+			}
+			is_paletted() {
+				return this.palette;
+			}
+			get_elem_size() {
+				return this.elem_size;
+			}
 		}
-
-		const NAPixelFormaton = function(data) {
-			this.model = data.model; // ColorModel
-			this.components = data.components; // u8
-			this.comp_info = data.comp_info; // NAPixelChromaton MAX_CHROMATONS
-			this.elem_size = data.elem_size; // u8
-			this.be = data.be;
-			this.alpha = data.alpha;
-			this.palette = data.palette;
-		}
-		NAPixelFormaton.prototype.get_model = function() {
-			return this.model;
-		}
-		NAPixelFormaton.prototype.get_num_comp = function() {
-			return this.components;
-		}
-		NAPixelFormaton.prototype.get_chromaton = function(i) {
-			return this.comp_info[i];
-		}
-		NAPixelFormaton.prototype.is_be = function() {
-			return this.be;
-		}
-		NAPixelFormaton.prototype.has_alpha = function() {
-			return this.alpha;
-		}
-		NAPixelFormaton.prototype.is_paletted = function() {
-			return this.palette;
-		}
-		NAPixelFormaton.prototype.get_elem_size = function() {
-			return this.elem_size;
-		}
-		NAPixelFormaton.prototype.is_unpacked = function() {
-			//    if self.palette { return false; }
-			//    for chromaton in self.comp_info.iter().flatten() {
-			//        if chromaton.is_packed() { return false; }
-			//    }
-			//    true
-		}
-		NAPixelFormaton.prototype.get_max_depth = function() {
-			console.log("4");
-
-			//    let mut mdepth = 0;
-			//    for chromaton in self.comp_info.iter().flatten() {
-			//        mdepth = mdepth.max(chromaton.depth);
-			//    }
-			//    mdepth
-		}
-		NAPixelFormaton.prototype.get_total_depth = function() {
-			console.log("4");
-			//    let mut depth = 0;
-			//    for chromaton in self.comp_info.iter().flatten() {
-			//        depth += chromaton.depth;
-			//    }
-			//    depth
-		}
-		NAPixelFormaton.prototype.get_max_subsampling = function() {
-			console.log("4");
-			//    let mut ssamp = 0;
-			//    for chromaton in self.comp_info.iter().flatten() {
-			//        let (ss_v, ss_h) = chromaton.get_subsampling();
-			//        ssamp = ssamp.max(ss_v).max(ss_h);
-			//    }
-			//    ssamp
-		}
-		NAPixelFormaton.prototype.to_short_string = function() {
-			console.log("4");
-		}
-
 		const YUV420_FORMAT = new NAPixelFormaton({
 			model: new ColorModel(ColorModel.YUV, new YUVSubmodel(YUVSubmodel.YUVJ)),
 			components: 3,
-			comp_info: [
-				new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
-				new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1 }),
-				new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 2, next_elem: 1 }),
-				null,
-				null
-			],
+			comp_info: [new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }), new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1 }), new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 2, next_elem: 1 }), null, null],
 			elem_size: 0,
 			be: false,
 			alpha: false,
 			palette: false
 		});
-
-		//// frame ////
-
-		const NAVideoInfo = function(w, h, flip, fmt) {
-			this.width = w;
-			this.height = h;
-			this.flipped = flip;
-			this.format = fmt;
-			this.bits = 0;
+		class NAVideoInfo {
+			constructor(w, h, flip, fmt) {
+				this.width = w;
+				this.height = h;
+				this.flipped = flip;
+				this.format = fmt;
+			}
+			get_width() {
+				return this.width;
+			}
+			get_height() {
+				return this.height;
+			}
+			is_flipped() {
+				return this.flipped;
+			}
+			get_format() {
+				return this.format;
+			}
+			set_width(w) {
+				this.width = w;
+			}
+			set_height(h) {
+				this.height = h;
+			}
+			eq(other) {
+				return this.width == other.width && this.height == other.height && this.flipped == other.flipped;
+			}
 		}
-		NAVideoInfo.prototype.get_width = function() {
-			return this.width;
-		}
-		NAVideoInfo.prototype.get_height = function() {
-			return this.height;
-		}
-		NAVideoInfo.prototype.is_flipped = function() {
-			return this.flipped;
-		}
-		NAVideoInfo.prototype.get_format = function() {
-			return this.format;
-		}
-		NAVideoInfo.prototype.set_width = function(w) {
-			this.width = w;
-		}
-		NAVideoInfo.prototype.set_height = function(h) {
-			this.height = h;
-		}
-
 		function get_plane_size(info, idx) {
 			let chromaton = info.get_format().get_chromaton(idx);
 			if (chromaton === null) {
@@ -7275,50 +6041,55 @@ var PinkFie = (function(moduleResults) {
 			let h = (info.get_height() + ((1 << vs) - 1)) >> vs;
 			return [w, h];
 		}
-
-		const NAVideoBuffer = function(data) {
-			this.info = data.info;
-			this.data = data.data;
-			this.offs = data.offs;
-			this.strides = data.strides;
-		}
-		NAVideoBuffer.prototype.get_num_refs = function() {
-			return 1;
-		}
-		NAVideoBuffer.prototype.get_info = function() {
-			return this.info;
-		}
-		NAVideoBuffer.prototype.get_data = function() {
-			return this.data;
-		}
-		NAVideoBuffer.prototype.get_dimensions = function(idx) {
-			return get_plane_size(this.info, idx);
-		}
-		NAVideoBuffer.prototype.get_offset = function(idx) {
-			if (idx >= this.offs.length) {
-				return 0;
-			} else {
-				return this.offs[idx];
+		class NAVideoBuffer {
+			constructor(data) {
+				this.info = data.info;
+				this.data = data.data;
+				this.offs = data.offs;
+				this.strides = data.strides;
+			}
+			get_num_refs() {
+				return 1;
+			}
+			get_info() {
+				return this.info;
+			}
+			get_data() {
+				return this.data;
+			}
+			get_dimensions(idx) {
+				return get_plane_size(this.info, idx);
+			}
+			get_offset(idx) {
+				if (idx >= this.offs.length) {
+					return 0;
+				} else {
+					return this.offs[idx];
+				}
+			}
+			get_stride(idx) {
+				if (idx >= this.strides.length) {
+					return 0;
+				}
+				return this.strides[idx];
+			}
+			cloned() {
+				return new NAVideoBuffer({
+					info: this.info,
+					data: this.data.slice(0),
+					offs: this.offs,
+					strides: this.strides
+				});
 			}
 		}
-		NAVideoBuffer.prototype.get_stride = function(idx) {
-			if (idx >= this.strides.length) {
-				return 0;
+		class NABufferType {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
 			}
-			return this.strides[idx];
-		}
-		NAVideoBuffer.prototype.cloned = function() {
-			return new NAVideoBuffer({
-				info: this.info,
-				data: this.data.slice(0),
-				offs: this.offs,
-				strides: this.strides
-			});
-		}
-
-		const NABufferType = function(type, value) {
-			this.type = type;
-			this.value = value;
+			get_vbuf() {
+				return this.value;
+			}
 		}
 		NABufferType.Video = 1;
 		NABufferType.Video16 = 2;
@@ -7326,50 +6097,44 @@ var PinkFie = (function(moduleResults) {
 		NABufferType.VideoPacked = 4;
 		NABufferType.Data = 5;
 		NABufferType.None = 6;
-		NABufferType.prototype.get_vbuf = function() {
-			return this.value;
-		}
-
 		const NA_SIMPLE_VFRAME_COMPONENTS = 4;
-
-		const NASimpleVideoFrame = function(data) {
-			this.width = data.width;
-			this.height = data.height;
-			this.flip = data.flip;
-			this.stride = data.stride;
-			this.offset = data.offset;
-			this.components = data.components;
-			this.data = data.data;
-		}
-		NASimpleVideoFrame.from_video_buf = function(vbuf) {
-			let vinfo = vbuf.get_info();
-			let components = vinfo.format.components;
-			if (components > NA_SIMPLE_VFRAME_COMPONENTS) {
-				return null;
+		class NASimpleVideoFrame {
+			constructor(data) {
+				this.width = data.width;
+				this.height = data.height;
+				this.flip = data.flip;
+				this.stride = data.stride;
+				this.offset = data.offset;
+				this.components = data.components;
+				this.data = data.data;
 			}
-			let w = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
-			let h = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
-			let s = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
-			let o = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
-			for (var comp = 0; comp < components; comp++) {
-				let [width, height] = vbuf.get_dimensions(comp);
-				w[comp] = width;
-				h[comp] = height;
-				s[comp] = vbuf.get_stride(comp);
-				o[comp] = vbuf.get_offset(comp);
+			static from_video_buf(vbuf) {
+				let vinfo = vbuf.get_info();
+				let components = vinfo.format.components;
+				if (components > NA_SIMPLE_VFRAME_COMPONENTS) return null;
+				let w = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
+				let h = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
+				let s = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
+				let o = new Uint32Array(NA_SIMPLE_VFRAME_COMPONENTS);
+				for (var comp = 0; comp < components; comp++) {
+					let [width, height] = vbuf.get_dimensions(comp);
+					w[comp] = width;
+					h[comp] = height;
+					s[comp] = vbuf.get_stride(comp);
+					o[comp] = vbuf.get_offset(comp);
+				}
+				let flip = vinfo.flipped;
+				return new NASimpleVideoFrame({
+					width: w,
+					height: h,
+					flip,
+					stride: s,
+					offset: o,
+					components,
+					data: vbuf.data,
+				});
 			}
-			let flip = vinfo.flipped;
-			return new NASimpleVideoFrame({
-				width: w,
-				height: h,
-				flip,
-				stride: s,
-				offset: o,
-				components,
-				data: vbuf.data,
-			});
 		}
-
 		function alloc_video_buffer(vinfo, align) {
 			let fmt = vinfo.format;
 			let new_size = 0;
@@ -7385,15 +6150,12 @@ var PinkFie = (function(moduleResults) {
 			let height = (vinfo.height + align_mod) - align_mod;
 			let max_depth = 0;
 			let all_packed = true;
-			let all_bytealigned = true;
 			for (var i = 0; i < fmt.get_num_comp(); i++) {
 				let ochr = fmt.get_chromaton(i);
 				if (!ochr) continue;
 				let chr = ochr;
 				if (!chr.is_packed()) {
 					all_packed = false;
-				} else if (((chr.get_shift() + chr.get_depth()) & 7) != 0) {
-					all_bytealigned = false;
 				}
 				max_depth = Math.max(max_depth, chr.get_depth());
 			}
@@ -7405,9 +6167,7 @@ var PinkFie = (function(moduleResults) {
 					break;
 			}
 			unfit_elem_size = !unfit_elem_size;
-			if (fmt.is_paletted()) {
-				console.log("is_paletted");
-			} else if (!all_packed) {
+			if (!all_packed) {
 				for (var i = 0; i < fmt.get_num_comp(); i++) {
 					let ochr = fmt.get_chromaton(i);
 					if (!ochr) continue;
@@ -7429,71 +6189,60 @@ var PinkFie = (function(moduleResults) {
 						strides
 					});
 					return new NABufferType(NABufferType.Video, buf);
-				} else if (max_depth <= 16) {
-					console.log("16");
-				} else {
-					console.log("any");
 				}
-			} else if (all_bytealigned || unfit_elem_size) {
-				console.log("any");
-			} else {
-				console.log("none");
 			}
 		}
-
-		const NAVideoBufferPool = function(max_len) {
-			this.pool = [];
-			this.max_len = max_len;
-			this.add_len = 0;
-		}
-		NAVideoBufferPool.prototype.set_dec_bufs = function(add_len) {
-			this.add_len = add_len;
-		}
-		NAVideoBufferPool.prototype.reset = function() {
-			this.pool = [];
-		}
-		NAVideoBufferPool.prototype.prealloc_video = function(vinfo, align) {
-			let nbufs = this.max_len + this.add_len - this.pool.length;
-			for (var _ = 0; _ < nbufs; _++) {
-				let vbuf = alloc_video_buffer(vinfo, align);
-				var buf = vbuf.value;
-				this.pool.push(buf);
+		class NAVideoBufferPool {
+			constructor(max_len) {
+				this.pool = [];
+				this.max_len = max_len;
+				this.add_len = 0;
 			}
-		}
-		NAVideoBufferPool.prototype.get_free = function() {
-			for (var i = 0; i < this.pool.length; i++) {
-				var e = this.pool[i];
-				if (e.get_num_refs() == 1) 
-					return e;
+			set_dec_bufs(add_len) {
+				this.add_len = add_len;
 			}
-			return null;
-		}
-		NAVideoBufferPool.prototype.get_info = function() {
-			if (this.pool.length) {
-				return (this.pool[0].get_info())
-			} else {
+			reset() {
+				this.pool = [];
+			}
+			prealloc_video(vinfo, align) {
+				let nbufs = this.max_len + this.add_len - this.pool.length;
+				for (var _ = 0; _ < nbufs; _++) {
+					let vbuf = alloc_video_buffer(vinfo, align);
+					var buf = vbuf.value;
+					this.pool.push(buf);
+				}
+			}
+			get_free() {
+				for (var i = 0; i < this.pool.length; i++) {
+					var e = this.pool[i];
+					if (e.get_num_refs() == 1)
+						return e;
+				}
 				return null;
 			}
+			get_info() {
+				if (this.pool.length) {
+					return (this.pool[0].get_info());
+				} else {
+					return null;
+				}
+			}
+			get_copy(rbuf) {
+				let dbuf = this.get_free().cloned();
+				dbuf.data.set(rbuf.data, 0);
+				return dbuf;
+			}
 		}
-		NAVideoBufferPool.prototype.get_copy = function(rbuf) {
-	        let dbuf = this.get_free().cloned();
-	        dbuf.data.set(rbuf.data, 0);
-	        return dbuf;
+		class NADecoderSupport {
+			constructor() {
+				this.pool_u8 = new NAVideoBufferPool(0);
+			}
 		}
-
-		const NADecoderSupport = function() {
-			this.pool_u8 = new NAVideoBufferPool(0); // NAVideoBufferPool<u8>; 
-		}
-
-		////////// nihav-duck //////////
-
-		//////// vp6data ////////
-
-		const VERSION_VP60 = 6; // u8
-		const VERSION_VP62 = 8; // u8
-		const VP6_SIMPLE_PROFILE = 0; // u8
-		const VP6_ADVANCED_PROFILE = 3; // u8
-		const LONG_VECTOR_ORDER = new Uint32Array([0, 1, 2, 7, 6, 5, 4]); // usize
+		const VERSION_VP60 = 6;
+		const VERSION_VP62 = 8;
+		const VP6_SIMPLE_PROFILE = 0;
+		const VP6_ADVANCED_PROFILE = 3;
+		const LONG_VECTOR_ORDER = new Uint32Array([0, 1, 2, 7, 6, 5, 4]);
 		const NZ_PROBS = new Uint8Array([162, 164]);
 		const RAW_PROBS = [new Uint8Array([247, 210, 135, 68, 138, 220, 239, 246]),new Uint8Array([244, 184, 201, 44, 173, 221, 239, 253])];
 		const TREE_PROBS = [new Uint8Array([225, 146, 172, 147, 214,  39, 156]),new Uint8Array([204, 170, 119, 235, 140, 230, 228])];
@@ -7501,39 +6250,48 @@ var PinkFie = (function(moduleResults) {
 		const HAS_NZ_PROB = new Uint8Array([237, 231]);
 		const HAS_SIGN_PROB = new Uint8Array([246, 243]);
 		const HAS_TREE_PROB = [new Uint8Array([253, 253, 254, 254, 254, 254, 254]), new Uint8Array([245, 253, 254, 254, 254, 254, 254])];
-		const HAS_RAW_PROB = [new Uint8Array([254, 254, 254, 254, 254, 250, 250, 252]),new Uint8Array([254, 254, 254, 254, 254, 251, 251, 254])];
+		const HAS_RAW_PROB = [new Uint8Array([254, 254, 254, 254, 254, 250, 250, 252]), new Uint8Array([254, 254, 254, 254, 254, 251, 251, 254])];
 		const HAS_COEF_PROBS = [new Uint8Array([146, 255, 181, 207, 232, 243, 238, 251, 244, 250, 249]),new Uint8Array([179, 255, 214, 240, 250, 255, 244, 255, 255, 255, 255])];
 		const HAS_SCAN_UPD_PROBS = new Uint8Array([0, 132, 132, 159, 153, 151, 161, 170, 164, 162, 136, 110, 103, 114, 129, 118, 124, 125, 132, 136, 114, 110, 142, 135, 134, 123, 143, 126, 153, 183, 166, 161, 171, 180, 179, 164, 203, 218, 225, 217, 215, 206, 203, 217, 229, 241, 248, 243, 253, 255, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
 		const HAS_ZERO_RUN_PROBS = [new Uint8Array([219, 246, 238, 249, 232, 239, 249, 255, 248, 253, 239, 244, 241, 248]),new Uint8Array([198, 232, 251, 253, 219, 241, 253, 255, 248, 249, 244, 238, 251, 255])];
 		const VP6_AC_PROBS = [[[new Uint8Array([227, 246, 230, 247, 244, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 209, 231, 231, 249, 249, 253, 255, 255, 255]),new Uint8Array([255, 255, 225, 242, 241, 251, 253, 255, 255, 255, 255]),new Uint8Array([255, 255, 241, 253, 252, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 248, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])], [new Uint8Array([240, 255, 248, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 240, 253, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])]], [[new Uint8Array([206, 203, 227, 239, 247, 255, 253, 255, 255, 255, 255]),new Uint8Array([207, 199, 220, 236, 243, 252, 252, 255, 255, 255, 255]),new Uint8Array([212, 219, 230, 243, 244, 253, 252, 255, 255, 255, 255]),new Uint8Array([236, 237, 247, 252, 253, 255, 255, 255, 255, 255, 255]),new Uint8Array([240, 240, 248, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])], [new Uint8Array([230, 233, 249, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([238, 238, 250, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([248, 251, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])]], [[new Uint8Array([225, 239, 227, 231, 244, 253, 243, 255, 255, 253, 255]),new Uint8Array([232, 234, 224, 228, 242, 249, 242, 252, 251, 251, 255]),new Uint8Array([235, 249, 238, 240, 251, 255, 249, 255, 253, 253, 255]),new Uint8Array([249, 253, 251, 250, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([251, 250, 249, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])], [new Uint8Array([243, 244, 250, 250, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([249, 248, 250, 253, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])]]];
 		const VP6_DC_WEIGHTS = [[new Int16Array([122, 133]),new Int16Array([133, 51]),new Int16Array([142, -16])], [new Int16Array([0, 1]),new Int16Array([0, 1]),new Int16Array([0, 1])], [new Int16Array([78, 171]),new Int16Array([169, 71]),new Int16Array([221, -30])], [new Int16Array([139, 117]),new Int16Array([214, 44]),new Int16Array([246, -3])], [new Int16Array([168, 79]),new Int16Array([210, 38]),new Int16Array([203, 17])]];
-		const VP6_IDX_TO_AC_BAND = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
-		const VP6_BICUBIC_COEFFS = [[[0, 128, 0, 0],[-3, 122, 9, 0],[-4, 109, 24, -1],[-5, 91, 45, -3],[-4, 68, 68, -4],[-3, 45, 91, -5],[-1, 24, 109, -4],[ 0, 9, 122, -3]], [[0, 128, 0, 0],[-4, 124, 9, -1],[-5, 110, 25, -2],[-6, 91, 46, -3],[-5, 69, 69, -5],[-3, 46, 91, -6],[-2, 25, 110, -5],[-1, 9, 124, -4]], [[ 0, 128, 0, 0],[-4, 123, 10, -1],[-6, 110, 26, -2],[-7, 92, 47, -4],[-6, 70, 70, -6],[-4, 47, 92, -7],[-2, 26, 110, -6],[-1, 10, 123, -4]], [[0, 128, 0, 0],[-5, 124, 10, -1],[-7, 110, 27, -2],[-7, 91, 48, -4],[-6, 70, 70, -6],[-4, 48, 92, -8],[-2, 27, 110, -7],[-1, 10, 124, -5]], [[0, 128, 0, 0],[-6, 124, 11, -1],[-8, 111, 28, -3],[-8, 92, 49, -5],[-7, 71, 71, -7],[-5, 49, 92, -8],[-3, 28, 111, -8],[-1, 11, 124, -6]], [[0, 128, 0, 0],[-6, 123, 12, -1],[-9, 111, 29, -3],[-9, 93, 50, -6],[-8, 72, 72, -8],[-6, 50, 93, -9],[-3, 29, 111, -9],[-1, 12, 123, -6]], [[0, 128, 0, 0],[-7, 124, 12, -1],[-10, 111, 30, -3],[-10, 93, 51, -6],[-9, 73, 73, -9],[-6, 51, 93, -10],[-3, 30, 111, -10],[-1, 12, 124, -7]], [[0, 128, 0, 0],[-7, 123, 13, -1],[-11, 112, 31, -4],[-11, 94, 52, -7],[-10, 74, 74, -10],[-7, 52, 94, -11],[-4, 31, 112, -11],[-1, 13, 123, -7]], [[0, 128, 0, 0],[-8, 124, 13, -1],[-12, 112, 32, -4],[-12, 94, 53, -7],[-10, 74, 74, -10],[-7, 53, 94, -12],[-4, 32, 112, -12],[-1, 13, 124, -8]], [[0, 128, 0, 0],[-9, 124, 14, -1],[-13, 112, 33, -4],[-13, 95, 54, -8],[-11, 75, 75, -11],[-8, 54, 95, -13],[-4, 33, 112, -13],[-1, 14, 124, -9]], [[0, 128, 0, 0],[-9, 123, 15, -1],[-14, 113, 34, -5],[-14, 95, 55, -8],[-12, 76, 76, -12],[-8, 55, 95, -14],[-5, 34, 112, -13],[-1, 15, 123, -9]], [[0, 128, 0, 0],[-10, 124, 15, -1],[-14, 113, 34, -5],[-15, 96, 56, -9],[-13, 77, 77, -13],[-9, 56, 96, -15],[-5, 34, 113, -14],[-1, 15, 124, -10]], [[0, 128, 0, 0],[-10, 123, 16, -1],[-15, 113, 35, -5],[-16, 98, 56, -10],[-14, 78, 78, -14],[-10, 56, 98, -16],[-5, 35, 113, -15],[-1, 16, 123, -10]], [[0, 128, 0, 0],[-11, 124, 17, -2],[-16, 113, 36, -5],[-17, 98, 57, -10],[-14, 78, 78, -14],[-10, 57, 98, -17],[-5, 36, 113, -16],[-2, 17, 124, -11]], [[0, 128, 0, 0],[-12, 125, 17, -2],[-17, 114, 37, -6],[-18, 99, 58, -11],[-15, 79, 79, -15],[-11, 58, 99, -18],[-6, 37, 114, -17],[-2, 17, 125, -12]], [[0, 128, 0, 0],[-12, 124, 18, -2],[-18, 114, 38, -6],[-19, 99, 59, -11],[-16, 80, 80, -16],[-11, 59, 99, -19],[-6, 38, 114, -18],[-2, 18, 124, -12]], [[0, 128, 0, 0],[-4, 118, 16, -2],[-7, 106, 34, -5],[-8,  90, 53, -7],[-8,  72, 72, -8],[-7,  53, 90, -8],[-5,  34, 106, -7],[-2,  16, 118, -4]]];
-		const VP6_DEFAULT_SCAN_ORDER = [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 7, 7, 7, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 11, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15];
-		const VP6_INTERLACED_SCAN_ORDER = [0, 1, 0, 1, 1, 2, 5, 3, 2, 2, 2, 2, 4, 7, 8, 10, 9, 7, 5, 4, 2, 3, 5, 6, 8, 9, 11, 12, 13, 12, 11, 10, 9, 7, 5, 4, 6, 7, 9, 11, 12, 12, 13, 13, 14, 12, 11, 9, 7, 9, 11, 12, 14, 14, 14, 15, 13, 11, 13, 15, 15, 15, 15, 15];
-
-		//// vpcommon ////
-
+		const VP6_IDX_TO_AC_BAND = new Uint32Array([0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]);
+		const VP6_BICUBIC_COEFFS = [[new Int16Array([0, 128, 0, 0]), new Int16Array([-3, 122, 9, 0]), new Int16Array([-4, 109, 24, -1]), new Int16Array([-5, 91, 45, -3]), new Int16Array([-4, 68, 68, -4]), new Int16Array([-3, 45, 91, -5]), new Int16Array([-1, 24, 109, -4]), new Int16Array([ 0, 9, 122, -3])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-4, 124, 9, -1]), new Int16Array([-5, 110, 25, -2]), new Int16Array([-6, 91, 46, -3]), new Int16Array([-5, 69, 69, -5]), new Int16Array([-3, 46, 91, -6]), new Int16Array([-2, 25, 110, -5]), new Int16Array([-1, 9, 124, -4])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-4, 123, 10, -1]), new Int16Array([-6, 110, 26, -2]), new Int16Array([-7, 92, 47, -4]), new Int16Array([-6, 70, 70, -6]), new Int16Array([-4, 47, 92, -7]), new Int16Array([-2, 26, 110, -6]), new Int16Array([-1, 10, 123, -4])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-5, 124, 10, -1]), new Int16Array([-7, 110, 27, -2]), new Int16Array([-7, 91, 48, -4]), new Int16Array([-6, 70, 70, -6]), new Int16Array([-4, 48, 92, -8]), new Int16Array([-2, 27, 110, -7]), new Int16Array([-1, 10, 124, -5])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-6, 124, 11, -1]), new Int16Array([-8, 111, 28, -3]), new Int16Array([-8, 92, 49, -5]), new Int16Array([-7, 71, 71, -7]), new Int16Array([-5, 49, 92, -8]), new Int16Array([-3, 28, 111, -8]), new Int16Array([-1, 11, 124, -6])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-6, 123, 12, -1]), new Int16Array([-9, 111, 29, -3]), new Int16Array([-9, 93, 50, -6]), new Int16Array([-8, 72, 72, -8]), new Int16Array([-6, 50, 93, -9]), new Int16Array([-3, 29, 111, -9]), new Int16Array([-1, 12, 123, -6])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-7, 124, 12, -1]), new Int16Array([-10, 111, 30, -3]), new Int16Array([-10, 93, 51, -6]), new Int16Array([-9, 73, 73, -9]), new Int16Array([-6, 51, 93, -10]), new Int16Array([-3, 30, 111, -10]), new Int16Array([-1, 12, 124, -7])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-7, 123, 13, -1]), new Int16Array([-11, 112, 31, -4]), new Int16Array([-11, 94, 52, -7]), new Int16Array([-10, 74, 74, -10]), new Int16Array([-7, 52, 94, -11]), new Int16Array([-4, 31, 112, -11]), new Int16Array([-1, 13, 123, -7])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-8, 124, 13, -1]), new Int16Array([-12, 112, 32, -4]), new Int16Array([-12, 94, 53, -7]), new Int16Array([-10, 74, 74, -10]), new Int16Array([-7, 53, 94, -12]), new Int16Array([-4, 32, 112, -12]), new Int16Array([-1, 13, 124, -8])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-9, 124, 14, -1]), new Int16Array([-13, 112, 33, -4]), new Int16Array([-13, 95, 54, -8]), new Int16Array([-11, 75, 75, -11]), new Int16Array([-8, 54, 95, -13]), new Int16Array([-4, 33, 112, -13]), new Int16Array([-1, 14, 124, -9])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-9, 123, 15, -1]), new Int16Array([-14, 113, 34, -5]), new Int16Array([-14, 95, 55, -8]), new Int16Array([-12, 76, 76, -12]), new Int16Array([-8, 55, 95, -14]), new Int16Array([-5, 34, 112, -13]), new Int16Array([-1, 15, 123, -9])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-10, 124, 15, -1]), new Int16Array([-14, 113, 34, -5]), new Int16Array([-15, 96, 56, -9]), new Int16Array([-13, 77, 77, -13]), new Int16Array([-9, 56, 96, -15]), new Int16Array([-5, 34, 113, -14]), new Int16Array([-1, 15, 124, -10])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-10, 123, 16, -1]), new Int16Array([-15, 113, 35, -5]), new Int16Array([-16, 98, 56, -10]), new Int16Array([-14, 78, 78, -14]), new Int16Array([-10, 56, 98, -16]), new Int16Array([-5, 35, 113, -15]), new Int16Array([-1, 16, 123, -10])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-11, 124, 17, -2]), new Int16Array([-16, 113, 36, -5]), new Int16Array([-17, 98, 57, -10]), new Int16Array([-14, 78, 78, -14]), new Int16Array([-10, 57, 98, -17]), new Int16Array([-5, 36, 113, -16]), new Int16Array([-2, 17, 124, -11])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-12, 125, 17, -2]), new Int16Array([-17, 114, 37, -6]), new Int16Array([-18, 99, 58, -11]), new Int16Array([-15, 79, 79, -15]), new Int16Array([-11, 58, 99, -18]), new Int16Array([-6, 37, 114, -17]), new Int16Array([-2, 17, 125, -12])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-12, 124, 18, -2]), new Int16Array([-18, 114, 38, -6]), new Int16Array([-19, 99, 59, -11]), new Int16Array([-16, 80, 80, -16]), new Int16Array([-11, 59, 99, -19]), new Int16Array([-6, 38, 114, -18]), new Int16Array([-2, 18, 124, -12])], [new Int16Array([0, 128, 0, 0]), new Int16Array([-4, 118, 16, -2]), new Int16Array([-7, 106, 34, -5]), new Int16Array([-8,  90, 53, -7]), new Int16Array([-8,  72, 72, -8]), new Int16Array([-7,  53, 90, -8]), new Int16Array([-5,  34, 106, -7]), new Int16Array([-2,  16, 118, -4])]];
+		const VP6_DEFAULT_SCAN_ORDER = new Uint32Array([0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 7, 7, 7, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 11, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15]);
+		const VP6_INTERLACED_SCAN_ORDER = new Uint32Array([0, 1, 0, 1, 1, 2, 5, 3, 2, 2, 2, 2, 4, 7, 8, 10, 9, 7, 5, 4, 2, 3, 5, 6, 8, 9, 11, 12, 13, 12, 11, 10, 9, 7, 5, 4, 6, 7, 9, 11, 12, 12, 13, 13, 14, 12, 11, 9, 7, 9, 11, 12, 14, 14, 14, 15, 13, 11, 13, 15, 15, 15, 15, 15]);
 		const VP_YUVA420_FORMAT = new NAPixelFormaton({
 			model: new ColorModel(ColorModel.YUV, new YUVSubmodel(YUVSubmodel.YUVJ)),
 			components: 4,
-			comp_info:  [
-				new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}),
-				new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1}),
-				new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 2, next_elem: 1}),
-				new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 3, next_elem: 1}),
-				null],
-			elem_size:  0,
-			be:         false,
-			alpha:      true,
-			palette:    false
+			comp_info:  [new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1}), new NAPixelChromaton({ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 2, next_elem: 1}), new NAPixelChromaton({ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 3, next_elem: 1}), null],
+			elem_size: 0,
+			be: false,
+			alpha: true,
+			palette: false
 		});
-
 		const VP_REF_INTER = 1;
 		const VP_REF_GOLDEN = 2;
-
-		const VPMBType = function(type) {
-			this.type = type;
+		class VPMBType {
+			constructor(type) {
+				this.type = type;
+			}
+			is_intra() {
+				return this.type == VPMBType.Intra;
+			}
+			get_ref_id() {
+				switch (this.type) {
+					case VPMBType.Intra:
+						return 0;
+					case VPMBType.InterNoMV:
+					case VPMBType.InterMV:
+					case VPMBType.InterNearest:
+					case VPMBType.InterNear:
+					case VPMBType.InterFourMV:
+						return VP_REF_INTER;
+					default:
+						return VP_REF_GOLDEN;
+				}
+			}
 		}
 		VPMBType.Intra = 1;
 		VPMBType.InterNoMV = 2;
@@ -7545,134 +6303,106 @@ var PinkFie = (function(moduleResults) {
 		VPMBType.GoldenMV = 8;
 		VPMBType.GoldenNearest = 9;
 		VPMBType.GoldenNear = 10;
-		VPMBType.prototype.is_intra = function() {
-			return this.type == VPMBType.Intra;
-		}
-		VPMBType.prototype.get_ref_id = function() {
-			switch(this.type) {
-				case VPMBType.Intra:
-					return 0;
-				case VPMBType.InterNoMV:
-				case VPMBType.InterMV:
-				case VPMBType.InterNearest:
-				case VPMBType.InterNear:
-				case VPMBType.InterFourMV:
-					return VP_REF_INTER;
-				default:
-					return VP_REF_GOLDEN;
+		class VPShuffler {
+			constructor() {
+				this.lastframe = null;
+				this.goldframe = null;
+			}
+			clear() {
+				this.lastframe = null;
+				this.goldframe = null;
+			}
+			add_frame(buf) {
+				this.lastframe = buf;
+			}
+			add_golden_frame(buf) {
+				this.goldframe = buf;
+			}
+			get_last() {
+				return this.lastframe;
+			}
+			get_golden() {
+				return this.goldframe;
+			}
+			has_refs() {
+				return !!this.lastframe;
 			}
 		}
-
-		const VPShuffler = function() {
-			this.lastframe = null;
-			this.goldframe = null;
-		}
-		VPShuffler.prototype.clear = function() {
-			this.lastframe = null;
-			this.goldframe = null;
-		}
-		VPShuffler.prototype.add_frame = function(buf) {
-			this.lastframe = null;
-			this.lastframe = buf;
-		}
-		VPShuffler.prototype.add_golden_frame = function(buf) {
-			this.goldframe = null;
-			this.goldframe = buf;
-		}
-		VPShuffler.prototype.get_last = function() {
-			return this.lastframe; // TODO cloned
-		}
-		VPShuffler.prototype.get_golden = function() {
-			return this.goldframe; // TODO cloned
-		}
-		VPShuffler.prototype.has_refs = function() {
-			return !!this.lastframe;
-		}
-
 		const VP56_COEF_BASE = new Int16Array([5, 7, 11, 19, 35, 67]);
-		const VP56_COEF_ADD_PROBS = [
-			new Uint8Array([159, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-			new Uint8Array([165, 145, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-			new Uint8Array([173, 148, 140, 128, 0, 0, 0, 0, 0, 0, 0, 0]),
-			new Uint8Array([176, 155, 140, 135, 128, 0, 0, 0, 0, 0, 0, 0]),
-			new Uint8Array([180, 157, 141, 134, 130, 128, 0, 0, 0, 0, 0, 0]),
-			new Uint8Array([254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 128]),
-		];
-
+		const VP56_COEF_ADD_PROBS = [new Uint8Array([159, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Uint8Array([165, 145, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0]), new Uint8Array([173, 148, 140, 128, 0, 0, 0, 0, 0, 0, 0, 0]), new Uint8Array([176, 155, 140, 135, 128, 0, 0, 0, 0, 0, 0, 0]), new Uint8Array([180, 157, 141, 134, 130, 128, 0, 0, 0, 0, 0, 0]), new Uint8Array([254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 128])];
 		const ff_vp56_norm_shift = new Uint8Array([8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-		const BoolCoder = function(src) {
-			if (src.length < 3) 
-				throw new Error("DecoderError::ShortData");
-			let value = asU32(asU32(src[0] << 24) | asU32(src[1] << 16) | asU32(src[2] << 8) | asU32(src[3]));
-			this.src = src;
-			this.pos = 4;
-			this.value = value;
-			this.range = 255;
-			this.bits = 8;
-		}
-		BoolCoder.prototype.read_bool = function() {
-			return this.read_prob(128);
-		}
-		BoolCoder.prototype.read_prob = function(prob) {
-			this.renorm();
-			let split = asU32(1 + asU32((asU32(this.range - 1) * asU32(prob)) >> 8));
-			let bit;
-			if (asU32(this.value) < asU32(split << 24)) {
-				this.range = split;
-				bit = false;
-			} else {
-				this.range -= split;
+		class BoolCoder {
+			constructor(src) {
+				if (src.length < 3)
+					throw new Error("DecoderError::ShortData");
+				let value = asU32(asU32(src[0] << 24) | asU32(src[1] << 16) | asU32(src[2] << 8) | asU32(src[3]));
+				this.src = src;
+				this.pos = 4;
+				this.value = value;
+				this.range = 255;
+				this.bits = 8;
+			}
+			read_bool() {
+				return this.read_prob(128);
+			}
+			read_prob(prob) {
+				this.renorm();
+				let split = asU32(1 + asU32((asU32(this.range - 1) * asU32(prob)) >> 8));
+				let bit;
+				if (asU32(this.value) < asU32(split << 24)) {
+					this.range = split;
+					bit = false;
+				} else {
+					this.range -= split;
+					this.range = asU32(this.range);
+					this.value -= asU32(split << 24);
+					this.value = asU32(this.value);
+					bit = true;
+				}
+				return bit;
+			}
+			read_bits(bits) {
+				let val = 0;
+				for (var i = 0; i < bits; i++) {
+					val = (val << 1) | asU32(this.read_prob(128));
+					val = asU32(val);
+				}
+				return asU32(val);
+			}
+			read_probability() {
+				let val = asU8(this.read_bits(7));
+				if (val == 0) {
+					return 1;
+				} else {
+					return asU8(val << 1);
+				}
+			}
+			renorm() {
+				let shift = ff_vp56_norm_shift[this.range];
+				this.range <<= shift;
+				this.value <<= shift;
 				this.range = asU32(this.range);
-				this.value -= asU32(split << 24);
 				this.value = asU32(this.value);
-				bit = true;
-			}
-			return bit;
-		}
-		BoolCoder.prototype.read_bits = function(bits) {
-			let val = 0;
-			for (var i = 0; i < bits; i++) {
-				val = (val << 1) | asU32(this.read_prob(128));
-				val = asU32(val);
-			}
-			return asU32(val);
-		}
-		BoolCoder.prototype.read_probability = function() {
-			let val = asU8(this.read_bits(7));
-			if (val == 0) {
-				return 1;
-			} else {
-				return asU8(val << 1);
-			}
-		}
-		BoolCoder.prototype.renorm = function() {
-			let shift = ff_vp56_norm_shift[this.range];
-			this.range <<= asU32(shift);
-			this.value <<= asU32(shift);
-			this.range = asU32(this.range);
-			this.value = asU32(this.value);
-			this.bits -= asI32(shift);
-			if ((this.bits <= 0) && (this.pos < this.src.length)) {
-				this.value |= (this.src[this.pos] << asU8(-this.bits));
-				this.pos += 1;
-				this.bits += 8;
-			}
-		}
-		BoolCoder.prototype.skip_bytes = function(nbytes) {
-			for (var i = 0; i < nbytes; i++) {
-				this.value <<= 8;
-				if (this.pos < this.src.length) {
-					this.value |= (this.src[this.pos]);
+				this.bits -= shift;
+				if ((this.bits <= 0) && (this.pos < this.src.length)) {
+					this.value |= (this.src[this.pos] << asU8(-this.bits));
 					this.pos += 1;
+					this.bits += 8;
+				}
+			}
+			skip_bytes(nbytes) {
+				for (var i = 0; i < nbytes; i++) {
+					this.value <<= 8;
+					if (this.pos < this.src.length) {
+						this.value |= (this.src[this.pos]);
+						this.pos += 1;
+					}
 				}
 			}
 		}
-
 		function rescale_prob(prob, weights, maxval) {
-			return asU8(Math.max(Math.min((((asI32(asU8(prob)) * asI32(weights[0]) + 128) >> 8) + asI32(weights[1])), maxval), 1));
+			return asU8(Math.max(Math.min((((asU8(prob) * weights[0] + 128) >> 8) + weights[1]), maxval), 1));
 		}
-
 		const C1S7 = 64277;
 		const C2S6 = 60547;
 		const C3S5 = 54491;
@@ -7680,135 +6410,142 @@ var PinkFie = (function(moduleResults) {
 		const C5S3 = 36410;
 		const C6S2 = 25080;
 		const C7S1 = 12785;
-
 		function mul16(a, b) {
 			return (a * b) >> 16;
 		}
-
-		function idct_step(src, dst, $s0, $s1, $s2, $s3, $s4, $s5, $s6, $s7, $d0, $d1, $d2, $d3, $d4, $d5, $d6, $d7, $bias, $shift, $otype) {
-			var t_a  = mul16(C1S7, (src[$s1])) + mul16(C7S1, src[$s7]);
-			var t_b  = mul16(C7S1, (src[$s1])) - mul16(C1S7, src[$s7]);
-			var t_c  = mul16(C3S5, (src[$s3])) + mul16(C5S3, src[$s5]);
-			var t_d  = mul16(C3S5, (src[$s5])) - mul16(C5S3, src[$s3]);
-			var t_a1 = mul16(C4S4, t_a - t_c);
-			var t_b1 = mul16(C4S4, t_b - t_d);
-			var t_c  = t_a + t_c;
-			var t_d  = t_b + t_d;
-			var t_e  = mul16(C4S4, (src[$s0] + src[$s4])) + $bias;
-			var t_f  = mul16(C4S4, (src[$s0] - src[$s4])) + $bias;
-			var t_g  = mul16(C2S6, (src[$s2])) + mul16(C6S2, (src[$s6]));
-			var t_h  = mul16(C6S2, (src[$s2])) - mul16(C2S6, (src[$s6]));
-			var t_e1 = (t_e - t_g);
-			var t_g  = (t_e + t_g);
-			var t_a  = (t_f + t_a1);
-			var t_f  = (t_f - t_a1);
-			var t_b  = (t_b1 - t_h);
-			var t_h  = (t_b1 + t_h);
-			dst[$d0] = $otype((t_g  + t_c) >> $shift);
-			dst[$d1] = $otype((t_a  + t_h) >> $shift);
-			dst[$d2] = $otype((t_a  - t_h) >> $shift);
-			dst[$d3] = $otype((t_e1 + t_d) >> $shift);
-			dst[$d4] = $otype((t_e1 - t_d) >> $shift);
-			dst[$d5] = $otype((t_f  + t_b) >> $shift);
-			dst[$d6] = $otype((t_f  - t_b) >> $shift);
-			dst[$d7] = $otype((t_g  - t_c) >> $shift);
-		}
-
 		function vp_idct(coeffs) {
 			let tmp = new Int32Array(64);
-			for (var i = 0; i < 8; i++) {
-				idct_step(
-					coeffs, tmp,
-					(i * 8), (i * 8) + 1, (i * 8) + 2, (i * 8) + 3, (i * 8) + 4, (i * 8) + 5, (i * 8) + 6, (i * 8) + 7,
-					(i * 8), (i * 8) + 1, (i * 8) + 2, (i * 8) + 3, (i * 8) + 4, (i * 8) + 5, (i * 8) + 6, (i * 8) + 7,
-					0, 0, asI32
-				);
+			for (var i = 0; i < 64; i += 8) {
+				let t_a = mul16(C1S7, (coeffs[i + 1])) + mul16(C7S1, coeffs[i + 7]);
+				let t_b = mul16(C7S1, (coeffs[i + 1])) - mul16(C1S7, coeffs[i + 7]);
+				let t_c = mul16(C3S5, (coeffs[i + 3])) + mul16(C5S3, coeffs[i + 5]);
+				let t_d = mul16(C3S5, (coeffs[i + 5])) - mul16(C5S3, coeffs[i + 3]);
+				let t_a1 = mul16(C4S4, t_a - t_c);
+				let t_b1 = mul16(C4S4, t_b - t_d);
+				t_c = t_a + t_c;
+				t_d = t_b + t_d;
+				let t_e = mul16(C4S4, (coeffs[i] + coeffs[i + 4]));
+				let t_f = mul16(C4S4, (coeffs[i] - coeffs[i + 4]));
+				let t_g = mul16(C2S6, (coeffs[i + 2])) + mul16(C6S2, (coeffs[i + 6]));
+				let t_h = mul16(C6S2, (coeffs[i + 2])) - mul16(C2S6, (coeffs[i + 6]));
+				let t_e1 = t_e - t_g;
+				t_g = t_e + t_g;
+				t_a = t_f + t_a1;
+				t_f = t_f - t_a1;
+				t_b = t_b1 - t_h;
+				t_h = t_b1 + t_h;
+				tmp[i] = (t_g + t_c) | 0;
+				tmp[i + 1] = (t_a + t_h) | 0;
+				tmp[i + 2] = (t_a - t_h) | 0;
+				tmp[i + 3] = (t_e1 + t_d) | 0;
+				tmp[i + 4] = (t_e1 - t_d) | 0;
+				tmp[i + 5] = (t_f + t_b) | 0;
+				tmp[i + 6] = (t_f - t_b) | 0;
+				tmp[i + 7] = (t_g - t_c) | 0;
 			}
 			for (var i = 0; i < 8; i++) {
-				idct_step(
-					tmp, coeffs,
-					(0 * 8) + i, (1 * 8) + i, (2 * 8) + i, (3 * 8) + i, (4 * 8) + i, (5 * 8) + i, (6 * 8) + i, (7 * 8) + i,
-					(0 * 8) + i, (1 * 8) + i, (2 * 8) + i, (3 * 8) + i, (4 * 8) + i, (5 * 8) + i, (6 * 8) + i, (7 * 8) + i,
-					8, 4, asI16
-				);
+				let t_a = mul16(C1S7, (tmp[8 + i])) + mul16(C7S1, tmp[56 + i]);
+				let t_b = mul16(C7S1, (tmp[8 + i])) - mul16(C1S7, tmp[56 + i]);
+				let t_c = mul16(C3S5, (tmp[24 + i])) + mul16(C5S3, tmp[40 + i]);
+				let t_d = mul16(C3S5, (tmp[40 + i])) - mul16(C5S3, tmp[24 + i]);
+				let t_a1 = mul16(C4S4, t_a - t_c);
+				let t_b1 = mul16(C4S4, t_b - t_d);
+				t_c = t_a + t_c;
+				t_d = t_b + t_d;
+				let t_e = mul16(C4S4, (tmp[i] + tmp[32 + i])) + 8;
+				let t_f = mul16(C4S4, (tmp[i] - tmp[32 + i])) + 8;
+				let t_g = mul16(C2S6, (tmp[16 + i])) + mul16(C6S2, (tmp[48 + i]));
+				let t_h = mul16(C6S2, (tmp[16 + i])) - mul16(C2S6, (tmp[48 + i]));
+				let t_e1 = t_e - t_g;
+				t_g = t_e + t_g;
+				t_a = t_f + t_a1;
+				t_f = t_f - t_a1;
+				t_b = t_b1 - t_h;
+				t_h = t_b1 + t_h;
+				coeffs[i] = (t_g + t_c) >> 4;
+				coeffs[8 + i] = (t_a + t_h) >> 4;
+				coeffs[16 + i] = (t_a - t_h) >> 4;
+				coeffs[24 + i] = (t_e1 + t_d) >> 4;
+				coeffs[32 + i] = (t_e1 - t_d) >> 4;
+				coeffs[40 + i] = (t_f + t_b) >> 4;
+				coeffs[48 + i] = (t_f - t_b) >> 4;
+				coeffs[56 + i] = (t_g - t_c) >> 4;
 			}
 		}
-
 		function vp_idct_dc(coeffs) {
-			let dc = asI16((mul16(C4S4, mul16(C4S4, asI32(coeffs[0]))) + 8) >> 4);
+			let dc = asI16((mul16(C4S4, mul16(C4S4, coeffs[0])) + 8) >> 4);
 			for (let i = 0; i < 64; i++) {
 				coeffs[i] = dc;
 			}
 		}
-
 		function vp_put_block(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct(coeffs);
 			let off = frm.offset[plane] + ((bx * 8) + ((by * 8) * frm.stride[plane]));
 			for (var y = 0; y < 8; y++) {
 				for (var x = 0; x < 8; x++) {
-					frm.data[off + x] = asU8(Math.max(Math.min((coeffs[x + (y * 8)] + 128), 255), 0));
+					data[off + x] = Math.max(Math.min((coeffs[x + (y * 8)] + 128), 255), 0) | 0;
 				}
 				off += frm.stride[plane];
 			}
 		}
-
 		function vp_put_block_ilace(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct(coeffs);
 			let off = frm.offset[plane] + bx * 8 + ((by - 1) * 8 + (by + 1)) * frm.stride[plane];
-			for (let y = 0; y < array.length; y++) {
-				for (let x = 0; x < array.length; x++) {
-					frm.data[off + x] = asU8(Math.max(Math.min((coeffs[x + y * 8] + 128), 255), 0));
+			for (let y = 0; y < 8; y++) {
+				for (let x = 0; x < 8; x++) {
+					data[off + x] = Math.max(Math.min((coeffs[x + y * 8] + 128), 255), 0) | 0;
 				}
 				off += frm.stride[plane] * 2;
 			}
 		}
-
 		function vp_put_block_dc(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct_dc(coeffs);
-			let dc = asU8(Math.max(Math.min((coeffs[0] + 128), 255), 0));
+			let dc = (Math.max(Math.min((coeffs[0] + 128), 255), 0)) | 0;
 			let off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
 			for (let y = 0; y < 8; y++) {
 				for (let x = 0; x < 8; x++) {
-					frm.data[off + x] = dc;
+					data[off + x] = dc;
 				}
 				off += frm.stride[plane];
 			}
 		}
-
 		function vp_add_block(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct(coeffs);
 			let off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
 			for (let y = 0; y < 8; y++) {
 				for (let x = 0; x < 8; x++) {
-					frm.data[off + x] = asU8(Math.max(Math.min((coeffs[x + y * 8] + asI16(frm.data[off + x])), 255), 0));
+					data[off + x] = Math.max(Math.min((coeffs[x + y * 8] + asI16(data[off + x])), 255), 0) | 0;
 				}
 				off += frm.stride[plane];
 			}
 		}
-
 		function vp_add_block_ilace(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct(coeffs);
 			let off = frm.offset[plane] + bx * 8 + ((by - 1) * 8 + (by + 1)) * frm.stride[plane];
 			for (let y = 0; y < 8; y++) {
 				for (let x = 0; x < 8; x++) {
-					frm.data[off + x] = asU8(Math.max(Math.min((coeffs[x + y * 8] + asI16(frm.data[off + x])), 255), 0));
+					data[off + x] = Math.max(Math.min((coeffs[x + y * 8] + asI16(data[off + x])), 255), 0) | 0;
 				}
 				off += frm.stride[plane] * 2;
 			}
 		}
-
 		function vp_add_block_dc(coeffs, bx, by, plane, frm) {
+			var data = frm.data;
 			vp_idct_dc(coeffs);
 			let dc = coeffs[0];
 			let off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
 			for (let y = 0; y < 8; y++) {
 				for (let x = 0; x < 8; x++) {
-					frm.data[off + x] = asU8(Math.max(Math.min((dc + asI16(frm.data[off + x])), 255), 0));
+					data[off + x] = Math.max(Math.min((dc + asI16(data[off + x])), 255), 0) | 0;
 				}
 				off += frm.stride[plane];
 			}
 		}
-
 		function vp31_loop_filter(data, off, step, stride, len, loop_str) {
 			for (let _ = 0; _ < len; _++) {
 				let a = asI16(data[off - step * 2]);
@@ -7819,869 +6556,759 @@ var PinkFie = (function(moduleResults) {
 				if (Math.abs(diff) >= 2 * loop_str) {
 					diff = 0;
 				} else if (Math.abs(diff) >= loop_str) {
-					if (diff < 0) {
-						diff = -diff - 2 * loop_str;
-					} else {
-						diff = -diff + 2 * loop_str;
-					}
+					if (diff < 0) diff = -diff - 2 * loop_str;
+					else diff = -diff + 2 * loop_str;
 				}
 				if (diff != 0) {
-					data[off - step] = asU8(Math.min(Math.max((b + diff), 0), 255));
-					data[off] = asU8(Math.min(Math.max((c - diff), 0), 255));
+					data[off - step] = Math.min(Math.max((b + diff), 0), 255) | 0;
+					data[off] = Math.min(Math.max((c - diff), 0), 255) | 0;
 				}
 				off += stride;
 			}
 		}
-
-		//// vp56 ////
-
-		const VP56Header = function() {
-			this.is_intra = false;
-			this.is_golden = false;
-			this.quant = 0;
-			this.multistream = false;
-			this.use_huffman = false;
-			this.version = 0;
-			this.profile = 0;
-			this.interlaced = false;
-			this.offset = 0;
-			this.mb_w = 0;
-			this.mb_h = 0;
-			this.disp_w = 0;
-			this.disp_h = 0;
-			this.scale = 0;
+		class VP56Header {
+			constructor() {
+				this.is_intra = false;
+				this.is_golden = false;
+				this.quant = 0;
+				this.multistream = false;
+				this.use_huffman = false;
+				this.version = 0;
+				this.profile = 0;
+				this.interlaced = false;
+				this.offset = 0;
+				this.mb_w = 0;
+				this.mb_h = 0;
+				this.disp_w = 0;
+				this.disp_h = 0;
+				this.scale = 0;
+			}
 		}
-
-		const CoeffReader = function(type, value) {
-			this.type = type;
-			this.value = value;
+		class CoeffReader {
+			constructor(type, value) {
+				this.type = type;
+				this.value = value;
+			}
 		}
 		CoeffReader.None = 1;
 		CoeffReader.Bool = 2;
-		CoeffReader.Huff = 3;
-
-		const VP56MVModel = function() {
-			this.nz_prob = 0;
-			this.sign_prob = 0;
-			this.raw_probs = new Uint8Array(8);
-			this.tree_probs = new Uint8Array(7);
-		}
-
-		const VP56MBTypeModel = function() {
-			this.probs = new Uint8Array(10);
-		}
-
-		const VP56CoeffModel = function() {
-			this.dc_token_probs = [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]];
-			this.dc_value_probs = new Uint8Array(11);
-			this.ac_ctype_probs = [[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)],[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]]];
-			this.ac_type_probs = [[[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]],[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]],[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]]]];
-			this.ac_val_probs = [[new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)], [new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)], [new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)]];
-		}
-
-		const VP6Models = function() {
-			this.scan_order = new Uint32Array(64);
-			this.scan = new Uint32Array(64);
-			this.zigzag = new Uint32Array(64);
-			this.zero_run_probs = [new Uint8Array(14), new Uint8Array(14)]
-		}
-
-		const MAX_HUFF_ELEMS = 12;
-
-		const VP6Huff = function() {
-			this.codes = new Uint16Array(MAX_HUFF_ELEMS);
-			this.bits = new Uint8Array(MAX_HUFF_ELEMS);
-		}
-
-		function prob2weight(a, b) {
-			let w = asU8((a * b) >> 8);
-			if (w == 0) {
-				return 1;
-			} else {
-				return w;
+		class VP56MVModel {
+			constructor() {
+				this.nz_prob = 0;
+				this.sign_prob = 0;
+				this.raw_probs = new Uint8Array(8);
+				this.tree_probs = new Uint8Array(7);
 			}
 		}
-
-		const VP56_DC_QUANTS = [47, 47, 47, 47, 45, 43, 43, 43, 43, 43, 42, 41, 41, 40, 40, 40, 40, 35, 35, 35, 35, 33, 33, 33, 33, 32, 32, 32, 27, 27, 26, 26, 25, 25, 24, 24, 23, 23, 19, 19, 19, 19, 18, 18, 17, 16, 16, 16, 16, 16, 15, 11, 11, 11, 10, 10, 9, 8, 7, 5, 3, 3, 2, 2];
-		const VP56_AC_QUANTS = [94, 92, 90, 88, 86, 82, 78, 74, 70, 66, 62, 58, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 40, 39, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,  9, 8, 7, 6, 5, 4, 3, 2, 1];
-		const VP56_FILTER_LIMITS = [14, 14, 13, 13, 12, 12, 10, 10, 10, 10,  8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 2];
-		const VP56_MODE_VQ = [[[9, 15, 32, 25, 7, 19, 9, 21, 1, 12, 14, 12, 3, 18, 14, 23, 3, 10, 0, 4], [48, 39, 1, 2, 11, 27, 29, 44, 7, 27, 1, 4, 0, 3, 1, 6, 1, 2, 0, 0], [21, 32, 1, 2, 4, 10, 32, 43, 6, 23, 2, 3, 1, 19, 1, 6, 12, 21, 0, 7], [69, 83, 0, 0, 0, 2, 10, 29, 3, 12, 0, 1, 0, 3, 0, 3, 2, 2, 0, 0], [11, 20, 1, 4, 18, 36, 43, 48, 13, 35, 0, 2, 0, 5, 3, 12, 1, 2, 0, 0], [70, 44, 0, 1, 2, 10, 37, 46, 8, 26, 0, 2, 0, 2, 0, 2, 0, 1, 0, 0], [8, 15, 0, 1, 8, 21, 74, 53, 22, 42, 0, 1, 0, 2, 0, 3, 1, 2, 0, 0], [141, 42, 0, 0, 1, 4, 11, 24, 1, 11, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0], [8, 19, 4, 10, 24, 45, 21, 37, 9, 29, 0, 3, 1, 7, 11, 25, 0, 2, 0, 1], [46, 42, 0, 1, 2, 10, 54, 51, 10, 30, 0, 2, 0, 2, 0, 1, 0, 1, 0, 0], [28, 32, 0, 0, 3, 10, 75, 51, 14, 33, 0, 1, 0, 2, 0, 1, 1, 2, 0, 0], [100, 46, 0, 1, 3, 9, 21, 37, 5, 20, 0, 1, 0, 2, 1, 2, 0, 1, 0, 0], [27, 29, 0, 1, 9, 25, 53, 51, 12, 34, 0, 1, 0, 3, 1, 5, 0, 2, 0, 0], [80, 38, 0, 0, 1, 4, 69, 33, 5, 16, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0], [16, 20, 0, 0, 2, 8, 104, 49, 15, 33, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0], [194, 16, 0, 0, 1, 1, 1, 9, 1, 3, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0]], [[41, 22, 1, 0, 1, 31, 0, 0, 0, 0, 0, 1, 1, 7, 0, 1, 98, 25, 4, 10], [123, 37, 6, 4, 1, 27, 0, 0, 0, 0, 5, 8, 1, 7, 0, 1, 12, 10, 0, 2], [26, 14, 14, 12, 0, 24, 0, 0, 0, 0, 55, 17, 1, 9, 0, 36, 5, 7, 1, 3], [209, 5, 0, 0, 0, 27, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0], [2, 5, 4, 5, 0, 121, 0, 0, 0, 0, 0, 3, 2, 4, 1, 4, 2, 2, 0, 1], [175, 5, 0, 1, 0, 48, 0, 0, 0, 0, 0, 2, 0, 1, 0, 2, 0, 1, 0, 0], [83, 5, 2, 3, 0, 102, 0, 0, 0, 0, 1, 3, 0, 2, 0, 1, 0, 0, 0, 0], [233, 6, 0, 0, 0, 8, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0], [34, 16, 112, 21, 1, 28, 0, 0, 0, 0, 6, 8, 1, 7, 0, 3, 2, 5, 0, 2], [159, 35, 2, 2, 0, 25, 0, 0, 0, 0, 3, 6, 0, 5, 0, 1, 4, 4, 0, 1], [75, 39, 5, 7, 2, 48, 0, 0, 0, 0, 3, 11, 2, 16, 1, 4, 7, 10, 0, 2], [212, 21, 0, 1, 0, 9, 0, 0, 0, 0, 1, 2, 0, 2, 0, 0, 2, 2, 0, 0], [4, 2, 0, 0, 0, 172, 0, 0, 0, 0, 0, 1, 0, 2, 0, 0, 2, 0, 0, 0], [187, 22, 1, 1, 0, 17, 0, 0, 0, 0, 3, 6, 0, 4, 0, 1, 4, 4, 0, 1], [133, 6, 1, 2, 1, 70, 0, 0, 0, 0, 0, 2, 0, 4, 0, 3, 1, 1, 0, 0], [251, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], [[2, 3, 2, 3, 0, 2, 0, 2, 0, 0, 11, 4, 1, 4, 0, 2, 3, 2, 0, 4], [49, 46, 3, 4, 7, 31, 42, 41, 0, 0, 2, 6, 1, 7, 1, 4, 2, 4, 0, 1], [26, 25, 1, 1, 2, 10, 67, 39, 0, 0, 1, 1, 0, 14, 0, 2, 31, 26, 1, 6], [103, 46, 1, 2, 2, 10, 33, 42, 0, 0, 1, 4, 0, 3, 0, 1, 1, 3, 0, 0], [14, 31, 9, 13, 14, 54, 22, 29, 0, 0, 2, 6, 4, 18, 6, 13, 1, 5, 0, 1], [85, 39, 0, 0, 1, 9, 69, 40, 0, 0, 0, 1, 0, 3, 0, 1, 2, 3, 0, 0], [31, 28, 0, 0, 3, 14, 130, 34, 0, 0, 0, 1, 0, 3, 0, 1, 3, 3, 0, 1], [171, 25, 0, 0, 1, 5, 25, 21, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0], [17, 21, 68, 29, 6, 15, 13, 22, 0, 0, 6, 12, 3, 14, 4, 10, 1, 7, 0, 3], [51, 39, 0, 1, 2, 12, 91, 44, 0, 0, 0, 2, 0, 3, 0, 1, 2, 3, 0, 1], [81, 25, 0, 0, 2, 9, 106, 26, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0], [140, 37, 0, 1, 1, 8, 24, 33, 0, 0, 1, 2, 0, 2, 0, 1, 1, 2, 0, 0], [14, 23, 1, 3, 11, 53, 90, 31, 0, 0, 0, 3, 1, 5, 2, 6, 1, 2, 0, 0], [123, 29, 0, 0, 1, 7, 57, 30, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0], [13, 14, 0, 0, 4, 20, 175, 20, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0], [202, 23, 0, 0, 1, 3, 2, 9, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]]];
-
+		class VP56MBTypeModel {
+			constructor() {
+				this.probs = new Uint8Array(10);
+			}
+		}
+		class VP56CoeffModel {
+			constructor() {
+				this.dc_token_probs = [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]];
+				this.dc_value_probs = new Uint8Array(11);
+				this.ac_ctype_probs = [[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]]];
+				this.ac_type_probs = [[[[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]], [[new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)], [new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5), new Uint8Array(5)]]]];
+				this.ac_val_probs = [[new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)], [new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)], [new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11), new Uint8Array(11)]];
+			}
+		}
+		class VP6Models {
+			constructor() {
+				this.scan_order = new Uint32Array(64);
+				this.scan = new Uint32Array(64);
+				this.zigzag = new Uint32Array(64);
+				this.zero_run_probs = [new Uint8Array(14), new Uint8Array(14)];
+			}
+		}
+		const VP56_DC_QUANTS = new Int16Array([47, 47, 47, 47, 45, 43, 43, 43, 43, 43, 42, 41, 41, 40, 40, 40, 40, 35, 35, 35, 35, 33, 33, 33, 33, 32, 32, 32, 27, 27, 26, 26, 25, 25, 24, 24, 23, 23, 19, 19, 19, 19, 18, 18, 17, 16, 16, 16, 16, 16, 15, 11, 11, 11, 10, 10, 9, 8, 7, 5, 3, 3, 2, 2]);
+		const VP56_AC_QUANTS = new Int16Array([94, 92, 90, 88, 86, 82, 78, 74, 70, 66, 62, 58, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 40, 39, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,  9, 8, 7, 6, 5, 4, 3, 2, 1]);
+		const VP56_FILTER_LIMITS = new Uint8Array([14, 14, 13, 13, 12, 12, 10, 10, 10, 10,  8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 2]);
+		const VP56_MODE_VQ = [[new Uint8Array([9, 15, 32, 25, 7, 19, 9, 21, 1, 12, 14, 12, 3, 18, 14, 23, 3, 10, 0, 4]), new Uint8Array([48, 39, 1, 2, 11, 27, 29, 44, 7, 27, 1, 4, 0, 3, 1, 6, 1, 2, 0, 0]), new Uint8Array([21, 32, 1, 2, 4, 10, 32, 43, 6, 23, 2, 3, 1, 19, 1, 6, 12, 21, 0, 7]), new Uint8Array([69, 83, 0, 0, 0, 2, 10, 29, 3, 12, 0, 1, 0, 3, 0, 3, 2, 2, 0, 0]), new Uint8Array([11, 20, 1, 4, 18, 36, 43, 48, 13, 35, 0, 2, 0, 5, 3, 12, 1, 2, 0, 0]), new Uint8Array([70, 44, 0, 1, 2, 10, 37, 46, 8, 26, 0, 2, 0, 2, 0, 2, 0, 1, 0, 0]), new Uint8Array([8, 15, 0, 1, 8, 21, 74, 53, 22, 42, 0, 1, 0, 2, 0, 3, 1, 2, 0, 0]), new Uint8Array([141, 42, 0, 0, 1, 4, 11, 24, 1, 11, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0]), new Uint8Array([8, 19, 4, 10, 24, 45, 21, 37, 9, 29, 0, 3, 1, 7, 11, 25, 0, 2, 0, 1]), new Uint8Array([46, 42, 0, 1, 2, 10, 54, 51, 10, 30, 0, 2, 0, 2, 0, 1, 0, 1, 0, 0]), new Uint8Array([28, 32, 0, 0, 3, 10, 75, 51, 14, 33, 0, 1, 0, 2, 0, 1, 1, 2, 0, 0]), new Uint8Array([100, 46, 0, 1, 3, 9, 21, 37, 5, 20, 0, 1, 0, 2, 1, 2, 0, 1, 0, 0]), new Uint8Array([27, 29, 0, 1, 9, 25, 53, 51, 12, 34, 0, 1, 0, 3, 1, 5, 0, 2, 0, 0]), new Uint8Array([80, 38, 0, 0, 1, 4, 69, 33, 5, 16, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0]), new Uint8Array([16, 20, 0, 0, 2, 8, 104, 49, 15, 33, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0]), new Uint8Array([194, 16, 0, 0, 1, 1, 1, 9, 1, 3, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0])], [new Uint8Array([41, 22, 1, 0, 1, 31, 0, 0, 0, 0, 0, 1, 1, 7, 0, 1, 98, 25, 4, 10]), new Uint8Array([123, 37, 6, 4, 1, 27, 0, 0, 0, 0, 5, 8, 1, 7, 0, 1, 12, 10, 0, 2]), new Uint8Array([26, 14, 14, 12, 0, 24, 0, 0, 0, 0, 55, 17, 1, 9, 0, 36, 5, 7, 1, 3]), new Uint8Array([209, 5, 0, 0, 0, 27, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]), new Uint8Array([2, 5, 4, 5, 0, 121, 0, 0, 0, 0, 0, 3, 2, 4, 1, 4, 2, 2, 0, 1]), new Uint8Array([175, 5, 0, 1, 0, 48, 0, 0, 0, 0, 0, 2, 0, 1, 0, 2, 0, 1, 0, 0]), new Uint8Array([83, 5, 2, 3, 0, 102, 0, 0, 0, 0, 1, 3, 0, 2, 0, 1, 0, 0, 0, 0]), new Uint8Array([233, 6, 0, 0, 0, 8, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0]), new Uint8Array([34, 16, 112, 21, 1, 28, 0, 0, 0, 0, 6, 8, 1, 7, 0, 3, 2, 5, 0, 2]), new Uint8Array([159, 35, 2, 2, 0, 25, 0, 0, 0, 0, 3, 6, 0, 5, 0, 1, 4, 4, 0, 1]), new Uint8Array([75, 39, 5, 7, 2, 48, 0, 0, 0, 0, 3, 11, 2, 16, 1, 4, 7, 10, 0, 2]), new Uint8Array([212, 21, 0, 1, 0, 9, 0, 0, 0, 0, 1, 2, 0, 2, 0, 0, 2, 2, 0, 0]), new Uint8Array([4, 2, 0, 0, 0, 172, 0, 0, 0, 0, 0, 1, 0, 2, 0, 0, 2, 0, 0, 0]), new Uint8Array([187, 22, 1, 1, 0, 17, 0, 0, 0, 0, 3, 6, 0, 4, 0, 1, 4, 4, 0, 1]), new Uint8Array([133, 6, 1, 2, 1, 70, 0, 0, 0, 0, 0, 2, 0, 4, 0, 3, 1, 1, 0, 0]), new Uint8Array([251, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])], [new Uint8Array([2, 3, 2, 3, 0, 2, 0, 2, 0, 0, 11, 4, 1, 4, 0, 2, 3, 2, 0, 4]), new Uint8Array([49, 46, 3, 4, 7, 31, 42, 41, 0, 0, 2, 6, 1, 7, 1, 4, 2, 4, 0, 1]), new Uint8Array([26, 25, 1, 1, 2, 10, 67, 39, 0, 0, 1, 1, 0, 14, 0, 2, 31, 26, 1, 6]), new Uint8Array([103, 46, 1, 2, 2, 10, 33, 42, 0, 0, 1, 4, 0, 3, 0, 1, 1, 3, 0, 0]), new Uint8Array([14, 31, 9, 13, 14, 54, 22, 29, 0, 0, 2, 6, 4, 18, 6, 13, 1, 5, 0, 1]), new Uint8Array([85, 39, 0, 0, 1, 9, 69, 40, 0, 0, 0, 1, 0, 3, 0, 1, 2, 3, 0, 0]), new Uint8Array([31, 28, 0, 0, 3, 14, 130, 34, 0, 0, 0, 1, 0, 3, 0, 1, 3, 3, 0, 1]), new Uint8Array([171, 25, 0, 0, 1, 5, 25, 21, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0]), new Uint8Array([17, 21, 68, 29, 6, 15, 13, 22, 0, 0, 6, 12, 3, 14, 4, 10, 1, 7, 0, 3]), new Uint8Array([51, 39, 0, 1, 2, 12, 91, 44, 0, 0, 0, 2, 0, 3, 0, 1, 2, 3, 0, 1]), new Uint8Array([81, 25, 0, 0, 2, 9, 106, 26, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0]), new Uint8Array([140, 37, 0, 1, 1, 8, 24, 33, 0, 0, 1, 2, 0, 2, 0, 1, 1, 2, 0, 0]), new Uint8Array([14, 23, 1, 3, 11, 53, 90, 31, 0, 0, 0, 3, 1, 5, 2, 6, 1, 2, 0, 0]), new Uint8Array([123, 29, 0, 0, 1, 7, 57, 30, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0]), new Uint8Array([13, 14, 0, 0, 4, 20, 175, 20, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0]), new Uint8Array([202, 23, 0, 0, 1, 3, 2, 9, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0])]];
 		const INVALID_REF = 42;
-
-		const VP6HuffModels = function() {
-			this.dc_token_tree = [new VP6Huff(), new VP6Huff()];
-			this.ac_token_tree = [
-				[
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()],
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()],
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()]
-				], [
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()],
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()],
-					[new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff(), new VP6Huff()]
-				]
-			];
-			this.zero_run_tree = [new VP6Huff(), new VP6Huff()];
-		}
-		
-		const VP56Models = function() {
-			this.mv_models = [new VP56MVModel(), new VP56MVModel()];
-			this.mbtype_models = [
-				[new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()],
-				[new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()],
-				[new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()]
-			];
-			this.coeff_models = [new VP56CoeffModel(), new VP56CoeffModel()];
-			this.prob_xmitted = [new Uint8Array(20), new Uint8Array(20), new Uint8Array(20)];
-			this.vp6models = new VP6Models();
-			this.vp6huff = new VP6HuffModels();
-		}
-
-		const MBInfo = function() {
-			this.mb_type = new VPMBType(VPMBType.Intra);
-			this.mv = new MV(0, 0);
-		}
-
-		const FrameState = function() {
-			this.mb_x = 0;
-			this.mb_y = 0;
-			this.plane = 0;
-			this.coeff_cat = [new Uint8Array(64), new Uint8Array(64), new Uint8Array(64), new Uint8Array(64)];
-			this.last_idx = new Uint32Array(4);
-			this.top_ctx = 0;
-			this.ctx_idx = 0;
-			this.dc_quant = 0;
-			this.ac_quant = 0;
-			this.dc_zero_run = new Uint32Array(2);
-			this.ac_zero_run = new Uint32Array(2);
-		}
-
-		const VP56DCPred = function() {
-			this.dc_y = new Int16Array(0);
-			this.dc_u = new Int16Array(0);
-			this.dc_v = new Int16Array(0);
-			this.ldc_y = new Int16Array(2);
-			this.ldc_u = 0;
-			this.ldc_v = 0;
-			this.ref_y = new Uint8Array(0);
-			this.ref_c = new Uint8Array(0);
-			this.ref_left = 0;
-			this.y_idx = 0;
-			this.c_idx = 0;
-		}
-		VP56DCPred.prototype.reset = function(mb_w) {
-			this.update_row();
-			for (var i = 1; i < this.ref_y.length; i++) {
-				this.ref_y[i] = INVALID_REF;
-			}
-			for (var i = 1; i < this.ref_c.length; i++) {
-				this.ref_c[i] = INVALID_REF;
+		class VP56Models {
+			constructor() {
+				this.mv_models = [new VP56MVModel(), new VP56MVModel()];
+				this.mbtype_models = [[new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()], [new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()], [new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel(), new VP56MBTypeModel()]];
+				this.coeff_models = [new VP56CoeffModel(), new VP56CoeffModel()];
+				this.prob_xmitted = [new Uint8Array(20), new Uint8Array(20), new Uint8Array(20)];
+				this.vp6models = new VP6Models();
 			}
 		}
-		VP56DCPred.prototype.update_row = function() {
-			this.y_idx = 1;
-			this.c_idx = 1;
-			this.ldc_y = new Int16Array(2);
-			this.ldc_u = 0;
-			this.ldc_v = 0;
-			this.ref_left = INVALID_REF;
+		class MBInfo {
+			constructor() {
+				this.mb_type = new VPMBType(VPMBType.Intra);
+				this.mv = new MV(0, 0);
+			}
 		}
-		VP56DCPred.prototype.resize = function(mb_w) {
-			this.dc_y = new Int16Array(mb_w * 2 + 2);
-			this.dc_u = new Int16Array(mb_w + 2);
-			this.dc_v = new Int16Array(mb_w + 2);
-			this.ref_y = new Uint8Array(mb_w * 2 + 2);
-			this.ref_y.fill(INVALID_REF);
-			this.ref_c = new Uint8Array(mb_w + 2);
-			this.ref_c.fill(INVALID_REF);
-			this.ref_c[0] = 0;
+		class FrameState {
+			constructor() {
+				this.mb_x = 0;
+				this.mb_y = 0;
+				this.plane = 0;
+				this.coeff_cat = [new Uint8Array(64), new Uint8Array(64), new Uint8Array(64), new Uint8Array(64)];
+				this.last_idx = new Uint32Array(4);
+				this.top_ctx = 0;
+				this.ctx_idx = 0;
+				this.dc_quant = 0;
+				this.ac_quant = 0;
+				this.dc_zero_run = new Uint32Array(2);
+				this.ac_zero_run = new Uint32Array(2);
+			}
 		}
-		VP56DCPred.prototype.next_mb = function() {
-			this.y_idx += 2;
-			this.c_idx += 1;
+		class VP56DCPred {
+			constructor() {
+				this.dc_y = new Int16Array(0);
+				this.dc_u = new Int16Array(0);
+				this.dc_v = new Int16Array(0);
+				this.ldc_y = new Int16Array(2);
+				this.ldc_u = 0;
+				this.ldc_v = 0;
+				this.ref_y = new Uint8Array(0);
+				this.ref_c = new Uint8Array(0);
+				this.ref_left = 0;
+				this.y_idx = 0;
+				this.c_idx = 0;
+			}
+			reset() {
+				this.update_row();
+				for (var i = 1; i < this.ref_y.length; i++) this.ref_y[i] = INVALID_REF;
+				for (var i = 1; i < this.ref_c.length; i++) this.ref_c[i] = INVALID_REF;
+			}
+			update_row() {
+				this.y_idx = 1;
+				this.c_idx = 1;
+				this.ldc_y = new Int16Array(2);
+				this.ldc_u = 0;
+				this.ldc_v = 0;
+				this.ref_left = INVALID_REF;
+			}
+			resize(mb_w) {
+				this.dc_y = new Int16Array(mb_w * 2 + 2);
+				this.dc_u = new Int16Array(mb_w + 2);
+				this.dc_v = new Int16Array(mb_w + 2);
+				this.ref_y = new Uint8Array(mb_w * 2 + 2);
+				this.ref_y.fill(INVALID_REF);
+				this.ref_c = new Uint8Array(mb_w + 2);
+				this.ref_c.fill(INVALID_REF);
+				this.ref_c[0] = 0;
+			}
+			next_mb() {
+				this.y_idx += 2;
+				this.c_idx += 1;
+			}
 		}
-
 		function rescale_mb_mode_prob(prob, total) {
 			return asU8(255 * prob / (1 + total));
 		}
-
 		function map_mb_type(mbtype) {
 			switch(mbtype.type) {
-				case VPMBType.InterNoMV    : return 0;
-				case VPMBType.Intra        : return 1;
-				case VPMBType.InterMV      : return 2;
-				case VPMBType.InterNearest : return 3;
-				case VPMBType.InterNear    : return 4;
-				case VPMBType.GoldenNoMV   : return 5;
-				case VPMBType.GoldenMV     : return 6;
-				case VPMBType.InterFourMV  : return 7;
+				case VPMBType.InterNoMV: return 0;
+				case VPMBType.Intra: return 1;
+				case VPMBType.InterMV: return 2;
+				case VPMBType.InterNearest: return 3;
+				case VPMBType.InterNear: return 4;
+				case VPMBType.GoldenNoMV: return 5;
+				case VPMBType.GoldenMV: return 6;
+				case VPMBType.InterFourMV: return 7;
 				case VPMBType.GoldenNearest: return 8;
-				case VPMBType.GoldenNear   : return 9;
+				case VPMBType.GoldenNear: return 9;
 			}
 		}
-		const VP56Decoder = function(version, hasAlpha, flip) {
-			let vt = alloc_video_buffer(new NAVideoInfo(24, 24, false, VP_YUVA420_FORMAT), 4);
-
-			this.version = version;
-			this.has_alpha = hasAlpha;
-			this.flip = flip;
-			this.shuf = new VPShuffler();
-			this.width = 0;
-			this.height = 0;
-			this.mb_w = 0;
-			this.mb_h = 0;
-			this.models = new VP56Models();
-			this.amodels = new VP56Models();
-			this.coeffs = [
-				new Int16Array(64),
-				new Int16Array(64),
-				new Int16Array(64),
-				new Int16Array(64),
-				new Int16Array(64),
-				new Int16Array(64)
-			];
-			this.last_mbt = new VPMBType(VPMBType.InterNoMV);
-
-			this.loop_thr = 0;
-			this.ilace_prob = 0;
-			this.ilace_mb = false;
-
-			this.mb_info = [];
-			this.fstate = new FrameState();
-			this.dc_pred = new VP56DCPred();
-			this.last_dc = [new Int16Array(4), new Int16Array(4), new Int16Array(4)];
-			this.top_ctx = [new Uint8Array(0), new Uint8Array(0), new Uint8Array(0), new Uint8Array(0)];
-
-			this.mc_buf = vt.get_vbuf();
-		}
-		VP56Decoder.prototype.set_dimensions = function(width, height) {
-			this.width = width;
-			this.height = height;
-			this.mb_w = (this.width + 15) >> 4;
-			this.mb_h = (this.height + 15) >> 4;
-			this.mb_info = [];
-			for (var i = 0; i < this.mb_w * this.mb_h; i++) {
-				this.mb_info.push(new MBInfo());
+		class VP56Decoder {
+			constructor(version, hasAlpha, flip) {
+				let vt = alloc_video_buffer(new NAVideoInfo(24, 24, false, VP_YUVA420_FORMAT), 4);
+				this.version = version;
+				this.has_alpha = hasAlpha;
+				this.flip = flip;
+				this.shuf = new VPShuffler();
+				this.width = 0;
+				this.height = 0;
+				this.mb_w = 0;
+				this.mb_h = 0;
+				this.models = new VP56Models();
+				this.amodels = new VP56Models();
+				this.coeffs = [new Int16Array(64), new Int16Array(64), new Int16Array(64), new Int16Array(64), new Int16Array(64), new Int16Array(64)];
+				this.last_mbt = new VPMBType(VPMBType.InterNoMV);
+				this.loop_thr = 0;
+				this.ilace_prob = 0;
+				this.ilace_mb = false;
+				this.mb_info = [];
+				this.fstate = new FrameState();
+				this.dc_pred = new VP56DCPred();
+				this.last_dc = [new Int16Array(4), new Int16Array(4), new Int16Array(4)];
+				this.top_ctx = [new Uint8Array(0), new Uint8Array(0), new Uint8Array(0), new Uint8Array(0)];
+				this.mc_buf = vt.get_vbuf();
 			}
-			this.top_ctx = [
-				new Uint8Array(this.mb_w * 2),
-				new Uint8Array(this.mb_w),
-				new Uint8Array(this.mb_w),
-				new Uint8Array(this.mb_w * 2)
-			];
-		}
-		VP56Decoder.prototype.init = function(supp, vinfo) {
-			supp.pool_u8.set_dec_bufs(3 + (vinfo.get_format().has_alpha() ? 1 : 0));
-			supp.pool_u8.prealloc_video(new NAVideoInfo(vinfo.get_width(), vinfo.get_height(), false, vinfo.get_format()), 4);
-			this.set_dimensions(vinfo.get_width(), vinfo.get_height());
-			this.dc_pred.resize(this.mb_w);
-		}
-		VP56Decoder.prototype.decode_frame = function(supp, src, br) {
-			let aoffset;
-			let bc;
-			if (this.has_alpha) {
-				validate(src.length >= 7);
-				aoffset = ((src[0]) << 16) | ((src[1]) << 8) | (src[2]);
-				validate((aoffset > 0) && (aoffset < src.length - 3));
-				bc = new BoolCoder(src.subarray(3));
-			} else {
-				validate(src.length >= 4);
-				aoffset = src.length;
-				bc = new BoolCoder(src);
-			}
-			let hdr = br.parseHeader(bc);
-			validate((hdr.offset) < aoffset);
-			if (hdr.mb_w != 0 && (hdr.mb_w != this.mb_w || hdr.mb_h != this.mb_h)) {
-				this.set_dimensions(hdr.mb_w * 16, hdr.mb_h * 16);
-			}
-			let fmt;
-			if (!this.has_alpha) {
-				fmt = YUV420_FORMAT;
-			} else {
-				fmt = VP_YUVA420_FORMAT;
-			}
-			let vinfo = new NAVideoInfo(this.width, this.height, this.flip, fmt);
-			let ret = supp.pool_u8.get_free();
-			if (ret === null) {
-				throw new Error("DecoderError::AllocError");
-			}
-			let buf = ret;
-			/*if (buf.get_info() !== vinfo) {
-				this.shuf.clear();
-				supp.pool_u8.reset();
-				supp.pool_u8.prealloc_video(vinfo, 4);
-				let ret = supp.pool_u8.get_free();
-				if (ret === null) {
-					throw new Error("DecoderError::AllocError");
+			set_dimensions(width, height) {
+				this.width = width;
+				this.height = height;
+				this.mb_w = (this.width + 15) >> 4;
+				this.mb_h = (this.height + 15) >> 4;
+				this.mb_info = [];
+				for (var i = 0; i < this.mb_w * this.mb_h; i++) {
+					this.mb_info.push(new MBInfo());
 				}
-				buf = ret;
-			}*/
-
-			let dframe = NASimpleVideoFrame.from_video_buf(buf);
-			if (hdr.is_intra) {
-				this.shuf.clear();
-			} else {
-				if (!this.shuf.has_refs()) {
-					throw new Error("DecoderError::MissingReference");
-				}
+				this.top_ctx = [new Uint8Array(this.mb_w * 2), new Uint8Array(this.mb_w), new Uint8Array(this.mb_w), new Uint8Array(this.mb_w * 2)];
 			}
-
-			let psrc = src.subarray(this.has_alpha ? 3 : 0);
-
-			this.decode_planes(br, dframe, bc, hdr, psrc, false);
-			if (this.has_alpha) {
-				let asrc = src.subarray(aoffset + 3);
-				let _bc = new BoolCoder(asrc);
-				let ahdr = br.parseHeader(_bc);
-				validate(ahdr.mb_w == hdr.mb_w && ahdr.mb_h == hdr.mb_h);
-				var models = this.models;
-				this.models = this.amodels;
-				this.decode_planes(br, dframe, _bc, ahdr, asrc, true);
-				this.models = models;
-				if (hdr.is_golden && ahdr.is_golden) {
-					this.shuf.add_golden_frame(buf.cloned());
-				} else if (hdr.is_golden && !ahdr.is_golden) {
-					let cur_golden = this.shuf.get_golden();
-					let off = cur_golden.get_offset(3);
-					let stride = cur_golden.get_stride(3);
-					let new_golden = supp.pool_u8.get_copy(buf);
-					let dst = new_golden.get_data();
-					let _src = cur_golden.get_data();
-					dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
-					this.shuf.add_golden_frame(new_golden);
-				} else if (!hdr.is_golden && ahdr.is_golden) {
-					let cur_golden = this.shuf.get_golden();
-					let off = cur_golden.get_offset(3);
-					let stride = cur_golden.get_stride(3);
-					let new_golden = supp.pool_u8.get_copy(cur_golden);
-					let dst = new_golden.get_data();
-					let _src = buf.get_data();
-					dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
-					this.shuf.add_golden_frame(new_golden);
-				}
+			init(supp, vinfo) {
+				supp.pool_u8.set_dec_bufs(3 + (vinfo.get_format().has_alpha() ? 1 : 0));
+				supp.pool_u8.prealloc_video(new NAVideoInfo(vinfo.get_width(), vinfo.get_height(), false, vinfo.get_format()), 4);
+				this.set_dimensions(vinfo.get_width(), vinfo.get_height());
+				this.dc_pred.resize(this.mb_w);
 			}
-			if (hdr.is_golden && !this.has_alpha) {
-				this.shuf.add_golden_frame(buf.cloned());
-			}
-			this.shuf.add_frame(buf.cloned());
-			return [new NABufferType(NABufferType.Video, buf), hdr.is_intra];
-		}
-		VP56Decoder.prototype.reset_mbtype_models = function() {
-			const DEFAULT_XMITTED_PROBS = [
-				new Uint8Array([ 42,  69, 2, 1, 7, 1, 42, 44, 22, 6, 3, 1, 2, 0, 5, 1, 1, 0, 0, 0 ]),
-				new Uint8Array([  8, 229, 1, 1, 8, 0,  0,  0,  0, 0, 2, 1, 1, 0, 0, 0, 1, 1, 0, 0 ]),
-				new Uint8Array([ 35, 122, 1, 1, 6, 1, 34, 46,  0, 0, 2, 1, 1, 0, 1, 0, 1, 1, 0, 0 ])
-			];
-			this.models.prob_xmitted[0].set(DEFAULT_XMITTED_PROBS[0], 0);
-			this.models.prob_xmitted[1].set(DEFAULT_XMITTED_PROBS[1], 0);
-			this.models.prob_xmitted[2].set(DEFAULT_XMITTED_PROBS[2], 0);
-		}
-		VP56Decoder.prototype.decode_planes = function(br, dframe, bc, hdr, src, alpha) {
-			let cr;
-			if (hdr.multistream) {
-				let off = +hdr.offset.toString();
-				if (!hdr.use_huffman) {
-					let bc2 = new BoolCoder(src.subarray(off));
-					cr = new CoeffReader(CoeffReader.Bool, bc2);
+			decode_frame(supp, src, br) {
+				let aoffset;
+				let bc;
+				if (this.has_alpha) {
+					validate(src.length >= 7);
+					aoffset = ((src[0]) << 16) | ((src[1]) << 8) | (src[2]);
+					validate((aoffset > 0) && (aoffset < src.length - 3));
+					bc = new BoolCoder(src.subarray(3));
 				} else {
+					validate(src.length >= 4);
+					aoffset = src.length;
+					bc = new BoolCoder(src);
+				}
+				let hdr = br.parseHeader(bc);
+				validate((hdr.offset) < aoffset);
+				if (hdr.mb_w != 0 && (hdr.mb_w != this.mb_w || hdr.mb_h != this.mb_h)) {
+					this.set_dimensions(hdr.mb_w * 16, hdr.mb_h * 16);
+				}
+				let fmt = this.has_alpha ? VP_YUVA420_FORMAT : YUV420_FORMAT;
+				let vinfo = new NAVideoInfo(this.width, this.height, this.flip, fmt);
+				let ret = supp.pool_u8.get_free();
+				if (ret === null) throw new Error("DecoderError::AllocError");
+				let buf = ret;
+				if (!buf.get_info().eq(vinfo)) {
+					this.shuf.clear();
+					supp.pool_u8.reset();
+					supp.pool_u8.prealloc_video(vinfo, 4);
+					let ret = supp.pool_u8.get_free();
+					if (ret === null) throw new Error("DecoderError::AllocError");
+					buf = ret;
+				}
+				let dframe = NASimpleVideoFrame.from_video_buf(buf);
+				if (hdr.is_intra) {
+					this.shuf.clear();
+				} else {
+					if (!this.shuf.has_refs()) {
+						throw new Error("DecoderError::MissingReference");
+					}
+				}
+				let psrc = src.subarray(this.has_alpha ? 3 : 0);
+				this.decode_planes(br, dframe, bc, hdr, psrc, false);
+				if (this.has_alpha) {
+					let asrc = src.subarray(aoffset + 3);
+					let _bc = new BoolCoder(asrc);
+					let ahdr = br.parseHeader(_bc);
+					validate(ahdr.mb_w == hdr.mb_w && ahdr.mb_h == hdr.mb_h);
+					var models = this.models;
+					this.models = this.amodels;
+					this.decode_planes(br, dframe, _bc, ahdr, asrc, true);
+					this.models = models;
+					if (hdr.is_golden && ahdr.is_golden) {
+						this.shuf.add_golden_frame(buf.cloned());
+					} else if (hdr.is_golden && !ahdr.is_golden) {
+						let cur_golden = this.shuf.get_golden();
+						let off = cur_golden.get_offset(3);
+						let stride = cur_golden.get_stride(3);
+						let new_golden = supp.pool_u8.get_copy(buf);
+						let dst = new_golden.get_data();
+						let _src = cur_golden.get_data();
+						dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
+						this.shuf.add_golden_frame(new_golden);
+					} else if (!hdr.is_golden && ahdr.is_golden) {
+						let cur_golden = this.shuf.get_golden();
+						let off = cur_golden.get_offset(3);
+						let stride = cur_golden.get_stride(3);
+						let new_golden = supp.pool_u8.get_copy(cur_golden);
+						let dst = new_golden.get_data();
+						let _src = buf.get_data();
+						dst.set(_src.subarray(off, off + (stride * this.mb_h * 16)), off);
+						this.shuf.add_golden_frame(new_golden);
+					}
+				}
+				if (hdr.is_golden && !this.has_alpha) this.shuf.add_golden_frame(buf.cloned());
+				this.shuf.add_frame(buf.cloned());
+				return [new NABufferType(NABufferType.Video, buf), hdr.is_intra];
+			}
+			reset_mbtype_models() {
+				const DEFAULT_XMITTED_PROBS = [new Uint8Array([42, 69, 2, 1, 7, 1, 42, 44, 22, 6, 3, 1, 2, 0, 5, 1, 1, 0, 0, 0]), new Uint8Array([8, 229, 1, 1, 8, 0, 0, 0, 0, 0, 2, 1, 1, 0, 0, 0, 1, 1, 0, 0]), new Uint8Array([35, 122, 1, 1, 6, 1, 34, 46, 0, 0, 2, 1, 1, 0, 1, 0, 1, 1, 0, 0])];
+				this.models.prob_xmitted[0].set(DEFAULT_XMITTED_PROBS[0], 0);
+				this.models.prob_xmitted[1].set(DEFAULT_XMITTED_PROBS[1], 0);
+				this.models.prob_xmitted[2].set(DEFAULT_XMITTED_PROBS[2], 0);
+			}
+			decode_planes(br, dframe, bc, hdr, src, alpha) {
+				let cr;
+				if (hdr.multistream) {
+					let off = +hdr.offset.toString();
+					if (!hdr.use_huffman) {
+						let bc2 = new BoolCoder(src.subarray(off));
+						cr = new CoeffReader(CoeffReader.Bool, bc2);
+					} else {
+						throw new Error("UnimplementedDecoding use_huffman");
+					}
+				} else {
+					cr = new CoeffReader(CoeffReader.None);
+				}
+				if (hdr.is_intra) {
+					br.reset_models(this.models);
+					this.reset_mbtype_models();
+				} else {
+					this.decode_mode_prob_models(bc);
+					br.decode_mv_models(bc, this.models.mv_models);
+				}
+				br.decode_coeff_models(bc, this.models, hdr.is_intra);
+				if (hdr.use_huffman) {
 					throw new Error("UnimplementedDecoding use_huffman");
 				}
-			} else {
-				cr = new CoeffReader(CoeffReader.None);
-			}
-			if (hdr.is_intra) {
-				br.reset_models(this.models);
-				this.reset_mbtype_models();
-			} else {
-				this.decode_mode_prob_models(bc); 
-				br.decode_mv_models(bc, this.models.mv_models);
-			}
-			br.decode_coeff_models(bc, this.models, hdr.is_intra);
-			if (hdr.use_huffman) {
-				throw new Error("UnimplementedDecoding use_huffman");
-			}
-			if (hdr.interlaced) {
-				this.ilace_prob = asU8(bc.read_bits(8));
-			}
-			this.fstate = new FrameState();
-			this.fstate.dc_quant = asI16(VP56_DC_QUANTS[hdr.quant] * 4);
-			this.fstate.ac_quant = asI16(VP56_AC_QUANTS[hdr.quant] * 4);
-			this.loop_thr = asI16(VP56_FILTER_LIMITS[hdr.quant]);
-		 
-			this.last_mbt = new VPMBType(VPMBType.InterNoMV);
-
-			for (var i = 0; i < this.top_ctx.length; i++) {
-				var vec = this.top_ctx[i];
-				vec.fill(0);
-			}
-
-			this.last_dc = [new Int16Array(4), new Int16Array(4), new Int16Array(4)];
-			this.last_dc[0][1] = 0x80;
-			this.last_dc[0][2] = 0x80;
-			this.dc_pred.reset();
-			
-			this.ilace_mb = false;
-			for (var mb_y = 0; mb_y < this.mb_h; mb_y++) {
-				this.fstate.mb_y = mb_y;
-				this.fstate.coeff_cat[0].fill(0);
-				this.fstate.coeff_cat[1].fill(0);
-				this.fstate.coeff_cat[2].fill(0);
-				this.fstate.coeff_cat[3].fill(0);
-				this.fstate.last_idx.fill(24);
-				for (var mb_x = 0; mb_x < this.mb_w; mb_x++) {
-					this.fstate.mb_x = mb_x;
-					this.decode_mb(dframe, bc, cr, br, hdr, alpha);
-					this.dc_pred.next_mb();
+				if (hdr.interlaced) {
+					this.ilace_prob = asU8(bc.read_bits(8));
 				}
-				this.dc_pred.update_row();
-			}
-		}
-		VP56Decoder.prototype.decode_mode_prob_models = function(bc) {
-			let mb_y = this.fstate.mb_y;
-			for (let ctx = 0; ctx < 3; ctx++) {
-				if (bc.read_prob(174)) {
-					let idx = bc.read_bits(4);
-					for (let i = 0; i < 20; i++) {
-						this.models.prob_xmitted[ctx][i ^ 1] = VP56_MODE_VQ[ctx][idx][i];
+				this.fstate = new FrameState();
+				this.fstate.dc_quant = asI16(VP56_DC_QUANTS[hdr.quant] * 4);
+				this.fstate.ac_quant = asI16(VP56_AC_QUANTS[hdr.quant] * 4);
+				this.loop_thr = asI16(VP56_FILTER_LIMITS[hdr.quant]);
+				this.last_mbt = new VPMBType(VPMBType.InterNoMV);
+				for (var i = 0; i < this.top_ctx.length; i++) {
+					var vec = this.top_ctx[i];
+					vec.fill(0);
+				}
+				this.last_dc = [new Int16Array(4), new Int16Array(4), new Int16Array(4)];
+				this.last_dc[0][1] = 0x80;
+				this.last_dc[0][2] = 0x80;
+				this.dc_pred.reset();
+				this.ilace_mb = false;
+				for (var mb_y = 0; mb_y < this.mb_h; mb_y++) {
+					this.fstate.mb_y = mb_y;
+					this.fstate.coeff_cat[0].fill(0);
+					this.fstate.coeff_cat[1].fill(0);
+					this.fstate.coeff_cat[2].fill(0);
+					this.fstate.coeff_cat[3].fill(0);
+					this.fstate.last_idx.fill(24);
+					for (var mb_x = 0; mb_x < this.mb_w; mb_x++) {
+						this.fstate.mb_x = mb_x;
+						this.decode_mb(dframe, bc, cr, br, hdr, alpha);
+						this.dc_pred.next_mb();
 					}
+					this.dc_pred.update_row();
 				}
-				if (bc.read_prob(254)) {
-					for (let set = 0; set < 20; set++) {
-						if (bc.read_prob(205)) {
-							let sign = bc.read_bool();
-							let diff = (bc.read_prob(171) ? (bc.read_prob(199) ? bc.read_bits(7) : (bc.read_prob(140) ? 3 : (bc.read_prob(125) ? 4 : (bc.read_prob(104) ? 5 : 6)))) : (bc.read_prob(83) ? 1 : 2)) * 4;
-							validate(diff < 256);
-							let _diff = asU8(diff);
-							if (!sign) {
-								validate(this.models.prob_xmitted[ctx][set ^ 1] <= 255 - _diff);
-								this.models.prob_xmitted[ctx][set ^ 1] += _diff;
-							} else {
-								validate(this.models.prob_xmitted[ctx][set ^ 1] >= _diff);
-								this.models.prob_xmitted[ctx][set ^ 1] -= _diff;
+			}
+			decode_mode_prob_models(bc) {
+				for (let ctx = 0; ctx < 3; ctx++) {
+					if (bc.read_prob(174)) {
+						let idx = bc.read_bits(4);
+						for (let i = 0; i < 20; i++) {
+							this.models.prob_xmitted[ctx][i ^ 1] = VP56_MODE_VQ[ctx][idx][i];
+						}
+					}
+					if (bc.read_prob(254)) {
+						for (let set = 0; set < 20; set++) {
+							if (bc.read_prob(205)) {
+								let sign = bc.read_bool();
+								let diff = (bc.read_prob(171) ? (bc.read_prob(199) ? bc.read_bits(7) : (bc.read_prob(140) ? 3 : (bc.read_prob(125) ? 4 : (bc.read_prob(104) ? 5 : 6)))) : (bc.read_prob(83) ? 1 : 2)) * 4;
+								validate(diff < 256);
+								let _diff = asU8(diff);
+								if (!sign) {
+									validate(this.models.prob_xmitted[ctx][set ^ 1] <= 255 - _diff);
+									this.models.prob_xmitted[ctx][set ^ 1] += _diff;
+								} else {
+									validate(this.models.prob_xmitted[ctx][set ^ 1] >= _diff);
+									this.models.prob_xmitted[ctx][set ^ 1] -= _diff;
+								}
 							}
 						}
 					}
 				}
-			}
-			for (let ctx = 0; ctx < 3; ctx++) {
-				let prob_xmitted = this.models.prob_xmitted[ctx];
-				for (let mode = 0; mode < 10; mode++) {
-					let mdl = this.models.mbtype_models[ctx][mode];
-					let cnt = new Uint32Array(10);
-					let total = 0;
-					for (let i = 0; i < 10; i++) {
-						if (i == mode) continue; 
-						cnt[i] = 100 * asU32(prob_xmitted[i * 2]);
-						total += cnt[i];
+				for (let ctx = 0; ctx < 3; ctx++) {
+					let prob_xmitted = this.models.prob_xmitted[ctx];
+					for (let mode = 0; mode < 10; mode++) {
+						let mdl = this.models.mbtype_models[ctx][mode];
+						let cnt = new Uint32Array(10);
+						let total = 0;
+						for (let i = 0; i < 10; i++) {
+							if (i == mode) continue;
+							cnt[i] = 100 * asU32(prob_xmitted[i * 2]);
+							total += cnt[i];
+						}
+						let sum = asU32(prob_xmitted[mode * 2]) + asU32(prob_xmitted[mode * 2 + 1]);
+						mdl.probs[9] = 255 - rescale_mb_mode_prob(asU32(prob_xmitted[mode * 2 + 1]), sum);
+						let inter_mv0_weight = cnt[0] + cnt[2];
+						let inter_mv1_weight = cnt[3] + cnt[4];
+						let gold_mv0_weight = cnt[5] + cnt[6];
+						let gold_mv1_weight = cnt[8] + cnt[9];
+						let mix_weight = cnt[1] + cnt[7];
+						mdl.probs[0] = 1 + rescale_mb_mode_prob(inter_mv0_weight + inter_mv1_weight, total);
+						mdl.probs[1] = 1 + rescale_mb_mode_prob(inter_mv0_weight, inter_mv0_weight + inter_mv1_weight);
+						mdl.probs[2] = 1 + rescale_mb_mode_prob(mix_weight, mix_weight + gold_mv0_weight + gold_mv1_weight);
+						mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0], inter_mv0_weight);
+						mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3], inter_mv1_weight);
+						mdl.probs[5] = 1 + rescale_mb_mode_prob(cnt[1], mix_weight);
+						mdl.probs[6] = 1 + rescale_mb_mode_prob(gold_mv0_weight, gold_mv0_weight + gold_mv1_weight);
+						mdl.probs[7] = 1 + rescale_mb_mode_prob(cnt[5], gold_mv0_weight);
+						mdl.probs[8] = 1 + rescale_mb_mode_prob(cnt[8], gold_mv1_weight);
 					}
-					let sum = asU32(prob_xmitted[mode * 2]) + asU32(prob_xmitted[mode * 2 + 1]);
-					mdl.probs[9] = 255 - rescale_mb_mode_prob(asU32(prob_xmitted[mode * 2 + 1]), sum);
-					let inter_mv0_weight = cnt[0] + cnt[2];
-					let inter_mv1_weight = cnt[3] + cnt[4];
-					let gold_mv0_weight = cnt[5] + cnt[6];
-					let gold_mv1_weight = cnt[8] + cnt[9];
-					let mix_weight = cnt[1] + cnt[7];
-					mdl.probs[0] = 1 + rescale_mb_mode_prob(inter_mv0_weight + inter_mv1_weight, total);
-					mdl.probs[1] = 1 + rescale_mb_mode_prob(inter_mv0_weight, inter_mv0_weight + inter_mv1_weight);
-					mdl.probs[2] = 1 + rescale_mb_mode_prob(mix_weight, mix_weight + gold_mv0_weight + gold_mv1_weight);
-					mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0], inter_mv0_weight);
-					mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3], inter_mv1_weight);
-					mdl.probs[5] = 1 + rescale_mb_mode_prob(cnt[1], mix_weight);
-					mdl.probs[6] = 1 + rescale_mb_mode_prob(gold_mv0_weight, gold_mv0_weight + gold_mv1_weight);
-					mdl.probs[7] = 1 + rescale_mb_mode_prob(cnt[5], gold_mv0_weight);
-					mdl.probs[8] = 1 + rescale_mb_mode_prob(cnt[8], gold_mv1_weight);    
 				}
 			}
-		}
-		VP56Decoder.prototype.find_mv_pred = function(ref_id) {
-			const CAND_POS = [
-				new Int8Array([-1,  0]), new Int8Array([ 0, -1]),
-				new Int8Array([-1, -1]), new Int8Array([-1,  1]),
-				new Int8Array([-2,  0]), new Int8Array([ 0, -2]),
-				new Int8Array([-1, -2]), new Int8Array([-2, -1]),
-				new Int8Array([-2,  1]), new Int8Array([-1,  2]),
-				new Int8Array([-2, -2]), new Int8Array([-2,  2])
-			]; 
-			let nearest_mv = ZERO_MV;
-			let near_mv = ZERO_MV;
-			let pred_mv = ZERO_MV;
-			let num_mv = 0;
-			for (let i = 0; i < CAND_POS.length; i++) {
-				let [yoff, xoff] = CAND_POS[i];
-				let cx = (this.fstate.mb_x) + xoff;
-				let cy = (this.fstate.mb_y) + yoff;
-				if ((cx < 0) || (cy < 0)) {
-					continue;
-				}
-				if ((cx >= this.mb_w) || (cy >= this.mb_h)) {
-					continue;
-				}
-				let mb_pos = cx + cy * this.mb_w;
-				let mv = this.mb_info[mb_pos].mv;
-				if ((this.mb_info[mb_pos].mb_type.get_ref_id() != ref_id) || mv.eq(ZERO_MV)) {
-					continue;
-				}
-				if (num_mv == 0) {
-					nearest_mv = mv;
-					num_mv += 1;
-					if ((this.version > 5) && (i < 2)) {
-						pred_mv = mv;
+			find_mv_pred(ref_id) {
+				const CAND_POS = [new Int8Array([-1, 0]), new Int8Array([0, -1]), new Int8Array([-1, -1]), new Int8Array([-1, 1]), new Int8Array([-2, 0]), new Int8Array([0, -2]), new Int8Array([-1, -2]), new Int8Array([-2, -1]), new Int8Array([-2, 1]), new Int8Array([-1, 2]), new Int8Array([-2, -2]), new Int8Array([-2, 2])];
+				let nearest_mv = ZERO_MV;
+				let near_mv = ZERO_MV;
+				let pred_mv = ZERO_MV;
+				let num_mv = 0;
+				for (let i = 0; i < CAND_POS.length; i++) {
+					let [yoff, xoff] = CAND_POS[i];
+					let cx = (this.fstate.mb_x) + xoff;
+					let cy = (this.fstate.mb_y) + yoff;
+					if ((cx < 0) || (cy < 0)) continue;
+					if ((cx >= this.mb_w) || (cy >= this.mb_h)) continue;
+					let mb_pos = cx + cy * this.mb_w;
+					let mv = this.mb_info[mb_pos].mv;
+					if ((this.mb_info[mb_pos].mb_type.get_ref_id() != ref_id) || mv.eq(ZERO_MV)) continue;
+					if (num_mv == 0) {
+						nearest_mv = mv;
+						num_mv += 1;
+						if ((this.version > 5) && (i < 2)) pred_mv = mv;
+					} else if (!(mv.eq(nearest_mv))) {
+						near_mv = mv;
+						num_mv += 1;
+						break;
 					}
-				} else if (!(mv.eq(nearest_mv))) {
-					near_mv = mv;
-					num_mv += 1;
-					break;
 				}
+				return [num_mv, nearest_mv, near_mv, pred_mv];
 			}
-			return [num_mv, nearest_mv, near_mv, pred_mv];
-		}
-		VP56Decoder.prototype.decode_mb_type = function(bc, ctx) {
-			let probs = this.models.mbtype_models[ctx][map_mb_type(this.last_mbt)].probs;
-			if (!bc.read_prob(probs[9])) {
-				this.last_mbt = bc.read_prob(probs[0]) ? (bc.read_prob(probs[2]) ? (bc.read_prob(probs[6]) ? (bc.read_prob(probs[8]) ? new VPMBType(VPMBType.GoldenNear) : new VPMBType(VPMBType.GoldenNearest)) : (bc.read_prob(probs[7]) ? new VPMBType(VPMBType.GoldenMV) : new VPMBType(VPMBType.GoldenNoMV))) : (bc.read_prob(probs[5]) ? new VPMBType(VPMBType.InterFourMV) : new VPMBType(VPMBType.Intra))) : (bc.read_prob(probs[1]) ? (bc.read_prob(probs[4]) ? new VPMBType(VPMBType.InterNear) : new VPMBType(VPMBType.InterNearest)) : (bc.read_prob(probs[3]) ? new VPMBType(VPMBType.InterMV) : new VPMBType(VPMBType.InterNoMV)));
+			decode_mb_type(bc, ctx) {
+				let probs = this.models.mbtype_models[ctx][map_mb_type(this.last_mbt)].probs;
+				if (!bc.read_prob(probs[9])) this.last_mbt = bc.read_prob(probs[0]) ? (bc.read_prob(probs[2]) ? (bc.read_prob(probs[6]) ? (bc.read_prob(probs[8]) ? new VPMBType(VPMBType.GoldenNear) : new VPMBType(VPMBType.GoldenNearest)) : (bc.read_prob(probs[7]) ? new VPMBType(VPMBType.GoldenMV) : new VPMBType(VPMBType.GoldenNoMV))) : (bc.read_prob(probs[5]) ? new VPMBType(VPMBType.InterFourMV) : new VPMBType(VPMBType.Intra))) : (bc.read_prob(probs[1]) ? (bc.read_prob(probs[4]) ? new VPMBType(VPMBType.InterNear) : new VPMBType(VPMBType.InterNearest)) : (bc.read_prob(probs[3]) ? new VPMBType(VPMBType.InterMV) : new VPMBType(VPMBType.InterNoMV)));
+				return this.last_mbt;
 			}
-			return this.last_mbt;
-		}
-		VP56Decoder.prototype.decode_mb = function(frm, bc, cr, br, hdr, alpha) { // decode macroblock
-			const FOURMV_SUB_TYPE = [
-				new VPMBType(VPMBType.InterNoMV),
-				new VPMBType(VPMBType.InterMV),
-				new VPMBType(VPMBType.InterNearest),
-				new VPMBType(VPMBType.InterNear)
-			];
-			let mb_x = this.fstate.mb_x;
-			let mb_y = this.fstate.mb_y;
-			this.coeffs[0].fill(0);
-			this.coeffs[1].fill(0);
-			this.coeffs[2].fill(0);
-			this.coeffs[3].fill(0);
-			this.coeffs[4].fill(0);
-			this.coeffs[5].fill(0);
-			let mb_pos = mb_x + mb_y * this.mb_w;
-			let four_mv = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
-			let four_mbt = [new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra)];
-			if (hdr.interlaced) {
-				let iprob = this.ilace_prob;
-				let prob;
-				if (mb_x == 0) {
-					prob = iprob;
-				} else if (!this.ilace_mb) {
-					prob = asU8(iprob + asU8(((256 - asU16(iprob)) >> 1)));
+			decode_mb(frm, bc, cr, br, hdr, alpha) {
+				const FOURMV_SUB_TYPE = [new VPMBType(VPMBType.InterNoMV), new VPMBType(VPMBType.InterMV), new VPMBType(VPMBType.InterNearest), new VPMBType(VPMBType.InterNear)];
+				let mb_x = this.fstate.mb_x;
+				let mb_y = this.fstate.mb_y;
+				this.coeffs[0].fill(0);
+				this.coeffs[1].fill(0);
+				this.coeffs[2].fill(0);
+				this.coeffs[3].fill(0);
+				this.coeffs[4].fill(0);
+				this.coeffs[5].fill(0);
+				let mb_pos = mb_x + mb_y * this.mb_w;
+				let four_mv = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
+				let four_mbt = [new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra), new VPMBType(VPMBType.Intra)];
+				if (hdr.interlaced) {
+					let iprob = this.ilace_prob;
+					let prob;
+					if (mb_x == 0) {
+						prob = iprob;
+					} else if (!this.ilace_mb) {
+						prob = asU8(iprob + asU8(((256 - asU16(iprob)) >> 1)));
+					} else {
+						prob = asU8(iprob - (iprob >> 1));
+					}
+					this.ilace_mb = bc.read_prob(prob);
+				}
+				let num_mv;
+				let nearest_mv;
+				let near_mv;
+				let pred_mv;
+				if (hdr.is_intra) {
+					num_mv = 0;
+					nearest_mv = ZERO_MV;
+					near_mv = ZERO_MV;
+					pred_mv = ZERO_MV;
 				} else {
-					prob = asU8(iprob - (iprob >> 1));
-				};
-				this.ilace_mb = bc.read_prob(prob);
-			}
-			let num_mv;
-			let nearest_mv;
-			let near_mv;
-			let pred_mv;
-			if (hdr.is_intra) {
-				num_mv = 0;
-				nearest_mv = ZERO_MV;
-				near_mv = ZERO_MV;
-				pred_mv = ZERO_MV;
-			} else {
-				var ggdfd = this.find_mv_pred(VP_REF_INTER);
-				num_mv = ggdfd[0];
-				nearest_mv = ggdfd[1];
-				near_mv = ggdfd[2];
-				pred_mv = ggdfd[3];
-			}
-			let mb_type;
-			if (hdr.is_intra) {
-				mb_type = new VPMBType(VPMBType.Intra);
-			} else {
-				mb_type = this.decode_mb_type(bc, (num_mv + 1) % 3);
-			}
-			this.mb_info[mb_pos].mb_type = mb_type;
-			if (mb_type.get_ref_id() != VP_REF_GOLDEN) {
-				switch(mb_type.type) {
-					case VPMBType.Intra:
-					case VPMBType.InterNoMV:
-						this.mb_info[mb_pos].mv = ZERO_MV;
-						break;
-					case VPMBType.InterMV:
-						let diff_mv = this.decode_mv(bc, br);
-						this.mb_info[mb_pos].mv = pred_mv.add(diff_mv);
-						break;
-					case VPMBType.InterNearest:
-						this.mb_info[mb_pos].mv = nearest_mv;
-						break;
-					case VPMBType.InterNear:
-						this.mb_info[mb_pos].mv = near_mv;
-						break;
-					case VPMBType.InterFourMV:
-						for (var i = 0; i < 4; i++) {
-							four_mbt[i] = FOURMV_SUB_TYPE[bc.read_bits(2)];
+					var ggdfd = this.find_mv_pred(VP_REF_INTER);
+					num_mv = ggdfd[0];
+					nearest_mv = ggdfd[1];
+					near_mv = ggdfd[2];
+					pred_mv = ggdfd[3];
+				}
+				let mb_type;
+				if (hdr.is_intra) mb_type = new VPMBType(VPMBType.Intra);
+				else mb_type = this.decode_mb_type(bc, (num_mv + 1) % 3);
+				this.mb_info[mb_pos].mb_type = mb_type;
+				if (mb_type.get_ref_id() != VP_REF_GOLDEN) {
+					switch (mb_type.type) {
+						case VPMBType.Intra:
+						case VPMBType.InterNoMV:
+							this.mb_info[mb_pos].mv = ZERO_MV;
+							break;
+						case VPMBType.InterMV:
+							let diff_mv = this.decode_mv(bc, br);
+							this.mb_info[mb_pos].mv = pred_mv.add(diff_mv);
+							break;
+						case VPMBType.InterNearest:
+							this.mb_info[mb_pos].mv = nearest_mv;
+							break;
+						case VPMBType.InterNear:
+							this.mb_info[mb_pos].mv = near_mv;
+							break;
+						case VPMBType.InterFourMV:
+							for (var i = 0; i < 4; i++) {
+								four_mbt[i] = FOURMV_SUB_TYPE[bc.read_bits(2)];
+							}
+							for (var i = 0; i < 4; i++) {
+								switch (four_mbt[i].type) {
+									case VPMBType.InterNoMV:
+										break;
+									case VPMBType.InterMV:
+										let diff_mv = this.decode_mv(bc, br);
+										four_mv[i] = pred_mv.add(diff_mv);
+										break;
+									case VPMBType.InterNearest:
+										four_mv[i] = nearest_mv;
+										break;
+									case VPMBType.InterNear:
+										four_mv[i] = near_mv;
+										break;
+									default:
+										throw new Error("unreachable");
+								}
+							}
+							this.mb_info[mb_pos].mv = four_mv[3];
+							break;
+						default:
+							throw new Error("unreachable");
+					}
+				} else {
+					let [_num_mv, nearest_mv, near_mv, pred_mv] = this.find_mv_pred(VP_REF_GOLDEN);
+					switch (mb_type.type) {
+						case VPMBType.GoldenNoMV:
+							this.mb_info[mb_pos].mv = ZERO_MV;
+							break;
+						case VPMBType.GoldenMV:
+							let diff_mv = this.decode_mv(bc, br);
+							this.mb_info[mb_pos].mv = pred_mv.add(diff_mv);
+							break;
+						case VPMBType.GoldenNearest:
+							this.mb_info[mb_pos].mv = nearest_mv;
+							break;
+						case VPMBType.GoldenNear:
+							this.mb_info[mb_pos].mv = near_mv;
+							break;
+					}
+				}
+				if (!mb_type.is_intra() && (mb_type.type != VPMBType.InterFourMV)) {
+					this.do_mc(br, frm, mb_type, this.mb_info[mb_pos].mv, alpha);
+				} else if (mb_type.type == VPMBType.InterFourMV) {
+					this.do_fourmv(br, frm, four_mv, alpha);
+				}
+				for (var blk_no = 0; blk_no < 4; blk_no++) {
+					this.fstate.plane = (!alpha ? 0 : 3);
+					this.fstate.ctx_idx = blk_no >> 1;
+					this.fstate.top_ctx = this.top_ctx[this.fstate.plane][mb_x * 2 + (blk_no & 1)];
+					switch (cr.type) {
+						case CoeffReader.None:
+							br.decode_block(bc, this.coeffs[blk_no], this.models.coeff_models[0], this.models.vp6models, this.fstate);
+							break;
+						case CoeffReader.Bool:
+							br.decode_block(cr.value, this.coeffs[blk_no], this.models.coeff_models[0], this.models.vp6models, this.fstate);
+							break;
+					}
+					this.top_ctx[this.fstate.plane][mb_x * 2 + (blk_no & 1)] = this.fstate.top_ctx;
+					this.predict_dc(mb_type, mb_pos, blk_no, alpha);
+					let bx = mb_x * 2 + (blk_no & 1);
+					let by = mb_y * 2 + (blk_no >> 1);
+					let has_ac = (this.fstate.last_idx[this.fstate.ctx_idx] > 0);
+					if (mb_type.is_intra()) {
+						if (!this.ilace_mb) {
+							if (has_ac) {
+								vp_put_block(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+							} else {
+								vp_put_block_dc(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+							}
+						} else {
+							vp_put_block_ilace(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
 						}
-						for (var i = 0; i < 4; i++) {
-							switch(four_mbt[i].type) {
-								case VPMBType.InterNoMV:
-									break;
-								case VPMBType.InterMV:
-									let diff_mv = this.decode_mv(bc, br);
-									four_mv[i] = pred_mv.add(diff_mv);
-									break;
-								case VPMBType.InterNearest:
-									four_mv[i] = nearest_mv;
-									break;
-								case VPMBType.InterNear:
-									four_mv[i] = near_mv;
-									break;
-								default:
-									throw new Error("unreachable");
+					} else {
+						if (!this.ilace_mb) {
+							if (has_ac) {
+								vp_add_block(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+							} else {
+								vp_add_block_dc(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+							}
+						} else {
+							vp_add_block_ilace(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+						}
+					}
+				}
+				for (var blk_no = 4; blk_no < 6; blk_no++) {
+					this.fstate.plane = blk_no - 3;
+					this.fstate.ctx_idx = blk_no - 2;
+					this.fstate.top_ctx = this.top_ctx[this.fstate.plane][mb_x];
+					switch (cr.type) {
+						case CoeffReader.None:
+							br.decode_block(bc, this.coeffs[blk_no], this.models.coeff_models[1], this.models.vp6models, this.fstate);
+							break;
+						case CoeffReader.Bool:
+							br.decode_block(cr.value, this.coeffs[blk_no], this.models.coeff_models[1], this.models.vp6models, this.fstate);
+							break;
+					}
+					this.top_ctx[this.fstate.plane][mb_x] = this.fstate.top_ctx;
+					this.predict_dc(mb_type, mb_pos, blk_no, alpha);
+					if (!alpha) {
+						let has_ac = this.fstate.last_idx[this.fstate.ctx_idx] > 0;
+						if (mb_type.is_intra()) {
+							if (has_ac) {
+								vp_put_block(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
+							} else {
+								vp_put_block_dc(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
+							}
+						} else {
+							if (has_ac) {
+								vp_add_block(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
+							} else {
+								vp_add_block_dc(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
 							}
 						}
-						this.mb_info[mb_pos].mv = four_mv[3];
+					}
+				}
+			}
+			do_mc(br, frm, mb_type, mv, alpha) {
+				let x = this.fstate.mb_x * 16;
+				let y = this.fstate.mb_y * 16;
+				let plane = ((!alpha) ? 0 : 3);
+				let src;
+				if (mb_type.get_ref_id() == VP_REF_INTER) src = this.shuf.get_last();
+				else src = this.shuf.get_golden();
+				br.mc_block(frm, this.mc_buf, src, plane, x + 0, y + 0, mv, this.loop_thr);
+				br.mc_block(frm, this.mc_buf, src, plane, x + 8, y + 0, mv, this.loop_thr);
+				br.mc_block(frm, this.mc_buf, src, plane, x + 0, y + 8, mv, this.loop_thr);
+				br.mc_block(frm, this.mc_buf, src, plane, x + 8, y + 8, mv, this.loop_thr);
+				if (!alpha) {
+					let x = this.fstate.mb_x * 8;
+					let y = this.fstate.mb_y * 8;
+					br.mc_block(frm, this.mc_buf, src, 1, x, y, mv, this.loop_thr);
+					br.mc_block(frm, this.mc_buf, src, 2, x, y, mv, this.loop_thr);
+				}
+			}
+			do_fourmv(br, frm, mvs, alpha) {
+				let x = this.fstate.mb_x * 16;
+				let y = this.fstate.mb_y * 16;
+				let plane;
+				if (!alpha) {
+					plane = 0;
+				} else {
+					plane = 3;
+				};
+				let src = this.shuf.get_last();
+				for (let blk_no = 0; blk_no < 4; blk_no++) {
+					br.mc_block(frm, this.mc_buf, src, plane, x + (blk_no & 1) * 8, y + (blk_no & 2) * 4, mvs[blk_no], this.loop_thr);
+				}
+				if (!alpha) {
+					let x = this.fstate.mb_x * 8;
+					let y = this.fstate.mb_y * 8;
+					let sum = mvs[0].add(mvs[1].add(mvs[2].add(mvs[3])));
+					let mv = new MV(asI16(sum.x / 4), asI16(sum.y / 4));
+					br.mc_block(frm, this.mc_buf, src, 1, x, y, mv, this.loop_thr);
+					br.mc_block(frm, this.mc_buf, src, 2, x, y, mv, this.loop_thr);
+				}
+			}
+			decode_mv(bc, br) {
+				let x = br.decode_mv(bc, this.models.mv_models[0]);
+				let y = br.decode_mv(bc, this.models.mv_models[1]);
+				return new MV(x, y);
+			}
+			predict_dc(mb_type, _mb_pos, blk_no, _alpha) {
+				let is_luma = blk_no < 4;
+				let plane;
+				let dcs;
+				switch (blk_no) {
+					case 4:
+						plane = 1;
+						dcs = this.dc_pred.dc_u;
+						break;
+					case 5:
+						plane = 2;
+						dcs = this.dc_pred.dc_v;
 						break;
 					default:
-						throw new Error("unreachable");
+						plane = 0;
+						dcs = this.dc_pred.dc_y;
 				}
-			} else {
-				let [_num_mv, nearest_mv, near_mv, pred_mv] = this.find_mv_pred(VP_REF_GOLDEN);
-				switch(mb_type.type) {
-					case VPMBType.GoldenNoMV:
-						this.mb_info[mb_pos].mv = ZERO_MV;
-						break;
-					case VPMBType.GoldenMV:
-						let diff_mv = this.decode_mv(bc, br);
-						this.mb_info[mb_pos].mv = pred_mv.add(diff_mv);
-						break;
-					case VPMBType.GoldenNearest:
-						this.mb_info[mb_pos].mv = nearest_mv;
-						break;
-					case VPMBType.GoldenNear:
-						this.mb_info[mb_pos].mv = near_mv;
-						break;
-				}
-			}
-			if (!mb_type.is_intra() && (mb_type.type != VPMBType.InterFourMV)) {
-				this.do_mc(br, frm, mb_type, this.mb_info[mb_pos].mv, alpha);
-			} else if (mb_type.type == VPMBType.InterFourMV) {
-				this.do_fourmv(br, frm, four_mv, alpha);
-			}
-			for (var blk_no = 0; blk_no < 4; blk_no++) {
-				this.fstate.plane = (!alpha ? 0 : 3);
-				this.fstate.ctx_idx = blk_no >> 1;
-				this.fstate.top_ctx = this.top_ctx[this.fstate.plane][mb_x * 2 + (blk_no & 1)];
-				switch(cr.type) {
-					case CoeffReader.None:
-						br.decode_block(bc, this.coeffs[blk_no], this.models.coeff_models[0], this.models.vp6models, this.fstate);
-						break;
-					case CoeffReader.Bool:
-						br.decode_block(cr.value, this.coeffs[blk_no], this.models.coeff_models[0], this.models.vp6models, this.fstate);
-						break;
-				}
-				this.top_ctx[this.fstate.plane][mb_x * 2 + (blk_no & 1)] = this.fstate.top_ctx;
-				this.predict_dc(mb_type, mb_pos, blk_no, alpha);
-				let bx = mb_x * 2 + (blk_no & 1);
-				let by = mb_y * 2 + (blk_no >> 1);
-				let has_ac = (this.fstate.last_idx[this.fstate.ctx_idx] > 0);
-				if (mb_type.is_intra()) {
-					if (!this.ilace_mb) {
-						if (has_ac) {
-							vp_put_block(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
-						} else {
-							vp_put_block_dc(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
-						}
-					} else {
-						vp_put_block_ilace(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
-					}
+				let dc_ref;
+				let dc_idx;
+				if (is_luma) {
+					dc_ref = this.dc_pred.ref_y;
+					dc_idx = this.dc_pred.y_idx + (blk_no & 1);
 				} else {
-					if (!this.ilace_mb) {
-						if (has_ac) {
-							vp_add_block(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
-						} else {
-							vp_add_block_dc(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
-						}
-					} else {
-						vp_add_block_ilace(this.coeffs[blk_no], bx, by, this.fstate.plane, frm);
+					dc_ref = this.dc_pred.ref_c;
+					dc_idx = this.dc_pred.c_idx;
+				}
+				let ref_id = mb_type.get_ref_id();
+				let dc_pred = 0;
+				let count = 0;
+				let has_left_blk = is_luma && ((blk_no & 1) == 1);
+				if (has_left_blk || this.dc_pred.ref_left == ref_id) {
+					var _ = 0;
+					switch (blk_no) {
+						case 0:
+						case 1:
+							_ = this.dc_pred.ldc_y[0];
+							break;
+						case 2:
+						case 3:
+							_ = this.dc_pred.ldc_y[1];
+							break;
+						case 4:
+							_ = this.dc_pred.ldc_u;
+							break;
+						default:
+							_ = this.dc_pred.ldc_v;
+					}
+					dc_pred += _;
+					count += 1;
+				}
+				if (dc_ref[dc_idx] == ref_id) {
+					dc_pred += dcs[dc_idx];
+					count += 1;
+				}
+				if (this.version == 5) {
+					if ((count < 2) && (dc_ref[dc_idx - 1] == ref_id)) {
+						dc_pred += dcs[dc_idx - 1];
+						count += 1;
+					}
+					if ((count < 2) && (dc_ref[dc_idx + 1] == ref_id)) {
+						dc_pred += dcs[dc_idx + 1];
+						count += 1;
 					}
 				}
-			}
-			for (var blk_no = 4; blk_no < 6; blk_no++) {
-				this.fstate.plane = blk_no - 3;
-				this.fstate.ctx_idx = blk_no - 2;
-				this.fstate.top_ctx = this.top_ctx[this.fstate.plane][mb_x];
-				switch(cr.type) {
-					case CoeffReader.None:
-						br.decode_block(bc, this.coeffs[blk_no], this.models.coeff_models[1], this.models.vp6models, this.fstate);
-						break;
-					case CoeffReader.Bool:
-						br.decode_block(cr.value, this.coeffs[blk_no], this.models.coeff_models[1], this.models.vp6models, this.fstate);
-						break;
+				if (count == 0) {
+					dc_pred = this.last_dc[ref_id][plane];
+				} else if (count == 2) {
+					dc_pred /= 2;
+					dc_pred = asI16(dc_pred);
 				}
-				this.top_ctx[this.fstate.plane][mb_x] = this.fstate.top_ctx;
-				this.predict_dc(mb_type, mb_pos, blk_no, alpha);
-				if (!alpha) {
-					let has_ac = this.fstate.last_idx[this.fstate.ctx_idx] > 0;
-					if (mb_type.is_intra()) {
-						if (has_ac) {
-							vp_put_block(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
-						} else {
-							vp_put_block_dc(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
-						}
-					} else {
-						if (has_ac) {
-							vp_add_block(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
-						} else {
-							vp_add_block_dc(this.coeffs[blk_no], mb_x, mb_y, this.fstate.plane, frm);
-						}
-					}
+				this.coeffs[blk_no][0] += dc_pred;
+				let dc = this.coeffs[blk_no][0];
+				if (blk_no != 4) {
+					dc_ref[dc_idx] = ref_id;
 				}
-			}
-		}
-		VP56Decoder.prototype.do_mc = function(br, frm, mb_type, mv, alpha) {
-			let x = this.fstate.mb_x * 16;
-			let y = this.fstate.mb_y * 16;
-			let plane = ((!alpha) ? 0 : 3);
-			let src;
-			if (mb_type.get_ref_id() == VP_REF_INTER) {
-				src = this.shuf.get_last();
-			} else {
-				src = this.shuf.get_golden();
-			};
-			br.mc_block(frm, this.mc_buf, src, plane, x + 0, y + 0, mv, this.loop_thr);
-			br.mc_block(frm, this.mc_buf, src, plane, x + 8, y + 0, mv, this.loop_thr);
-			br.mc_block(frm, this.mc_buf, src, plane, x + 0, y + 8, mv, this.loop_thr);
-			br.mc_block(frm, this.mc_buf, src, plane, x + 8, y + 8, mv, this.loop_thr);
-			if (!alpha) {
-				let x = this.fstate.mb_x * 8;
-				let y = this.fstate.mb_y * 8;
-				br.mc_block(frm, this.mc_buf, src, 1, x, y, mv, this.loop_thr);
-				br.mc_block(frm, this.mc_buf, src, 2, x, y, mv, this.loop_thr);
-			}
-		}
-		VP56Decoder.prototype.do_fourmv = function(br, frm, mvs, alpha) {
-			let x = this.fstate.mb_x * 16;
-			let y = this.fstate.mb_y * 16;
-			let plane;
-			if (!alpha) {
-				plane = 0;
-			} else {
-				plane = 3;
-			};
-			let src = this.shuf.get_last();
-			for (let blk_no = 0; blk_no < 4; blk_no++) {
-				br.mc_block(frm, this.mc_buf, src, plane, x + (blk_no & 1) * 8, y + (blk_no & 2) * 4, mvs[blk_no], this.loop_thr);
-			}
-			if (!alpha) {
-				let x = this.fstate.mb_x * 8;
-				let y = this.fstate.mb_y * 8;
-				let sum = mvs[0].add(mvs[1].add(mvs[2].add(mvs[3])));
-				let mv = new MV(asI16(sum.x / 4), asI16(sum.y / 4));
-				br.mc_block(frm, this.mc_buf, src, 1, x, y, mv, this.loop_thr);
-				br.mc_block(frm, this.mc_buf, src, 2, x, y, mv, this.loop_thr);
-			}
-		}
-		VP56Decoder.prototype.decode_mv = function(bc, br) {
-			let x = br.decode_mv(bc, this.models.mv_models[0]);
-			let y = br.decode_mv(bc, this.models.mv_models[1]);
-			return new MV(x, y);
-		}
-		VP56Decoder.prototype.predict_dc = function(mb_type, _mb_pos, blk_no, _alpha) {
-			let is_luma = blk_no < 4;
-			let plane;
-			let dcs;
-			switch(blk_no) {
-				case 4:
-					plane = 1;
-					dcs = this.dc_pred.dc_u;
-					break;
-				case 5:
-					plane = 2;
-					dcs = this.dc_pred.dc_v;
-					break;
-				default:
-					plane = 0;
-					dcs = this.dc_pred.dc_y;
-			}
-			let dc_ref;
-			let dc_idx;
-			if (is_luma) {
-				dc_ref = this.dc_pred.ref_y;
-				dc_idx = this.dc_pred.y_idx + (blk_no & 1);
-			} else {
-				dc_ref = this.dc_pred.ref_c;
-				dc_idx = this.dc_pred.c_idx;
-			}
-			let ref_id = mb_type.get_ref_id();
-			let dc_pred = 0;
-			let count = 0;
-			let has_left_blk = is_luma && ((blk_no & 1) == 1);
-			if (has_left_blk || this.dc_pred.ref_left == ref_id) {
-				var _ = 0;
-				switch(blk_no) {
+				switch (blk_no) {
 					case 0:
 					case 1:
-						_ = this.dc_pred.ldc_y[0];
+						this.dc_pred.ldc_y[0] = dc;
 						break;
 					case 2:
 					case 3:
-						_ = this.dc_pred.ldc_y[1];
+						this.dc_pred.ldc_y[1] = dc;
 						break;
 					case 4:
-						_ = this.dc_pred.ldc_u;
+						this.dc_pred.ldc_u = dc;
 						break;
 					default:
-						_ = this.dc_pred.ldc_v;
+						this.dc_pred.ldc_v = dc;
+						this.dc_pred.ref_left = ref_id;
 				}
-				dc_pred += _;
-				count += 1;
+				dcs[dc_idx] = dc;
+				this.last_dc[ref_id][plane] = dc;
+				this.coeffs[blk_no][0] = asI16(this.coeffs[blk_no][0] * this.fstate.dc_quant); 
 			}
-			if (dc_ref[dc_idx] == ref_id) {
-				dc_pred += dcs[dc_idx];
-				count += 1;
-			}
-			if (this.version == 5) {
-				if ((count < 2) && (dc_ref[dc_idx - 1] == ref_id)) {
-					dc_pred += dcs[dc_idx - 1];
-					count += 1;
-				}
-				if ((count < 2) && (dc_ref[dc_idx + 1] == ref_id)) {
-					dc_pred += dcs[dc_idx + 1];
-					count += 1;
-				}
-			}
-			if (count == 0) {
-				dc_pred = this.last_dc[ref_id][plane];
-			} else if (count == 2) {
-				dc_pred /= 2;
-				dc_pred = asI16(dc_pred);
-			}
-			this.coeffs[blk_no][0] += dc_pred;
-			let dc = this.coeffs[blk_no][0];
-			if (blk_no != 4) { // update top block reference only for the second chroma component
-				dc_ref[dc_idx] = ref_id;
-			}
-			switch(blk_no) {
-				case 0:
-				case 1:
-					this.dc_pred.ldc_y[0] = dc;
-					break;
-				case 2:
-				case 3:
-					this.dc_pred.ldc_y[1] = dc;
-					break;
-				case 4:
-					this.dc_pred.ldc_u = dc;
-					break;
-				default:
-					this.dc_pred.ldc_v = dc;
-					this.dc_pred.ref_left = ref_id;
-			}
-			dcs[dc_idx] = dc;
-			this.last_dc[ref_id][plane] = dc;
-			this.coeffs[blk_no][0] = wrapping_mul_i16(this.coeffs[blk_no][0], this.fstate.dc_quant);
 		}
-
-		//// vp6 ////
-
 		const TOKEN_LARGE = 5;
 		const TOKEN_EOB = 42;
-
 		function update_scan(model) {
 			let idx = 1;
 			for (var band = 0; band < 16; band++) {
@@ -8696,7 +7323,6 @@ var PinkFie = (function(moduleResults) {
 				model.zigzag[i] = ZIGZAG[model.scan[i]];
 			}
 		}
-
 		function reset_scan(model, interlaced) {
 			if (!interlaced) {
 				model.scan_order.set(VP6_DEFAULT_SCAN_ORDER, 0);
@@ -8708,8 +7334,7 @@ var PinkFie = (function(moduleResults) {
 			}
 			model.zigzag.set(ZIGZAG, 0);
 		}
-
-		function expand_token_bc(bc, val_probs, token, version) { // i16
+		function expand_token_bc(bc, val_probs, token, version) {
 			let sign = false;
 			let level;
 			if (token < TOKEN_LARGE) {
@@ -8722,7 +7347,7 @@ var PinkFie = (function(moduleResults) {
 				if (version == 5) {
 					sign = bc.read_bool();
 				}
-				let add = 0; // i16
+				let add = 0;
 				let add_probs = VP56_COEF_ADD_PROBS[cat];
 				for (var i = 0; i < add_probs.length; i++) {
 					var prob = add_probs[i];
@@ -8742,7 +7367,6 @@ var PinkFie = (function(moduleResults) {
 				return asI16(-level);
 			}
 		}
-
 		function decode_token_bc(bc, probs, prob34, is_dc, has_nnz) {
 			if (has_nnz && !bc.read_prob(probs[0])) {
 				if (is_dc || bc.read_prob(probs[1])) {
@@ -8754,7 +7378,6 @@ var PinkFie = (function(moduleResults) {
 				return asU8(bc.read_prob(probs[2]) ? (bc.read_prob(probs[3]) ? TOKEN_LARGE : (bc.read_prob(probs[4]) ? (bc.read_prob(prob34) ? 4 : 3) : 2)) : 1);
 			}
 		}
-
 		function decode_zero_run_bc(bc, probs) {
 			let val = bc.read_prob(probs[0]) ? (bc.read_prob(probs[4]) ? 42 : (bc.read_prob(probs[5]) ? (bc.read_prob(probs[7]) ? 7 : 6) : (bc.read_prob(probs[6]) ? 5 : 4))) : (bc.read_prob(probs[1]) ? (bc.read_prob(probs[3]) ? 3 : 2) : (bc.read_prob(probs[2]) ? 1 : 0));
 			if (val != 42) {
@@ -8767,7 +7390,6 @@ var PinkFie = (function(moduleResults) {
 				return nval;
 			}
 		}
-
 		function get_block(dst, dstride, src, comp, dx, dy, mv_x, mv_y) {
 			let [w, h] = src.get_dimensions(comp);
 			let sx = dx + mv_x;
@@ -8801,7 +7423,6 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
 		function calc_variance(var_off, src, stride) {
 			let sum = 0;
 			let ssum = 0;
@@ -8817,11 +7438,9 @@ var PinkFie = (function(moduleResults) {
 			}
 			return asU16((ssum * 16 - sum * sum) >> 8);
 		}
-
 		function mc_filter_bilinear(a, b, c) {
 			return asU8((asU16(a) * (8 - c) + asU16(b) * c + 4) >> 3);
 		}
-
 		function mc_bilinear(dst_offest, dst, dstride, src, soff, sstride, mx, my) {
 			if (my == 0) {
 				var dline_offest = 0;
@@ -8859,11 +7478,9 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
 		function mc_filter_bicubic($src, $off, $step, $coeffs) {
-			return asU8(Math.max(Math.min(((asI32($src[$off - $step]) * asI32($coeffs[0]) + asI32($src[$off]) * asI32($coeffs[1]) + asI32($src[$off + $step]) * asI32($coeffs[2]) + asI32($src[$off + $step * 2]) * asI32($coeffs[3]) + 64) >> 7), 255), 0));
+			return (Math.max(Math.min((($src[$off - $step] * $coeffs[0] + $src[$off] * $coeffs[1] + $src[$off + $step] * $coeffs[2] + $src[$off + $step * 2] * $coeffs[3] + 64) >> 7), 255), 0)) | 0;
 		}
-
 		function mc_bicubic(dst_offest, dst, dstride, src, soff, sstride, coeffs_w, coeffs_h) {
 			if (coeffs_h[1] == 128) {
 				var dline_offest = 0;
@@ -8874,7 +7491,7 @@ var PinkFie = (function(moduleResults) {
 					soff += sstride;
 					dline_offest += dstride;
 				}
-			} else if (coeffs_w[1] == 128) { // horizontal-only interpolation
+			} else if (coeffs_w[1] == 128) {
 				var dline_offest = 0;
 				for (let _ = 0; _ < 8; _++) {
 					for (let i = 0; i < 8; i++) {
@@ -8905,306 +7522,306 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-
-		const VP6BR = function() {
-			this.vpversion = 0;
-			this.profile = 0;
-			this.interlaced = false;
-			this.do_pm = false;
-			this.loop_mode = 0;
-			this.autosel_pm = false;
-			this.var_thresh = 0;
-			this.mv_thresh = 0;
-			this.bicubic = false;
-			this.filter_alpha = 0;
-		}
-		VP6BR.prototype.parseHeader = function(bc) {
-			let hdr = new VP56Header();
-			let src = bc.src;
-			let br = new Bits(src);
-			hdr.is_intra = !br.read_bool();
-			hdr.is_golden = hdr.is_intra;
-			hdr.quant = br.read(6);
-			hdr.multistream = br.read_bool();
-			if (hdr.is_intra) {
-				hdr.version = br.read(5);
-				validate((hdr.version >= VERSION_VP60) && (hdr.version <= VERSION_VP62));
-				hdr.profile = br.read(2);
-				validate((hdr.profile == VP6_SIMPLE_PROFILE) || (hdr.profile == VP6_ADVANCED_PROFILE));
-				hdr.interlaced = br.read_bool();
-			} else {
-				hdr.version = this.vpversion;
-				hdr.profile = this.profile;
-				hdr.interlaced = this.interlaced;
+		class VP6BR {
+			constructor() {
+				this.vpversion = 0;
+				this.profile = 0;
+				this.interlaced = false;
+				this.do_pm = false;
+				this.loop_mode = 0;
+				this.autosel_pm = false;
+				this.var_thresh = 0;
+				this.mv_thresh = 0;
+				this.bicubic = false;
+				this.filter_alpha = 0;
 			}
-			if (hdr.multistream || (hdr.profile == VP6_SIMPLE_PROFILE)) {
-				hdr.offset = br.read(16);
-				validate(hdr.offset > (hdr.is_intra ? 6 : 2));
-				hdr.multistream = true;
-			}
-			let bytes = br.tell() >> 3;
-			bc.skip_bytes(bytes);
-			this.loop_mode = 0;
-			if (hdr.is_intra) {
-				hdr.mb_h = asU8(bc.read_bits(8));
-				hdr.mb_w = asU8(bc.read_bits(8));
-				hdr.disp_h = asU8(bc.read_bits(8));
-				hdr.disp_w = asU8(bc.read_bits(8));
-				validate((hdr.mb_h > 0) && (hdr.mb_w > 0));
-				hdr.scale = bc.read_bits(2);
-			} else {
-				hdr.is_golden = bc.read_bool();
-				if (hdr.profile == VP6_ADVANCED_PROFILE) {
-					this.loop_mode = +bc.read_bool();
-					if (this.loop_mode != 0) {
-						this.loop_mode += +bc.read_bool();
-						validate(this.loop_mode <= 1);
+			parseHeader(bc) {
+				let hdr = new VP56Header();
+				let src = bc.src;
+				let br = new Bits(src);
+				hdr.is_intra = !br.read_bool();
+				hdr.is_golden = hdr.is_intra;
+				hdr.quant = br.read(6);
+				hdr.multistream = br.read_bool();
+				if (hdr.is_intra) {
+					hdr.version = br.read(5);
+					validate((hdr.version >= VERSION_VP60) && (hdr.version <= VERSION_VP62));
+					hdr.profile = br.read(2);
+					validate((hdr.profile == VP6_SIMPLE_PROFILE) || (hdr.profile == VP6_ADVANCED_PROFILE));
+					hdr.interlaced = br.read_bool();
+				} else {
+					hdr.version = this.vpversion;
+					hdr.profile = this.profile;
+					hdr.interlaced = this.interlaced;
+				}
+				if (hdr.multistream || (hdr.profile == VP6_SIMPLE_PROFILE)) {
+					hdr.offset = br.read(16);
+					validate(hdr.offset > (hdr.is_intra ? 6 : 2));
+					hdr.multistream = true;
+				}
+				let bytes = br.tell() >> 3;
+				bc.skip_bytes(bytes);
+				this.loop_mode = 0;
+				if (hdr.is_intra) {
+					hdr.mb_h = asU8(bc.read_bits(8));
+					hdr.mb_w = asU8(bc.read_bits(8));
+					hdr.disp_h = asU8(bc.read_bits(8));
+					hdr.disp_w = asU8(bc.read_bits(8));
+					validate((hdr.mb_h > 0) && (hdr.mb_w > 0));
+					hdr.scale = bc.read_bits(2);
+				} else {
+					hdr.is_golden = bc.read_bool();
+					if (hdr.profile == VP6_ADVANCED_PROFILE) {
+						this.loop_mode = +bc.read_bool();
+						if (this.loop_mode != 0) {
+							this.loop_mode += +bc.read_bool();
+							validate(this.loop_mode <= 1);
+						}
+						if (hdr.version == VERSION_VP62) {
+							this.do_pm = bc.read_bool();
+						}
+					}
+				}
+				if ((hdr.profile == VP6_ADVANCED_PROFILE) && (hdr.is_intra || this.do_pm)) {
+					this.autosel_pm = bc.read_bool();
+					if (this.autosel_pm) {
+						this.var_thresh = bc.read_bits(5);
+						if (hdr.version != VERSION_VP62) {
+							this.var_thresh <<= 5;
+						}
+						this.mv_thresh = bc.read_bits(3);
+					} else {
+						this.bicubic = bc.read_bool();
 					}
 					if (hdr.version == VERSION_VP62) {
-						this.do_pm = bc.read_bool();
+						this.filter_alpha = bc.read_bits(4);
+					} else {
+						this.filter_alpha = 16;
 					}
 				}
+				hdr.use_huffman = bc.read_bool();
+				this.vpversion = hdr.version;
+				this.profile = hdr.profile;
+				this.interlaced = hdr.interlaced;
+				return hdr;
 			}
-			if ((hdr.profile == VP6_ADVANCED_PROFILE) && (hdr.is_intra || this.do_pm)) {
-				this.autosel_pm = bc.read_bool();
-				if (this.autosel_pm) {
-					this.var_thresh = bc.read_bits(5);
-					if (hdr.version != VERSION_VP62) {
-						this.var_thresh <<= 5;
-					}
-					this.mv_thresh = bc.read_bits(3);
+			decode_mv(bc, model) {
+				let val;
+				if (!bc.read_prob(model.nz_prob)) {
+					val = bc.read_prob(model.tree_probs[0]) ? (bc.read_prob(model.tree_probs[4]) ? (bc.read_prob(model.tree_probs[6]) ? 7 : 6) : (bc.read_prob(model.tree_probs[5]) ? 5 : 4)) : (bc.read_prob(model.tree_probs[1]) ? (bc.read_prob(model.tree_probs[3]) ? 3 : 2) : (bc.read_prob(model.tree_probs[2]) ? 1 : 0));
 				} else {
-					this.bicubic = bc.read_bool();
+					let raw = 0;
+					for (var i = 0; i < LONG_VECTOR_ORDER.length; i++) {
+						var ord = LONG_VECTOR_ORDER[i];
+						raw |= asI16(bc.read_prob(model.raw_probs[ord])) << ord;
+					}
+					if ((raw & 0xF0) != 0) {
+						raw |= asI16(bc.read_prob(model.raw_probs[3])) << 3;
+					} else {
+						raw |= 1 << 3;
+					}
+					val = asI16(raw);
 				}
-				if (hdr.version == VERSION_VP62) {
-					this.filter_alpha = bc.read_bits(4);
+				if ((val != 0) && bc.read_prob(model.sign_prob)) {
+					return -val;
 				} else {
-					this.filter_alpha = 16;
+					return val;
 				}
 			}
-			hdr.use_huffman = bc.read_bool();
-			this.vpversion = hdr.version;
-			this.profile = hdr.profile;
-			this.interlaced = hdr.interlaced;
-			return hdr;
-		}
-		VP6BR.prototype.decode_mv = function(bc, model) {
-			let val;
-			if (!bc.read_prob(model.nz_prob)) {
-				val = bc.read_prob(model.tree_probs[0]) ? (bc.read_prob(model.tree_probs[4]) ? (bc.read_prob(model.tree_probs[6]) ? 7 : 6) : (bc.read_prob(model.tree_probs[5]) ? 5 : 4)) : (bc.read_prob(model.tree_probs[1]) ? (bc.read_prob(model.tree_probs[3]) ? 3 : 2) : (bc.read_prob(model.tree_probs[2]) ? 1 : 0));
-			} else {
-				let raw = 0;
-				for (var i = 0; i < LONG_VECTOR_ORDER.length; i++) {
-					var ord = LONG_VECTOR_ORDER[i];
-					raw |= asI16(bc.read_prob(model.raw_probs[ord])) << ord;
+			reset_models(models) {
+				for (var i = 0; i < models.mv_models.length; i++) {
+					var mdl = models.mv_models[i];
+					mdl.nz_prob = NZ_PROBS[i];
+					mdl.sign_prob = 128;
+					mdl.raw_probs.set(RAW_PROBS[i], 0);
+					mdl.tree_probs.set(TREE_PROBS[i], 0);
 				}
-				if ((raw & 0xF0) != 0) {
-					raw |= asI16(bc.read_prob(model.raw_probs[3])) << 3;
-				} else {
-					raw |= 1 << 3;
-				}
-				val = asI16(raw);
-			}
-			if ((val != 0) && bc.read_prob(model.sign_prob)) {
-				return -val;
-			} else {
-				return val;
-			}
-		}
-		
-		VP6BR.prototype.reset_models = function(models) {
-			for (var i = 0; i < models.mv_models.length; i++) {
-				var mdl = models.mv_models[i];
-				mdl.nz_prob = NZ_PROBS[i];
-				mdl.sign_prob = 128;
-				mdl.raw_probs.set(RAW_PROBS[i], 0);
-				mdl.tree_probs.set(TREE_PROBS[i], 0);
-			}
-			models.vp6models.zero_run_probs[0].set(ZERO_RUN_PROBS[0], 0);
-			models.vp6models.zero_run_probs[1].set(ZERO_RUN_PROBS[1], 0);
-			reset_scan(models.vp6models, this.interlaced);
-		}
-		VP6BR.prototype.decode_mv_models = function(bc, models) {
-			for (let comp = 0; comp < 2; comp++) {
-				if (bc.read_prob(HAS_NZ_PROB[comp])) {
-					models[comp].nz_prob = bc.read_probability();
-				}
-				if (bc.read_prob(HAS_SIGN_PROB[comp])) {
-					models[comp].sign_prob = bc.read_probability();
-				}
-			}
-			for (let comp = 0; comp < 2; comp++) {
-				for (let i = 0; i < HAS_TREE_PROB[comp].length; i++) {
-					const prob = HAS_TREE_PROB[comp][i];
-					if (bc.read_prob(prob)) {
-						models[comp].tree_probs[i] = bc.read_probability();
-					}
-				}
-			}
-			for (let comp = 0; comp < 2; comp++) {
-				for (let i = 0; i < HAS_RAW_PROB[comp].length; i++) {
-					const prob = HAS_RAW_PROB[comp][i];
-					if (bc.read_prob(prob)) {
-						models[comp].raw_probs[i] = bc.read_probability();
-					}
-				}
-			}
-		}
-		VP6BR.prototype.decode_coeff_models = function(bc, models, is_intra) {
-			let def_prob = new Uint8Array(11);
-			def_prob.fill(128);
-			for (var plane = 0; plane < 2; plane++) {
-				for (var i = 0; i < 11; i++) {
-					if (bc.read_prob(HAS_COEF_PROBS[plane][i])) {
-						def_prob[i] = bc.read_probability();
-						models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
-					} else if (is_intra) {
-						models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
-					}
-				}
-			}
-			if (bc.read_bool()) {
-				for (var i = 1; i < 64; i++) {
-					if (bc.read_prob(HAS_SCAN_UPD_PROBS[i])) {
-						models.vp6models.scan_order[i] = bc.read_bits(4);
-					}
-				}
-				update_scan(models.vp6models);
-			} else {
+				models.vp6models.zero_run_probs[0].set(ZERO_RUN_PROBS[0], 0);
+				models.vp6models.zero_run_probs[1].set(ZERO_RUN_PROBS[1], 0);
 				reset_scan(models.vp6models, this.interlaced);
 			}
-			for (var comp = 0; comp < 2; comp++) {
-				for (var i = 0; i < 14; i++) {
-					if (bc.read_prob(HAS_ZERO_RUN_PROBS[comp][i])) {
-						models.vp6models.zero_run_probs[comp][i] = bc.read_probability();
+			decode_mv_models(bc, models) {
+				for (let comp = 0; comp < 2; comp++) {
+					if (bc.read_prob(HAS_NZ_PROB[comp])) {
+						models[comp].nz_prob = bc.read_probability();
+					}
+					if (bc.read_prob(HAS_SIGN_PROB[comp])) {
+						models[comp].sign_prob = bc.read_probability();
+					}
+				}
+				for (let comp = 0; comp < 2; comp++) {
+					for (let i = 0; i < HAS_TREE_PROB[comp].length; i++) {
+						const prob = HAS_TREE_PROB[comp][i];
+						if (bc.read_prob(prob)) {
+							models[comp].tree_probs[i] = bc.read_probability();
+						}
+					}
+				}
+				for (let comp = 0; comp < 2; comp++) {
+					for (let i = 0; i < HAS_RAW_PROB[comp].length; i++) {
+						const prob = HAS_RAW_PROB[comp][i];
+						if (bc.read_prob(prob)) {
+							models[comp].raw_probs[i] = bc.read_probability();
+						}
 					}
 				}
 			}
-			for (var ctype = 0; ctype < 3; ctype++) {
+			decode_coeff_models(bc, models, is_intra) {
+				let def_prob = new Uint8Array(11);
+				def_prob.fill(128);
 				for (var plane = 0; plane < 2; plane++) {
-					for (var group = 0; group < 6; group++) {
-						for (var i = 0; i < 11; i++) {
-							if (bc.read_prob(VP6_AC_PROBS[ctype][plane][group][i])) {
-								def_prob[i] = bc.read_probability();
-								models.coeff_models[plane].ac_val_probs[ctype][group][i] = def_prob[i];
-							} else if (is_intra) {
-								models.coeff_models[plane].ac_val_probs[ctype][group][i] = def_prob[i];
+					for (var i = 0; i < 11; i++) {
+						if (bc.read_prob(HAS_COEF_PROBS[plane][i])) {
+							def_prob[i] = bc.read_probability();
+							models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
+						} else if (is_intra) {
+							models.coeff_models[plane].dc_value_probs[i] = def_prob[i];
+						}
+					}
+				}
+				if (bc.read_bool()) {
+					for (var i = 1; i < 64; i++) {
+						if (bc.read_prob(HAS_SCAN_UPD_PROBS[i])) {
+							models.vp6models.scan_order[i] = bc.read_bits(4);
+						}
+					}
+					update_scan(models.vp6models);
+				} else {
+					reset_scan(models.vp6models, this.interlaced);
+				}
+				for (var comp = 0; comp < 2; comp++) {
+					for (var i = 0; i < 14; i++) {
+						if (bc.read_prob(HAS_ZERO_RUN_PROBS[comp][i])) {
+							models.vp6models.zero_run_probs[comp][i] = bc.read_probability();
+						}
+					}
+				}
+				for (var ctype = 0; ctype < 3; ctype++) {
+					for (var plane = 0; plane < 2; plane++) {
+						for (var group = 0; group < 6; group++) {
+							for (var i = 0; i < 11; i++) {
+								if (bc.read_prob(VP6_AC_PROBS[ctype][plane][group][i])) {
+									def_prob[i] = bc.read_probability();
+									models.coeff_models[plane].ac_val_probs[ctype][group][i] = def_prob[i];
+								} else if (is_intra) {
+									models.coeff_models[plane].ac_val_probs[ctype][group][i] = def_prob[i];
+								}
 							}
 						}
 					}
 				}
-			}
-			for (var plane = 0; plane < 2; plane++) {
-				let mdl = models.coeff_models[plane];
-				for (var i = 0; i < 3; i++) {
-					for (var k = 0; k < 5; k++) {
-						mdl.dc_token_probs[0][i][k] = rescale_prob(mdl.dc_value_probs[k], VP6_DC_WEIGHTS[k][i], 255);
-					}
-				}
-			}
-		}
-		VP6BR.prototype.decode_block = function(bc, coeffs, model, vp6model, fstate) {
-			var left_ctx = fstate.coeff_cat[fstate.ctx_idx][0];
-			var top_ctx = fstate.top_ctx;
-			var dc_mode = top_ctx + left_ctx;
-			var token = decode_token_bc(bc, model.dc_token_probs[0][dc_mode], model.dc_value_probs[5], true, true);
-			var val = expand_token_bc(bc, model.dc_value_probs, token, 6);
-			coeffs[0] = val;
-			fstate.last_idx[fstate.ctx_idx] = 0;
-			var idx = 1;
-			var last_val = val;
-			while (idx < 64) {
-				var ac_band = VP6_IDX_TO_AC_BAND[idx];
-				var ac_mode = Math.min(Math.abs(last_val), 2);
-				var has_nnz = (idx == 1) || (last_val != 0);
-				var _token = decode_token_bc(bc, model.ac_val_probs[ac_mode][ac_band], model.ac_val_probs[ac_mode][ac_band][5], false, has_nnz);
-				if (_token == 42) break;
-				var _val = expand_token_bc(bc, model.ac_val_probs[ac_mode][ac_band], _token, 6);
-				coeffs[vp6model.zigzag[idx]] = wrapping_mul_i16(_val, fstate.ac_quant);
-				idx += 1;
-				last_val = _val;
-				if (_val == 0) {
-					idx += decode_zero_run_bc(bc, vp6model.zero_run_probs[(idx >= 7) ? 1 : 0]);
-					validate(idx <= 64);
-				}
-			}
-			fstate.coeff_cat[fstate.ctx_idx][0] = (coeffs[0] != 0) ? 1 : 0;
-			fstate.top_ctx = fstate.coeff_cat[fstate.ctx_idx][0];
-			fstate.last_idx[fstate.ctx_idx] = idx;
-		}
-		VP6BR.prototype.mc_block = function(dst, mc_buf, src, plane, x, y, mv, loop_str) {
-			let is_luma = (plane != 1) && (plane != 2);
-			let sx, sy, mx, my, msx, msy;
-			if (is_luma) {
-				sx = mv.x >> 2;
-				sy = mv.y >> 2;
-				mx = (mv.x & 3) << 1;
-				my = (mv.y & 3) << 1;
-				msx = asI16(mv.x / 4);
-				msy = asI16(mv.y / 4);
-			} else {
-				sx = mv.x >> 3;
-				sy = mv.y >> 3;
-				mx = mv.x & 7;
-				my = mv.y & 7;
-				msx = asI16(mv.x / 8);
-				msy = asI16(mv.y / 8);
-			}
-			let tmp_blk = mc_buf.get_data();
-			get_block(tmp_blk, 16, src, plane, x, y, sx, sy);
-			if ((msx & 7) != 0) {
-				let foff = (8 - (sx & 7));
-				let off = 2 + foff;
-				vp31_loop_filter(tmp_blk, off, 1, 16, 12, loop_str);
-			}
-			if ((msy & 7) != 0) {
-				let foff = (8 - (sy & 7));
-				let off = (2 + foff) * 16;
-				vp31_loop_filter(tmp_blk, off, 16, 1, 12, loop_str);
-			}
-			let copy_mode = (mx == 0) && (my == 0);
-			let bicubic = !copy_mode && is_luma && this.bicubic;
-			if (is_luma && !copy_mode && (this.profile == VP6_ADVANCED_PROFILE)) {
-				if (!this.autosel_pm) {
-					bicubic = true;
-				} else {
-					let mv_limit = 1 << (this.mv_thresh + 1);
-					if ((Math.abs(mv.x) <= mv_limit) && (Math.abs(mv.y) <= mv_limit)) {
-						let var_off = 16 * 2 + 2;
-						if (mv.x < 0) var_off += 1;
-						if (mv.y < 0) var_off += 16;
-						let _var = calc_variance(var_off, tmp_blk, 16);
-						if (_var >= this.var_thresh) {
-							bicubic = true;
+				for (var plane = 0; plane < 2; plane++) {
+					let mdl = models.coeff_models[plane];
+					for (var i = 0; i < 3; i++) {
+						for (var k = 0; k < 5; k++) {
+							mdl.dc_token_probs[0][i][k] = rescale_prob(mdl.dc_value_probs[k], VP6_DC_WEIGHTS[k][i], 255);
 						}
 					}
 				}
 			}
-			let dstride = dst.stride[plane];
-			let dbuf = dst.data;
-			let dbuf_offest = dst.offset[plane] + x + y * dstride;
-			if (copy_mode) {
-				let src_offest = 2 * 16 + 2;
-				let dline_offest = 0;
-				let sline_offest = 0;
-				for (let _ = 0; _ < 8; _++) {
-					dbuf[(dbuf_offest + dline_offest) + 0] = tmp_blk[(src_offest + sline_offest) + 0];
-					dbuf[(dbuf_offest + dline_offest) + 1] = tmp_blk[(src_offest + sline_offest) + 1];
-					dbuf[(dbuf_offest + dline_offest) + 2] = tmp_blk[(src_offest + sline_offest) + 2];
-					dbuf[(dbuf_offest + dline_offest) + 3] = tmp_blk[(src_offest + sline_offest) + 3];
-					dbuf[(dbuf_offest + dline_offest) + 4] = tmp_blk[(src_offest + sline_offest) + 4];
-					dbuf[(dbuf_offest + dline_offest) + 5] = tmp_blk[(src_offest + sline_offest) + 5];
-					dbuf[(dbuf_offest + dline_offest) + 6] = tmp_blk[(src_offest + sline_offest) + 6];
-					dbuf[(dbuf_offest + dline_offest) + 7] = tmp_blk[(src_offest + sline_offest) + 7];
-					dline_offest += dst.stride[plane];
-					sline_offest += 16;
+			decode_block(bc, coeffs, model, vp6model, fstate) {
+				var left_ctx = fstate.coeff_cat[fstate.ctx_idx][0];
+				var top_ctx = fstate.top_ctx;
+				var dc_mode = top_ctx + left_ctx;
+				var token = decode_token_bc(bc, model.dc_token_probs[0][dc_mode], model.dc_value_probs[5], true, true);
+				var val = expand_token_bc(bc, model.dc_value_probs, token, 6);
+				coeffs[0] = val;
+				fstate.last_idx[fstate.ctx_idx] = 0;
+				var idx = 1;
+				var last_val = val;
+				while (idx < 64) {
+					var ac_band = VP6_IDX_TO_AC_BAND[idx];
+					var ac_mode = Math.min(Math.abs(last_val), 2);
+					var has_nnz = (idx == 1) || (last_val != 0);
+					var _token = decode_token_bc(bc, model.ac_val_probs[ac_mode][ac_band], model.ac_val_probs[ac_mode][ac_band][5], false, has_nnz);
+					if (_token == 42) break;
+					var _val = expand_token_bc(bc, model.ac_val_probs[ac_mode][ac_band], _token, 6);
+					coeffs[vp6model.zigzag[idx]] = asI16(_val * fstate.ac_quant);
+					idx += 1;
+					last_val = _val;
+					if (_val == 0) {
+						idx += decode_zero_run_bc(bc, vp6model.zero_run_probs[(idx >= 7) ? 1 : 0]);
+						validate(idx <= 64);
+					}
 				}
-			} else if (bicubic) {
-				let coeff_h = VP6_BICUBIC_COEFFS[this.filter_alpha][mx];
-				let coeff_v = VP6_BICUBIC_COEFFS[this.filter_alpha][my];
-				mc_bicubic(dbuf_offest, dbuf, dstride, tmp_blk, 16 * 2 + 2, 16, coeff_h, coeff_v);
-			} else {
-				mc_bilinear(dbuf_offest, dbuf, dstride, tmp_blk, 16 * 2 + 2, 16, mx, my);
+				fstate.coeff_cat[fstate.ctx_idx][0] = (coeffs[0] != 0) ? 1 : 0;
+				fstate.top_ctx = fstate.coeff_cat[fstate.ctx_idx][0];
+				fstate.last_idx[fstate.ctx_idx] = idx;
+			}
+			mc_block(dst, mc_buf, src, plane, x, y, mv, loop_str) {
+				let is_luma = (plane != 1) && (plane != 2);
+				let sx, sy, mx, my, msx, msy;
+				if (is_luma) {
+					sx = mv.x >> 2;
+					sy = mv.y >> 2;
+					mx = (mv.x & 3) << 1;
+					my = (mv.y & 3) << 1;
+					msx = asI16(mv.x / 4);
+					msy = asI16(mv.y / 4);
+				} else {
+					sx = mv.x >> 3;
+					sy = mv.y >> 3;
+					mx = mv.x & 7;
+					my = mv.y & 7;
+					msx = asI16(mv.x / 8);
+					msy = asI16(mv.y / 8);
+				}
+				let tmp_blk = mc_buf.get_data();
+				get_block(tmp_blk, 16, src, plane, x, y, sx, sy);
+				if ((msx & 7) != 0) {
+					let foff = (8 - (sx & 7));
+					let off = 2 + foff;
+					vp31_loop_filter(tmp_blk, off, 1, 16, 12, loop_str);
+				}
+				if ((msy & 7) != 0) {
+					let foff = (8 - (sy & 7));
+					let off = (2 + foff) * 16;
+					vp31_loop_filter(tmp_blk, off, 16, 1, 12, loop_str);
+				}
+				let copy_mode = (mx == 0) && (my == 0);
+				let bicubic = !copy_mode && is_luma && this.bicubic;
+				if (is_luma && !copy_mode && (this.profile == VP6_ADVANCED_PROFILE)) {
+					if (!this.autosel_pm) {
+						bicubic = true;
+					} else {
+						let mv_limit = 1 << (this.mv_thresh + 1);
+						if ((Math.abs(mv.x) <= mv_limit) && (Math.abs(mv.y) <= mv_limit)) {
+							let var_off = 16 * 2 + 2;
+							if (mv.x < 0) var_off += 1;
+							if (mv.y < 0) var_off += 16;
+							let _var = calc_variance(var_off, tmp_blk, 16);
+							if (_var >= this.var_thresh) {
+								bicubic = true;
+							}
+						}
+					}
+				}
+				let dstride = dst.stride[plane];
+				let dbuf = dst.data;
+				let dbuf_offest = dst.offset[plane] + x + y * dstride;
+				if (copy_mode) {
+					let src_offest = 2 * 16 + 2;
+					let dline_offest = 0;
+					let sline_offest = 0;
+					for (let _ = 0; _ < 8; _++) {
+						dbuf[(dbuf_offest + dline_offest) + 0] = tmp_blk[(src_offest + sline_offest) + 0];
+						dbuf[(dbuf_offest + dline_offest) + 1] = tmp_blk[(src_offest + sline_offest) + 1];
+						dbuf[(dbuf_offest + dline_offest) + 2] = tmp_blk[(src_offest + sline_offest) + 2];
+						dbuf[(dbuf_offest + dline_offest) + 3] = tmp_blk[(src_offest + sline_offest) + 3];
+						dbuf[(dbuf_offest + dline_offest) + 4] = tmp_blk[(src_offest + sline_offest) + 4];
+						dbuf[(dbuf_offest + dline_offest) + 5] = tmp_blk[(src_offest + sline_offest) + 5];
+						dbuf[(dbuf_offest + dline_offest) + 6] = tmp_blk[(src_offest + sline_offest) + 6];
+						dbuf[(dbuf_offest + dline_offest) + 7] = tmp_blk[(src_offest + sline_offest) + 7];
+						dline_offest += dst.stride[plane];
+						sline_offest += 16;
+					}
+				} else if (bicubic) {
+					let coeff_h = VP6_BICUBIC_COEFFS[this.filter_alpha][mx];
+					let coeff_v = VP6_BICUBIC_COEFFS[this.filter_alpha][my];
+					mc_bicubic(dbuf_offest, dbuf, dstride, tmp_blk, 16 * 2 + 2, 16, coeff_h, coeff_v);
+				} else {
+					mc_bilinear(dbuf_offest, dbuf, dstride, tmp_blk, 16 * 2 + 2, 16, mx, my);
+				}
 			}
 		}
 		wpjsm.exportJS = {
@@ -12762,6 +11379,27 @@ var PinkFie = (function(moduleResults) {
 			popAction() {
 				return this.actionQueue.pop();
 			}
+			getDebugVideoText() {
+				if (!this.clip) return "";
+				var resultTypes = this.getChildTypes(this.clip);
+
+				var result = [];
+				for (var i = 0; i < resultTypes.length; i++) {
+					var r = resultTypes[i];
+					if (r.displayType == "Video") {
+						result.push(r);
+					}
+				}
+				var txt = "";
+				for (var i = 0; i < result.length; i++) {
+					var r = result[i];
+					txt += r.getDebugVideoText();
+					if (i != (result.length - 1)) {
+						txt += ", ";
+					}
+				}
+				return txt;
+			}
 			getScaleBoundsText() {
 				var scaleW = this._width / 640;
 				var scaleH = this._height / 360;
@@ -12800,6 +11438,21 @@ var PinkFie = (function(moduleResults) {
 			}
 			getPlayingAudioCount() {
 				return this.audio.getPlayingAudioCount();
+			}
+			getScaleRender() {
+				var tx = 0;
+				var ty = 0;
+				var scaleX;
+				var scaleY;
+				if (this.renderScaleType) {
+					scaleX = scaleY = 1;
+					tx = ((this.canvas.width / 2) - (this.width / 2));
+					ty = ((this.canvas.height / 2) - (this.height / 2));
+				} else {
+					scaleX = (this.canvas.width / this.width);
+					scaleY = (this.canvas.height / this.height);
+				}
+				return [scaleX, scaleY, tx, ty];
 			}
 			tick() {
 				this.closeCursor();
@@ -13139,18 +11792,7 @@ var PinkFie = (function(moduleResults) {
 				}
 				this.renderer.renderShape(this.backgroundShapeRender);
 				if (this.clip && this.isLoad) {
-					var tx = 0;
-					var ty = 0;
-					var scaleX;
-					var scaleY;
-					if (this.renderScaleType) {
-						scaleX = scaleY = 1;
-						tx = ((this.canvas.width / 2) - (this.width / 2));
-						ty = ((this.canvas.height / 2) - (this.height / 2));
-					} else {
-						scaleX = (this.canvas.width / this.width);
-						scaleY = (this.canvas.height / this.height);
-					}
+					let [scaleX, scaleY, tx, ty] = this.getScaleRender();
 					if (isR) {
 						this.transformStack.stackPush([scaleX / 20, 0, 0, scaleY / 20, tx, ty], [1, 1, 1, 1, 0, 0, 0, 0]);
 						this.clip.render();
@@ -13563,20 +12205,18 @@ var PinkFie = (function(moduleResults) {
 				this.settingVertical.className = 'watcher-pinkfie-setting';
 				this.settingVertical.style = '';
 				this.settingVertical.style.display = 'none';
-				var rrj = document.createElement('div');
-				rrj.style = '';
-				rrj.style.overflow = 'auto';
-				rrj.style.position = 'absolute';
-				rrj.style.top = '0';
-				rrj.style.left = '50%';
-				rrj.style.padding = '6px';
-				rrj.style.transform = 'translate(-50%, 0)';
-				rrj.style.background = 'rgba(0, 0, 0, 0.6)';
-				rrj.style.width = '320px';
-				rrj.style.height = 'auto';
-				rrj.innerHTML = '<h3 style="margin:0;">Settings</h3>';
+				this.settingVertical.style.overflow = 'auto';
+				this.settingVertical.style.position = 'absolute';
+				this.settingVertical.style.top = '0';
+				this.settingVertical.style.left = '50%';
+				this.settingVertical.style.padding = '6px';
+				this.settingVertical.style.transform = 'translate(-50%, 0)';
+				this.settingVertical.style.background = 'rgba(0, 0, 0, 0.6)';
+				this.settingVertical.style.width = '320px';
+				this.settingVertical.style.height = 'auto';
+				this.settingVertical.innerHTML = '<h3 style="margin:0;">Settings</h3>';
+
 				var rrj2 = document.createElement('a');
-				//rrj2.href = "#";
 				rrj2.onclick = () => {
 					this.settingVertical.style.display = 'none';
 				};
@@ -13675,53 +12315,56 @@ var PinkFie = (function(moduleResults) {
 				di3.style.margin = "4px";
 				di3.onclick = this.viewStats.bind(this);
 
+				// Seek Frame
+
+				var _fdfj = document.createElement('div');
+
 				var fdfj = document.createElement('input');
 				fdfj.type = 'range';
 				fdfj.value = 1;
 				fdfj.min = 1;
 				fdfj.max = 2;
-
 				fdfj.addEventListener("input", () => {
 					if (fdfj.value && this.stage) {
 						var clip = this.stage.clip;
 						if (clip) clip.gotoFrame(+fdfj.value, !clip.isPlaying);
 					}
 				});
-
 				this.__fdfj = fdfj;
-
 				var a = document.createElement("label");
-				a.innerHTML = 'Jump Frame';
-
+				a.innerHTML = 'Seek Frame';
 				var a2 = document.createElement("label");
 				a2.innerHTML = '1/1';
-
 				this.__a2 = a2;
+
+				
+				_fdfj.appendChild(a);
+				_fdfj.appendChild(fdfj);
+				_fdfj.appendChild(a2);
+
+				this.__agdfdf = _fdfj;
 		
-				rrj.appendChild(rrj2);
-				rrj.appendChild(rrj3);
-				rrj.appendChild(rrj4);
-				rrj.appendChild(rrj3o);
-				rrj.appendChild(rrj4o);
-				rrj.appendChild(document.createElement('br'));
-				rrj.appendChild(rrj7);
-				rrj.appendChild(rrj8);
-				rrj.appendChild(rrjhg7);
-				rrj.appendChild(rrj9);
+				this.settingVertical.appendChild(rrj2);
+				this.settingVertical.appendChild(rrj3);
+				this.settingVertical.appendChild(rrj4);
+				this.settingVertical.appendChild(rrj3o);
+				this.settingVertical.appendChild(rrj4o);
+				this.settingVertical.appendChild(document.createElement('br'));
+				this.settingVertical.appendChild(rrj7);
+				this.settingVertical.appendChild(rrj8);
+				this.settingVertical.appendChild(rrjhg7);
+				this.settingVertical.appendChild(rrj9);
 
-				rrj.appendChild(document.createElement('br'));
+				this.settingVertical.appendChild(document.createElement('br'));
 
-				rrj.appendChild(rrj5);
-				rrj.appendChild(rrj6);
+				this.settingVertical.appendChild(rrj5);
+				this.settingVertical.appendChild(rrj6);
 
-				rrj.appendChild(document.createElement('br'));
+				this.settingVertical.appendChild(document.createElement('br'));
 
-				rrj.appendChild(a);
-				rrj.appendChild(fdfj);
-				rrj.appendChild(a2);
-				rrj.appendChild(document.createElement('br'));
+				this.settingVertical.appendChild(_fdfj);
 
-				rrj.appendChild(di3);
+				this.settingVertical.appendChild(di3);
 
 				var fdgdf2 = document.createElement("a");
 
@@ -13735,10 +12378,9 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 
-				rrj.appendChild(fdgdf2);
-				rrj.appendChild(fdgdf);
+				this.settingVertical.appendChild(fdgdf2);
+				this.settingVertical.appendChild(fdgdf);
 		
-				this.settingVertical.appendChild(rrj);
 				this.playerContainer.appendChild(this.settingVertical);
 			}
 			addStatsControls() {
@@ -14138,10 +12780,12 @@ var PinkFie = (function(moduleResults) {
 					this.__fdfj.min = 1;
 					this.__fdfj.max = totalframes;
 					this.__fdfj.value = 1;
+					this.__agdfdf.style.display = '';
 				} else {
 					this.__fdfj.min = 1;
 					this.__fdfj.max = 2;
 					this.__fdfj.value = 1;
+					this.__agdfdf.style.display = 'none';
 				}
 				this.__a2.textContent = 1 + "/" + totalframes;
 				for (var i = 0; i < this._controlsMC.length; i++) {
@@ -14219,10 +12863,8 @@ var PinkFie = (function(moduleResults) {
 			_resize(w, h) {
 				this._width = w;
 				this._height = h;
-		
 				this.playerContainer.style.width = w + "px";
 				this.playerContainer.style.height = h + "px";
-		
 				this.applyResizeStage();
 				this.render();
 			}
@@ -14334,6 +12976,10 @@ var PinkFie = (function(moduleResults) {
 							hkj += "<br>Playing Audio: " + this.stage.getPlayingAudioCount();
 							var resultPlayingCompressSound = this.stage.audio.getPlayingCompressSound().join(" ");
 							if (resultPlayingCompressSound) hkj += "<br>" + resultPlayingCompressSound;
+							var _gh = this.stage.getDebugVideoText();
+							if (_gh) {
+								hkj += "<br>Time Videos Codec:<br>" + _gh;
+							}
 							this.statsE_R.style.display = "";
 							this.statsE_R.innerHTML = hkj;
 						} else {
@@ -14372,6 +13018,7 @@ var PinkFie = (function(moduleResults) {
 				this._displayMessage[0] = 0;
 				this.isLoad = false;
 				this.settingVertical.style.display = 'none';
+				this.__agdfdf.style.display = 'none';
 				for (var i = 0; i < this._controlsMC.length; i++) {
 					this._controlsMC[i].style.display = "none";
 				}

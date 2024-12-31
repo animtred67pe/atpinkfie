@@ -25,17 +25,17 @@
   cursor: pointer;
   text-shadow: 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1);
 }
-.watcher-pinkfie-setting div {
+.watcher-pinkfie-setting {
   color: rgba(255, 255, 255, 1);
   backdrop-filter: blur(2px);
 }
-.watcher-pinkfie-setting div a {
+.watcher-pinkfie-setting a {
   color: rgba(255, 255, 255, 1);
   cursor: pointer;
   text-decoration: underline;
   transition: 0s;
 }
-.watcher-pinkfie-setting div a:hover{
+.watcher-pinkfie-setting a:hover{
   text-shadow: 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1);
 }
 

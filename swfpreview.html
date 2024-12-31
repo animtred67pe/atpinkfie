@@ -59,14 +59,16 @@
 		<div class="app">
 			<h1>SWF Preview</h1>
 			<p>The Flash Reader in Javascript, is still in development.</p>
-			<a href="#" id="loadswffile">Open Swf</a>
+			<a href="#" id="loadswffile">Open .swf</a>
 			<div id="pinkfie-player"></div>
 			<h3>Sprites</h3>
 			<div id="soritimage"></div>
 			<h3>Sounds</h3>
 			<div id="soundimage"></div>
 			<h3>Shapes</h3>
-			<div id="shapes"></div>
+			<div id="shapes">
+				<a id="shapesloadmore" href="#">Load More</a>
+			</div>
 			<h3>MorphShapes</h3>
 			<h3>Bitmaps</h3>
 			<h3>Fonts</h3>
@@ -335,7 +337,7 @@
 				}
 	            ATPlayer.prototype.downloadWAV = function() {
 					if (this.swfSoundData && false) {
-						downloadUint8(new Uint8Array(this.swfSoundData), player.getSwfName() + ".dat");
+						downloadUint8(new Uint8Array(this.swfSoundData.slice(2)), player.getSwfName() + ".mp3");
 						return;
 					}
 	                var _buffer = this._player.buffer;
@@ -378,9 +380,9 @@
 					}
 					for (var i = 0; i < ___sampleCount; i++) {
 						var id = (i * (2 * _buffer.numberOfChannels));
-					    GGint16(wavData, id + 44, Math.round((_left[i] * 0x7fff))); // bitsPerSample
+					    GGint16(wavData, id + 44, Math.max(Math.min((_left[i] * 0x7fff), 32767), -32768) | 0); // bitsPerSample
 						if (_right) {
-					    	GGint16(wavData, id + 46, Math.round((_right[i] * 0x7fff))); // bitsPerSample
+					    	GGint16(wavData, id + 46, Math.max(Math.min((_right[i] * 0x7fff), 32767), -32768) | 0); // bitsPerSample
 						}
 					}
 					downloadUint8(wavData, (this.__name + "_" + sampleCount + "_" + rate + "_" + _buffer.numberOfChannels) + ".wav");
@@ -631,7 +633,6 @@
 
 					canvas.width = (maxWidth * scale) / 20;
 					canvas.height = (maxHeight * scale) / 20;
-
 
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
 					var m2 = [scale / 20, 0, 0, scale / 20, ((0 - minX) / 20) * scale, ((0 - minY) / 20) * scale];
@@ -902,6 +903,8 @@
 
 				var soritimage = document.getElementById("soritimage");
 
+				var shapesloadmore = document.getElementById("shapesloadmore");
+
 				var shapegdloadmore = document.createElement("a");
 
 	            player.setOptions({
@@ -936,15 +939,20 @@
 					ss = 0;
 				}
 
-
 				function showShapes() {
-					for (let js = ss; js < (ss + Math.min(atshapecga.length, 250)); js++) {
+					soundimage2.removeChild(shapesloadmore);
+					for (let js = ss; js < (ss + Math.min(atshapecga.length - ss, 250)); js++) {
 						const _data = atshapecga[js];
 						var ats = new ATShape(shapeUtils.convert(_data.shapes), _data.id);
 						soundimage2.appendChild(ats.root);
 						atshapepre.push(ats);
 					}
-					ss += Math.min(atshapecga.length, 250);
+					soundimage2.appendChild(shapesloadmore);
+					ss += Math.min(atshapecga.length - ss, 250);
+				}
+				
+				shapesloadmore.onclick = function() {
+					showShapes();
 				}
 				
 				player.onload.subscribe(function (stage) {

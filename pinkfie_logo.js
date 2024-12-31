@@ -212,6 +212,22 @@ window.pinkfieSampleSWF = (function() {
 			}
 		},
 		{
+			name: "597630_video",
+			md5: "dff015fb0e92b293f36fcad7c5b6a4ff_09ac7b3b3e80e488a13deab1d607bbf2_830785bb68cba4ce8a7fa17c3eb11ec7",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			name: "videoplayback_5_by_cesarpenco-d9zfo5e",
+			md5: "dad928da3403cd9f34099a8dd4bfe16f",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
 			"name": "--- My Little Pony Animations ---"
 		},
 		{
@@ -828,7 +844,7 @@ window.pinkfieSampleSWF = (function() {
 			"md5": "55d39ee9852ecd342fbc9dc329fcb949"
 		},
 		{
-			"name": "VP6",
+			"name": "?",
 			"md5": "4bdc1165ffa2a1baab9229e5000d2e46_657ba36e1fa42d4bfdf11d6a6ab9b1da",
 			"playerOptions": {
 				"vCamId": "",
@@ -973,6 +989,33 @@ window.pinkfieSampleSWF = (function() {
 			"md5": "13cfb02a88c05d346770d24448146438"
 		},
 		{
+			"name": "__game___falcon_punch_by_mushroomcookiebear-d5yphfu",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"md5": "ad9794e6a60b4f9c428002f9c375cecb"
+		},
+		{
+			"name": "2500_faves_for_faust_by_alfa995-d45j566",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"md5": "327a4c5bb8734d5e86b98283aa407ac6"
+		},
+		{
+			"name": "my_little_springtrap_sneak_peek_by_toxicalien2014-d8qs9yw",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"md5": "2cde6532dd9ad660f50fe59c86b00c8d"
+		},
+		{
 			"name": "--- Pencilmation Animations ---"
 		},
 		{
@@ -1099,7 +1142,7 @@ window.pinkfieSampleSWF = (function() {
 			"name": "THE OLYMPIC GAMES",
 			"playerOptions": {
 				"vCamId": "",
-				"allowAvm": false
+				"allowAvm": true
 			},
 			"md5": "96fc7b16d8050a39fc0074a95815d2c5"
 		},
@@ -1259,7 +1302,7 @@ window.pinkfieSampleSWF = (function() {
 			"name": "Pencilmation Hallowen",
 			"playerOptions": {
 				"vCamId": "",
-				"allowAvm": false
+				"allowAvm": true
 			},
 			"md5": "ea359414f27a14ef4a69dd398ae87169"
 		},
@@ -1267,7 +1310,7 @@ window.pinkfieSampleSWF = (function() {
 			"name": "Pencilmation xmas",
 			"playerOptions": {
 				"vCamId": "",
-				"allowAvm": false
+				"allowAvm": true
 			},
 			"md5": "5b7b0a52434bb4933c57c258fc2379d2"
 		},
@@ -1675,14 +1718,6 @@ window.pinkfieSampleSWF = (function() {
 			}
 		},
 		{
-			name: "anime_cats___artemis_by_alfa995",
-			md5: "24fdd77189ddf572c0c3e2dd84685c0d",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false
-			}
-		},
-		{
 			name: "_",
 			md5: "30c324809bde434052270868f03fd7b2",
 			"playerOptions": {
@@ -1800,6 +1835,14 @@ window.pinkfieSampleSWF = (function() {
 			"playerOptions": {
 				"vCamId": "",
 				"allowAvm": false
+			}
+		},
+		{
+			"name": "Nightmare City Catastrophe",
+			"md5": "73ae02714d176c823424780491124750",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true
 			}
 		},
 		{
