@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.44 (2024-12-31)
+ * v1.3.45 (2025-01-6)
  * 
  * Made in Peru
  */
@@ -74,8 +74,10 @@ var PinkFie = (function(moduleResults) {
 			constructor(stage) {
 				this.stage = stage;
 				this.audioContext = stage.audioContext;
-				this.node = this.audioContext.createGain();
-				this.node.connect(this.audioContext.destination);
+				if (this.audioContext) {
+					this.node = this.audioContext.createGain();
+					this.node.connect(this.audioContext.destination);	
+				}
 				this.playingAudios = [];
 				this.compressSoundMap = {};
 				this.tickTime = 0;
@@ -115,9 +117,15 @@ var PinkFie = (function(moduleResults) {
 				this.stopAllSoundStream(true);
 			}
 			pause() {
+				if (!this.audioContext) {
+					return;
+				}
 				this.audioContext.suspend();
 			}
 			resume() {
+				if (!this.audioContext) {
+					return;
+				}
 				this.audioContext.resume();
 			}
 			getPlayingAudioCount() {
@@ -131,9 +139,15 @@ var PinkFie = (function(moduleResults) {
 				return c;
 			}
 			getVolume() {
+				if (!this.audioContext) {
+					return 0;
+				}
 				return this.node.gain.value * 100;
 			}
 			setVolume(value) {
+				if (!this.audioContext) {
+					return;
+				}
 				this.node.gain.value = value / 100;
 			}
 			tick() {
@@ -290,6 +304,9 @@ var PinkFie = (function(moduleResults) {
 				return (a.__start + ((this.tickTime - a.startTime) / 1000)) >= a.duration;
 			}
 			startStreamSound(mc, frame, block) {
+				if (!this.audioContext) {
+					return;
+				}
 				var result = this.infoFrameBlock(mc, frame, block);
 		
 				if (this.playingAudios.length >= MAX_SOUND) {
@@ -408,6 +425,9 @@ var PinkFie = (function(moduleResults) {
 				return !sound.ended;
 			}
 			startSound(soundinfo, mc) {
+				if (!this.audioContext) {
+					return;
+				}
 				if (this.playingAudios.length >= MAX_SOUND) {
 					return;
 				}
@@ -531,21 +551,31 @@ var PinkFie = (function(moduleResults) {
 				// info.format.isStereo
 				// info.format.sampleRate
 				this.compressSoundMap[sound.format.compression] = true;
-				SoundDecoderCall.loadSound(this.audioContext, sound, function (buf) {
+				if (this.audioContext) {
+					SoundDecoderCall.loadSound(this.audioContext, sound, function (buf) {
+						var s = new Sound();
+						s.setBuffer(buf.buffer);
+						callback(s);
+					});
+				} else {
 					var s = new Sound();
-					s.setBuffer(buf.buffer);
 					callback(s);
-				});
+				}
 			}
 			decodeSoundStream(streamInfo, blocks, callback) {
 				if (streamInfo.stream.compression != 'uncompressedUnknownEndian') {
 					this.compressSoundMap[streamInfo.stream.compression] = true;
 				}
-				SoundDecoderCall.loadSoundStream(this.audioContext, streamInfo, blocks, function (buf) {
+				if (this.audioContext) {
+					SoundDecoderCall.loadSoundStream(this.audioContext, streamInfo, blocks, function (buf) {
+						var s = new SoundStream();
+						s.setBuffer(buf.buffer);
+						callback(s);
+					});	
+				} else {
 					var s = new SoundStream();
-					s.setBuffer(buf.buffer);
 					callback(s);
-				});
+				}
 			}
 			getSound(id) {
 				return this.stage.library.characterById(id);
@@ -12039,6 +12069,12 @@ var PinkFie = (function(moduleResults) {
 				this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
 				return this.canvas.toDataURL();
 			}
+			scanWithBlob(image, callback) {
+				this.canvas.width = image.width;
+				this.canvas.height = image.height;
+				this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
+				this.canvas.toBlob(callback);
+			}
 		}
 		class Player {
 			constructor(options = {}) {
@@ -12480,6 +12516,13 @@ var PinkFie = (function(moduleResults) {
 			getOptions() {
 				return this.options;
 			}
+			takeScreenshotBlob(calllback) {
+				if (!this.hasStage()) return;
+				var _movieCanvas = this.stage.canvas;
+				if (!this.isLoad) return;
+				var j = this.getSwfName();
+				this.scanned.scanWithBlob(_movieCanvas, calllback);
+			}
 			saveScreenshot() {
 				if (!this.hasStage()) return;
 				var _movieCanvas = this.stage.canvas;
@@ -12803,10 +12846,14 @@ var PinkFie = (function(moduleResults) {
 						break;
 					}
 					case 'if-audio-playable': {
-						if (this.audioContext.state === 'running') {
-							this.triggerStartMovie();
+						if (this.audioContext) {
+							if (this.audioContext.state === 'running') {
+								this.triggerStartMovie();
+							} else {
+								this.showClickToPlayContainer();
+							}	
 						} else {
-							this.showClickToPlayContainer();
+							this.triggerStartMovie();
 						}
 						break;
 					}
@@ -13217,7 +13264,7 @@ var PinkFie = (function(moduleResults) {
 								}
 								if (tag.tagcode == 39) break;
 							}
-							if ((Date.now() - startTime) > 20) {
+							if ((Date.now() - startTime) > 50) {
 								stopped = true;
 								break;
 							}

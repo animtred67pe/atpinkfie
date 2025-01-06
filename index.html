@@ -40,8 +40,10 @@
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
+				<label>or </label>
+				<a id="clickswfe">SWF Examples</a>
+				<div id="swfeArea"></div>
 				<ul>
-					<li><a class="dropdown">SWF Examples<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a></li>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
 					<li><a href="packager.html">HTML Packager</a></li>
@@ -63,6 +65,7 @@
 		<script src="common.js"></script>
 		<script src="pinkfie_logo.js"></script>
 		<script src="pinkfie.js"></script>
+		<script src="swfexamples.js"></script>
 		<script>
 			(function() {
 				function querySelector(selector) {
@@ -76,6 +79,7 @@
     			var initialTitle = document.title;
 
 				var player = new PinkFie.Player();
+				var swfeArea = document.getElementById('swfeArea');
 
 				window.player = player;
 
@@ -86,13 +90,12 @@
 				var pinkfiemenu = document.getElementById('pinkfiemenu');
 
 				var pinkfiestage = document.getElementById('pinkfiestage');
+				var clickswfe = document.getElementById('clickswfe');
 
 				var viewbbb2 = document.getElementById('viewbbb2');
 				var viewbbb3 = document.getElementById('viewbbb3');
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfieplayerarea');
-
-				var sampleSWFpkf = document.getElementById("sampleSWFpkf");
 
 				playerArea.appendChild(player.root);
 				fvolumeff.addEventListener('input', function (e) {
@@ -233,7 +236,6 @@
 					} else if (infoSample.file) {
 						loadSwfFile(infoSample.file);
 					}
-					sampleSWFpkf.value = "";
               		document.title = name + ' - PinkFie';
 				}
 
@@ -255,26 +257,28 @@
 				var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
 				downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
 
-				sampleSWFpkf.addEventListener("change", () => {
-					var Bval = sampleSWFpkf.value;
-					if (Bval) {
-						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
-							const gd = pinkfieSampleSWF[k];
-							if (gd.name == Bval) {
-								loadSampleSWF(gd);
-								break;
-							}
-						}
+				var sef = new SWFE(pinkfieSampleSWF);
+				sef.root.style.display = "none";
+				swfeArea.appendChild(sef.root);
+
+				clickswfe.onclick = function() {
+					if (sef.root.style.display == "none") {
+						sef.root.style.display = "";
+						sef.load();
+					} else {
+						sef.root.style.display = "none";
 					}
-					ggtitle5.textContent = Bval.slice(0, 60);
-				});
-				for (let i = 0; i < pinkfieSampleSWF.length; i++) {
-					const element = pinkfieSampleSWF[i];
-					var name = element.name;
-					var g = document.createElement('option');
-					g.value = name;
-					g.textContent = name;
-					sampleSWFpkf.appendChild(g);
+				}
+				
+				if (Common.swfexamples) {
+					sef.root.style.display = "";
+					sef.load();
+				}
+
+				sef.onclick = function(gd) {
+					//sef.root.style.display = "none";
+					loadSampleSWF(gd);
+					ggtitle5.textContent = gd.name.slice(0, 60);
 				}
 
 				function getDefaultDarkMode() {

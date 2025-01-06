@@ -45,6 +45,7 @@ var Common = (function() {
   }
   
   var autoplay = URLsearchParams("autoplay", true);
+  var swfexamples = URLsearchParams("swfexamples", true);
 
   if (URLsearchParams("viral", true)) {
     playerOptions.wth = 1;
@@ -55,6 +56,7 @@ var Common = (function() {
   return {
     playerOptions: playerOptions,
     swfUrl,
-    autoplay
+    autoplay,
+    swfexamples
   };
 }());
