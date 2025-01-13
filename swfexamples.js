@@ -1,33 +1,61 @@
-var SWFE = function(datas) {
+var SWFE = function(datas, f) {
 	this.root = document.createElement('div');
 	this.root.style.width = "640px";
 	this.root.style.height = "360px";
 	this.root.style.overflow = "auto";
-	this.datas = datas;
+	this._di = document.createElement('div');
+	this.root.appendChild(this._di);
+	this.elements = [];
+	var result = [];
+	for (var i = 0; i < datas.length; i++) {
+		var data = datas[i];
+		if (data.md5 && data.thumb) {
+			if (!f || (data.metadata.indexOf(f) >= 0)) {
+				result.push(data);
+			}
+		}
+	}
+	this.images = {};
+	this.datas = result;
 	this.onclick = null;
 	this.isload = false;
 }
 SWFE.prototype.load = function() {
+	var _this = this;
 	if (this.isload) return;
 	this.isload = true;
-	for (var i = 0; i < this.datas.length; i++) {
-		var data = this.datas[i];
-		if (data.md5 && data.thumb) {
-			this.root.appendChild(this.loadElement(data));
-		} else {
-			//var elem = document.createElement('h3');
-			//elem.textContent = data.name;
-			//this.root.appendChild(document.createElement('br'));
-			//this.root.appendChild(elem);
-			//this.root.appendChild(document.createElement('br'));
+	var dfg = Math.ceil(this.datas.length / 20);
+	for (var i = 0; i < dfg; i++) {
+		var r = document.createElement('button');
+		r.textContent = i + 1;
+		r.onclick = (function(_) {
+			return function() {
+				_this.loadElements(_);
+			}
+		}(i * 20));
+		this._di.appendChild(r);
+	}
+	this.loadElements(0);
+};
+SWFE.prototype.loadElements = function(a) {
+	while (this.elements.length) {
+		var elem = this.elements.pop();
+		this.root.removeChild(elem);
+	}
+	for (var i = 0; i < 20; i++) {
+		var data = this.datas[i + a];
+		if (data) {
+			var elem = this.loadElement(data);
+			this.elements.push(elem);
+			this.root.appendChild(elem);
 		}
 	}
-};
+}
 SWFE.prototype.loadElement = function(data) {
 	var _this = this;
 	var elem = document.createElement('div');
-	elem.style.width = "180px";
-	elem.style.height = "150px";
+	elem.style.width = "130px";
+	elem.style.height = "120px";
 	elem.style.overflow = "hidden";
 	elem.style.float = "left";
 	elem.style.margin = "5px";
@@ -35,14 +63,20 @@ SWFE.prototype.loadElement = function(data) {
 	elem.style.cursor = "pointer";
 	elem.style.border = "2px solid #fff";
 	var img = document.createElement('img');
-	img.width = 180;
-	img.height = 120;
+	img.width = 130;
+	img.height = 90;
 	img.title = data.metadata;
-	fetch("https://assets.scratch.mit.edu/internalapi/asset/" + data.thumb + "/get/").then(function(e) {
-		e.blob().then(function(a) {
-			img.src = URL.createObjectURL(a);
-		});
-	});
+	if (data.thumb in _this.images) {
+		if (_this.images[data.thumb]) img.src = URL.createObjectURL(_this.images[data.thumb]);
+	} else {
+		_this.images[data.thumb] = null;
+		fetch("https://assets.scratch.mit.edu/internalapi/asset/" + data.thumb + "/get/").then(function(e) {
+			e.blob().then(function(a) {
+				_this.images[data.thumb] = a;
+				img.src = URL.createObjectURL(a);
+			});
+		});	
+	}
 	elem.appendChild(img);
 	elem.onclick = function() {
 		if (_this.onclick) {

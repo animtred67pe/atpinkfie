@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.45 (2025-01-6)
+ * v1.3.46 (2025-01-10)
  * 
  * Made in Peru
  */
@@ -1848,6 +1848,7 @@ var PinkFie = (function(moduleResults) {
 				return new ShapeData(movieplayer, tag);
 			}
 			init(shapeData) {
+				if (!shapeData) return;
 				this.setId(shapeData.characterId);
 				this.shapeData = shapeData;
 			}
@@ -1927,6 +1928,7 @@ var PinkFie = (function(moduleResults) {
 				return new MorphShapeStatic(movieplayer, tag);
 			}
 			init(morphShapeData) {
+				if (!morphShapeData) return;
 				this.setId(morphShapeData.characterId);
 				this.morphShapeData = morphShapeData;
 			}
@@ -2328,6 +2330,7 @@ var PinkFie = (function(moduleResults) {
 				return new TextStatic(movieplayer, tag);
 			}
 			init(textData) {
+				if (!textData) return;
 				this.staticData = textData;
 				this.setId(textData.characterId);
 			}
@@ -7906,16 +7909,18 @@ var PinkFie = (function(moduleResults) {
 			var offset = 0;
 			var length = this.end;
 			var ret = '';
+			var uint8 = [];
 			while (true) {
 				var val = this.dataView.getUint8(bo + offset);
 				offset++;
 				if (val === 0 || (bo + offset) >= length) {
 					break;
 				}
+				uint8.push(val);
 				ret += String.fromCharCode(val);
 			}
 			this._position = bo + offset;
-			return ret;
+			return new TextDecoder().decode(new Uint8Array(uint8));
 		}
 		ByteStream.prototype.readStringWithLength = function() {
 			var count = this.readUint8();

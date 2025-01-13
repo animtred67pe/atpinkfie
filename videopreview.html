@@ -25,13 +25,19 @@
 	<body>
 		<a href="./" style="position: fixed; top: 10px; right: 10px;">back</a>
 		<div class="app">
-			<a href="#" id="loadswffile">Open .swf</a>
-			<label id="ggtitle5"></label>
+			<a href="#" id="clickswfe">SWF Examples</a>
+			<div id="swfeArea"></div>
 			<br>
+			<a href="#" id="loadswffile">Open .swf</a>
+			<h2 id="ggtitle5"></h2>
 			<div id="demo"></div>
 			<div id="swfvideos"></div>
 		</div>
+		<a href="https://animtred67pe.github.io/introtry9/" title="Go To SEATGERY Website" style="position:fixed; bottom: 10px; right: 10px; width:50px; height: 50px; background-size: 100%; opacity: 0.8; border-radius: 50%; background-image: url(data:image/png;base64,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)"></a>
 		<script src="pinkfie.js"></script>
+		<script src="common.js"></script>
+		<script src="pinkfie_logo.js"></script>
+		<script src="swfexamples.js"></script>
 		<script>
 			const ZLib = (function() {const A = {key: new Uint16Array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]), value: new Uint16Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])}, S = {key: new Uint16Array([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]), value: new Uint16Array([256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 280, 281, 282, 283, 284, 285, 286, 287, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255])};const Q = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]), W = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99]), E = new Uint16Array([3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0]), R = new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]), T = new Uint16Array([1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]);class B {constructor(_, a = 0, b = 0) {this.data = _, this.byte_offset = a, this.bit_offset = b, this.bit_buffer = null} readSubArray(n) {var a = this.data.subarray(this.byte_offset, this.byte_offset + n); return this.byte_offset += n, a;} readUint8() {return this.data[this.byte_offset++]} readUint16be() {var a = (this.data[this.byte_offset + 1] << 8) + this.data[this.byte_offset]; return this.byte_offset += 2, a} readUB(n) {let z = 0; for (let i = 0; i < n; i++) {if (this.bit_offset === 8) this.bit_buffer = this.data[this.byte_offset++], this.bit_offset = 0;z |= (this.bit_buffer & (1 << this.bit_offset++) ? 1 : 0) << i};return z}};const D = function (_) {let r = Math.max.apply(null, _);const p = _.length, c = new Uint8Array(r);let i = p, j = 0;while (i--) j = _[i], c[j] += (j > 0);let m = 0, o = 0;const g = new Uint16Array(r + 1);for (i = 0; i < r; ) m = (m + c[i++]) << 1, g[i] = m | 0, o = Math.max(o, m);const n = o + p, k = new Uint16Array(n), v = new Uint16Array(n);for (i = 0; i < p; i++) {if (j = _[i], j) {const u = g[j]; k[u] = j, v[u] = i, g[j] = (u + 1) | 0}};return {key: k, value: v}};const F = function (x, y, z) {let a = 0, b = 0;while (true) {b = (b << 1) | x.readUB(1); a++; if (y[b] === a) return z[b];}};return {decompress: function (_, n, v) {var a = v || 0; const o = new Uint8Array(n), br = new B(new Uint8Array(_), a + 2, 8), h = new Uint8Array(19); var y = 0, i = 0, b = 0, f = 0; while (!f) {f = br.readUB(1); let u = br.readUB(2), j = null, l = null; switch (u) {case 0: br.bit_offset = 8, br.bit_buffer = null, b = br.readUint16be(), br.byte_offset += 2, o.set(br.readSubArray(b), a), a += b; break; default: switch (u) {case 1: j = A, l = S; break; default: const q = br.readUB(5) + 257, w = br.readUB(5) + 1, e = br.readUB(4) + 4; for (i = 0; i < e; i++) h[Q[i]] = br.readUB(3); const s = D(h); h.fill(0); const c = q + w, d = new Uint8Array(c); let z = 0, t = 0; while (t < c) {y = F(br, s.key, s.value);switch (y) {case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 9: case 10: case 11: case 12: case 13: case 14: case 15: d[t++] = y, z = y; break; case 16: i = br.readUB(2) + 3, d.fill(z, t, t + i), t += i; break; case 17: i = br.readUB(3) + 3, t += i; break; case 18: i = br.readUB(7) + 11, t += i; break;}};j = D(d.subarray(q)), l = D(d.subarray(0, q))};y = 0;while (true) {if (y = 0 | F(br, l.key, l.value), 256 === y) break;if (y < 256) {o[a++] = y} else {const z = (y - 257) | 0; b = (E[z] + br.readUB(W[z])) | 0; const x = F(br, j.key, j.value); i = (a - ((T[x] + br.readUB(R[x])) | 0)) | 0; while (b--) o[a++] = o[i++];}}}} return o.buffer}}}());
 			const Bitmap = function(width, height, format, data) {
@@ -470,6 +476,25 @@
 				}
 			}
 
+			var swfeArea = document.getElementById('swfeArea');
+
+			var sef = new SWFE(pinkfieSampleSWF, "Videos Codec:");
+			sef.root.style.display = "none";
+			swfeArea.appendChild(sef.root);
+
+			clickswfe.onclick = function() {
+				if (sef.root.style.display == "none") {
+					sef.root.style.display = "";
+					sef.load();
+				} else {
+					sef.root.style.display = "none";
+				}
+			}
+			sef.onclick = function(gd) {
+				sef.root.style.display = "none";
+				loadSampleSWF(gd);
+			}
+
 			function slowswf() {
 				demo.innerHTML = "<br>preloading videos";
 
@@ -521,68 +546,181 @@
 				
 			}
 
+			function _reset() {
+				for (var i = 0; i < videos.length; i++) {
+					var vgf = videos[i];
+					if (vgf) {
+						vgf.player.pause();
+						swfvideos.removeChild(vgf.root);
+					}
+				}
+				videos = [];
+			}
+
+			function loadSwfBuffer(buffer) {
+				var swfparser = new SwfTag(buffer);
+				swfparser.onprogress = function(fs) {
+					if (fs[0]) {
+						demo.innerHTML = "<br>decoding tags " + Math.round(fs[1] * 100) + "%";
+					} else {
+						demo.innerHTML = "<br>compressed swf " + Math.round(fs[1] * 100) + "%";
+					}
+				}
+				swfparser.onload = function() {
+					slowswf();
+				}
+				swfparser.onerror = function(e) {
+				}
+				swfparser.onstartmovie = function(header, movieInfo, tagCallback) {
+					function j(s, h) {
+						var g = [];
+						s._ontag = function(o) {
+							g.push(o);
+							if (o.tagcode == 39) {
+								j(o.tagCallback, function(b) {
+									o.tags = b;
+								});
+							};
+							return null;
+						}
+						s._onend = function() {
+							h(g);
+						}
+					}
+					resultswf = {};
+					resultswf.header = header;
+					resultswf.movieInfo = movieInfo;
+					j(tagCallback, function(q) {
+						resultswf.tags = q;
+					});
+				}
+				swfparser.load();
+			}
+
+			function fetchSwfMd5(md5, callback, callbackProgress) {
+				var xhr = new XMLHttpRequest();
+				xhr.onload = function () {
+					callback(new Uint8Array(xhr.response.slice(0x2c)));
+				};
+				xhr.onprogress = function (e) {
+					if (callbackProgress) callbackProgress(e.loaded / e.total);
+				};
+				xhr.onerror = function () {
+					callback(null);
+				};
+				xhr.responseType = "arraybuffer";
+				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
+				xhr.send();
+			}
+			function fetchSwfUrl(url, callback, callbackProgress) {
+				var xhr = new XMLHttpRequest();
+				if (Array.isArray(url)) {
+					var result = [];
+					var id_md5 = 0;
+					function _excgfd() {
+						if (result.length > 1) {
+							var len = 0;
+							for (var i = 0; i < result.length; i++) {
+								len += result[i].length;
+							}
+							var res = new Uint8Array(len);
+							var offest = 0;
+							for (var i = 0; i < result.length; i++) {
+								res.set(result[i], offest);
+								offest += result[i].length;
+							}
+							callback(new Blob([res]), null);
+						} else {
+							callback(new Blob([result[0]]), null);
+						}
+					}
+					function _next() {
+						fetchSwfMd5(url[id_md5], function(res) {
+							if (!res) {
+								callback(null, "failed md5");
+								return;
+							}
+							id_md5++;
+							result.push(res);
+							if (id_md5 >= url.length) {
+								_excgfd();
+							} else {
+								_next();
+							}
+						}, function(_p) {
+							if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length));
+						});
+					}
+					_next();
+				} else {
+					xhr.onload = function () {
+						if (xhr.status !== 200) {
+							callback(null, xhr.status || xhr.statusText);
+						} else {
+							var dat = new Uint8Array(xhr.response);
+							callback(new Blob([dat]), null);
+						}
+					};
+					xhr.onprogress = function (e) {
+						if (callbackProgress) callbackProgress(e.loaded / e.total);
+					};
+					xhr.onerror = function () {
+						callback(null, "unknown");
+					};
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", url);
+					xhr.send();
+				}
+			}
+
+			function loadSwfURL(array) {
+				demo.innerHTML = "<br>loading swf url";
+				fetchSwfUrl(array, function(a) {
+					var reader = new FileReader();
+					reader.onload = function(e) {
+						loadSwfBuffer(e.target.result);
+					};
+					reader.readAsArrayBuffer(a);
+				}, function(e) {
+					demo.innerHTML = "<br>loading swf url " + Math.round(e * 100) + "%";
+				})
+			}
+
+			function loadSampleSWF(infoSample) {
+				_reset();
+				var name = infoSample.name;
+				ggtitle5.textContent = name;
+				if (infoSample.md5) {
+					loadSwfURL(infoSample.md5.split("_"));
+				}
+			}
+
 			var loadprojectfile = document.getElementById('loadswffile');
 			loadprojectfile.onclick = function () {
 				var sa = document.createElement('input');
 				sa.type = 'file';
 				sa.accept = '.swf';
+
 				sa.addEventListener('change', function (e) {
 					var file = e.target.files[0];
 					if (!file) 
 						return;
+
 					ggtitle5.textContent = file.name || "";
-					for (var i = 0; i < videos.length; i++) {
-						var vgf = videos[i];
-						if (vgf) {
-							vgf.player.pause();
-							swfvideos.removeChild(vgf.root);
-						}
-					}
-					videos = [];
+					_reset();
 					demo.innerHTML = "<br>opening swf file";
 					var reader = new FileReader();
 					reader.onload = function(e) {
-						var swfparser = new SwfTag(e.target.result);
-						swfparser.onprogress = function(fs) {
-							if (fs[0]) {
-								demo.innerHTML = "<br>decoding tags " + Math.round(fs[1] * 100) + "%";
-							} else {
-								demo.innerHTML = "<br>compressed swf " + Math.round(fs[1] * 100) + "%";
-							}
-						}
-						swfparser.onload = function() {
-							slowswf();
-						}
-						swfparser.onerror = function(e) {
-						}
-						swfparser.onstartmovie = function(header, movieInfo, tagCallback) {
-							function j(s, h) {
-								var g = [];
-								s._ontag = function(o) {
-									g.push(o);
-									if (o.tagcode == 39) {
-										j(o.tagCallback, function(b) {
-											o.tags = b;
-										});
-									};
-									return null;
-								}
-								s._onend = function() {
-									h(g);
-								}
-							}
-							resultswf = {};
-							resultswf.header = header;
-							resultswf.movieInfo = movieInfo;
-							j(tagCallback, function(q) {
-								resultswf.tags = q;
-							});
-						}
-						swfparser.load();
+						loadSwfBuffer(e.target.result);
 					};
 					reader.readAsArrayBuffer(file);
 				}, false);
 				sa.click();
+			}
+				
+			if (Common.swfexamples) {
+				sef.root.style.display = "";
+				sef.load();
 			}
 		</script>
 	</body>
