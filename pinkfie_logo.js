@@ -7,276 +7,11 @@ window.pinkfieSampleSWF = (function() {
 		//        "allowAvm": false
 		//    }
 		//},
-		//{
-		//	"name": "PinkFie Logo",
-		//	"md5": "4081f087eb3e51d2a5eb7517f1614da9"
-		//}
-	var _ = [
+	return [
 		{
 			"name": "PinkFie Logo",
 			"md5": "4081f087eb3e51d2a5eb7517f1614da9"
 		},
-		{
-			"name": "--- Videos ---",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false
-			}
-		},
-		{
-			"name": "522938_snowmen1",
-			"md5": "4720b6cc9060cf06a6bfd047f427acb3_4859cea18c3ae95f163a78327c55c61a",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "7ffbf1b877e726dfde2a0274f067a3dd.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: bitmap,shape,buttom,movieclip,morphshape,text,video"
-		},
-		{
-			"name": "Equestria Girls",
-			"md5": "95a0364be50d4a851e67799bfc1ccbd7",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "d98484ef2a42e9f61b2e9b2c41672ea7.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "suckmylazytown",
-			"md5": "67ff85a6b0c1d1ef3aefed830ea103ba",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "8904259dcc990603c6873bba7009ec83.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "lucky star IOSYS",
-			"md5": "a9b0fcded90e174b3ace03c006ecd7e1",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "9310c956a8bf64be8211418372e3e4ba.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "591063_princesa_luna_corto_para_N",
-			"md5": "adf9e3e1a4d42ff9577d449f55b3a3b4_0adcad05464e0d2e5ef312eedd9c5321",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "add21f90bbb8917ba02ad413f4019606.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video,text"
-		},
-		{
-			"name": "528599_video05",
-			"md5": "3735a836f4a7f59fd5029c6ada49b690_c6b7b46555fbdef11bae64ba624f6ce8",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "329349950756d2723907de5e42e91e31.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,bitmap,text,edittext,morphshape,video"
-		},
-		{
-			"name": "552278_planetnisa2.wmv",
-			"md5": "1c22945d82c13f3d570665b98998f0af",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "d733aec961d8c51cbcf4dac0266dabd6.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "546714_Video_7",
-			"md5": "bcd8d9fba68e8d958c3a73b3ccbe6f70",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "c3a6c0d651a66b7c51126af9dabd3fa4.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "539223_Flash_GTA_SA",
-			"md5": "79bde1149227e618e82a5fb269c5458d",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "bc04795b9216f31ccb70e6658d7d6825.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: bitmap,shape,movieclip,buttom,text,video"
-		},
-		{
-			"name": "532624_SnowLady",
-			"md5": "c502323964930a8b5a3b25665e25c74b",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "c56dd3d97eac8856b656c5713c3e1eea.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: nellymoser Videos Codec: Vp6 DisplayObject Types: bitmap,shape,buttom,movieclip,video"
-		},
-		{
-			"name": "【Touhou】Sakkyun Hair Makeover【東方手書き】",
-			"md5": "613242b9dfef8307e70982fdf51bd3ed_4ad71ae9de436eb9b0a6d2b135580078",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "31268caf8f4f1a4fbc4c97ce72377da8.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: video"
-		},
-		{
-			"name": "599450_Jamie's_Video(1)",
-			"md5": "63774ff7c747afab6f5ed5e39a7c3deb_e42905d0927985f82417f2eb6abf6d07",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "dcadd6b0a851d5d8a7149f37d93c9fe8.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "588352_Counter-Strike_Animated_Mo",
-			"md5": "b5c92f19d833bebe9bae259782d2059a_e07861c29d92b04e32493ab716685834_d9d567f2a1c73015a1371eab69e77320",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "ec8f60eb2542ee2c3032b0f0f5e02ef0.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,bitmap,buttom,morphshape,video"
-		},
-		{
-			"name": "LazyTownPirateSong",
-			"md5": "9c611b004577f6763b05560fedb9548b",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "7f8863bfdc11ac9064e0a99b26608f26.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "Otsuka - Sakuranbo",
-			"md5": "1e81abfb938d3ee6093e7fba2ce397c4",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "0d2a57a8164da5101dbcb72d36808593.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "【重音テト】重音territory",
-			"md5": "5ec2969b3de4a96a5b4ebe67789d48bf",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "b2ca05a197296ee13b85f0d036d8054e.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "Living the Dream",
-			"md5": "f449060fc208ec62b5f7a2645ca82b99",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "0fd8d1f551847bced90effbe8dc52899.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "POOOOONNNNNNNYYYY",
-			"md5": "09d74b9e1bc84cc4405b828cac9ebc06",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "4126463dadeaeba86b29b66970b74486.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,text,buttom,video"
-		},
-		{
-			"name": "540772_gta3 (RIGHT CLICK TO PLAY)",
-			"md5": "6c869cb73f27d39871c459ddb466cdbd",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": true,
-				"unloop": false
-			},
-			"thumb": "8eda9c0004e2e68426b13979a9fef16e.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,morphshape,text,video"
-		},
-		{
-			"name": "derpy_trot_by_bunnimation-d57b6ki",
-			"md5": "bf9d31869f84629c2a380e006ce0e2e2_8dc126639e131cc15241a91fcacebf6f",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": true,
-				"unloop": false
-			},
-			"thumb": "f53ee065bbe2568458659cbc560fddb3.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: video"
-		},
-		{
-			"name": "Icelandic Pirates",
-			"md5": "a04ddeaefa6ce08bf9751bfcd22511a9",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "d012abc0e6ae9be9307f093c737c3f10.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{
-			"name": "597630_video",
-			"md5": "dff015fb0e92b293f36fcad7c5b6a4ff_09ac7b3b3e80e488a13deab1d607bbf2_830785bb68cba4ce8a7fa17c3eb11ec7",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "5ab6dd2f7668d35a630631c257aab33c.png",
-			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,bitmap,text,video"
-		},
-		{
-			"name": "videoplayback_5_by_cesarpenco-d9zfo5e",
-			"md5": "dad928da3403cd9f34099a8dd4bfe16f",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": false,
-				"unloop": false
-			},
-			"thumb": "51174943d5e175ae09c3a8a124ce3f3c.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
-		},
-		{"name":"derpy","md5":"d595d465e96d675cae7d004f8eaf3aba","playerOptions":{"vCamId":"","allowAvm":false,"unloop":false},"thumb":"51b516e189dc243b550b1793699314ab.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"},
 		{
 			"name": "--- My Little Pony Animations ---",
 			"playerOptions": {
@@ -591,17 +326,6 @@ window.pinkfieSampleSWF = (function() {
 			"md5": "f4c95e333c37995e7a8f02b628bdb25e",
 			"thumb": "1e005ce1122dbf7caf46cb03f3f93933.png",
 			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,movieclip,buttom,morphshape"
-		},
-		{
-			"name": "d4n7vum-e50baa44-324a-4f64-ab0e-7dab395b977b",
-			"playerOptions": {
-				"vCamId": "",
-				"allowAvm": true,
-				"unloop": false
-			},
-			"md5": "b102fa02a6e5dcdbc5c4302559f2d919",
-			"thumb": "71c7e581213773deb93c74f2359742cc.png",
-			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: bitmap,shape,text,movieclip,buttom,morphshape"
 		},
 		{
 			"name": "mlp_thinking_with_portals__lamp_maintenance_by_yudhaikeledai-d4pc5tl",
@@ -1362,13 +1086,94 @@ window.pinkfieSampleSWF = (function() {
 			"thumb": "926c281408cf4f0ec4cf63465241bd99.png",
 			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,bitmap,movieclip,text,buttom"
 		},
-		{"name":"FluttęrRage","md5":"64307bb856f40214be6df194432820df","playerOptions":{"vCamId":"","allowAvm":false,"unloop":false},"thumb":"b8dc66116a427dbca510d50d33bca848.png","metadata":"ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: bitmap,shape,movieclip"},
-		{"name":"My Little Pony outtake 2","md5":"8550ab1666dcde7607a244a608119d8d","playerOptions":{"vCamId":"","allowAvm":false,"unloop":true},"thumb":"116b37002d9689099117a506820294fb.png","metadata":"ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: bitmap,shape,movieclip,text,buttom,morphshape,video"},
-		{"name":"The fresh prince of Mutton Bash","md5":"fbcd50bc10fe90e786e705541218aec6","playerOptions":{"vCamId":"","allowAvm":false,"unloop":false},"thumb":"097c62d3337cf85fbbdd390723c8b483.png","metadata":"ActionScript 3: true Sounds Compressions: nellymoser DisplayObject Types: shape,movieclip"},
-		{"name":"1327329865038","md5":"a26ed30b42c9f9d73814e093efcca70e","playerOptions":{"vCamId":"2","allowAvm":true,"unloop":false},"thumb":"6380b2cff3c06a77d8849709451b31fe.png","metadata":"ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,text"},
-		{"name":"1318956408873","md5":"548e5a6caf9ba86fc5322da026a19269","playerOptions":{"vCamId":"","allowAvm":true,"unloop":false},"thumb":"db545d48dfc467880d4fa1f3be629126.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,buttom,bitmap"},
-		{"name":"1329576104133","md5":"518aff9eab840ed5459f64e34beb4eba","playerOptions":{"vCamId":"2","allowAvm":true,"unloop":false},"thumb":"ced0c94b2e20b1722eca379e0ecb22c7.png","metadata":"ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,text,bitmap"},
-		{"name":"1333376923950","md5":"c901186ebf9358c54acbda35c055bffd","playerOptions":{"vCamId":"","allowAvm":true,"unloop":false},"thumb":"5f96ed8d6d6d3df5c5ade8b2ef97548a.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,movieclip,morphshape,buttom"},
+		{
+			"name": "FluttęrRage",
+			"md5": "64307bb856f40214be6df194432820df",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "b8dc66116a427dbca510d50d33bca848.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: bitmap,shape,movieclip"
+		},
+		{
+			"name": "My Little Pony outtake 2",
+			"md5": "8550ab1666dcde7607a244a608119d8d",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": true
+			},
+			"thumb": "116b37002d9689099117a506820294fb.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: bitmap,shape,movieclip,text,buttom,morphshape,video"
+		},
+		{
+			"name": "The fresh prince of Mutton Bash",
+			"md5": "fbcd50bc10fe90e786e705541218aec6",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "097c62d3337cf85fbbdd390723c8b483.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: nellymoser DisplayObject Types: shape,movieclip"
+		},
+		{
+			"name": "1327329865038",
+			"md5": "a26ed30b42c9f9d73814e093efcca70e",
+			"playerOptions": {
+				"vCamId": "2",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "6380b2cff3c06a77d8849709451b31fe.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,text"
+		},
+		{
+			"name": "1318956408873",
+			"md5": "548e5a6caf9ba86fc5322da026a19269",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "db545d48dfc467880d4fa1f3be629126.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,buttom,bitmap"
+		},
+		{
+			"name": "1329576104133",
+			"md5": "518aff9eab840ed5459f64e34beb4eba",
+			"playerOptions": {
+				"vCamId": "2",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "ced0c94b2e20b1722eca379e0ecb22c7.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,text,bitmap"
+		},
+		{
+			"name": "1333376923950",
+			"md5": "c901186ebf9358c54acbda35c055bffd",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "5f96ed8d6d6d3df5c5ade8b2ef97548a.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,movieclip,morphshape,buttom"
+		},
+		{
+			"name": "__animated___spitfire__s_gift_for_xyro_by_wildanime-d4v9oym",
+			"md5": "2d712a066a4e3c8990d478064930f8e9",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "758d700b965acc646da369626b56faf4.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,buttom,morphshape"
+		},
 		{
 			"name": "--- Pencilmation Animations ---",
 			"playerOptions": {
@@ -2015,6 +1820,288 @@ window.pinkfieSampleSWF = (function() {
 			"metadata": "ActionScript 3: false Sounds Compressions: ADPCM DisplayObject Types: shape,movieclip,morphshape,text,buttom"
 		},
 		{
+			"name": "--- Videos ---",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false
+			}
+		},
+		{
+			"name": "522938_snowmen1",
+			"md5": "4720b6cc9060cf06a6bfd047f427acb3_4859cea18c3ae95f163a78327c55c61a",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "7ffbf1b877e726dfde2a0274f067a3dd.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: bitmap,shape,buttom,movieclip,morphshape,text,video"
+		},
+		{
+			"name": "Equestria Girls",
+			"md5": "95a0364be50d4a851e67799bfc1ccbd7",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "d98484ef2a42e9f61b2e9b2c41672ea7.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "suckmylazytown",
+			"md5": "67ff85a6b0c1d1ef3aefed830ea103ba",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "8904259dcc990603c6873bba7009ec83.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "lucky star IOSYS",
+			"md5": "a9b0fcded90e174b3ace03c006ecd7e1",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "9310c956a8bf64be8211418372e3e4ba.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "591063_princesa_luna_corto_para_N",
+			"md5": "adf9e3e1a4d42ff9577d449f55b3a3b4_0adcad05464e0d2e5ef312eedd9c5321",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "add21f90bbb8917ba02ad413f4019606.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video,text"
+		},
+		{
+			"name": "528599_video05",
+			"md5": "3735a836f4a7f59fd5029c6ada49b690_c6b7b46555fbdef11bae64ba624f6ce8",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "329349950756d2723907de5e42e91e31.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,bitmap,text,edittext,morphshape,video"
+		},
+		{
+			"name": "552278_planetnisa2.wmv",
+			"md5": "1c22945d82c13f3d570665b98998f0af",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "d733aec961d8c51cbcf4dac0266dabd6.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "546714_Video_7",
+			"md5": "bcd8d9fba68e8d958c3a73b3ccbe6f70",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "c3a6c0d651a66b7c51126af9dabd3fa4.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "539223_Flash_GTA_SA",
+			"md5": "79bde1149227e618e82a5fb269c5458d",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "bc04795b9216f31ccb70e6658d7d6825.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: bitmap,shape,movieclip,buttom,text,video"
+		},
+		{
+			"name": "532624_SnowLady",
+			"md5": "c502323964930a8b5a3b25665e25c74b",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "c56dd3d97eac8856b656c5713c3e1eea.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: nellymoser Videos Codec: Vp6 DisplayObject Types: bitmap,shape,buttom,movieclip,video"
+		},
+		{
+			"name": "【Touhou】Sakkyun Hair Makeover【東方手書き】",
+			"md5": "613242b9dfef8307e70982fdf51bd3ed_4ad71ae9de436eb9b0a6d2b135580078",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "31268caf8f4f1a4fbc4c97ce72377da8.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: video"
+		},
+		{
+			"name": "599450_Jamie's_Video(1)",
+			"md5": "63774ff7c747afab6f5ed5e39a7c3deb_e42905d0927985f82417f2eb6abf6d07",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "dcadd6b0a851d5d8a7149f37d93c9fe8.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "588352_Counter-Strike_Animated_Mo",
+			"md5": "b5c92f19d833bebe9bae259782d2059a_e07861c29d92b04e32493ab716685834_d9d567f2a1c73015a1371eab69e77320",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "ec8f60eb2542ee2c3032b0f0f5e02ef0.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,bitmap,buttom,morphshape,video"
+		},
+		{
+			"name": "LazyTownPirateSong",
+			"md5": "9c611b004577f6763b05560fedb9548b",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "7f8863bfdc11ac9064e0a99b26608f26.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "Otsuka - Sakuranbo",
+			"md5": "1e81abfb938d3ee6093e7fba2ce397c4",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "0d2a57a8164da5101dbcb72d36808593.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "【重音テト】重音territory",
+			"md5": "5ec2969b3de4a96a5b4ebe67789d48bf",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "b2ca05a197296ee13b85f0d036d8054e.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "Living the Dream",
+			"md5": "f449060fc208ec62b5f7a2645ca82b99",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "0fd8d1f551847bced90effbe8dc52899.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "POOOOONNNNNNNYYYY",
+			"md5": "09d74b9e1bc84cc4405b828cac9ebc06",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "4126463dadeaeba86b29b66970b74486.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,text,buttom,video"
+		},
+		{
+			"name": "540772_gta3 (RIGHT CLICK TO PLAY)",
+			"md5": "6c869cb73f27d39871c459ddb466cdbd",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "8eda9c0004e2e68426b13979a9fef16e.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,morphshape,text,video"
+		},
+		{
+			"name": "derpy_trot_by_bunnimation-d57b6ki",
+			"md5": "bf9d31869f84629c2a380e006ce0e2e2_8dc126639e131cc15241a91fcacebf6f",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "f53ee065bbe2568458659cbc560fddb3.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: video"
+		},
+		{
+			"name": "Icelandic Pirates",
+			"md5": "a04ddeaefa6ce08bf9751bfcd22511a9",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "d012abc0e6ae9be9307f093c737c3f10.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "597630_video",
+			"md5": "dff015fb0e92b293f36fcad7c5b6a4ff_09ac7b3b3e80e488a13deab1d607bbf2_830785bb68cba4ce8a7fa17c3eb11ec7",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "5ab6dd2f7668d35a630631c257aab33c.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: shape,movieclip,buttom,bitmap,text,video"
+		},
+		{
+			"name": "videoplayback_5_by_cesarpenco-d9zfo5e",
+			"md5": "dad928da3403cd9f34099a8dd4bfe16f",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "51174943d5e175ae09c3a8a124ce3f3c.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "derpy",
+			"md5": "d595d465e96d675cae7d004f8eaf3aba",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "51b516e189dc243b550b1793699314ab.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "derpy_loves_her_lava_lamp_b_by_parallaxmlp-d4gwpwl",
+			"md5": "9d7766e849cd2afcca1da3828b991f71",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "558e868c01aacecc27f471ceb489ca88.png",
+			"metadata": "ActionScript 3: true Sounds Compressions: MP3 Videos Codec: Vp6 DisplayObject Types: video"
+		},
+		{
 			"name": "--- Other ---",
 			"playerOptions": {
 				"vCamId": "",
@@ -2483,11 +2570,71 @@ window.pinkfieSampleSWF = (function() {
 			"thumb": "bcf1aff11626501c4014e858f22322b4.png",
 			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,movieclip,edittext,buttom,bitmap,morphshape"
 		},
-		{"name":"freepalestine","md5":"0ff2a5fd383f9ab63b6704bc9888560f_d6137caee2966c65dc1b756857f2205f_549407d4f3be10a2cad3b454e838c204","playerOptions":{"vCamId":"","allowAvm":false,"unloop":false},"thumb":"16a4a7af320673f0e8edd174f1445f8d.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"},
-		{"name":"Virus Alert - Weird Al","md5":"442624ff61c8f81e189b9807e6b5670f","playerOptions":{"vCamId":"","allowAvm":true,"unloop":false},"thumb":"d735d1addf545fe6db2036cff9fd9fd4.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,bitmap,buttom,movieclip,edittext,morphshape"},
-		{"name":"Marisa stole the precious thing","md5":"13e308afd768e6e88ffb602b3c703d12","playerOptions":{"vCamId":"","allowAvm":false,"unloop":false},"thumb":"d10decb7ed5be76890693cc43e2fef20.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,edittext,buttom,movieclip,text,morphshape,bitmap"},
-		{"name":"asdfmovie","md5":"f808b3070bc649a95caa070b17da58d0","playerOptions":{"vCamId":"","allowAvm":true,"unloop":false},"thumb":"3aba1584d00715b3295079df9bfd9f6d.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,buttom,text,bitmap,morphshape"},
-		{"name":"426_narwhales2","md5":"2c5cba3db0e16a1f10890e55823f4360","playerOptions":{"vCamId":"","allowAvm":true,"unloop":false},"thumb":"1874620907999a0154b7bdf04c37b1e9.png","metadata":"ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: morphshape,shape,movieclip,text,buttom,edittext,bitmap"},
+		{
+			"name": "freepalestine",
+			"md5": "0ff2a5fd383f9ab63b6704bc9888560f_d6137caee2966c65dc1b756857f2205f_549407d4f3be10a2cad3b454e838c204",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "16a4a7af320673f0e8edd174f1445f8d.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 Videos Codec: H263 DisplayObject Types: video"
+		},
+		{
+			"name": "Virus Alert - Weird Al",
+			"md5": "442624ff61c8f81e189b9807e6b5670f",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "d735d1addf545fe6db2036cff9fd9fd4.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,text,bitmap,buttom,movieclip,edittext,morphshape"
+		},
+		{
+			"name": "Marisa stole the precious thing",
+			"md5": "13e308afd768e6e88ffb602b3c703d12",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": false,
+				"unloop": false
+			},
+			"thumb": "d10decb7ed5be76890693cc43e2fef20.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,edittext,buttom,movieclip,text,morphshape,bitmap"
+		},
+		{
+			"name": "asdfmovie",
+			"md5": "f808b3070bc649a95caa070b17da58d0",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "3aba1584d00715b3295079df9bfd9f6d.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: shape,movieclip,buttom,text,bitmap,morphshape"
+		},
+		{
+			"name": "426_narwhales2",
+			"md5": "2c5cba3db0e16a1f10890e55823f4360",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "1874620907999a0154b7bdf04c37b1e9.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: morphshape,shape,movieclip,text,buttom,edittext,bitmap"
+		},
+		{
+			"name": "967",
+			"md5": "be18dbcc02b82403609d0b07a8d74218",
+			"playerOptions": {
+				"vCamId": "",
+				"allowAvm": true,
+				"unloop": false
+			},
+			"thumb": "38389016b21adb1c6bf5836d9e6b5a82.png",
+			"metadata": "ActionScript 3: false Sounds Compressions: MP3 DisplayObject Types: bitmap,shape,movieclip"
+		}
 	];
-	return _;
 }());

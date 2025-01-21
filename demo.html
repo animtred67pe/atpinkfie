@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>PinkFie Player</title>
 		<link rel="stylesheet" type="text/css" href="pinkfie.css">
 		<style type="text/css">
-            body {
+			body {
 				font-family: monospace;
 				margin: 0;
 				overflow: hidden;
-                background-color: #000;
-            }
+				background-color: #000;
+			}
 			a {
 				cursor: pointer;
 				text-decoration: underline;
@@ -27,14 +27,14 @@
 			#pkfcontrols .pkfcontrolB {
 				margin: 3px;
 				padding: 5px;
-                background-color: #666;
+				background-color: #666;
 				color: #ffffff;
 				border-radius: 8px;
 				text-decoration-line: none;
 				transition: 0.2s;
 			}
 			#pkfcontrols .pkfcontrolB:hover {
-                background-color: #fff;
+				background-color: #fff;
 				color: #000000;
 				transition: 0.2s;
 			}
@@ -65,14 +65,14 @@
 	</head>
 	<body>
 		<div id="pkfcontrols">
-            <a href="./" class="pinkfielogo"></a>
-            <div style="height: 20px; margin: 12px; position: absolute; left: 50%; transform: translate(-50%, 0);">
-                <a class="pkfcontrolB" id="loadswffile">Select File</a>
-                <label id="ggtitle5">No file selected.</label>
-                <label> </label>
-                <label>Sample SWF:</label>
+			<a href="./" class="pinkfielogo"></a>
+			<div style="height: 20px; margin: 12px; position: absolute; left: 50%; transform: translate(-50%, 0);">
+				<a class="pkfcontrolB" id="loadswffile">Select File</a>
+				<label id="ggtitle5">No file selected.</label>
+				<label> </label>
+				<label>Sample SWF:</label>
 				<select value="" id="sampleSWFpkf"></select>
-            </div>
+			</div>
 			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
 		</div>
 		<div id="pinkswf">
@@ -93,7 +93,7 @@
 
 				player.debugSample = true;
 
-    			var initialTitle = document.title;
+				var initialTitle = document.title;
 
 				player.setOptions(Common.playerOptions);
 
@@ -184,7 +184,7 @@
 					document.title = initialTitle;
 					pinkswfmetadataResult.innerHTML = "";
 					swffileName = (file.name || "");
-	                ggtitle5.textContent = (file.name || "No file selected.");
+					ggtitle5.textContent = (file.name || "No file selected.");
 					player.loadSwfFromFile(file);
 				}
 
@@ -192,7 +192,7 @@
 					document.title = initialTitle;
 					pinkswfmetadataResult.innerHTML = "";
 					swffileName = "";
-	                ggtitle5.textContent = "No file selected.";
+					ggtitle5.textContent = "No file selected.";
 					player.loadSwfFromURL(url);
 				}
 
@@ -230,8 +230,8 @@
 					_resize_();
 				});
 				enswfmetadata.addEventListener("contextmenu", function(e) {
-	                e.preventDefault();
-	                player.showSetting();
+					e.preventDefault();
+					player.showSetting();
 				});
 				
 				function dropHandler(ev) {

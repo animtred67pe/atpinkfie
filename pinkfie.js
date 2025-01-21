@@ -1,7 +1,9 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.46 (2025-01-10)
+ * v1.3.5 (2025-01-21)
+ * 
+ * (c) 2025 SEATGERY
  * 
  * Made in Peru
  */
@@ -12081,6 +12083,102 @@ var PinkFie = (function(moduleResults) {
 				this.canvas.toBlob(callback);
 			}
 		}
+
+		class LoaderSwfUrl {
+			constructor(callback, callback2) {
+				this.callback = callback;
+				this.callback2 = callback2;
+			}
+			cancel() {
+				this.callback = null;
+				this.callback2 = null;
+			}
+			fetchSwfMd5(md5, callback, callbackProgress) {
+				var xhr = new XMLHttpRequest();
+				xhr.onload = function () {
+					callback(new Uint8Array(xhr.response.slice(0x2c)));
+				};
+				xhr.onprogress = function (e) {
+					if (callbackProgress) callbackProgress(e.loaded / e.total);
+				};
+				xhr.onerror = function () {
+					callback(null);
+				};
+				xhr.responseType = "arraybuffer";
+				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
+				xhr.send();
+			}
+			fetchSwfUrl(url, callback, callbackProgress) {
+				var _this = this;
+				var xhr = new XMLHttpRequest();
+				if (Array.isArray(url)) {
+					var result = [];
+					var id_md5 = 0;
+					function _excgfd() {
+						if (result.length > 1) {
+							var len = 0;
+							for (var i = 0; i < result.length; i++) {
+								len += result[i].length;
+							}
+							var res = new Uint8Array(len);
+							var offest = 0;
+							for (var i = 0; i < result.length; i++) {
+								res.set(result[i], offest);
+								offest += result[i].length;
+							}
+							callback(new Blob([res]), null);
+						} else {
+							callback(new Blob([result[0]]), null);
+						}
+					}
+					function _next() {
+						_this.fetchSwfMd5(url[id_md5], function(res) {
+							if (!res) {
+								callback(null, "failed md5");
+								return;
+							}
+							id_md5++;
+							result.push(res);
+							if (id_md5 >= url.length) {
+								_excgfd();
+							} else {
+								_next();
+							}
+						}, function(_p) {
+							if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length));
+						});
+					}
+					_next();
+				} else {
+					xhr.onload = function () {
+						if (xhr.status !== 200) {
+							callback(null, xhr.status || xhr.statusText);
+						} else {
+							var dat = new Uint8Array(xhr.response);
+							callback(new Blob([dat]), null);
+						}
+					};
+					xhr.onprogress = function (e) {
+						if (callbackProgress) callbackProgress(e.loaded / e.total);
+					};
+					xhr.onerror = function () {
+						callback(null, "unknown");
+					};
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", url);
+					xhr.send();
+				}
+			}
+			load(url) {
+				var _this = this;
+				this.fetchSwfUrl(url, function() {
+					if (_this.callback) _this.callback(...arguments);
+				}, function() {
+					if (_this.callback2) _this.callback2(...arguments);
+				});
+			}
+		}
+
 		class Player {
 			constructor(options = {}) {
 				this.audioContext = new AudioContext();
@@ -12098,6 +12196,7 @@ var PinkFie = (function(moduleResults) {
 				this.scanned = new ScreenCap();
 				this.stage = null;
 				this.currentLoader = null;
+				this.currentLoaderSwfUrl = null;
 				this.fullscreenEnabled = false;
 				this.clickToPlayContainer = null;
 				this.width = 0;
@@ -12323,7 +12422,6 @@ var PinkFie = (function(moduleResults) {
 
 				var rrjhg7 = document.createElement('label');
 				rrjhg7.innerHTML = "VCAM: ";
-
 
 				var rrj9 = document.createElement('input');
 				rrj9.type = 'text';
@@ -12690,6 +12788,7 @@ var PinkFie = (function(moduleResults) {
 			}
 			loadLoader(loader) {
 				var _this = this;
+				_this.currentLoaderSwfUrl = null;
 				_this.currentLoader = loader;
 				loader.audioContext = this.audioContext;
 				loader.onprogress = function (fs) {
@@ -12709,82 +12808,6 @@ var PinkFie = (function(moduleResults) {
 				};
 				loader.load();
 			}
-			fetchSwfMd5(md5, callback, callbackProgress) {
-				var xhr = new XMLHttpRequest();
-				xhr.onload = function () {
-					callback(new Uint8Array(xhr.response.slice(0x2c)));
-				};
-				xhr.onprogress = function (e) {
-					if (callbackProgress) callbackProgress(e.loaded / e.total);
-				};
-				xhr.onerror = function () {
-					callback(null);
-				};
-				xhr.responseType = "arraybuffer";
-				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
-				xhr.send();
-			}
-			fetchSwfUrl(url, callback, callbackProgress) {
-				var _this = this;
-				var xhr = new XMLHttpRequest();
-				if (Array.isArray(url)) {
-					var result = [];
-					var id_md5 = 0;
-					function _excgfd() {
-						if (result.length > 1) {
-							var len = 0;
-							for (var i = 0; i < result.length; i++) {
-								len += result[i].length;
-							}
-							var res = new Uint8Array(len);
-							var offest = 0;
-							for (var i = 0; i < result.length; i++) {
-								res.set(result[i], offest);
-								offest += result[i].length;
-							}
-							callback(new Blob([res]), null);
-						} else {
-							callback(new Blob([result[0]]), null);
-						}
-					}
-					function _next() {
-						_this.fetchSwfMd5(url[id_md5], function(res) {
-							if (!res) {
-								callback(null, "failed md5");
-								return;
-							}
-							id_md5++;
-							result.push(res);
-							if (id_md5 >= url.length) {
-								_excgfd();
-							} else {
-								_next();
-							}
-						}, function(_p) {
-							if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length));
-						});
-					}
-					_next();
-				} else {
-					xhr.onload = function () {
-						if (xhr.status !== 200) {
-							callback(null, xhr.status || xhr.statusText);
-						} else {
-							var dat = new Uint8Array(xhr.response);
-							callback(new Blob([dat]), null);
-						}
-					};
-					xhr.onprogress = function (e) {
-						if (callbackProgress) callbackProgress(e.loaded / e.total);
-					};
-					xhr.onerror = function () {
-						callback(null, "unknown");
-					};
-					xhr.responseType = "arraybuffer";
-					xhr.open("GET", url);
-					xhr.send();
-				}
-			}
 			loadSwfFromFile(file) {
 				this.beginLoadingSWF();
 				this.loadingContainerProgressText.textContent = "Loading SWF Data";
@@ -12795,7 +12818,7 @@ var PinkFie = (function(moduleResults) {
 				this.beginLoadingSWF();
 				this.loadingContainerProgressText.textContent = "Loading SWF URL";
 				var _this = this;
-				this.fetchSwfUrl(url, function (file, status) {
+				var loaderC = new LoaderSwfUrl(function (file, status) {
 					_this.swfData = file;
 					_this.__fdgdf.style.display = "";
 					if (file) {
@@ -12807,6 +12830,8 @@ var PinkFie = (function(moduleResults) {
 				}, function(r) {
 					_this.loadingContainerProgress.style.width = (r * 100) + "%";
 				});
+				this.currentLoaderSwfUrl = loaderC;
+				loaderC.load(url);
 			}
 			getInfoStage() {
 				var stage = this.stage;
@@ -13077,6 +13102,10 @@ var PinkFie = (function(moduleResults) {
 				if (this.currentLoader) {
 					this.currentLoader.cancel();
 					this.currentLoader = null;
+				}
+				if (this.currentLoaderSwfUrl) {
+					this.currentLoaderSwfUrl.cancel();
+					this.currentLoaderSwfUrl = null;
 				}
 				if (this.clickToPlayContainer) {
 					this.removeClickToPlayContainer();
@@ -16615,56 +16644,3 @@ var PinkFie = (function(moduleResults) {
 		wpjsm.exportJS = SwfParser;
 	},
 }));
-/*
- * @@@@@@@@%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%################****************************+****++++++++++++++++++++++++++++#
- * @@@@@@@@%%%%#%%%%%%%%%%%%%%%%%%%%%%%%%%####%%%#######**###**********+++++++++++++++++++++++++++++++++++++++++++++++#
- * @@@@@@@@@@%%#%%%%%%%%%%%%%%%%%%%%%%#*+=-----::::::::::::::::+#**+**++++++++++++++++++++++++++++++++++++===++===+===#
- * @@@@@@@@@%%%#%%%%%%%%%%%%%%%%#+=---------:-::::::::::::.......:#++++++++++++++++++++++++=======+===================*
- * @@@@@@@@%%%%#%%%%%%%%%%%%#+=-----------:::::::::::::............:*=++++++++++++++++================================*
- * @@@@@@%%%%%%#%%%%%%%%%+=======-------:::::::::::::................-*++++++++++===================-=-=--=--------===*
- * @@@@@%%%%%%%#%%%%%*++==========----:::::::-::::::::::........ .  ..:#*+++========================----------------==*
- * @@@@@%%%%%%%#%%%*++++=======-------:-----:-:::::.....................=*+====++=======------------:::--:::::::-:::::*
- * @@@@%%%%%%%%#%+++++=======--------------::-:::....................:...:*##=---*=====-.............  ..      ..  .. +
- * @@%%%%%%%%%*=++++=======---=------------:::::...   ......:...........-*-:----:-*===--.............   .       .  .. +
- * @@%%%%%%%*++=+++============---------==+***++++====-:::............-+---=====--*==---.............   .    .  ..  ..+
- * %%%%%%@#+++*#@%+===========--=+##**++===========--:..  :*:.......:*--=======+-:=*=---.............   .   ... ..   .+
- * %%%%%%**#@%%#+==========*##*++++++++======-=+#*++++=-......:::::=#==========*=--#---:.............   .   ..  ..   .+
- * %%%@#*%%%%@+=+=====+*%%###*++++========---::...:==-.....::::::=*#===========*:::*---:.............       ..       .+
- * %%@#%%%%%%+==+==+%%##*#%#=:-**=+=+====-:.............:--=++++==+*=========+#-:::*---:.............       ..       .+
- * %%@@%%%%@*+==+*%#####*#+::::-+*+======-:.....:-++++++--==================+*:::::*-::: ............       ..       .+
- * %%%%%%%@#++=*%#####**##=:::*@*#+======-:...*-.. .  .=+==+===============+-:::::+-::::   ..........       ..       .+
- * %%%%%%%%+*%########**#%@@@@@@#*+=====--..=:....    ..%#===#*++*##======:::::::-+:::::    .........       ..       .+
- * %%%%%%@#@%%########*#*%%@@@@@+=*========+.. ..    .:#@@*--:*===========-::-:::*::::::     ........       ..       .+
- * %%%%%%%%%%%########*#-::%@@@#:=++=====+=::%-.. ..=%@@@@*--:-##**+======-::-:=*::::::.   .  .......       .        .+
- * %%%%%%%%%%%#*#####*##--#@@%=::++====+*=::*@@@@@@@%@@@@@+-:::#+=========-:-+#+-::::::.   ... .....                 .+
- * %%%%%%%%%%%#*#####*#+::::::::-*=====++:..###@@@@%@@@@@#:::::*==++=====**=#-:::::::::.   ..........             ... +
- * %%%%%%%%%%%#*#####*#=:-------#+=====*-::....=@@%@@@@@*..:::-*========+=..+-:::::::::.   .........            ..    +
- * %%%%%%%%%%%#*#####*#*:------#+======*:::.:+%@@@%%@@%:....::*=========#:..*-::::::::::::::::::::::..................+
- * %%%%%%%%%%%#######%%#+=---+%+=======*:::::.:+#%%%+.. .. ..+=---::--=*:...+--:::::::::::::::::::::..................+
- * %%%%%%%%%%%######%+=======-=+=======*-:::::::....:::.....=-......:-*....-+--:::::::::.:............................+
- * %%%%%%%%%%%#######========+++=======++::::::::::::::::--#-:.... .--....:=---::::::::-.     ....     ...     ..    .+
- * %%%%%%%%%%%#######++++++++++++=======++::::::::::::::-+#==---:.:+......:+----::::--::....         ....             +
- * %%%%%%%%%%%######%*++++++++++++========##+::::::::-=**+=====-=+.  .....+------:---:::.          ... ..             +
- * %%%%%%%%%%%##%####%#++++++#%%%%%+==========++****+=========*+:..  ....+=-----------::.         ........            +
- * %%%%%%%%%%%##%#######%%%%#%#%*=-#=======================++:...... ...++------------::.         ..........          +
- * @%%%%%%%%%%##%#############@+--=#=====================++::..........++---------------.         ................ ...+
- * @%%%%%%%%%%##%#############%%*+------------------====*-............*+====------------.        .................... +
- * @@%%%%%%%%%##%#%###################*******####+=::--+-............++=======----=-----.  .........................  +
- * @@@%%%%%%%%##%%########%#########**********#---:::::=..=-.:::....=*=============-==--......................... .   +
- * @@@@%%%%%%%##%%#%######%###########******#+------::=--*+:::::...:#=============------.....................  . ..   +
- * @@@@@%%%%%%%#%%%%######%%###########****#=------=-:*+-+::::::...*+==+++============-=........................ .    +
- * @@@@@@%%%%%%#%%%%%#####%%%%#############=-----:::.+#.--::::::..=*++==================.............    .       .....+
- * @@@@@@%%%%%%#%%%%%%####%%%%############=-----::...=..+-::::::..#+++++++====================------------------------*
- * @@@@@@@@%%%%#%%%%%%%%#%%%%%%%########%===----::.....-*:::::::.=*++++++++++==============================-==--------*
- * @@@@@@@@@@@%#%%%%%%%%%%%%%%%%%%%####%+==----:::::::-++:::::::.*++**#********+++++=============================----=*
- * @@@@@@@@@@%%#%%%%%%%%%%%%%%%%%%%%%###=----::::::--==*=---::::-%+----------+*+=-=+#+=====+**+=-::::::--=+**=========*
- * @@@@@@@@@@@%#%%%%%%%%%%%%%%%%%%%%%##+-----:::::-==++*=--=%=--=*==========------=#+-=##=.::::::::.....:....:++======*
- * @@@@@@@@@@@%%%%%%%%%%%%@%%%%%%%%%%##=----------=++++#+-+#+%=-=*+===========--=+*#=-+**+#-:::::::::::...::..::*+===+#
- * @@@@@@@@@@@%%%%%%%%%%%%@%%%%%%%%%%#%=-==-----==+++++**-#+*#*-=#+++++++============+#+===*#+*#=:::::::-::::::::=#+++#
- * @@@@@@@@@@@%%%%%%%%%%%%@%@%%%%%%%%%%===========++++++#=#+#++#=#++++++++++++==++++++#*====#*++*+---------:---:::-#++#
- * @@@@@@@@@@@%%%%%%%%%%%%@@@%%%%%%%%%%++++++++++=+*++++#+**#+++*%#+++++++++++%%***+++++++++#%***#+#-------------:-+**#
- * @@@@@@@@@@@%%%%%%%%%%%%@@@@@%%%%%%%@*++++++++++++*****%#*%*+++++++++++++++++++#+++**##+*#=+%**#%##---------------#*#
- * @@@@@@@@@@@%%%%%%%%%%%%@@@@@@@%%%%%@*++++++++++++******@**%*++++++++++++++++*%#++++++**====#**#@##=============**#*%
- * @@@@@@@@@@@%%%%%%%%%%%%@@@@@@@@@%%@@#*++++++++++++******#***%#***++++*+*#%#*++++**##*++++==*######+============*#%#%
- * @@@@@@@@@@@%%@%%%%%%%%%@@@@@@@@@@@@@@%*************************#%%%%%%%%%%%%%##*===+*++*+++*%####%+++++++++++++*%##%
- */

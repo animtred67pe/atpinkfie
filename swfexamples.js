@@ -9,11 +9,7 @@ var SWFE = function(datas, f) {
 	var result = [];
 	for (var i = 0; i < datas.length; i++) {
 		var data = datas[i];
-		if (data.md5 && data.thumb) {
-			if (!f || (data.metadata.indexOf(f) >= 0)) {
-				result.push(data);
-			}
-		}
+		if (data.md5 && data.thumb) if (!f || (data.metadata.indexOf(f) >= 0)) result.push(data);
 	}
 	this.images = {};
 	this.datas = result;
