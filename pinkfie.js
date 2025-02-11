@@ -1,9 +1,9 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.5 (2025-01-21)
+ * v1.3.6 (2025-02-11)
  * 
- * (c) 2025 SEATGERY
+ * (c) 2025 Anim Tred Studio
  * 
  * Made in Peru
  */
@@ -591,7 +591,73 @@ var PinkFie = (function(moduleResults) {
 	},
 	"src/audio/SoundDecoder.js": function(wpjsm){
 		const JSNellymoserDecoder = wpjsm.importJS("src/utils/nellymoser.js");
+		const AT_MP3_Decoder = wpjsm.importJS("src/utils/at-mp3-decoder.js");
 		const ByteStream = wpjsm.importJS("src/utils/ByteStream.js");
+
+		function getMP3Header(stream, header) {
+			var mp3FrameHeader = header;
+			while (stream.getBytesAvailable() > 4) {
+				var frameStart = stream.position;
+				var header = stream.readInt32();
+				if (AT_MP3_Decoder.Header.isValidHeader(header)) {
+					mp3FrameHeader.parseHeader(header);
+					return mp3FrameHeader;
+				}
+				stream.position = frameStart + 1;
+			}
+			return null;
+		}
+		function decodeMP3(audioContext, data, numSamples, useSeekSample) {
+			var decoder = new AT_MP3_Decoder.Decoder();
+			var bitstream = new AT_MP3_Decoder.BitStream();
+			var byteStream = new ByteStream(data);
+			byteStream.littleEndian = true;
+			var seekSample = useSeekSample == undefined ? byteStream.readInt16() : useSeekSample;
+			byteStream.littleEndian = false;
+			var header = new AT_MP3_Decoder.Header();
+			var startPos = byteStream.position;
+			getMP3Header(byteStream, header);
+			byteStream.position = startPos;
+			var channels = header.mode() == AT_MP3_Decoder.Header.SINGLE_CHANNEL ? 1 : 2;
+			var buffer = audioContext.createBuffer(channels, numSamples, header.frequency());
+			var channelData0 = buffer.getChannelData(0);
+			var channelData1 = (channels == 2) ? buffer.getChannelData(1): null;
+			var idx1 = 0;
+			var idx2 = 0;
+			var sampleId = 0;
+			while(byteStream.getBytesAvailable() > 4) {
+				getMP3Header(byteStream, header);
+				var eeee = header.framesize;
+				if (!((byteStream.getBytesAvailable() - eeee) > 4)) 
+					break;
+				var frameStream = byteStream.readBytes(eeee);
+				bitstream.setData(new Uint8Array(frameStream));
+				var buf = decoder.decodeFrame(header, bitstream);
+				var pcm = buf.getBuffer();
+				var sc = ((header.version() == AT_MP3_Decoder.Header.MPEG1) ? 1152 : 576) * channels;
+				for (var i = 0; i < sc; i += channels) {
+					if ((sampleId >= seekSample) && sampleId < (numSamples + seekSample)) {
+						if (channels == 2) {
+							channelData0[idx1++] = (pcm[i] / 32768);
+							channelData1[idx2++] = (pcm[i + 1] / 32768);
+						} else {
+							channelData0[idx1++] = (pcm[i] / 32768);
+						}	
+					}
+					sampleId++;
+				}
+			}
+			return buffer;
+		}
+		function getMP3Sample(blocks) {
+			var s = 0;
+			for (let i = 0; i < blocks.length; i++) {
+				const block = blocks[i];
+				var _in = new ByteStream(block);
+				s += _in.readUint16();
+			}
+			return s;
+		}
 		
 		const SoundDecoder = function(audioContext) {
 			this.audioContext = audioContext;
@@ -626,7 +692,7 @@ var PinkFie = (function(moduleResults) {
 		};
 		// 3 bits
 		SoundDecoder.SAMPLE_DELTA_CALCULATOR[1] = function(step, magnitude) {
-			let  delta = step >> 2;
+			let delta = step >> 2;
 			if (magnitude & 1) {
 				delta += step >> 1;
 			}
@@ -699,28 +765,39 @@ var PinkFie = (function(moduleResults) {
 			var format = this.info.format;
 			this.formatInfo = format;
 			this.numSamples = this.info.numSamples;
-			var channels = (format.isStereo ? 2 : 1);
-			this.byteStream = new ByteStream(this.data);
 			if (format.compression == "MP3") {
-				var seekSample = this.byteStream.readInt16();
-				audioContext.decodeAudioData(this.data.slice(2), function(a) {
-					var b = _this.convertToMp3A(a, _this.numSamples, format.sampleRate, seekSample, channels);
+				try {
+					var resultMP3Buffer = decodeMP3(audioContext, this.data, this.numSamples);
 					if (_this.onload) {
 						_this.onload({
-							buffer: b
+							buffer: resultMP3Buffer
 						});
 					}
-				}, function(e) {
-					console.log("MP3: failed");
+				} catch(e) {
+					console.log("ERROR: MP3 failed");
 					if (_this.onload) {
 						_this.onload({
 							buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
 						});
 					}
-				});
+				}
 				return;
 			}
-			var buffer = audioContext.createBuffer(channels, this.numSamples, format.sampleRate);
+			var channels = (format.isStereo ? 2 : 1);
+			this.byteStream = new ByteStream(this.data);
+
+			var buffer;
+			try {
+				buffer = audioContext.createBuffer(channels, this.numSamples, format.sampleRate);
+			} catch(e) {
+				console.log(e);
+				if (this.onload) {
+					this.onload({
+						buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
+					});
+				}
+				return;
+			}
 			this.decodeFormat(format.compression, buffer, channels, 0, this.numSamples);
 			if (this.onload) {
 				this.onload({
@@ -771,8 +848,6 @@ var PinkFie = (function(moduleResults) {
 						if (channels == 2) right = j;
 					}
 				} catch(e) {
-					left = 0;
-					right = 0;
 					isEnd = true;
 				}
 				_left[i] = left;
@@ -795,6 +870,7 @@ var PinkFie = (function(moduleResults) {
 				_right = buffer.getChannelData(1);
 			}
 			var decoder = SoundDecoder.SAMPLE_DELTA_CALCULATOR[bits_per_sample - 2];
+			var idxTable = SoundDecoder.INDEX_TABLE[bits_per_sample - 2];
 			let num_channels = channels;
 			var _channels = [{ sample: 0, stepIndex: 0 }, { sample: 0, stepIndex: 0 }];
 			let sign_mask = (1 << (bits_per_sample - 1));
@@ -822,7 +898,7 @@ var PinkFie = (function(moduleResults) {
 							else ch.sample += delta;
 							if (ch.sample < -32768) ch.sample = -32768;
 							if (ch.sample > 32767) ch.sample = 32767;
-							ch.stepIndex += SoundDecoder.INDEX_TABLE[bits_per_sample - 2][magnitude];
+							ch.stepIndex += idxTable[magnitude];
 							if (ch.stepIndex > 88) ch.stepIndex = 88;
 							if (ch.stepIndex < 0) ch.stepIndex = 0;
 						}
@@ -832,8 +908,6 @@ var PinkFie = (function(moduleResults) {
 					}
 				} catch(e) {
 					// ignored
-					left = 0;
-					right = 0;
 					isEnd = true;
 				}
 				_left[h] = left / 0x8000;
@@ -894,29 +968,41 @@ var PinkFie = (function(moduleResults) {
 			if (compressed.byteLength > 0) {
 				this.data = compressed;
 				this.formatInfo = streamStream;
-				this.numSamples = blocks.length * streamInfo.samplePerBlock; // TODO
-				var channels = (this.formatInfo.isStereo ? 2 : 1);
-				this.byteStream = new ByteStream(this.data);
+				this.numSamples = isMP3 ? getMP3Sample(blocks) : blocks.length * streamInfo.samplePerBlock;
+				// _this.numSamples, _this.formatInfo.sampleRate, seekSample, channels
 				if (isMP3) {
 					var seekSample = streamInfo.latencySeek || 0;
-					audioContext.decodeAudioData(this.data.slice(0), function(a) {
-						var b = _this.convertToMp3A(a, _this.numSamples, _this.formatInfo.sampleRate, seekSample, channels);
+					try {
+						var resultMP3Buffer = decodeMP3(audioContext, this.data, this.numSamples, seekSample);
 						if (_this.onload) {
 							_this.onload({
-								buffer: b
+								buffer: resultMP3Buffer
 							});
 						}
-					}, function(e) {
-						console.log("MP3: failed");
+					} catch(e) {
+						console.log("ERROR: MP3 failed");
 						if (_this.onload) {
 							_this.onload({
 								buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
 							});
 						}
-					});
+					}
 					return;
 				}
-				var buffer = audioContext.createBuffer(channels, this.numSamples, streamStream.sampleRate);
+				var channels = (this.formatInfo.isStereo ? 2 : 1);
+				this.byteStream = new ByteStream(this.data);
+				var buffer;
+				try {
+					buffer = audioContext.createBuffer(channels, this.numSamples, streamStream.sampleRate);
+				} catch(e) {
+					console.log(e);
+					if (this.onload) {
+						this.onload({
+							buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
+						});
+					}
+					return;
+				}
 				this.decodeStreamFormat(streamStream.compression, buffer, channels, blocks, streamInfo.samplePerBlock);
 				if (this.onload) {
 					this.onload({
@@ -3448,6 +3534,9 @@ var PinkFie = (function(moduleResults) {
 						if (!("colorTransform" in place)) {
 							this.placeData.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
 						}
+						if (!("blendMode" in place)) {
+							this.placeData.blendMode = "normal";
+						}
 						/*if ("visible" in place) {
 							this.placeData.visible = place.visible;
 						}*/
@@ -3489,6 +3578,9 @@ var PinkFie = (function(moduleResults) {
 				}
 				if ("visible" in next_place) {
 					cur_place.visible = next_place.visible;
+				}
+				if ("blendMode" in next_place) {
+					cur_place.blendMode = next_place.blendMode;
 				}
 				if ("ratio" in next_place) {
 					cur_place.ratio = next_place.ratio;
@@ -4258,6 +4350,7 @@ var PinkFie = (function(moduleResults) {
 					};
 				}
 			}
+			render() {}
 			drawingMask() {
 				return this.maskersInProgress > 0;
 			}
@@ -4442,6 +4535,1381 @@ var PinkFie = (function(moduleResults) {
 			}
 		}
 		wpjsm.exportJS = RenderCanvas2d;
+	},
+	"src/renderer/WebGL.js": function(wpjsm){
+		const AT_Tess = wpjsm.importJS("src/utils/at-tess.js");
+
+		const multiplicationMatrix = function (a, b) {
+			return [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+		};
+		function QuadraticBezierP0( t, p ) {
+			const k = 1 - t;
+			return k * k * p;
+		}
+		function QuadraticBezierP1( t, p ) {
+			return 2 * (1 - t) * t * p;
+		}
+		function QuadraticBezierP2( t, p ) {
+			return t * t * p;
+		}
+		function QuadraticBezier(t, p0, p1, p2) {
+			return QuadraticBezierP0(t, p0) + QuadraticBezierP1(t, p1) + QuadraticBezierP2(t, p2);
+		}
+		function swf_to_gl_matrix(m) {
+			let tx = m[4];
+			let ty = m[5];
+			let det = m[0] * m[3] - m[2] * m[1];
+			let a = m[3] / det;
+			let b = -m[2] / det;
+			let c = -(tx * m[3] - m[2] * ty) / det;
+			let d = -m[1] / det;
+			let e = m[0] / det;
+			let f = (tx * m[1] - m[0] * ty) / det;
+			a *= 1 / 32768.0;
+			b *= 1 / 32768.0;
+			d *= 1 / 32768.0;
+			e *= 1 / 32768.0;
+			c /= 32768.0;
+			f /= 32768.0;
+			c += 0.5;
+			f += 0.5;
+			return [a, d, 0.0, b, e, 0.0, c, f, 1.0];
+		}
+		function swf_bitmap_to_gl_matrix(m, bitmap_width, bitmap_height) {
+			let tx = m[4];
+			let ty = m[5];
+			let det = m[0] * m[3] - m[2] * m[1];
+			let a = m[3] / det;
+			let b = -m[2] / det;
+			let c = -(tx * m[3] - m[2] * ty) / det;
+			let d = -m[1] / det;
+			let e = m[0] / det;
+			let f = (tx * m[1] - m[0] * ty) / det;
+			a *= 1 / bitmap_width;
+			b *= 1 / bitmap_width;
+			d *= 1 / bitmap_height;
+			e *= 1 / bitmap_height;
+			c /= bitmap_width;
+			f /= bitmap_height;
+			return [a, d, 0.0, b, e, 0.0, c, f, 1.0];
+		}
+		class Shader {
+			constructor(gl, program) {
+				this.gl = gl;
+				this.program = program;
+				this.uniformLocations = {};
+				this.attributeLocations = {};
+				const activeUniforms = gl.getProgramParameter(program, this.gl.ACTIVE_UNIFORMS);
+				for (let index = 0; index < activeUniforms; index++) {
+					const info = gl.getActiveUniform(program, index);
+					if (!info) {
+						throw new Error('uniform at index ' + index + ' does not exist');
+					}
+					const name = info.name;
+					const location = gl.getUniformLocation(program, name);
+					if (!location) {
+						throw new Error('uniform named ' + name + ' does not exist');
+					}
+					this.uniformLocations[name] = location;
+				}
+				const activeAttributes = gl.getProgramParameter(program, this.gl.ACTIVE_ATTRIBUTES);
+				for (let index = 0; index < activeAttributes; index++) {
+					const info = gl.getActiveAttrib(program, index);
+					if (!info) {
+						throw new Error('attribute at index ' + index + ' does not exist');
+					}
+					this.attributeLocations[info.name] = gl.getAttribLocation(program, info.name);
+				}
+			}
+			uniform1f(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniform1f(location, value);
+			}
+			uniform1i(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniform1i(location, value);
+			}
+			uniform1fv(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniform1fv(location, value);
+			}
+			uniform4fv(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniform4fv(location, value);
+			}
+			uniform2f(name, a, b) {
+				const location = this.getUniform(name);
+				this.gl.uniform2f(location, a, b);
+			}
+			uniform3f(name, a, b, c) {
+				const location = this.getUniform(name);
+				this.gl.uniform3f(location, a, b, c);
+			}
+			uniform4f(name, a, b, c, d) {
+				const location = this.getUniform(name);
+				this.gl.uniform4f(location, a, b, c, d);
+			}
+			uniformMatrix3(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniformMatrix3fv(location, false, value);
+			}
+			uniformMatrix4(name, value) {
+				const location = this.getUniform(name);
+				this.gl.uniformMatrix4fv(location, false, value);
+			}
+			hasUniform(name) {
+				return this.uniformLocations.hasOwnProperty(name);
+			}
+			getUniform(name) {
+				if (!this.hasUniform(name)) {
+					throw new Error('uniform of name ' + name + ' does not exist');
+				}
+				return this.uniformLocations[name];
+			}
+			attributeBuffer(name, value, count) {
+				if (!this.hasAttribute(name)) {
+					throw new Error('attribute of name ' + name + ' does not exist');
+				}
+				const location = this.attributeLocations[name];
+				this.gl.enableVertexAttribArray(location);
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, value);
+				this.gl.vertexAttribPointer(location, count, this.gl.FLOAT, false, 0, 0);
+			}
+			hasAttribute(name) {
+				return this.attributeLocations.hasOwnProperty(name);
+			}
+			getAttribute(name) {
+				if (!this.hasAttribute(name)) {
+					throw new Error('attribute of name ' + name + ' does not exist');
+				}
+				return this.attributeLocations[name];
+			}
+		}
+		class RenderWebGLShapeInterval {
+			constructor(renderer, interval) {
+				this.renderer = renderer;
+				this.shapeIntervalData = interval;
+			}
+		}
+		class RenderWebGLImageInterval {
+			constructor(renderer) {
+				this.renderer = renderer;
+				const gl = this.renderer.gl;
+				this.isRender = false;
+				this.width = 0;
+				this.height = 0;
+				this.texture = gl.createTexture();
+			}
+			setImage(image) {
+				this.isRender = true;
+				this.width = image.width;
+				this.height = image.height;
+				const gl = this.renderer.gl;
+				gl.bindTexture(gl.TEXTURE_2D, this.texture);
+				if (image instanceof ImageData) {
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, image.width, image.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, image.data);
+				} else {
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+				}
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			}
+		}
+		class RenderWebGL {
+			constructor() {
+				this.matrixTransform = [1, 0, 0, 1, 0, 0];
+				this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
+				const canvas = document.createElement('canvas');
+				canvas.width = 480;
+				canvas.height = 360;
+				const gl = canvas.getContext('webgl2', {
+					stencil: true,
+					alpha: true,
+					depth: false,
+					failIfMajorPerformanceCaveat: true,
+					premultipliedAlpha: true
+				});
+				if (!gl) throw new Error('cannot get webgl rendering context');
+				this.canvas = canvas;
+				this.gl = gl;
+				this.shaderTexture = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_bitmap);
+				this.shaderColor = this.createShader(RenderWebGL.vs_color, RenderWebGL.fs_color);
+				this.shaderGradient = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_gradient);
+				this.initShaderBlend();
+				this.maskState = 0;
+				this.numMasks = 0;
+				this.blendState = 0;
+				this.blendType = null;
+				this.view_matrix = null;
+				this.maskersInProgress = 0;
+				gl.enable(this.gl.BLEND);
+				gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
+				gl.blendFuncSeparate(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+				this.quatBuffer = this.gl.createBuffer();
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quatBuffer);
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1]), this.gl.STATIC_DRAW);
+				this.resize(480, 360);
+			}
+			initShaderBlend() {
+				this.shaderBlendNormal = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_normal);
+				this.shaderBlendAdd = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_add);
+				this.shaderBlendSubtract = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_subtract);
+				this.shaderBlendMultiply = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_multiply);
+				this.shaderBlendLighten = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_lighten);
+				this.shaderBlendDarken = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_darken);
+				this.shaderBlendScreen = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_screen);
+				this.shaderBlendOverlay = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_overlay);
+				this.shaderBlendHardlight = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_hardlight);
+				this.shaderBlendDifference = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_difference);
+				this.shaderBlendInvert = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_invert);
+			}
+			build_msaa_buffers() {
+				const gl = this.gl;
+				if (this.msaa_buffers) {
+					gl.deleteRenderbuffer(this.msaa_buffers.color_renderbuffer);
+					gl.deleteRenderbuffer(this.msaa_buffers.stencil_renderbuffer);
+					gl.deleteFramebuffer(this.msaa_buffers.render_framebuffer);
+					gl.deleteFramebuffer(this.msaa_buffers.color_framebuffer);
+					gl.deleteTexture(this.msaa_buffers.framebuffer_texture);
+					gl.deleteFramebuffer(this.msaa_buffers.render_blend_front_framebuffer);
+					gl.deleteFramebuffer(this.msaa_buffers.render_blend_back_framebuffer);
+					gl.deleteTexture(this.msaa_buffers.blend_texture_front);
+					gl.deleteTexture(this.msaa_buffers.blend_texture_back);
+				}
+				let render_framebuffer = gl.createFramebuffer();
+				let color_framebuffer = gl.createFramebuffer();
+				let color_renderbuffer = gl.createRenderbuffer();
+				gl.bindRenderbuffer(gl.RENDERBUFFER, color_renderbuffer);
+				gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, this.renderbuffer_width, this.renderbuffer_height);
+				let stencil_renderbuffer = gl.createRenderbuffer();
+				gl.bindRenderbuffer(gl.RENDERBUFFER, stencil_renderbuffer);
+				gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.STENCIL_INDEX8, this.renderbuffer_width, this.renderbuffer_height);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, render_framebuffer);
+				gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,  gl.RENDERBUFFER, color_renderbuffer);
+				gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT,  gl.RENDERBUFFER, stencil_renderbuffer);
+				let framebuffer_texture = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, framebuffer_texture);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbuffer_width, this.renderbuffer_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, color_framebuffer);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebuffer_texture, 0);
+				let render_blend_front_framebuffer = gl.createFramebuffer();
+				gl.bindFramebuffer(gl.FRAMEBUFFER, render_blend_front_framebuffer);
+				let blend_texture_front = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, blend_texture_front);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbuffer_width, this.renderbuffer_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, blend_texture_front, 0);
+				let render_blend_back_framebuffer = gl.createFramebuffer();
+				gl.bindFramebuffer(gl.FRAMEBUFFER, render_blend_back_framebuffer);
+				let blend_texture_back = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, blend_texture_back);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.renderbuffer_width, this.renderbuffer_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, blend_texture_back, 0);
+				gl.bindTexture(gl.TEXTURE_2D, null);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				this.msaa_buffers = {
+					color_renderbuffer,
+					stencil_renderbuffer,
+					render_framebuffer,
+					color_framebuffer,
+					framebuffer_texture,
+					render_blend_front_framebuffer,
+					blend_texture_front,
+					render_blend_back_framebuffer,
+					blend_texture_back
+				};
+			}
+			drawingMask() {
+				return this.maskersInProgress > 0;
+			}
+			setColorTransform(a, b, c, d, e, f, x, y) {
+				this.colorTransform = [a, b, c, d, e, f, x, y];
+			}
+			setTransform(a, b, c, d, e, f) {
+				this.matrixTransform = [a, b, c, d, e, f];
+			}
+			createShader(vs, fs, definitions) {
+				const program = this.compileProgram(vs, fs, definitions);
+				return new Shader(this.gl, program);
+			}
+			compileProgram(vs, fs, definitions) {
+				const vertexShader = this.compileShader(this.gl.VERTEX_SHADER, vs, definitions);
+				const fragmentShader = this.compileShader(this.gl.FRAGMENT_SHADER, fs, definitions);
+				const program = this.gl.createProgram();
+				if (!program) {
+					throw new Error('Cannot create program');
+				}
+				this.gl.attachShader(program, vertexShader);
+				this.gl.attachShader(program, fragmentShader);
+				this.gl.linkProgram(program);
+				if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+					const error = this.gl.getProgramInfoLog(program);
+					this.gl.deleteProgram(program);
+					throw new Error('Program compilation error: ' + error);
+				}
+				return program;
+			}
+			compileShader(type, source, definitions) {
+				if (definitions) {
+					for (const def of definitions) {
+						source = '#define ' + def + '\n' + source;
+					}
+				}
+				const shader = this.gl.createShader(type);
+				if (!shader) {
+					throw new Error('Cannot create shader');
+				}
+				this.gl.shaderSource(shader, source);
+				this.gl.compileShader(shader);
+				if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+					const error = this.gl.getShaderInfoLog(shader);
+					this.gl.deleteShader(shader);
+					throw new Error('Shader compilation error: ' + error);
+				}
+				return shader;
+			}
+			useShader(shader) {
+				if (this.currentShader !== shader) {
+					this.gl.useProgram(shader.program);
+					this.currentShader = shader;
+				}
+			}
+			shapeToInterval(shapeCache) {
+				var result = [];
+				for (let i = 0; i < shapeCache.length; i++) {
+					result.push(this.shapeToCanvas(shapeCache[i]));
+				}
+				return new RenderWebGLShapeInterval(this, result);
+			}
+			destroy() {
+				var ext = this.gl.getExtension("WEBGL_lose_context");
+				if (ext) {
+					ext.loseContext();
+				}
+			}
+			resize(w, h) {
+				this.width = w;
+				this.height = h;
+				this.canvas.width = this.width;
+				this.canvas.height = this.height;
+				this.view_matrix = [
+					1.0 / (w / 2.0), 0.0, 0.0, 0.0,
+					0.0, -1.0 / (h / 2.0), 0.0, 0.0,
+					0.0, 0.0, 1.0, 0.0,
+					-1.0, 1.0, 0.0, 1.0
+				];
+				this.renderbuffer_width = this.canvas.width;
+				this.renderbuffer_height = this.canvas.height;
+				this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+				this.build_msaa_buffers();
+			}
+			imageToTexture(image) {
+				var s = new RenderWebGLImageInterval(this);
+				s.setImage(image);
+				return s;
+			}
+			shapeToCanvas(shape) {
+				var fill = shape.fill;
+				var r = (shape.type == 1) ? this.createStroke(shape.path2d, shape.width) : this.createFill(shape.path2d);
+				var bufferPos = this.gl.createBuffer();
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferPos);
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, r, this.gl.STATIC_DRAW);
+				if (fill.type == 0) {
+					var color = fill.color;
+					return {
+						type: 0,
+						bufferPos: bufferPos,
+						color: [color[0] / 255, color[1] / 255, color[2] / 255, color[3]],
+						num: (r.length / 2),
+					};
+				} else if (fill.type == 1) {
+					var ratios = [];
+					var colors = [];
+					var re = fill.records;
+					for (let i = 0; i < 16; i++) {
+						const g = re[Math.min(i, re.length - 1)];
+						colors.push(g[0][0] / 255);
+						colors.push(g[0][1] / 255);
+						colors.push(g[0][2] / 255);
+						colors.push(g[0][3]);
+						ratios.push(g[1]);
+					}
+					return {
+						type: 1,
+						bufferPos: bufferPos,
+						num: (r.length / 2),
+						ratios,
+						colors,
+						focal: fill.focal || 0,
+						isRadial: fill.isRadial,
+						repeat: fill.repeat,
+						matrix: swf_to_gl_matrix(fill.matrix)
+					};
+				} else if (fill.type == 2) {
+					var texture = fill.texture;
+					return {
+						type: 2,
+						bufferPos: bufferPos,
+						num: (r.length / 2),
+						texture: texture.texture,
+						isRepeating: fill.isRepeating,
+						isSmoothed: fill.isSmoothed,
+						matrix: swf_bitmap_to_gl_matrix(fill.matrix, texture.width, texture.height)
+					};
+				}
+			}
+			pushBlendMode(blendMode) {
+				const gl = this.gl;
+				if ((this.maskState == 0) && (this.blendState == 0)) {
+					switch (blendMode) {
+						case "add":
+							this.blendType = this.shaderBlendAdd;
+							break;
+						case "subtract":
+							this.blendType = this.shaderBlendSubtract;
+							break;
+						case "multiply":
+							this.blendType = this.shaderBlendMultiply;
+							break;
+						case "lighten":
+							this.blendType = this.shaderBlendLighten;
+							break;
+						case "darken":
+							this.blendType = this.shaderBlendDarken;
+							break;
+						case "screen":
+							this.blendType = this.shaderBlendScreen;
+							break;
+						case "overlay":
+							this.blendType = this.shaderBlendOverlay;
+							break;
+						case "hardlight":
+							this.blendType = this.shaderBlendHardlight;
+							break;
+						case "difference":
+							this.blendType = this.shaderBlendDifference;
+							break;
+						case "invert":
+							this.blendType = this.shaderBlendInvert;
+							break;
+						default:
+							this.blendType = this.shaderBlendNormal;
+					}
+					gl.disable(gl.STENCIL_TEST);
+					gl.colorMask(true, true, true, true);
+					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+					gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
+					gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_front_framebuffer);
+					this.useShader(this.shaderTexture);
+					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
+					this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
+					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.drawArrays(gl.TRIANGLES, 0, 12);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+					gl.clearColor(0, 0, 0, 0);
+					gl.stencilMask(0xff);
+					gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+				}
+				this.blendState++;
+			}
+			popBlendMode() {
+				const gl = this.gl;
+				this.blendState--;
+				if (this.blendType && (this.blendState == 0)) {
+					gl.disable(gl.STENCIL_TEST);
+					gl.colorMask(true, true, true, true);
+					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+					gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
+					gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_back_framebuffer);
+					this.useShader(this.shaderTexture);
+					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
+					this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
+					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.drawArrays(gl.TRIANGLES, 0, 12);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+					gl.clearColor(0, 0, 0, 0);
+					gl.stencilMask(0xff);
+					gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+					this.useShader(this.blendType);
+					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.currentShader.uniform1i('parent_texture', 0);
+					this.currentShader.uniform1i('current_texture', 1);
+					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.blend_texture_front);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.activeTexture(gl.TEXTURE1);
+					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.blend_texture_back);
+					gl.activeTexture(gl.TEXTURE1);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+					gl.activeTexture(gl.TEXTURE0);
+					gl.drawArrays(gl.TRIANGLES, 0, 12);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_front_framebuffer);
+					gl.clear(gl.COLOR_BUFFER_BIT);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_back_framebuffer);
+					gl.clear(gl.COLOR_BUFFER_BIT);
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+					this.blendType = null;
+				}
+			}
+			renderTexture(imageInterval, isSmoothed) {
+				if (this.maskersInProgress <= 1) {
+					var matrix = this.matrixTransform;
+					var colorTransform = this.colorTransform;
+					if (!imageInterval) return;
+					if (!imageInterval.isRender) return;
+					matrix = multiplicationMatrix(matrix, [imageInterval.width, 0, 0, imageInterval.height, 0, 0])
+					let world_matrix = [
+						matrix[0], matrix[1], 0.0, 0.0,
+						matrix[2], matrix[3], 0.0, 0.0,
+						0.0, 0.0, 1.0, 0.0,
+						matrix[4], matrix[5], 0.0, 1.0,
+					];
+					this.useShader(this.shaderTexture);
+					this.currentShader.uniformMatrix4("view_matrix", this.view_matrix);
+					this.currentShader.uniformMatrix4("world_matrix", world_matrix);
+					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.currentShader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
+					this.currentShader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
+					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					let filter = isSmoothed ? this.gl.LINEAR : this.gl.NEAREST;
+					this.gl.bindTexture(this.gl.TEXTURE_2D, imageInterval.texture);
+					this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, filter);
+					this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, filter);
+					let wrap = this.gl.CLAMP_TO_EDGE;
+					this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, wrap);
+					this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, wrap);
+					this.gl.drawArrays(this.gl.TRIANGLES, 0, 12);
+				}
+			}
+			renderShape(shapeInterval) {
+				if (this.maskersInProgress <= 1) {
+					if (!shapeInterval) return;
+					var matrix = this.matrixTransform;
+					var colorTransform = this.colorTransform;
+					var array = shapeInterval.shapeIntervalData;
+					this.setStencilState();
+					let world_matrix = [
+						matrix[0], matrix[1], 0.0, 0.0,
+						matrix[2], matrix[3], 0.0, 0.0,
+						0.0, 0.0, 1.0, 0.0,
+						matrix[4], matrix[5], 0.0, 1.0,
+					];
+					for (let i = 0; i < array.length; i++) {
+						const si = array[i];
+						var shader;
+						if (si.type == 0) {
+							shader = this.shaderColor;
+						} else if (si.type == 1) {
+							shader = this.shaderGradient;
+						} else if (si.type == 2) {
+							shader = this.shaderTexture;
+						}
+						this.useShader(shader);
+						this.gl.bindBuffer(this.gl.ARRAY_BUFFER, si.bufferPos);
+						this.currentShader.attributeBuffer("position", si.bufferPos, 2);
+						if (si.type == 0) {
+							this.currentShader.uniform4f('u_color', si.color[0], si.color[1], si.color[2], si.color[3]);
+						} else if (si.type == 1) {
+							this.currentShader.uniformMatrix3("u_matrix", si.matrix);
+							this.currentShader.uniform1fv("u_ratios[0]", si.ratios);
+							this.currentShader.uniform4fv("u_colors[0]", si.colors);
+							this.currentShader.uniform1i("u_gradient_type", si.isRadial ? 2 : 0);
+							this.currentShader.uniform1i("u_repeat_mode", si.repeat);
+							this.currentShader.uniform1f("u_focal_point", si.focal);
+							this.currentShader.uniform1i("u_interpolation", 0);
+						} else if (si.type == 2) {
+							let filter = si.isSmoothed ? this.gl.LINEAR : this.gl.NEAREST;
+							this.gl.bindTexture(this.gl.TEXTURE_2D, si.texture);
+							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, filter);
+							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, filter);
+							let wrap = si.isRepeating ? this.gl.REPEAT : this.gl.CLAMP_TO_EDGE;
+							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, wrap);
+							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, wrap);
+							this.currentShader.uniformMatrix3("u_matrix", si.matrix);
+						}
+						this.currentShader.uniformMatrix4("view_matrix", this.view_matrix);
+						this.currentShader.uniformMatrix4("world_matrix", world_matrix);
+						this.currentShader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
+						this.currentShader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
+						this.gl.drawArrays(this.gl.TRIANGLES, 0, si.num);
+					}
+				}
+			}
+			registerShape(shapes) {
+				return this.shapeToInterval(shapes);
+			}
+			path2dToVex(path2d) {
+				var arrs = [];
+				var arr = [];
+				var posX = 0;
+				var posY = 0;
+				for (let i = 0; i < path2d.length; i++) {
+					const a = path2d[i];
+					switch (a[0]) {
+						case 0:
+							arr = [a[1] || 0, a[2] || 0];
+							arrs.push(arr);
+							posX = a[1] || 0;
+							posY = a[2] || 0;
+							break;
+						case 1:
+							for (let _ = 1; _ <= 5; _++) {
+								var x = QuadraticBezier(_ / 5, posX, a[1] || 0, a[3] || 0) | 0;
+								var y = QuadraticBezier(_ / 5, posY, a[2] || 0, a[4] || 0) | 0;
+								arr.push(x, y);
+							}
+							posX = a[3];
+							posY = a[4];
+							break;
+						case 2:
+							if (!(((a[1] || 0) == posX) && ((a[2] || 0) == posY))) {
+								arr.push(a[1] || 0, a[2] || 0);
+								posX = a[1] || 0;
+								posY = a[2] || 0;	
+							}
+							break;
+					}
+				}
+				return arrs;
+			}
+			createFill(path2d) {
+				return new Float32Array(AT_Tess.fill(this.path2dToVex(path2d)));
+			}
+			createStroke(path2d, width) {
+				var arrs = this.path2dToVex(path2d);
+				return new Float32Array(AT_Tess.stroke(arrs, width));
+			}
+			setStencilState() {
+				switch(this.maskState) {
+					case 0:
+						this.gl.disable(this.gl.STENCIL_TEST);
+						this.gl.colorMask(true, true, true, true);
+						break;
+					case 1:
+						this.gl.enable(this.gl.STENCIL_TEST);
+						this.gl.stencilFunc(this.gl.EQUAL, this.numMasks - 1, 0xff);
+						this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.INCR);
+						this.gl.colorMask(false, false, false, false);
+						break;
+					case 2:
+						this.gl.enable(this.gl.STENCIL_TEST);
+						this.gl.stencilFunc(this.gl.EQUAL, this.numMasks, 0xff);
+						this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.KEEP);
+						this.gl.colorMask(true, true, true, true);
+						break;
+					case 3:
+						this.gl.enable(this.gl.STENCIL_TEST);
+						this.gl.stencilFunc(this.gl.EQUAL, this.numMasks, 0xff);
+						this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.DECR);
+						this.gl.colorMask(false, false, false, false);
+						break;
+				}
+			}
+			_pushMask() {
+				this.numMasks += 1;
+				this.maskState = 1;
+			}
+			_activateMask() {
+				this.maskState = 2;
+			}
+			_deactivateMask() {
+				this.maskState = 3;
+			}
+			_popMask() {
+				this.numMasks -= 1;
+				if (this.numMasks == 0) {
+					this.maskState = 0;
+				} else {
+					this.maskState = 2;
+				}
+			}
+			pushMask() {
+				if (this.maskersInProgress == 0) this._pushMask();
+				this.maskersInProgress += 1;
+			}
+			activateMask() {
+				this.maskersInProgress -= 1;
+				if (this.maskersInProgress == 0) this._activateMask();
+			}
+			deactivateMask() {
+				if (this.maskersInProgress == 0) this._deactivateMask();
+				this.maskersInProgress += 1;
+			}
+			popMask() {
+				this.maskersInProgress -= 1;
+				if (this.maskersInProgress == 0) this._popMask();
+			}
+			setQuality(quality) {
+				this.quality = quality;
+			}
+			clear() {
+				this.blendState = 0;
+				this.blendType = null;
+				this.maskState = 0;
+				this.numMasks = 0;
+				this.maskStateDirty = true;
+				const gl = this.gl;
+				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+				this.setStencilState();
+				gl.clearColor(1, 1, 1, 1);
+				gl.stencilMask(0xff);
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+			}
+			render() {
+				const gl = this.gl;
+				gl.disable(gl.STENCIL_TEST);
+				gl.colorMask(true, true, true, true);
+				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
+				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
+				gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+				this.useShader(this.shaderTexture);
+				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+				this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
+				this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
+				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.drawArrays(gl.TRIANGLES, 0, 12);
+			}
+		}
+		RenderWebGL.shader_texture = `
+	#version 100
+
+	#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+	#else
+		precision mediump float;
+	#endif
+
+	uniform mat4 view_matrix;
+	uniform mat4 world_matrix;
+	uniform vec4 mult_color;
+	uniform vec4 add_color;
+	uniform mat3 u_matrix;
+
+	attribute vec2 position;
+
+	varying vec2 frag_uv;
+
+	void main() {
+		frag_uv = vec2(u_matrix * vec3(position, 1.0));
+		gl_Position = view_matrix * world_matrix * vec4(position, 0.0, 1.0);
+	}`;
+		RenderWebGL.shader_bitmap = `
+	#version 100
+
+	#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+	#else
+		precision mediump float;
+	#endif
+
+	uniform mat4 view_matrix;
+	uniform mat4 world_matrix;
+	uniform vec4 mult_color;
+	uniform vec4 add_color;
+	uniform mat3 u_matrix;
+
+	uniform sampler2D u_texture;
+
+	varying vec2 frag_uv;
+
+	void main() {
+		vec4 color = texture2D(u_texture, frag_uv);
+
+		// Unmultiply alpha before apply color transform.
+		if( color.a > 0.0 ) {
+			color.rgb /= color.a;
+			color = clamp(mult_color * color + add_color, 0.0, 1.0);
+			float alpha = clamp(color.a, 0.0, 1.0);
+			color = vec4(color.rgb * alpha, alpha);
+		}
+
+		gl_FragColor = color;
+	}`;
+		RenderWebGL.vs_color = `
+	uniform mat4 view_matrix;
+	uniform mat4 world_matrix;
+	uniform vec4 mult_color;
+	uniform vec4 add_color;
+	uniform vec4 u_color;
+
+	attribute vec2 position;
+
+	varying vec4 frag_color;
+
+	void main() {
+	  frag_color = clamp(u_color * mult_color + add_color, 0.0, 1.0);
+	  float alpha = clamp(frag_color.a, 0.0, 1.0);
+	  frag_color = vec4(frag_color.rgb * alpha, alpha);
+
+	  gl_Position =  view_matrix * world_matrix * vec4(position, 0.0, 1.0);
+	}`;
+		RenderWebGL.fs_color = `
+	precision mediump float;
+
+	varying vec4 frag_color;
+
+	void main() {
+	  gl_FragColor = frag_color;
+	}`;
+		RenderWebGL.shader_gradient = `
+	#version 100
+
+	#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+	#else
+		precision mediump float;
+	#endif
+
+	uniform mat4 view_matrix;
+	uniform mat4 world_matrix;
+	uniform vec4 mult_color;
+	uniform vec4 add_color;
+	uniform mat3 u_matrix;
+
+	uniform int u_gradient_type;
+	uniform float u_ratios[16];
+	uniform vec4 u_colors[16];
+	uniform int u_repeat_mode;
+	uniform float u_focal_point;
+	uniform int u_interpolation;
+
+	varying vec2 frag_uv;
+
+	vec4 interpolate(float t, float ratio1, float ratio2, vec4 color1, vec4 color2) {
+		color1 = clamp(mult_color * color1 + add_color, 0.0, 1.0);
+		color2 = clamp(mult_color * color2 + add_color, 0.0, 1.0);
+		float a = (t - ratio1) / (ratio2 - ratio1);
+		return mix(color1, color2, a);
+	}
+
+	vec3 linear_to_srgb(vec3 linear) {
+		vec3 a = 12.92 * linear;
+		vec3 b = 1.055 * pow(linear, vec3(1.0 / 2.4)) - 0.055;
+		vec3 c = step(vec3(0.0031308), linear);
+		return mix(a, b, c);
+	}
+
+	void main() {
+		float t;
+		if( u_gradient_type == 0 )
+		{
+			t = frag_uv.x;
+		}
+		else if( u_gradient_type == 1 )
+		{
+			t = length(frag_uv * 2.0 - 1.0);
+		}
+		else if( u_gradient_type == 2 )
+		{
+			vec2 uv = frag_uv * 2.0 - 1.0;
+			vec2 d = vec2(u_focal_point, 0.0) - uv;
+			float l = length(d);
+			d /= l;
+			t = l / (sqrt(1.0 -  u_focal_point*u_focal_point*d.y*d.y) + u_focal_point*d.x);
+		}
+		if( u_repeat_mode == 0 )
+		{
+			// Clamp
+			t = clamp(t, 0.0, 1.0);
+		}
+		else if( u_repeat_mode == 1 )
+		{
+			// Repeat
+			t = fract(t);
+		}
+		else
+		{
+			// Mirror
+			if( t < 0.0 )
+			{
+				t = -t;
+			}
+
+			if( int(mod(t, 2.0)) == 0 ) {
+				t = fract(t);
+			} else {
+				t = 1.0 - fract(t);
+			}
+		}
+
+		// TODO: No non-constant array access in WebGL 1, so the following is kind of painful.
+		// We'd probably be better off passing in the gradient as a texture and sampling from there.
+		vec4 color;
+		if( t <= u_ratios[0] ) {
+			color = clamp(mult_color * u_colors[0] + add_color, 0.0, 1.0);
+		} else if( t <= u_ratios[1] ) {
+			color = interpolate(t, u_ratios[0], u_ratios[1], u_colors[0], u_colors[1]);
+		} else if( t <= u_ratios[2] ) {
+			color = interpolate(t, u_ratios[1], u_ratios[2], u_colors[1], u_colors[2]);
+		} else if( t <= u_ratios[3] ) {
+			color = interpolate(t, u_ratios[2], u_ratios[3], u_colors[2], u_colors[3]);
+		} else if( t <= u_ratios[4] ) {
+			color = interpolate(t, u_ratios[3], u_ratios[4], u_colors[3], u_colors[4]);
+		} else if( t <= u_ratios[5] ) {
+			color = interpolate(t, u_ratios[4], u_ratios[5], u_colors[4], u_colors[5]);
+		} else if( t <= u_ratios[6] ) {
+			color = interpolate(t, u_ratios[5], u_ratios[6], u_colors[5], u_colors[6]);
+		} else if( t <= u_ratios[7] ) {
+			color = interpolate(t, u_ratios[6], u_ratios[7], u_colors[6], u_colors[7]);
+		} else if( t <= u_ratios[8] ) {
+			color = interpolate(t, u_ratios[7], u_ratios[8], u_colors[7], u_colors[8]);
+		} else if( t <= u_ratios[9] ) {
+			color = interpolate(t, u_ratios[8], u_ratios[9], u_colors[8], u_colors[9]);
+		} else if( t <= u_ratios[10] ) {
+			color = interpolate(t, u_ratios[9], u_ratios[10], u_colors[9], u_colors[10]);
+		} else if( t <= u_ratios[11] ) {
+			color = interpolate(t, u_ratios[10], u_ratios[11], u_colors[10], u_colors[11]);
+		} else if( t <= u_ratios[12] ) {
+			color = interpolate(t, u_ratios[11], u_ratios[12], u_colors[11], u_colors[12]);
+		} else if( t <= u_ratios[13] ) {
+			color = interpolate(t, u_ratios[12], u_ratios[13], u_colors[12], u_colors[13]);
+		} else if( t <= u_ratios[14] ) {
+			color = interpolate(t, u_ratios[13], u_ratios[14], u_colors[13], u_colors[14]);
+		} else {
+			color = clamp(mult_color * u_colors[14] + add_color, 0.0, 1.0);
+		}
+
+		if( u_interpolation != 0 ) {
+			color = vec4(linear_to_srgb(vec3(color)), color.a);
+		}
+
+		float alpha = clamp(color.a, 0.0, 1.0);
+		gl_FragColor = vec4(color.rgb * alpha, alpha);
+	}`;
+		RenderWebGL.shader_blend_normal = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			return src + dst - dst * src.a;
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+		RenderWebGL.shader_blend_add = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			vec4 c = vec4(dst.rgb + src.rgb, dst.a + src.a);
+			return mix(c, src, step(1.0, 0.0));
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+		RenderWebGL.shader_blend_subtract = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			vec4 c = vec4(dst.rgb - src.rgb, dst.a + src.a);
+			return mix(c, src, step(dst.a, 0.0));
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_multiply = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			vec4 a = src - src * dst.a;
+			vec4 b = dst - dst * src.a;
+			vec4 c = src * dst;
+			return a + b + c;
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_lighten = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (src.a > 0.0) {
+				src.rgb /= src.a;
+				vec4 c = vec4(mix(dst.rgb, src.rgb, step(dst.rgb, src.rgb)), 1.0) * src.a;
+				return c + dst * (1.0 - src.a);
+			} else {
+			 	return dst;
+			}
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_darken = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (dst.a == 0.0) {
+				return src;
+			} else if (src.a > 0.0) {
+				src.rgb /= src.a;
+				vec4 c = vec4(mix(dst.rgb, src.rgb, step(src.rgb, dst.rgb)), 1.0) * src.a;
+				return c + dst * (1.0 - src.a);
+			} else {
+			 	return dst;
+			}
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_screen = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (src.a > 0.0) {
+				vec4 _src = src;
+				vec4 _dst = dst;
+				_src.rgb /= src.a;
+				_dst.rgb /= dst.a;
+				vec4 _out = _src;
+				_out.r = (1.0 - ((1.0 - _src.r) * (1.0 - _dst.r)));
+				_out.g = (1.0 - ((1.0 - _src.g) * (1.0 - _dst.g)));
+				_out.b = (1.0 - ((1.0 - _src.b) * (1.0 - _dst.b)));
+				return vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+			} else {
+				return dst;
+			}
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_overlay = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D parent_texture;
+		uniform sampler2D current_texture;
+
+		varying vec2 frag_uv;
+
+		void main() {
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			vec4 src = texture2D(current_texture, frag_uv);
+			if (src.a > 0.0) {
+				vec4 _src = src;
+				vec4 _dst = dst;
+				_src.rgb /= src.a;
+				_dst.rgb /= dst.a;
+				vec4 _out = _src;
+				if (_dst.r <= 0.5) { _out.r = (2.0 * _src.r * _dst.r); } else { _out.r = (1.0 - 2.0 * (1.0 - _dst.r) * (1.0 - _src.r)); }
+				if (_dst.g <= 0.5) { _out.g = (2.0 * _src.g * _dst.g); } else { _out.g = (1.0 - 2.0 * (1.0 - _dst.g) * (1.0 - _src.g)); }
+				if (_dst.b <= 0.5) { _out.b = (2.0 * _src.b * _dst.b); } else { _out.b = (1.0 - 2.0 * (1.0 - _dst.b) * (1.0 - _src.b)); }
+				gl_FragColor = vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+			} else {
+				gl_FragColor = dst;
+			}
+		}`;
+			RenderWebGL.shader_blend_hardlight = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (src.a > 0.0) {
+				vec4 _src = src;
+				vec4 _dst = dst;
+				_src.rgb /= src.a;
+				_dst.rgb /= dst.a;
+				vec4 _out = _src;
+				if (_src.r <= 0.5) { _out.r = (2.0 * _src.r * _dst.r); } else { _out.r = (1.0 - 2.0 * (1.0 - _dst.r) * (1.0 - _src.r)); }
+				if (_src.g <= 0.5) { _out.g = (2.0 * _src.g * _dst.g); } else { _out.g = (1.0 - 2.0 * (1.0 - _dst.g) * (1.0 - _src.g)); }
+				if (_src.b <= 0.5) { _out.b = (2.0 * _src.b * _dst.b); } else { _out.b = (1.0 - 2.0 * (1.0 - _dst.b) * (1.0 - _src.b)); }
+				_out.a = 1.0;
+				return vec4(src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * _out.rgb, src.a + dst.a * (1.0 - src.a));
+			} else {
+			 	return dst;
+			}
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_difference = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D current_texture;
+		uniform sampler2D parent_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (src.a > 0.0) {
+				src.rgb /= src.a;
+				vec4 c = vec4(abs(src.rgb - dst.rgb), 1.0) * src.a;
+				return c + dst * (1.0 - src.a);
+			} else {
+			 	return dst;
+			}
+		}
+
+		void main() {
+			vec4 src = texture2D(current_texture, frag_uv);
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+			RenderWebGL.shader_blend_invert = `
+		#version 100
+
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+		precision highp float;
+		#else
+		precision mediump float;
+		#endif
+
+		uniform mat4 view_matrix;
+		uniform mat4 world_matrix;
+		uniform vec4 mult_color;
+		uniform vec4 add_color;
+		uniform mat3 u_matrix;
+
+		uniform sampler2D parent_texture;
+		uniform sampler2D current_texture;
+
+		varying vec2 frag_uv;
+
+		vec4 blend (in vec4 src, in vec4 dst) {
+			if (src.a > 0.0) {
+				vec4 c = vec4(1.0 - dst.rgb, 1.0) * src.a;
+				return c + dst * (1.0 - src.a);
+			} else {
+			 	return dst;
+			}
+		}
+
+		void main() {
+			vec4 dst = texture2D(parent_texture, frag_uv);
+			vec4 src = texture2D(current_texture, frag_uv);
+			gl_FragColor = blend(src, dst);
+		}`;
+		wpjsm.exportJS = RenderWebGL;
 	},
 	"src/utils/at-h263-decoder.js": function(wpjsm){
 		const saturatingSub = function(a, b) {
@@ -5832,6 +7300,2506 @@ var PinkFie = (function(moduleResults) {
 		wpjsm.exportJS = {
 			H263Reader,
 			H263State
+		}
+	},
+	"src/utils/at-mp3-decoder.js": function(wpjsm){
+		const BitStream = function() {
+			this._end = 0;
+			this.viewUint8 = null;
+			this.bitPos = 0;
+			this.bytePos = 0;
+		}
+		BitStream.prototype.readBit = function() {
+			if (this._end <= this.bytePos) return 0;
+			var tmp = (this.viewUint8[this.bytePos] >> (7 - (this.bitPos++)));
+			if (this.bitPos > 7) {
+				this.bitPos = 0;
+				this.bytePos++;
+			}
+			return tmp & 1;
+		}
+		BitStream.prototype.get_bits = function(num) {
+			if (num === 0) return 0;
+			if (this._end <= this.bytePos) return 0;
+			var value = 0;
+			while (num--) {
+				value <<= 1;
+				value |= this.readBit();
+			}
+			return value;
+		}
+		BitStream.prototype.setData = function(vec) {
+			this._end = vec.length;
+			this.viewUint8 = vec;
+			this.bitPos = 0;
+			this.bytePos = 0;
+		}
+		const MP3Header = function() {
+			this.h_layer = 0;
+			this.h_protection_bit = 0;
+			this.h_bitrate_index = 0;
+			this.h_padding_bit = 0;
+			this.h_mode_extension = 0;
+			this.h_version = 0;
+			this.h_mode = 0;
+			this.h_sample_frequency = 0;
+			this.h_number_of_subbands = 0;
+			this.h_intensity_stereo_bound = 0;
+			this.h_copyright = 0;
+			this.h_original = 0;
+			this.h_crc = 0;
+			this.framesize = 0;
+			this.nSlots = 0;
+			this.checksum = 0;
+		}
+		MP3Header.versionTable = [2, 1, 2.5, -1];
+		MP3Header.layerTable = [-1, 3, 2, 1];
+		MP3Header.frequencies = [[22050, 24000, 16000], [44100, 48000, 32000], [11025, 12000, 8000]];
+		MP3Header.MPEG2_LSF = 0;
+		MP3Header.MPEG25_LSF = 2;
+		MP3Header.MPEG1 = 1;
+		MP3Header.STEREO = 0;
+		MP3Header.JOINT_STEREO = 1;
+		MP3Header.DUAL_CHANNEL = 2;
+		MP3Header.SINGLE_CHANNEL = 3;
+		MP3Header.FOURTYFOUR_POINT_ONE = 0;
+		MP3Header.FOURTYEIGHT = 1;
+		MP3Header.THIRTYTWO = 2;
+		MP3Header.bitrates = [[[0, 32000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 176000, 192000, 224000, 256000, 0], [0, 8000, 16000, 24000, 32000, 40000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 0], [0, 8000, 16000, 24000, 32000, 40000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 0]], [[0, 32000, 64000, 96000, 128000, 160000, 192000, 224000, 256000, 288000, 320000, 352000, 384000, 416000, 448000, 0], [0, 32000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 160000, 192000, 224000, 256000, 320000, 384000, 0], [0, 32000, 40000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 160000, 192000, 224000, 256000, 320000, 0]], [[0, 32000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 176000, 192000, 224000, 256000, 0], [0, 8000, 16000, 24000, 32000, 40000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 0], [0, 8000, 16000, 24000, 32000, 40000, 48000, 56000, 64000, 80000, 96000, 112000, 128000, 144000, 160000, 0]]];
+		MP3Header.prototype.parseHeader = function(header) {
+			this.h_crc = ((header & 0x00010000) >>> 16) >>> 0;
+			var channelBitrate = 0;
+			this.h_sample_frequency = ((header >>> 10) & 3);
+			this.h_version = ((header >>> 19) & 1);
+			if (((header >>> 20) & 1) == 0)
+				if (this.h_version == MP3Header.MPEG2_LSF)
+					this.h_version = MP3Header.MPEG25_LSF;
+				else
+					throw new Error("UNKNOWN_ERROR");
+			this.h_layer = 4 - (header >>> 17) & 3;
+			this.h_protection_bit = (header >>> 16) & 1;
+			this.h_bitrate_index = (header >>> 12) & 0xF;
+			this.h_padding_bit = (header >>> 9) & 1;
+			this.h_mode = ((header >>> 6) & 3);
+			this.h_mode_extension = (header >>> 4) & 3;
+			if (this.h_mode == MP3Header.JOINT_STEREO)
+				this.h_intensity_stereo_bound = (this.h_mode_extension << 2) + 4;
+			else
+				this.h_intensity_stereo_bound = 0; // should never be used
+			if (((header >>> 3) & 1) == 1)
+				this.h_copyright = true;
+			if (((header >>> 2) & 1) == 1)
+				this.h_original = true;
+			if (this.h_layer == 1)
+				this.h_number_of_subbands = 32;
+			else {
+				channelBitrate = this.h_bitrate_index;
+				// calculate bitrate per channel:
+				if (this.h_mode != MP3Header.SINGLE_CHANNEL)
+					if (channelBitrate == 4)
+						channelBitrate = 1;
+					else
+						channelBitrate -= 4;
+				if ((channelBitrate == 1) || (channelBitrate == 2))
+					if (this.h_sample_frequency == MP3Header.THIRTYTWO)
+						this.h_number_of_subbands = 12;
+					else
+						this.h_number_of_subbands = 8;
+				else if ((this.h_sample_frequency == MP3Header.FOURTYEIGHT) || ((channelBitrate >= 3) && (channelBitrate <= 5)))
+					this.h_number_of_subbands = 27;
+				else
+					this.h_number_of_subbands = 30;
+			}
+			if (this.h_intensity_stereo_bound > this.h_number_of_subbands)
+				this.h_intensity_stereo_bound = this.h_number_of_subbands;
+			this.calculate_framesize();
+		}
+		MP3Header.prototype.frequency = function() {
+			return MP3Header.frequencies[this.h_version][this.h_sample_frequency];
+		}
+		MP3Header.prototype.sample_frequency = function() {
+			return this.h_sample_frequency;
+		}
+		MP3Header.prototype.version = function() {
+			return this.h_version;
+		}
+		MP3Header.prototype.layer = function() {
+			return this.h_layer;
+		}
+		MP3Header.prototype.mode = function() {
+			return this.h_mode;
+		}
+		MP3Header.prototype.checksums = function() {
+			return this.h_protection_bit == 0;
+		}
+		MP3Header.prototype.copyright = function() {
+			return this.h_copyright;
+		}
+		MP3Header.prototype.crc = function() {
+			return this.h_crc;
+		}
+		MP3Header.prototype.original = function() {
+			return this.h_original;
+		}
+		MP3Header.prototype.padding = function() {
+			return this.h_padding_bit != 0;
+		}
+		MP3Header.prototype.slots = function() {
+			return this.nSlots;
+		}
+		MP3Header.prototype.mode_extension = function() {
+			return this.h_mode_extension;
+		}
+		MP3Header.prototype.calculate_framesize = function() {
+			if (this.h_layer == 1) {
+				this.framesize = ((12 * MP3Header.bitrates[this.h_version][0][this.h_bitrate_index]) / MP3Header.frequencies[this.h_version][this.h_sample_frequency]) | 0;
+				if (this.h_padding_bit != 0) this.framesize++;
+				this.framesize <<= 2;
+				this.nSlots = 0;
+			} else {
+				this.framesize = ((144 * MP3Header.bitrates[this.h_version][this.h_layer - 1][this.h_bitrate_index]) / MP3Header.frequencies[this.h_version][this.h_sample_frequency]) | 0;
+				if (this.h_version == MP3Header.MPEG2_LSF || this.h_version == MP3Header.MPEG25_LSF) this.framesize >>= 1;
+				if (this.h_padding_bit != 0) this.framesize++;
+				if (this.h_layer == 3) {
+					if (this.h_version == MP3Header.MPEG1) {
+						this.nSlots = this.framesize - ((this.h_mode == MP3Header.SINGLE_CHANNEL) ? 17 : 32) - ((this.h_protection_bit != 0) ? 0 : 2) - 4; 
+					} else {
+						this.nSlots = this.framesize - ((this.h_mode == MP3Header.SINGLE_CHANNEL) ? 9 : 17) - ((this.h_protection_bit != 0) ? 0 : 2) - 4;
+					}
+				} else {
+					this.nSlots = 0;
+				}
+			}
+			this.framesize -= 4;
+			return this.framesize;
+		}
+		MP3Header.prototype.layer_string = function() {
+			switch (this.h_layer) {
+				case 1:
+					return "I";
+				case 2:
+					return "II";
+				case 3:
+					return "III";
+			}
+			return null;
+		}
+		MP3Header.bitrate_str = [[["free format", "32 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "176 kbit/s", "192 kbit/s", "224 kbit/s", "256 kbit/s", "forbidden"], ["free format", "8 kbit/s", "16 kbit/s", "24 kbit/s", "32 kbit/s", "40 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "forbidden"], ["free format", "8 kbit/s", "16 kbit/s", "24 kbit/s", "32 kbit/s", "40 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "forbidden"]], [["free format", "32 kbit/s", "64 kbit/s", "96 kbit/s", "128 kbit/s", "160 kbit/s", "192 kbit/s", "224 kbit/s", "256 kbit/s", "288 kbit/s", "320 kbit/s", "352 kbit/s", "384 kbit/s", "416 kbit/s", "448 kbit/s", "forbidden"], ["free format", "32 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "160 kbit/s", "192 kbit/s", "224 kbit/s", "256 kbit/s", "320 kbit/s", "384 kbit/s", "forbidden"], ["free format", "32 kbit/s", "40 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "160 kbit/s", "192 kbit/s", "224 kbit/s", "256 kbit/s", "320 kbit/s", "forbidden"]], [["free format", "32 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "176 kbit/s", "192 kbit/s", "224 kbit/s", "256 kbit/s", "forbidden"], ["free format", "8 kbit/s", "16 kbit/s", "24 kbit/s", "32 kbit/s", "40 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "forbidden"], ["free format", "8 kbit/s", "16 kbit/s", "24 kbit/s", "32 kbit/s", "40 kbit/s", "48 kbit/s", "56 kbit/s", "64 kbit/s", "80 kbit/s", "96 kbit/s", "112 kbit/s", "128 kbit/s", "144 kbit/s", "160 kbit/s", "forbidden"]]];
+		MP3Header.prototype.bitrate_string = function() {
+			return MP3Header.bitrate_str[this.h_version][this.h_layer - 1][this.h_bitrate_index];
+		}
+		MP3Header.prototype.sample_frequency_string = function() {
+			switch (this.h_sample_frequency) {
+				case MP3Header.THIRTYTWO:
+					if (this.h_version == MP3Header.MPEG1)
+						return "32 kHz";
+					else if (this.h_version == MP3Header.MPEG2_LSF)
+						return "16 kHz";
+					else    // SZD
+						return "8 kHz";
+				case MP3Header.FOURTYFOUR_POINT_ONE:
+					if (this.h_version == MP3Header.MPEG1)
+						return "44.1 kHz";
+					else if (this.h_version == MP3Header.MPEG2_LSF)
+						return "22.05 kHz";
+					else    // SZD
+						return "11.025 kHz";
+				case MP3Header.FOURTYEIGHT:
+					if (this.h_version == MP3Header.MPEG1)
+						return "48 kHz";
+					else if (this.h_version == MP3Header.MPEG2_LSF)
+						return "24 kHz";
+					else    // SZD
+						return "12 kHz";
+			}
+			return null;
+		}
+		MP3Header.isValidHeader = function(h) {
+			return (((h >>> 24) == 0xFF) && (((h >> 21) & 2047) == 2047) && ((((h & 0x00180000) >>> 19) >>> 0) != 1) && ((((h & 0x00060000) >>> 17) >>> 0) != 0) && ((((h & 0x0000f000) >>> 12) >>> 0) != 0) && ((((h & 0x0000f000) >>> 12) >>> 0) != 15) && ((((h & 0x00000c00) >>> 10) >>> 0) != 3) && (((h & 0x00000003) >>> 0) != 2));
+		}
+		const BitReserve = function() {
+			this.offset = 0;
+			this.totbit = 0;
+			this.buf_byte_idx = 0;
+			this.buf = new Int32Array(BitReserve.BUFSIZE);
+		}
+		BitReserve.BUFSIZE = 4096 * 8;
+		BitReserve.BUFSIZE_MASK = BitReserve.BUFSIZE - 1;
+		BitReserve.prototype.hputbuf = function(val) {
+			var ofs = this.offset;
+			this.buf[ofs++] = val & 0x80;
+			this.buf[ofs++] = val & 0x40;
+			this.buf[ofs++] = val & 0x20;
+			this.buf[ofs++] = val & 0x10;
+			this.buf[ofs++] = val & 0x08;
+			this.buf[ofs++] = val & 0x04;
+			this.buf[ofs++] = val & 0x02;
+			this.buf[ofs++] = val & 0x01;
+			if (ofs == BitReserve.BUFSIZE) this.offset = 0;
+			else this.offset = ofs;
+		}
+		BitReserve.prototype.hsstell = function() {
+			return this.totbit;
+		}
+		BitReserve.prototype.hgetbits = function(N) {
+			this.totbit += N;
+			var val = 0;
+			var pos = this.buf_byte_idx;
+			if (pos + N < BitReserve.BUFSIZE) {
+				while (N-- > 0) {
+					val <<= 1;
+					val |= ((this.buf[pos++] != 0) ? 1 : 0);
+				}
+			} else {
+				while (N-- > 0) {
+					val <<= 1;
+					val |= ((this.buf[pos] != 0) ? 1 : 0);
+					pos = (pos + 1) & BitReserve.BUFSIZE_MASK;
+				}
+			}
+			this.buf_byte_idx = pos;
+			return val;
+		}
+		BitReserve.prototype.hget1bit = function() {
+			this.totbit++;
+			var val = this.buf[this.buf_byte_idx];
+			this.buf_byte_idx = (this.buf_byte_idx + 1) & BitReserve.BUFSIZE_MASK;
+			return val;
+		}
+		BitReserve.prototype.rewindNbits = function(N) {
+			this.totbit -= N;
+			this.buf_byte_idx -= N;
+			if (this.buf_byte_idx < 0)
+				this.buf_byte_idx += BitReserve.BUFSIZE;
+		}
+		BitReserve.prototype.rewindNbytes = function(N) {
+			var bits = (N << 3);
+			this.totbit -= bits;
+			this.buf_byte_idx -= bits;
+			if (this.buf_byte_idx < 0)
+				this.buf_byte_idx += BitReserve.BUFSIZE;
+		}
+		const huffcodetab = function(S, XLEN, YLEN, LINBITS, LINMAX, REF, VAL, TREELEN) {
+			this.tablename0 = S.charAt(0);
+			this.tablename1 = S.charAt(1);
+			this.tablename2 = S.charAt(2);
+			this.xlen = XLEN;
+			this.ylen = YLEN;
+			this.linbits = LINBITS;
+			this.linmax = LINMAX;
+			this.ref = REF;
+			this.val = VAL;
+			this.treelen = TREELEN;
+		}
+		huffcodetab.MXOFF = 250;
+		huffcodetab.ValTab0 = [[0, 0]];
+		huffcodetab.ValTab1 = [[2, 1], [0, 0], [2, 1], [0, 16], [2, 1], [0, 1], [0, 17]];
+		huffcodetab.ValTab2 = [[2, 1], [0, 0], [4, 1], [2, 1], [0, 16], [0, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 32], [0, 33], [2, 1], [0, 18], [2, 1], [0, 2], [0, 34]];
+		huffcodetab.ValTab3 = [[4, 1], [2, 1], [0, 0], [0, 1], [2, 1], [0, 17], [2, 1], [0, 16], [4, 1], [2, 1], [0, 32], [0, 33], [2, 1], [0, 18], [2, 1], [0, 2], [0, 34]];
+		huffcodetab.ValTab4 = [[0, 0]];
+		huffcodetab.ValTab5 = [[2, 1], [0, 0], [4, 1], [2, 1], [0, 16], [0, 1], [2, 1], [0, 17], [8, 1], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 33], [0, 18], [8, 1], [4, 1], [2, 1], [0, 34], [0, 48], [2, 1], [0, 3], [0, 19], [2, 1], [0, 49], [2, 1], [0, 50], [2, 1], [0, 35], [0, 51]];
+		huffcodetab.ValTab6 = [[6, 1], [4, 1], [2, 1], [0, 0], [0, 16], [0, 17], [6, 1], [2, 1], [0, 1], [2, 1], [0, 32], [0, 33], [6, 1], [2, 1], [0, 18], [2, 1], [0, 2], [0, 34], [4, 1], [2, 1], [0, 49], [0, 19], [4, 1], [2, 1], [0, 48], [0, 50], [2, 1], [0, 35], [2, 1], [0, 3], [0, 51]];
+		huffcodetab.ValTab7 = [[2, 1], [0, 0], [4, 1], [2, 1], [0, 16], [0, 1], [8, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 32], [0, 2], [0, 33], [18, 1], [6, 1], [2, 1], [0, 18], [2, 1], [0, 34], [0, 48], [4, 1], [2, 1], [0, 49], [0, 19], [4, 1], [2, 1], [0, 3], [0, 50], [2, 1], [0, 35], [0, 4], [10, 1], [4, 1], [2, 1], [0, 64], [0, 65], [2, 1], [0, 20], [2, 1], [0, 66], [0, 36], [12, 1], [6, 1], [4, 1], [2, 1], [0, 51], [0, 67], [0, 80], [4, 1], [2, 1], [0, 52], [0, 5], [0, 81], [6, 1], [2, 1], [0, 21], [2, 1], [0, 82], [0, 37], [4, 1], [2, 1], [0, 68], [0, 53], [4, 1], [2, 1], [0, 83], [0, 84], [2, 1], [0, 69], [0, 85]];
+		huffcodetab.ValTab8 = [[6, 1], [2, 1], [0, 0], [2, 1], [0, 16], [0, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 33], [0, 18], [14, 1], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 34], [4, 1], [2, 1], [0, 48], [0, 3], [2, 1], [0, 49], [0, 19], [14, 1], [8, 1], [4, 1], [2, 1], [0, 50], [0, 35], [2, 1], [0, 64], [0, 4], [2, 1], [0, 65], [2, 1], [0, 20], [0, 66], [12, 1], [6, 1], [2, 1], [0, 36], [2, 1], [0, 51], [0, 80], [4, 1], [2, 1], [0, 67], [0, 52], [0, 81], [6, 1], [2, 1], [0, 21], [2, 1], [0, 5], [0, 82], [6, 1], [2, 1], [0, 37], [2, 1], [0, 68], [0, 53], [2, 1], [0, 83], [2, 1], [0, 69], [2, 1], [0, 84], [0, 85]];
+		huffcodetab.ValTab9 = [[8, 1], [4, 1], [2, 1], [0, 0], [0, 16], [2, 1], [0, 1], [0, 17], [10, 1], [4, 1], [2, 1], [0, 32], [0, 33], [2, 1], [0, 18], [2, 1], [0, 2], [0, 34], [12, 1], [6, 1], [4, 1], [2, 1], [0, 48], [0, 3], [0, 49], [2, 1], [0, 19], [2, 1], [0, 50], [0, 35], [12, 1], [4, 1], [2, 1], [0, 65], [0, 20], [4, 1], [2, 1], [0, 64], [0, 51], [2, 1], [0, 66], [0, 36], [10, 1], [6, 1], [4, 1], [2, 1], [0, 4], [0, 80], [0, 67], [2, 1], [0, 52], [0, 81], [8, 1], [4, 1], [2, 1], [0, 21], [0, 82], [2, 1], [0, 37], [0, 68], [6, 1], [4, 1], [2, 1], [0, 5], [0, 84], [0, 83], [2, 1], [0, 53], [2, 1], [0, 69], [0, 85]];
+		huffcodetab.ValTab10 = [[2, 1], [0, 0], [4, 1], [2, 1], [0, 16], [0, 1], [10, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 33], [0, 18], [28, 1], [8, 1], [4, 1], [2, 1], [0, 34], [0, 48], [2, 1], [0, 49], [0, 19], [8, 1], [4, 1], [2, 1], [0, 3], [0, 50], [2, 1], [0, 35], [0, 64], [4, 1], [2, 1], [0, 65], [0, 20], [4, 1], [2, 1], [0, 4], [0, 51], [2, 1], [0, 66], [0, 36], [28, 1], [10, 1], [6, 1], [4, 1], [2, 1], [0, 80], [0, 5], [0, 96], [2, 1], [0, 97], [0, 22], [12, 1], [6, 1], [4, 1], [2, 1], [0, 67], [0, 52], [0, 81], [2, 1], [0, 21], [2, 1], [0, 82], [0, 37], [4, 1], [2, 1], [0, 38], [0, 54], [0, 113], [20, 1], [8, 1], [2, 1], [0, 23], [4, 1], [2, 1], [0, 68], [0, 83], [0, 6], [6, 1], [4, 1], [2, 1], [0, 53], [0, 69], [0, 98], [2, 1], [0, 112], [2, 1], [0, 7], [0, 100], [14, 1], [4, 1], [2, 1], [0, 114], [0, 39], [6, 1], [2, 1], [0, 99], [2, 1], [0, 84], [0, 85], [2, 1], [0, 70], [0, 115], [8, 1], [4, 1], [2, 1], [0, 55], [0, 101], [2, 1], [0, 86], [0, 116], [6, 1], [2, 1], [0, 71], [2, 1], [0, 102], [0, 117], [4, 1], [2, 1], [0, 87], [0, 118], [2, 1], [0, 103], [0, 119]];
+		huffcodetab.ValTab11 = [[6, 1], [2, 1], [0, 0], [2, 1], [0, 16], [0, 1], [8, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 32], [0, 2], [0, 18], [24, 1], [8, 1], [2, 1], [0, 33], [2, 1], [0, 34], [2, 1], [0, 48], [0, 3], [4, 1], [2, 1], [0, 49], [0, 19], [4, 1], [2, 1], [0, 50], [0, 35], [4, 1], [2, 1], [0, 64], [0, 4], [2, 1], [0, 65], [0, 20], [30, 1], [16, 1], [10, 1], [4, 1], [2, 1], [0, 66], [0, 36], [4, 1], [2, 1], [0, 51], [0, 67], [0, 80], [4, 1], [2, 1], [0, 52], [0, 81], [0, 97], [6, 1], [2, 1], [0, 22], [2, 1], [0, 6], [0, 38], [2, 1], [0, 98], [2, 1], [0, 21], [2, 1], [0, 5], [0, 82], [16, 1], [10, 1], [6, 1], [4, 1], [2, 1], [0, 37], [0, 68], [0, 96], [2, 1], [0, 99], [0, 54], [4, 1], [2, 1], [0, 112], [0, 23], [0, 113], [16, 1], [6, 1], [4, 1], [2, 1], [0, 7], [0, 100], [0, 114], [2, 1], [0, 39], [4, 1], [2, 1], [0, 83], [0, 53], [2, 1], [0, 84], [0, 69], [10, 1], [4, 1], [2, 1], [0, 70], [0, 115], [2, 1], [0, 55], [2, 1], [0, 101], [0, 86], [10, 1], [6, 1], [4, 1], [2, 1], [0, 85], [0, 87], [0, 116], [2, 1], [0, 71], [0, 102], [4, 1], [2, 1], [0, 117], [0, 118], [2, 1], [0, 103], [0, 119]];
+		huffcodetab.ValTab12 = [[12, 1], [4, 1], [2, 1], [0, 16], [0, 1], [2, 1], [0, 17], [2, 1], [0, 0], [2, 1], [0, 32], [0, 2], [16, 1], [4, 1], [2, 1], [0, 33], [0, 18], [4, 1], [2, 1], [0, 34], [0, 49], [2, 1], [0, 19], [2, 1], [0, 48], [2, 1], [0, 3], [0, 64], [26, 1], [8, 1], [4, 1], [2, 1], [0, 50], [0, 35], [2, 1], [0, 65], [0, 51], [10, 1], [4, 1], [2, 1], [0, 20], [0, 66], [2, 1], [0, 36], [2, 1], [0, 4], [0, 80], [4, 1], [2, 1], [0, 67], [0, 52], [2, 1], [0, 81], [0, 21], [28, 1], [14, 1], [8, 1], [4, 1], [2, 1], [0, 82], [0, 37], [2, 1], [0, 83], [0, 53], [4, 1], [2, 1], [0, 96], [0, 22], [0, 97], [4, 1], [2, 1], [0, 98], [0, 38], [6, 1], [4, 1], [2, 1], [0, 5], [0, 6], [0, 68], [2, 1], [0, 84], [0, 69], [18, 1], [10, 1], [4, 1], [2, 1], [0, 99], [0, 54], [4, 1], [2, 1], [0, 112], [0, 7], [0, 113], [4, 1], [2, 1], [0, 23], [0, 100], [2, 1], [0, 70], [0, 114], [10, 1], [6, 1], [2, 1], [0, 39], [2, 1], [0, 85], [0, 115], [2, 1], [0, 55], [0, 86], [8, 1], [4, 1], [2, 1], [0, 101], [0, 116], [2, 1], [0, 71], [0, 102], [4, 1], [2, 1], [0, 117], [0, 87], [2, 1], [0, 118], [2, 1], [0, 103], [0, 119]];
+		huffcodetab.ValTab13 = [[2, 1], [0, 0], [6, 1], [2, 1], [0, 16], [2, 1], [0, 1], [0, 17], [28, 1], [8, 1], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 33], [0, 18], [8, 1], [4, 1], [2, 1], [0, 34], [0, 48], [2, 1], [0, 3], [0, 49], [6, 1], [2, 1], [0, 19], [2, 1], [0, 50], [0, 35], [4, 1], [2, 1], [0, 64], [0, 4], [0, 65], [70, 1], [28, 1], [14, 1], [6, 1], [2, 1], [0, 20], [2, 1], [0, 51], [0, 66], [4, 1], [2, 1], [0, 36], [0, 80], [2, 1], [0, 67], [0, 52], [4, 1], [2, 1], [0, 81], [0, 21], [4, 1], [2, 1], [0, 5], [0, 82], [2, 1], [0, 37], [2, 1], [0, 68], [0, 83], [14, 1], [8, 1], [4, 1], [2, 1], [0, 96], [0, 6], [2, 1], [0, 97], [0, 22], [4, 1], [2, 1], [0, 128], [0, 8], [0, 129], [16, 1], [8, 1], [4, 1], [2, 1], [0, 53], [0, 98], [2, 1], [0, 38], [0, 84], [4, 1], [2, 1], [0, 69], [0, 99], [2, 1], [0, 54], [0, 112], [6, 1], [4, 1], [2, 1], [0, 7], [0, 85], [0, 113], [2, 1], [0, 23], [2, 1], [0, 39], [0, 55], [72, 1], [24, 1], [12, 1], [4, 1], [2, 1], [0, 24], [0, 130], [2, 1], [0, 40], [4, 1], [2, 1], [0, 100], [0, 70], [0, 114], [8, 1], [4, 1], [2, 1], [0, 132], [0, 72], [2, 1], [0, 144], [0, 9], [2, 1], [0, 145], [0, 25], [24, 1], [14, 1], [8, 1], [4, 1], [2, 1], [0, 115], [0, 101], [2, 1], [0, 86], [0, 116], [4, 1], [2, 1], [0, 71], [0, 102], [0, 131], [6, 1], [2, 1], [0, 56], [2, 1], [0, 117], [0, 87], [2, 1], [0, 146], [0, 41], [14, 1], [8, 1], [4, 1], [2, 1], [0, 103], [0, 133], [2, 1], [0, 88], [0, 57], [2, 1], [0, 147], [2, 1], [0, 73], [0, 134], [6, 1], [2, 1], [0, 160], [2, 1], [0, 104], [0, 10], [2, 1], [0, 161], [0, 26], [68, 1], [24, 1], [12, 1], [4, 1], [2, 1], [0, 162], [0, 42], [4, 1], [2, 1], [0, 149], [0, 89], [2, 1], [0, 163], [0, 58], [8, 1], [4, 1], [2, 1], [0, 74], [0, 150], [2, 1], [0, 176], [0, 11], [2, 1], [0, 177], [0, 27], [20, 1], [8, 1], [2, 1], [0, 178], [4, 1], [2, 1], [0, 118], [0, 119], [0, 148], [6, 1], [4, 1], [2, 1], [0, 135], [0, 120], [0, 164], [4, 1], [2, 1], [0, 105], [0, 165], [0, 43], [12, 1], [6, 1], [4, 1], [2, 1], [0, 90], [0, 136], [0, 179], [2, 1], [0, 59], [2, 1], [0, 121], [0, 166], [6, 1], [4, 1], [2, 1], [0, 106], [0, 180], [0, 192], [4, 1], [2, 1], [0, 12], [0, 152], [0, 193], [60, 1], [22, 1], [10, 1], [6, 1], [2, 1], [0, 28], [2, 1], [0, 137], [0, 181], [2, 1], [0, 91], [0, 194], [4, 1], [2, 1], [0, 44], [0, 60], [4, 1], [2, 1], [0, 182], [0, 107], [2, 1], [0, 196], [0, 76], [16, 1], [8, 1], [4, 1], [2, 1], [0, 168], [0, 138], [2, 1], [0, 208], [0, 13], [2, 1], [0, 209], [2, 1], [0, 75], [2, 1], [0, 151], [0, 167], [12, 1], [6, 1], [2, 1], [0, 195], [2, 1], [0, 122], [0, 153], [4, 1], [2, 1], [0, 197], [0, 92], [0, 183], [4, 1], [2, 1], [0, 29], [0, 210], [2, 1], [0, 45], [2, 1], [0, 123], [0, 211], [52, 1], [28, 1], [12, 1], [4, 1], [2, 1], [0, 61], [0, 198], [4, 1], [2, 1], [0, 108], [0, 169], [2, 1], [0, 154], [0, 212], [8, 1], [4, 1], [2, 1], [0, 184], [0, 139], [2, 1], [0, 77], [0, 199], [4, 1], [2, 1], [0, 124], [0, 213], [2, 1], [0, 93], [0, 224], [10, 1], [4, 1], [2, 1], [0, 225], [0, 30], [4, 1], [2, 1], [0, 14], [0, 46], [0, 226], [8, 1], [4, 1], [2, 1], [0, 227], [0, 109], [2, 1], [0, 140], [0, 228], [4, 1], [2, 1], [0, 229], [0, 186], [0, 240], [38, 1], [16, 1], [4, 1], [2, 1], [0, 241], [0, 31], [6, 1], [4, 1], [2, 1], [0, 170], [0, 155], [0, 185], [2, 1], [0, 62], [2, 1], [0, 214], [0, 200], [12, 1], [6, 1], [2, 1], [0, 78], [2, 1], [0, 215], [0, 125], [2, 1], [0, 171], [2, 1], [0, 94], [0, 201], [6, 1], [2, 1], [0, 15], [2, 1], [0, 156], [0, 110], [2, 1], [0, 242], [0, 47], [32, 1], [16, 1], [6, 1], [4, 1], [2, 1], [0, 216], [0, 141], [0, 63], [6, 1], [2, 1], [0, 243], [2, 1], [0, 230], [0, 202], [2, 1], [0, 244], [0, 79], [8, 1], [4, 1], [2, 1], [0, 187], [0, 172], [2, 1], [0, 231], [0, 245], [4, 1], [2, 1], [0, 217], [0, 157], [2, 1], [0, 95], [0, 232], [30, 1], [12, 1], [6, 1], [2, 1], [0, 111], [2, 1], [0, 246], [0, 203], [4, 1], [2, 1], [0, 188], [0, 173], [0, 218], [8, 1], [2, 1], [0, 247], [4, 1], [2, 1], [0, 126], [0, 127], [0, 142], [6, 1], [4, 1], [2, 1], [0, 158], [0, 174], [0, 204], [2, 1], [0, 248], [0, 143], [18, 1], [8, 1], [4, 1], [2, 1], [0, 219], [0, 189], [2, 1], [0, 234], [0, 249], [4, 1], [2, 1], [0, 159], [0, 235], [2, 1], [0, 190], [2, 1], [0, 205], [0, 250], [14, 1], [4, 1], [2, 1], [0, 221], [0, 236], [6, 1], [4, 1], [2, 1], [0, 233], [0, 175], [0, 220], [2, 1], [0, 206], [0, 251], [8, 1], [4, 1], [2, 1], [0, 191], [0, 222], [2, 1], [0, 207], [0, 238], [4, 1], [2, 1], [0, 223], [0, 239], [2, 1], [0, 255], [2, 1], [0, 237], [2, 1], [0, 253], [2, 1], [0, 252], [0, 254]];
+		huffcodetab.ValTab14 = [[0, 0]];
+		huffcodetab.ValTab15 = [[16, 1], [6, 1], [2, 1], [0, 0], [2, 1], [0, 16], [0, 1], [2, 1], [0, 17], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 33], [0, 18], [50, 1], [16, 1], [6, 1], [2, 1], [0, 34], [2, 1], [0, 48], [0, 49], [6, 1], [2, 1], [0, 19], [2, 1], [0, 3], [0, 64], [2, 1], [0, 50], [0, 35], [14, 1], [6, 1], [4, 1], [2, 1], [0, 4], [0, 20], [0, 65], [4, 1], [2, 1], [0, 51], [0, 66], [2, 1], [0, 36], [0, 67], [10, 1], [6, 1], [2, 1], [0, 52], [2, 1], [0, 80], [0, 5], [2, 1], [0, 81], [0, 21], [4, 1], [2, 1], [0, 82], [0, 37], [4, 1], [2, 1], [0, 68], [0, 83], [0, 97], [90, 1], [36, 1], [18, 1], [10, 1], [6, 1], [2, 1], [0, 53], [2, 1], [0, 96], [0, 6], [2, 1], [0, 22], [0, 98], [4, 1], [2, 1], [0, 38], [0, 84], [2, 1], [0, 69], [0, 99], [10, 1], [6, 1], [2, 1], [0, 54], [2, 1], [0, 112], [0, 7], [2, 1], [0, 113], [0, 85], [4, 1], [2, 1], [0, 23], [0, 100], [2, 1], [0, 114], [0, 39], [24, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 70], [0, 115], [2, 1], [0, 55], [0, 101], [4, 1], [2, 1], [0, 86], [0, 128], [2, 1], [0, 8], [0, 116], [4, 1], [2, 1], [0, 129], [0, 24], [2, 1], [0, 130], [0, 40], [16, 1], [8, 1], [4, 1], [2, 1], [0, 71], [0, 102], [2, 1], [0, 131], [0, 56], [4, 1], [2, 1], [0, 117], [0, 87], [2, 1], [0, 132], [0, 72], [6, 1], [4, 1], [2, 1], [0, 144], [0, 25], [0, 145], [4, 1], [2, 1], [0, 146], [0, 118], [2, 1], [0, 103], [0, 41], [92, 1], [36, 1], [18, 1], [10, 1], [4, 1], [2, 1], [0, 133], [0, 88], [4, 1], [2, 1], [0, 9], [0, 119], [0, 147], [4, 1], [2, 1], [0, 57], [0, 148], [2, 1], [0, 73], [0, 134], [10, 1], [6, 1], [2, 1], [0, 104], [2, 1], [0, 160], [0, 10], [2, 1], [0, 161], [0, 26], [4, 1], [2, 1], [0, 162], [0, 42], [2, 1], [0, 149], [0, 89], [26, 1], [14, 1], [6, 1], [2, 1], [0, 163], [2, 1], [0, 58], [0, 135], [4, 1], [2, 1], [0, 120], [0, 164], [2, 1], [0, 74], [0, 150], [6, 1], [4, 1], [2, 1], [0, 105], [0, 176], [0, 177], [4, 1], [2, 1], [0, 27], [0, 165], [0, 178], [14, 1], [8, 1], [4, 1], [2, 1], [0, 90], [0, 43], [2, 1], [0, 136], [0, 151], [2, 1], [0, 179], [2, 1], [0, 121], [0, 59], [8, 1], [4, 1], [2, 1], [0, 106], [0, 180], [2, 1], [0, 75], [0, 193], [4, 1], [2, 1], [0, 152], [0, 137], [2, 1], [0, 28], [0, 181], [80, 1], [34, 1], [16, 1], [6, 1], [4, 1], [2, 1], [0, 91], [0, 44], [0, 194], [6, 1], [4, 1], [2, 1], [0, 11], [0, 192], [0, 166], [2, 1], [0, 167], [0, 122], [10, 1], [4, 1], [2, 1], [0, 195], [0, 60], [4, 1], [2, 1], [0, 12], [0, 153], [0, 182], [4, 1], [2, 1], [0, 107], [0, 196], [2, 1], [0, 76], [0, 168], [20, 1], [10, 1], [4, 1], [2, 1], [0, 138], [0, 197], [4, 1], [2, 1], [0, 208], [0, 92], [0, 209], [4, 1], [2, 1], [0, 183], [0, 123], [2, 1], [0, 29], [2, 1], [0, 13], [0, 45], [12, 1], [4, 1], [2, 1], [0, 210], [0, 211], [4, 1], [2, 1], [0, 61], [0, 198], [2, 1], [0, 108], [0, 169], [6, 1], [4, 1], [2, 1], [0, 154], [0, 184], [0, 212], [4, 1], [2, 1], [0, 139], [0, 77], [2, 1], [0, 199], [0, 124], [68, 1], [34, 1], [18, 1], [10, 1], [4, 1], [2, 1], [0, 213], [0, 93], [4, 1], [2, 1], [0, 224], [0, 14], [0, 225], [4, 1], [2, 1], [0, 30], [0, 226], [2, 1], [0, 170], [0, 46], [8, 1], [4, 1], [2, 1], [0, 185], [0, 155], [2, 1], [0, 227], [0, 214], [4, 1], [2, 1], [0, 109], [0, 62], [2, 1], [0, 200], [0, 140], [16, 1], [8, 1], [4, 1], [2, 1], [0, 228], [0, 78], [2, 1], [0, 215], [0, 125], [4, 1], [2, 1], [0, 229], [0, 186], [2, 1], [0, 171], [0, 94], [8, 1], [4, 1], [2, 1], [0, 201], [0, 156], [2, 1], [0, 241], [0, 31], [6, 1], [4, 1], [2, 1], [0, 240], [0, 110], [0, 242], [2, 1], [0, 47], [0, 230], [38, 1], [18, 1], [8, 1], [4, 1], [2, 1], [0, 216], [0, 243], [2, 1], [0, 63], [0, 244], [6, 1], [2, 1], [0, 79], [2, 1], [0, 141], [0, 217], [2, 1], [0, 187], [0, 202], [8, 1], [4, 1], [2, 1], [0, 172], [0, 231], [2, 1], [0, 126], [0, 245], [8, 1], [4, 1], [2, 1], [0, 157], [0, 95], [2, 1], [0, 232], [0, 142], [2, 1], [0, 246], [0, 203], [34, 1], [18, 1], [10, 1], [6, 1], [4, 1], [2, 1], [0, 15], [0, 174], [0, 111], [2, 1], [0, 188], [0, 218], [4, 1], [2, 1], [0, 173], [0, 247], [2, 1], [0, 127], [0, 233], [8, 1], [4, 1], [2, 1], [0, 158], [0, 204], [2, 1], [0, 248], [0, 143], [4, 1], [2, 1], [0, 219], [0, 189], [2, 1], [0, 234], [0, 249], [16, 1], [8, 1], [4, 1], [2, 1], [0, 159], [0, 220], [2, 1], [0, 205], [0, 235], [4, 1], [2, 1], [0, 190], [0, 250], [2, 1], [0, 175], [0, 221], [14, 1], [6, 1], [4, 1], [2, 1], [0, 236], [0, 206], [0, 251], [4, 1], [2, 1], [0, 191], [0, 237], [2, 1], [0, 222], [0, 252], [6, 1], [4, 1], [2, 1], [0, 207], [0, 253], [0, 238], [4, 1], [2, 1], [0, 223], [0, 254], [2, 1], [0, 239], [0, 255]];
+		huffcodetab.ValTab16 = [[2, 1], [0, 0], [6, 1], [2, 1], [0, 16], [2, 1], [0, 1], [0, 17], [42, 1], [8, 1], [4, 1], [2, 1], [0, 32], [0, 2], [2, 1], [0, 33], [0, 18], [10, 1], [6, 1], [2, 1], [0, 34], [2, 1], [0, 48], [0, 3], [2, 1], [0, 49], [0, 19], [10, 1], [4, 1], [2, 1], [0, 50], [0, 35], [4, 1], [2, 1], [0, 64], [0, 4], [0, 65], [6, 1], [2, 1], [0, 20], [2, 1], [0, 51], [0, 66], [4, 1], [2, 1], [0, 36], [0, 80], [2, 1], [0, 67], [0, 52], [138, 1], [40, 1], [16, 1], [6, 1], [4, 1], [2, 1], [0, 5], [0, 21], [0, 81], [4, 1], [2, 1], [0, 82], [0, 37], [4, 1], [2, 1], [0, 68], [0, 53], [0, 83], [10, 1], [6, 1], [4, 1], [2, 1], [0, 96], [0, 6], [0, 97], [2, 1], [0, 22], [0, 98], [8, 1], [4, 1], [2, 1], [0, 38], [0, 84], [2, 1], [0, 69], [0, 99], [4, 1], [2, 1], [0, 54], [0, 112], [0, 113], [40, 1], [18, 1], [8, 1], [2, 1], [0, 23], [2, 1], [0, 7], [2, 1], [0, 85], [0, 100], [4, 1], [2, 1], [0, 114], [0, 39], [4, 1], [2, 1], [0, 70], [0, 101], [0, 115], [10, 1], [6, 1], [2, 1], [0, 55], [2, 1], [0, 86], [0, 8], [2, 1], [0, 128], [0, 129], [6, 1], [2, 1], [0, 24], [2, 1], [0, 116], [0, 71], [2, 1], [0, 130], [2, 1], [0, 40], [0, 102], [24, 1], [14, 1], [8, 1], [4, 1], [2, 1], [0, 131], [0, 56], [2, 1], [0, 117], [0, 132], [4, 1], [2, 1], [0, 72], [0, 144], [0, 145], [6, 1], [2, 1], [0, 25], [2, 1], [0, 9], [0, 118], [2, 1], [0, 146], [0, 41], [14, 1], [8, 1], [4, 1], [2, 1], [0, 133], [0, 88], [2, 1], [0, 147], [0, 57], [4, 1], [2, 1], [0, 160], [0, 10], [0, 26], [8, 1], [2, 1], [0, 162], [2, 1], [0, 103], [2, 1], [0, 87], [0, 73], [6, 1], [2, 1], [0, 148], [2, 1], [0, 119], [0, 134], [2, 1], [0, 161], [2, 1], [0, 104], [0, 149], [220, 1], [126, 1], [50, 1], [26, 1], [12, 1], [6, 1], [2, 1], [0, 42], [2, 1], [0, 89], [0, 58], [2, 1], [0, 163], [2, 1], [0, 135], [0, 120], [8, 1], [4, 1], [2, 1], [0, 164], [0, 74], [2, 1], [0, 150], [0, 105], [4, 1], [2, 1], [0, 176], [0, 11], [0, 177], [10, 1], [4, 1], [2, 1], [0, 27], [0, 178], [2, 1], [0, 43], [2, 1], [0, 165], [0, 90], [6, 1], [2, 1], [0, 179], [2, 1], [0, 166], [0, 106], [4, 1], [2, 1], [0, 180], [0, 75], [2, 1], [0, 12], [0, 193], [30, 1], [14, 1], [6, 1], [4, 1], [2, 1], [0, 181], [0, 194], [0, 44], [4, 1], [2, 1], [0, 167], [0, 195], [2, 1], [0, 107], [0, 196], [8, 1], [2, 1], [0, 29], [4, 1], [2, 1], [0, 136], [0, 151], [0, 59], [4, 1], [2, 1], [0, 209], [0, 210], [2, 1], [0, 45], [0, 211], [18, 1], [6, 1], [4, 1], [2, 1], [0, 30], [0, 46], [0, 226], [6, 1], [4, 1], [2, 1], [0, 121], [0, 152], [0, 192], [2, 1], [0, 28], [2, 1], [0, 137], [0, 91], [14, 1], [6, 1], [2, 1], [0, 60], [2, 1], [0, 122], [0, 182], [4, 1], [2, 1], [0, 76], [0, 153], [2, 1], [0, 168], [0, 138], [6, 1], [2, 1], [0, 13], [2, 1], [0, 197], [0, 92], [4, 1], [2, 1], [0, 61], [0, 198], [2, 1], [0, 108], [0, 154], [88, 1], [86, 1], [36, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 139], [0, 77], [2, 1], [0, 199], [0, 124], [4, 1], [2, 1], [0, 213], [0, 93], [2, 1], [0, 224], [0, 14], [8, 1], [2, 1], [0, 227], [4, 1], [2, 1], [0, 208], [0, 183], [0, 123], [6, 1], [4, 1], [2, 1], [0, 169], [0, 184], [0, 212], [2, 1], [0, 225], [2, 1], [0, 170], [0, 185], [24, 1], [10, 1], [6, 1], [4, 1], [2, 1], [0, 155], [0, 214], [0, 109], [2, 1], [0, 62], [0, 200], [6, 1], [4, 1], [2, 1], [0, 140], [0, 228], [0, 78], [4, 1], [2, 1], [0, 215], [0, 229], [2, 1], [0, 186], [0, 171], [12, 1], [4, 1], [2, 1], [0, 156], [0, 230], [4, 1], [2, 1], [0, 110], [0, 216], [2, 1], [0, 141], [0, 187], [8, 1], [4, 1], [2, 1], [0, 231], [0, 157], [2, 1], [0, 232], [0, 142], [4, 1], [2, 1], [0, 203], [0, 188], [0, 158], [0, 241], [2, 1], [0, 31], [2, 1], [0, 15], [0, 47], [66, 1], [56, 1], [2, 1], [0, 242], [52, 1], [50, 1], [20, 1], [8, 1], [2, 1], [0, 189], [2, 1], [0, 94], [2, 1], [0, 125], [0, 201], [6, 1], [2, 1], [0, 202], [2, 1], [0, 172], [0, 126], [4, 1], [2, 1], [0, 218], [0, 173], [0, 204], [10, 1], [6, 1], [2, 1], [0, 174], [2, 1], [0, 219], [0, 220], [2, 1], [0, 205], [0, 190], [6, 1], [4, 1], [2, 1], [0, 235], [0, 237], [0, 238], [6, 1], [4, 1], [2, 1], [0, 217], [0, 234], [0, 233], [2, 1], [0, 222], [4, 1], [2, 1], [0, 221], [0, 236], [0, 206], [0, 63], [0, 240], [4, 1], [2, 1], [0, 243], [0, 244], [2, 1], [0, 79], [2, 1], [0, 245], [0, 95], [10, 1], [2, 1], [0, 255], [4, 1], [2, 1], [0, 246], [0, 111], [2, 1], [0, 247], [0, 127], [12, 1], [6, 1], [2, 1], [0, 143], [2, 1], [0, 248], [0, 249], [4, 1], [2, 1], [0, 159], [0, 250], [0, 175], [8, 1], [4, 1], [2, 1], [0, 251], [0, 191], [2, 1], [0, 252], [0, 207], [4, 1], [2, 1], [0, 253], [0, 223], [2, 1], [0, 254], [0, 239]];
+		huffcodetab.ValTab24 = [[60, 1], [8, 1], [4, 1], [2, 1], [0, 0], [0, 16], [2, 1], [0, 1], [0, 17], [14, 1], [6, 1], [4, 1], [2, 1], [0, 32], [0, 2], [0, 33], [2, 1], [0, 18], [2, 1], [0, 34], [2, 1], [0, 48], [0, 3], [14, 1], [4, 1], [2, 1], [0, 49], [0, 19], [4, 1], [2, 1], [0, 50], [0, 35], [4, 1], [2, 1], [0, 64], [0, 4], [0, 65], [8, 1], [4, 1], [2, 1], [0, 20], [0, 51], [2, 1], [0, 66], [0, 36], [6, 1], [4, 1], [2, 1], [0, 67], [0, 52], [0, 81], [6, 1], [4, 1], [2, 1], [0, 80], [0, 5], [0, 21], [2, 1], [0, 82], [0, 37], [250, 1], [98, 1], [34, 1], [18, 1], [10, 1], [4, 1], [2, 1], [0, 68], [0, 83], [2, 1], [0, 53], [2, 1], [0, 96], [0, 6], [4, 1], [2, 1], [0, 97], [0, 22], [2, 1], [0, 98], [0, 38], [8, 1], [4, 1], [2, 1], [0, 84], [0, 69], [2, 1], [0, 99], [0, 54], [4, 1], [2, 1], [0, 113], [0, 85], [2, 1], [0, 100], [0, 70], [32, 1], [14, 1], [6, 1], [2, 1], [0, 114], [2, 1], [0, 39], [0, 55], [2, 1], [0, 115], [4, 1], [2, 1], [0, 112], [0, 7], [0, 23], [10, 1], [4, 1], [2, 1], [0, 101], [0, 86], [4, 1], [2, 1], [0, 128], [0, 8], [0, 129], [4, 1], [2, 1], [0, 116], [0, 71], [2, 1], [0, 24], [0, 130], [16, 1], [8, 1], [4, 1], [2, 1], [0, 40], [0, 102], [2, 1], [0, 131], [0, 56], [4, 1], [2, 1], [0, 117], [0, 87], [2, 1], [0, 132], [0, 72], [8, 1], [4, 1], [2, 1], [0, 145], [0, 25], [2, 1], [0, 146], [0, 118], [4, 1], [2, 1], [0, 103], [0, 41], [2, 1], [0, 133], [0, 88], [92, 1], [34, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 147], [0, 57], [2, 1], [0, 148], [0, 73], [4, 1], [2, 1], [0, 119], [0, 134], [2, 1], [0, 104], [0, 161], [8, 1], [4, 1], [2, 1], [0, 162], [0, 42], [2, 1], [0, 149], [0, 89], [4, 1], [2, 1], [0, 163], [0, 58], [2, 1], [0, 135], [2, 1], [0, 120], [0, 74], [22, 1], [12, 1], [4, 1], [2, 1], [0, 164], [0, 150], [4, 1], [2, 1], [0, 105], [0, 177], [2, 1], [0, 27], [0, 165], [6, 1], [2, 1], [0, 178], [2, 1], [0, 90], [0, 43], [2, 1], [0, 136], [0, 179], [16, 1], [10, 1], [6, 1], [2, 1], [0, 144], [2, 1], [0, 9], [0, 160], [2, 1], [0, 151], [0, 121], [4, 1], [2, 1], [0, 166], [0, 106], [0, 180], [12, 1], [6, 1], [2, 1], [0, 26], [2, 1], [0, 10], [0, 176], [2, 1], [0, 59], [2, 1], [0, 11], [0, 192], [4, 1], [2, 1], [0, 75], [0, 193], [2, 1], [0, 152], [0, 137], [67, 1], [34, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 28], [0, 181], [2, 1], [0, 91], [0, 194], [4, 1], [2, 1], [0, 44], [0, 167], [2, 1], [0, 122], [0, 195], [10, 1], [6, 1], [2, 1], [0, 60], [2, 1], [0, 12], [0, 208], [2, 1], [0, 182], [0, 107], [4, 1], [2, 1], [0, 196], [0, 76], [2, 1], [0, 153], [0, 168], [16, 1], [8, 1], [4, 1], [2, 1], [0, 138], [0, 197], [2, 1], [0, 92], [0, 209], [4, 1], [2, 1], [0, 183], [0, 123], [2, 1], [0, 29], [0, 210], [9, 1], [4, 1], [2, 1], [0, 45], [0, 211], [2, 1], [0, 61], [0, 198], [85, 250], [4, 1], [2, 1], [0, 108], [0, 169], [2, 1], [0, 154], [0, 212], [32, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 184], [0, 139], [2, 1], [0, 77], [0, 199], [4, 1], [2, 1], [0, 124], [0, 213], [2, 1], [0, 93], [0, 225], [8, 1], [4, 1], [2, 1], [0, 30], [0, 226], [2, 1], [0, 170], [0, 185], [4, 1], [2, 1], [0, 155], [0, 227], [2, 1], [0, 214], [0, 109], [20, 1], [10, 1], [6, 1], [2, 1], [0, 62], [2, 1], [0, 46], [0, 78], [2, 1], [0, 200], [0, 140], [4, 1], [2, 1], [0, 228], [0, 215], [4, 1], [2, 1], [0, 125], [0, 171], [0, 229], [10, 1], [4, 1], [2, 1], [0, 186], [0, 94], [2, 1], [0, 201], [2, 1], [0, 156], [0, 110], [8, 1], [2, 1], [0, 230], [2, 1], [0, 13], [2, 1], [0, 224], [0, 14], [4, 1], [2, 1], [0, 216], [0, 141], [2, 1], [0, 187], [0, 202], [74, 1], [2, 1], [0, 255], [64, 1], [58, 1], [32, 1], [16, 1], [8, 1], [4, 1], [2, 1], [0, 172], [0, 231], [2, 1], [0, 126], [0, 217], [4, 1], [2, 1], [0, 157], [0, 232], [2, 1], [0, 142], [0, 203], [8, 1], [4, 1], [2, 1], [0, 188], [0, 218], [2, 1], [0, 173], [0, 233], [4, 1], [2, 1], [0, 158], [0, 204], [2, 1], [0, 219], [0, 189], [16, 1], [8, 1], [4, 1], [2, 1], [0, 234], [0, 174], [2, 1], [0, 220], [0, 205], [4, 1], [2, 1], [0, 235], [0, 190], [2, 1], [0, 221], [0, 236], [8, 1], [4, 1], [2, 1], [0, 206], [0, 237], [2, 1], [0, 222], [0, 238], [0, 15], [4, 1], [2, 1], [0, 240], [0, 31], [0, 241], [4, 1], [2, 1], [0, 242], [0, 47], [2, 1], [0, 243], [0, 63], [18, 1], [8, 1], [4, 1], [2, 1], [0, 244], [0, 79], [2, 1], [0, 245], [0, 95], [4, 1], [2, 1], [0, 246], [0, 111], [2, 1], [0, 247], [2, 1], [0, 127], [0, 143], [10, 1], [4, 1], [2, 1], [0, 248], [0, 249], [4, 1], [2, 1], [0, 159], [0, 175], [0, 250], [8, 1], [4, 1], [2, 1], [0, 251], [0, 191], [2, 1], [0, 252], [0, 207], [4, 1], [2, 1], [0, 253], [0, 223], [2, 1], [0, 254], [0, 239]];
+		huffcodetab.ValTab32 = [[2, 1], [0, 0], [8, 1], [4, 1], [2, 1], [0, 8], [0, 4], [2, 1], [0, 1], [0, 2], [8, 1], [4, 1], [2, 1], [0, 12], [0, 10], [2, 1], [0, 3], [0, 6], [6, 1], [2, 1], [0, 9], [2, 1], [0, 5], [0, 7], [4, 1], [2, 1], [0, 14], [0, 13], [2, 1], [0, 15], [0, 11]];huffcodetab.ValTab33 = [[16, 1], [8, 1], [4, 1], [2, 1], [0, 0], [0, 1], [2, 1], [0, 2], [0, 3], [4, 1], [2, 1], [0, 4], [0, 5], [2, 1], [0, 6], [0, 7], [8, 1], [4, 1], [2, 1], [0, 8], [0, 9], [2, 1], [0, 10], [0, 11], [4, 1], [2, 1], [0, 12], [0, 13], [2, 1], [0, 14], [0, 15]];
+		huffcodetab.ht = null;
+		huffcodetab.initHuff = function() {
+			if (huffcodetab.ht != null) return;
+			huffcodetab.ht = [];
+			huffcodetab.ht[0] = new huffcodetab("0  ", 0, 0, 0, 0, -1, huffcodetab.ValTab0, 0);
+			huffcodetab.ht[1] = new huffcodetab("1  ", 2, 2, 0, 0, -1, huffcodetab.ValTab1, 7);
+			huffcodetab.ht[2] = new huffcodetab("2  ", 3, 3, 0, 0, -1, huffcodetab.ValTab2, 17);
+			huffcodetab.ht[3] = new huffcodetab("3  ", 3, 3, 0, 0, -1, huffcodetab.ValTab3, 17);
+			huffcodetab.ht[4] = new huffcodetab("4  ", 0, 0, 0, 0, -1, huffcodetab.ValTab4, 0);
+			huffcodetab.ht[5] = new huffcodetab("5  ", 4, 4, 0, 0, -1, huffcodetab.ValTab5, 31);
+			huffcodetab.ht[6] = new huffcodetab("6  ", 4, 4, 0, 0, -1, huffcodetab.ValTab6, 31);
+			huffcodetab.ht[7] = new huffcodetab("7  ", 6, 6, 0, 0, -1, huffcodetab.ValTab7, 71);
+			huffcodetab.ht[8] = new huffcodetab("8  ", 6, 6, 0, 0, -1, huffcodetab.ValTab8, 71);
+			huffcodetab.ht[9] = new huffcodetab("9  ", 6, 6, 0, 0, -1, huffcodetab.ValTab9, 71);
+			huffcodetab.ht[10] = new huffcodetab("10 ", 8, 8, 0, 0, -1, huffcodetab.ValTab10, 127);
+			huffcodetab.ht[11] = new huffcodetab("11 ", 8, 8, 0, 0, -1, huffcodetab.ValTab11, 127);
+			huffcodetab.ht[12] = new huffcodetab("12 ", 8, 8, 0, 0, -1, huffcodetab.ValTab12, 127);
+			huffcodetab.ht[13] = new huffcodetab("13 ", 16, 16, 0, 0, -1, huffcodetab.ValTab13, 511);
+			huffcodetab.ht[14] = new huffcodetab("14 ", 0, 0, 0, 0, -1, huffcodetab.ValTab14, 0);
+			huffcodetab.ht[15] = new huffcodetab("15 ", 16, 16, 0, 0, -1, huffcodetab.ValTab15, 511);
+			huffcodetab.ht[16] = new huffcodetab("16 ", 16, 16, 1, 1, -1, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[17] = new huffcodetab("17 ", 16, 16, 2, 3, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[18] = new huffcodetab("18 ", 16, 16, 3, 7, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[19] = new huffcodetab("19 ", 16, 16, 4, 15, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[20] = new huffcodetab("20 ", 16, 16, 6, 63, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[21] = new huffcodetab("21 ", 16, 16, 8, 255, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[22] = new huffcodetab("22 ", 16, 16, 10, 1023, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[23] = new huffcodetab("23 ", 16, 16, 13, 8191, 16, huffcodetab.ValTab16, 511);
+			huffcodetab.ht[24] = new huffcodetab("24 ", 16, 16, 4, 15, -1, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[25] = new huffcodetab("25 ", 16, 16, 5, 31, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[26] = new huffcodetab("26 ", 16, 16, 6, 63, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[27] = new huffcodetab("27 ", 16, 16, 7, 127, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[28] = new huffcodetab("28 ", 16, 16, 8, 255, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[29] = new huffcodetab("29 ", 16, 16, 9, 511, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[30] = new huffcodetab("30 ", 16, 16, 11, 2047, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[31] = new huffcodetab("31 ", 16, 16, 13, 8191, 24, huffcodetab.ValTab24, 512);
+			huffcodetab.ht[32] = new huffcodetab("32 ", 1, 16, 0, 0, -1, huffcodetab.ValTab32, 31);
+			huffcodetab.ht[33] = new huffcodetab("33 ", 1, 16, 0, 0, -1, huffcodetab.ValTab33, 31);
+		}
+		huffcodetab.huffman_decoder = function(h, x, y, v, w, br) {
+			var dmask = 1 << ((4 * 8) - 1);
+			var hs = 4 * 8;
+			var level;
+			var point = 0;
+			var error = 1;
+			level = dmask;
+			if (h.val == null) return 2;
+			if (h.treelen == 0) {
+				x[0] = y[0] = 0;
+				return 0;
+			}
+			do {
+				if (h.val[point][0] == 0) {
+					x[0] = h.val[point][1] >>> 4;
+					y[0] = h.val[point][1] & 0xf;
+					error = 0;
+					break;
+				}
+				if (br.hget1bit() != 0) {
+					while (h.val[point][1] >= huffcodetab.MXOFF) point += h.val[point][1];
+					point += h.val[point][1];
+				} else {
+					while (h.val[point][0] >= huffcodetab.MXOFF) point += h.val[point][0];
+					point += h.val[point][0];
+				}
+				level >>>= 1;
+			} while ((level != 0) || (point < 0));
+			if (h.tablename0 == '3' && (h.tablename1 == '2' || h.tablename1 == '3')) {
+				v[0] = (y[0] >> 3) & 1;
+				w[0] = (y[0] >> 2) & 1;
+				x[0] = (y[0] >> 1) & 1;
+				y[0] = y[0] & 1;
+				if (v[0] != 0)
+					if (br.hget1bit() != 0) v[0] = -v[0];
+				if (w[0] != 0)
+					if (br.hget1bit() != 0) w[0] = -w[0];
+				if (x[0] != 0)
+					if (br.hget1bit() != 0) x[0] = -x[0];
+				if (y[0] != 0)
+					if (br.hget1bit() != 0) y[0] = -y[0];
+			} else {
+				if (h.linbits != 0)
+					if ((h.xlen - 1) == x[0])
+						x[0] += br.hgetbits(h.linbits);
+				if (x[0] != 0)
+					if (br.hget1bit() != 0) x[0] = -x[0];
+				if (h.linbits != 0)
+					if ((h.ylen - 1) == y[0])
+						y[0] += br.hgetbits(h.linbits);
+				if (y[0] != 0)
+					if (br.hget1bit() != 0) y[0] = -y[0];
+			}
+			return error;
+		}
+		const SynthesisFilter = function(channelnumber, factor, eq0) {
+			if (SynthesisFilter.d == null) {
+				SynthesisFilter.d = SynthesisFilter.load_d();
+				SynthesisFilter.d16 = SynthesisFilter.splitArray(SynthesisFilter.d, 16);
+			}
+			this.v1 = new Float32Array(512);
+			this.v2 = new Float32Array(512);
+			this._tmpOut = new Float32Array(32);
+			this.samples = new Float32Array(32);
+			this.channel = channelnumber;
+			this.scalefactor = factor;
+			this.setEQ(this.eq);
+			this.reset();
+		}
+		SynthesisFilter.d = null;
+		SynthesisFilter.d16 = null;
+		SynthesisFilter.load_d = function() {
+			return new Float32Array([0.000000000, -0.000442505,  0.003250122, -0.007003784, 0.031082153, -0.078628540,  0.100311279, -0.572036743, 1.144989014,  0.572036743,  0.100311279,  0.078628540, 0.031082153,  0.007003784,  0.003250122,  0.000442505, -0.000015259, -0.000473022,  0.003326416, -0.007919312, 0.030517578, -0.084182739,  0.090927124, -0.600219727, 1.144287109,  0.543823242,  0.108856201,  0.073059082, 0.031478882,  0.006118774,  0.003173828,  0.000396729, -0.000015259, -0.000534058,  0.003387451, -0.008865356, 0.029785156, -0.089706421,  0.080688477, -0.628295898, 1.142211914,  0.515609741,  0.116577148,  0.067520142, 0.031738281,  0.005294800,  0.003082275,  0.000366211, -0.000015259, -0.000579834,  0.003433228, -0.009841919, 0.028884888, -0.095169067,  0.069595337, -0.656219482, 1.138763428,  0.487472534,  0.123474121,  0.061996460, 0.031845093,  0.004486084,  0.002990723,  0.000320435, -0.000015259, -0.000625610,  0.003463745, -0.010848999, 0.027801514, -0.100540161,  0.057617188, -0.683914185, 1.133926392,  0.459472656,  0.129577637,  0.056533813, 0.031814575,  0.003723145,  0.002899170,  0.000289917, -0.000015259, -0.000686646,  0.003479004, -0.011886597, 0.026535034, -0.105819702,  0.044784546, -0.711318970, 1.127746582,  0.431655884,  0.134887695,  0.051132202, 0.031661987,  0.003005981,  0.002792358,  0.000259399, -0.000015259, -0.000747681,  0.003479004, -0.012939453, 0.025085449, -0.110946655,  0.031082153, -0.738372803, 1.120223999,  0.404083252,  0.139450073,  0.045837402, 0.031387329,  0.002334595,  0.002685547,  0.000244141, -0.000030518, -0.000808716,  0.003463745, -0.014022827, 0.023422241, -0.115921021,  0.016510010, -0.765029907, 1.111373901,  0.376800537,  0.143264771,  0.040634155, 0.031005859,  0.001693726,  0.002578735,  0.000213623, -0.000030518, -0.000885010,  0.003417969, -0.015121460, 0.021575928, -0.120697021,  0.001068115, -0.791213989, 1.101211548,  0.349868774,  0.146362305,  0.035552979, 0.030532837,  0.001098633,  0.002456665,  0.000198364, -0.000030518, -0.000961304,  0.003372192, -0.016235352, 0.019531250, -0.125259399, -0.015228271, -0.816864014, 1.089782715,  0.323318481,  0.148773193,  0.030609131, 0.029937744,  0.000549316,  0.002349854,  0.000167847, -0.000030518, -0.001037598,  0.003280640, -0.017349243, 0.017257690, -0.129562378, -0.032379150, -0.841949463, 1.077117920,  0.297210693,  0.150497437,  0.025817871, 0.029281616,  0.000030518,  0.002243042,  0.000152588, -0.000045776, -0.001113892,  0.003173828, -0.018463135, 0.014801025, -0.133590698, -0.050354004, -0.866363525, 1.063217163,  0.271591187,  0.151596069,  0.021179199, 0.028533936, -0.000442505,  0.002120972,  0.000137329, -0.000045776, -0.001205444,  0.003051758, -0.019577026, 0.012115479, -0.137298584, -0.069168091, -0.890090942, 1.048156738,  0.246505737,  0.152069092,  0.016708374, 0.027725220, -0.000869751,  0.002014160,  0.000122070, -0.000061035, -0.001296997,  0.002883911, -0.020690918, 0.009231567, -0.140670776, -0.088775635, -0.913055420, 1.031936646,  0.221984863,  0.151962280,  0.012420654, 0.026840210, -0.001266479,  0.001907349,  0.000106812, -0.000061035, -0.001388550,  0.002700806, -0.021789551, 0.006134033, -0.143676758, -0.109161377, -0.935195923, 1.014617920,  0.198059082,  0.151306152,  0.008316040, 0.025909424, -0.001617432,  0.001785278,  0.000106812, -0.000076294, -0.001480103,  0.002487183, -0.022857666, 0.002822876, -0.146255493, -0.130310059, -0.956481934, 0.996246338,  0.174789429,  0.150115967,  0.004394531, 0.024932861, -0.001937866,  0.001693726,  0.000091553, -0.000076294, -0.001586914,  0.002227783, -0.023910522, -0.000686646, -0.148422241, -0.152206421, -0.976852417, 0.976852417,  0.152206421,  0.148422241,  0.000686646, 0.023910522, -0.002227783,  0.001586914,  0.000076294, -0.000091553, -0.001693726,  0.001937866, -0.024932861, -0.004394531, -0.150115967, -0.174789429, -0.996246338, 0.956481934,  0.130310059,  0.146255493, -0.002822876, 0.022857666, -0.002487183,  0.001480103,  0.000076294, -0.000106812, -0.001785278,  0.001617432, -0.025909424, -0.008316040, -0.151306152, -0.198059082, -1.014617920, 0.935195923,  0.109161377,  0.143676758, -0.006134033, 0.021789551, -0.002700806,  0.001388550,  0.000061035, -0.000106812, -0.001907349,  0.001266479, -0.026840210, -0.012420654, -0.151962280, -0.221984863, -1.031936646, 0.913055420,  0.088775635,  0.140670776, -0.009231567, 0.020690918, -0.002883911,  0.001296997,  0.000061035, -0.000122070, -0.002014160,  0.000869751, -0.027725220, -0.016708374, -0.152069092, -0.246505737, -1.048156738, 0.890090942,  0.069168091,  0.137298584, -0.012115479, 0.019577026, -0.003051758,  0.001205444,  0.000045776, -0.000137329, -0.002120972,  0.000442505, -0.028533936, -0.021179199, -0.151596069, -0.271591187, -1.063217163, 0.866363525,  0.050354004,  0.133590698, -0.014801025, 0.018463135, -0.003173828,  0.001113892,  0.000045776, -0.000152588, -0.002243042, -0.000030518, -0.029281616, -0.025817871, -0.150497437, -0.297210693, -1.077117920, 0.841949463,  0.032379150,  0.129562378, -0.017257690, 0.017349243, -0.003280640,  0.001037598,  0.000030518, -0.000167847, -0.002349854, -0.000549316, -0.029937744, -0.030609131, -0.148773193, -0.323318481, -1.089782715, 0.816864014,  0.015228271,  0.125259399, -0.019531250, 0.016235352, -0.003372192,  0.000961304,  0.000030518, -0.000198364, -0.002456665, -0.001098633, -0.030532837, -0.035552979, -0.146362305, -0.349868774, -1.101211548, 0.791213989, -0.001068115,  0.120697021, -0.021575928, 0.015121460, -0.003417969,  0.000885010,  0.000030518, -0.000213623, -0.002578735, -0.001693726, -0.031005859, -0.040634155, -0.143264771, -0.376800537, -1.111373901, 0.765029907, -0.016510010,  0.115921021, -0.023422241, 0.014022827, -0.003463745,  0.000808716,  0.000030518, -0.000244141, -0.002685547, -0.002334595, -0.031387329, -0.045837402, -0.139450073, -0.404083252, -1.120223999, 0.738372803, -0.031082153,  0.110946655, -0.025085449, 0.012939453, -0.003479004,  0.000747681,  0.000015259, -0.000259399, -0.002792358, -0.003005981, -0.031661987, -0.051132202, -0.134887695, -0.431655884, -1.127746582, 0.711318970, -0.044784546,  0.105819702, -0.026535034, 0.011886597, -0.003479004,  0.000686646,  0.000015259, -0.000289917, -0.002899170, -0.003723145, -0.031814575, -0.056533813, -0.129577637, -0.459472656, -1.133926392, 0.683914185, -0.057617188,  0.100540161, -0.027801514, 0.010848999, -0.003463745,  0.000625610,  0.000015259, -0.000320435, -0.002990723, -0.004486084, -0.031845093, -0.061996460, -0.123474121, -0.487472534, -1.138763428, 0.656219482, -0.069595337,  0.095169067, -0.028884888, 0.009841919, -0.003433228,  0.000579834,  0.000015259, -0.000366211, -0.003082275, -0.005294800, -0.031738281, -0.067520142, -0.116577148, -0.515609741, -1.142211914, 0.628295898, -0.080688477,  0.089706421, -0.029785156, 0.008865356, -0.003387451,  0.000534058,  0.000015259, -0.000396729, -0.003173828, -0.006118774, -0.031478882, -0.073059082, -0.108856201, -0.543823242, -1.144287109, 0.600219727, -0.090927124,  0.084182739, -0.030517578, 0.007919312, -0.003326416,  0.000473022,  0.000015259]);
+		};
+		SynthesisFilter.subArray = function(array, offs, len) {
+			if (offs + len > array.length) {
+				len = array.length - offs;
+			}
+			if (len < 0) len = 0;
+			var subarray = new Float32Array(len);
+			arraycopy(array, offs + 0, subarray, 0, len);
+			return subarray;
+		}
+		SynthesisFilter.splitArray = function(array, blockSize) {
+			var size = (array.length / blockSize) | 0;
+			var split = new Array(size);
+			for (var i = 0; i < size; i++) {
+				split[i] = SynthesisFilter.subArray(array, i * blockSize, blockSize);
+			}
+			return split;
+		};
+		SynthesisFilter.prototype.setEQ = function(eq0) {
+			this.eq = eq0;
+			if (this.eq == null) {
+				this.eq = new Float32Array(32);
+				for (var i = 0; i < 32; i++)
+					this.eq[i] = 1;
+			}
+			if (this.eq.length < 32) {
+				throw new Error("IllegalArgumentException(eq0)");
+			}
+		};
+		SynthesisFilter.prototype.reset = function() {
+			for (var p = 0; p < 512; p++)
+				this.v1[p] = this.v2[p] = 0.0;
+			for (var p2 = 0; p2 < 32; p2++)
+				this.samples[p2] = 0.0;
+			this.actual_v = this.v1;
+			this.actual_write_pos = 15;
+		};
+		SynthesisFilter.prototype.input_sample = function() {
+		};
+		SynthesisFilter.prototype.input_samples = function(s) {
+			for (var i = 31; i >= 0; i--) {
+				this.samples[i] = s[i] * this.eq[i];
+			}
+		};
+		SynthesisFilter.prototype.compute_new_v = function() {
+			var new_v0, new_v1, new_v2, new_v3, new_v4, new_v5, new_v6, new_v7, new_v8, new_v9;
+			var new_v10, new_v11, new_v12, new_v13, new_v14, new_v15, new_v16, new_v17, new_v18, new_v19;
+			var new_v20, new_v21, new_v22, new_v23, new_v24, new_v25, new_v26, new_v27, new_v28, new_v29;
+			var new_v30, new_v31;
+			new_v0 = new_v1 = new_v2 = new_v3 = new_v4 = new_v5 = new_v6 = new_v7 = new_v8 = new_v9 = new_v10 = new_v11 = new_v12 = new_v13 = new_v14 = new_v15 = new_v16 = new_v17 = new_v18 = new_v19 = new_v20 = new_v21 = new_v22 = new_v23 = new_v24 = new_v25 = new_v26 = new_v27 = new_v28 = new_v29 = new_v30 = new_v31 = 0.0;
+			var s = this.samples;
+			var s0 = s[0];
+			var s1 = s[1];
+			var s2 = s[2];
+			var s3 = s[3];
+			var s4 = s[4];
+			var s5 = s[5];
+			var s6 = s[6];
+			var s7 = s[7];
+			var s8 = s[8];
+			var s9 = s[9];
+			var s10 = s[10];
+			var s11 = s[11];
+			var s12 = s[12];
+			var s13 = s[13];
+			var s14 = s[14];
+			var s15 = s[15];
+			var s16 = s[16];
+			var s17 = s[17];
+			var s18 = s[18];
+			var s19 = s[19];
+			var s20 = s[20];
+			var s21 = s[21];
+			var s22 = s[22];
+			var s23 = s[23];
+			var s24 = s[24];
+			var s25 = s[25];
+			var s26 = s[26];
+			var s27 = s[27];
+			var s28 = s[28];
+			var s29 = s[29];
+			var s30 = s[30];
+			var s31 = s[31];
+			var p0 = s0 + s31;
+			var p1 = s1 + s30;
+			var p2 = s2 + s29;
+			var p3 = s3 + s28;
+			var p4 = s4 + s27;
+			var p5 = s5 + s26;
+			var p6 = s6 + s25;
+			var p7 = s7 + s24;
+			var p8 = s8 + s23;
+			var p9 = s9 + s22;
+			var p10 = s10 + s21;
+			var p11 = s11 + s20;
+			var p12 = s12 + s19;
+			var p13 = s13 + s18;
+			var p14 = s14 + s17;
+			var p15 = s15 + s16;
+			var pp0 = p0 + p15;
+			var pp1 = p1 + p14;
+			var pp2 = p2 + p13;
+			var pp3 = p3 + p12;
+			var pp4 = p4 + p11;
+			var pp5 = p5 + p10;
+			var pp6 = p6 + p9;
+			var pp7 = p7 + p8;
+			var pp8 = (p0 - p15) * SynthesisFilter.cos1_32;
+			var pp9 = (p1 - p14) * SynthesisFilter.cos3_32;
+			var pp10 = (p2 - p13) * SynthesisFilter.cos5_32;
+			var pp11 = (p3 - p12) * SynthesisFilter.cos7_32;
+			var pp12 = (p4 - p11) * SynthesisFilter.cos9_32;
+			var pp13 = (p5 - p10) * SynthesisFilter.cos11_32;
+			var pp14 = (p6 - p9) * SynthesisFilter.cos13_32;
+			var pp15 = (p7 - p8) * SynthesisFilter.cos15_32;
+			p0 = pp0 + pp7;
+			p1 = pp1 + pp6;
+			p2 = pp2 + pp5;
+			p3 = pp3 + pp4;
+			p4 = (pp0 - pp7) * SynthesisFilter.cos1_16;
+			p5 = (pp1 - pp6) * SynthesisFilter.cos3_16;
+			p6 = (pp2 - pp5) * SynthesisFilter.cos5_16;
+			p7 = (pp3 - pp4) * SynthesisFilter.cos7_16;
+			p8 = pp8 + pp15;
+			p9 = pp9 + pp14;
+			p10 = pp10 + pp13;
+			p11 = pp11 + pp12;
+			p12 = (pp8 - pp15) * SynthesisFilter.cos1_16;
+			p13 = (pp9 - pp14) * SynthesisFilter.cos3_16;
+			p14 = (pp10 - pp13) * SynthesisFilter.cos5_16;
+			p15 = (pp11 - pp12) * SynthesisFilter.cos7_16;
+			pp0 = p0 + p3;
+			pp1 = p1 + p2;
+			pp2 = (p0 - p3) * SynthesisFilter.cos1_8;
+			pp3 = (p1 - p2) * SynthesisFilter.cos3_8;
+			pp4 = p4 + p7;
+			pp5 = p5 + p6;
+			pp6 = (p4 - p7) * SynthesisFilter.cos1_8;
+			pp7 = (p5 - p6) * SynthesisFilter.cos3_8;
+			pp8 = p8 + p11;
+			pp9 = p9 + p10;
+			pp10 = (p8 - p11) * SynthesisFilter.cos1_8;
+			pp11 = (p9 - p10) * SynthesisFilter.cos3_8;
+			pp12 = p12 + p15;
+			pp13 = p13 + p14;
+			pp14 = (p12 - p15) * SynthesisFilter.cos1_8;
+			pp15 = (p13 - p14) * SynthesisFilter.cos3_8;
+			p0 = pp0 + pp1;
+			p1 = (pp0 - pp1) * SynthesisFilter.cos1_4;
+			p2 = pp2 + pp3;
+			p3 = (pp2 - pp3) * SynthesisFilter.cos1_4;
+			p4 = pp4 + pp5;
+			p5 = (pp4 - pp5) * SynthesisFilter.cos1_4;
+			p6 = pp6 + pp7;
+			p7 = (pp6 - pp7) * SynthesisFilter.cos1_4;
+			p8 = pp8 + pp9;
+			p9 = (pp8 - pp9) * SynthesisFilter.cos1_4;
+			p10 = pp10 + pp11;
+			p11 = (pp10 - pp11) * SynthesisFilter.cos1_4;
+			p12 = pp12 + pp13;
+			p13 = (pp12 - pp13) * SynthesisFilter.cos1_4;
+			p14 = pp14 + pp15;
+			p15 = (pp14 - pp15) * SynthesisFilter.cos1_4;
+			var tmp1;
+			new_v19 = -(new_v4 = (new_v12 = p7) + p5) - p6;
+			new_v27 = -p6 - p7 - p4;
+			new_v6 = (new_v10 = (new_v14 = p15) + p11) + p13;
+			new_v17 = -(new_v2 = p15 + p13 + p9) - p14;
+			new_v21 = (tmp1 = -p14 - p15 - p10 - p11) - p13;
+			new_v29 = -p14 - p15 - p12 - p8;
+			new_v25 = tmp1 - p12;
+			new_v31 = -p0;
+			new_v0 = p1;
+			new_v23 = -(new_v8 = p3) - p2;
+			p0 = (s0 - s31) * SynthesisFilter.cos1_64;
+			p1 = (s1 - s30) * SynthesisFilter.cos3_64;
+			p2 = (s2 - s29) * SynthesisFilter.cos5_64;
+			p3 = (s3 - s28) * SynthesisFilter.cos7_64;
+			p4 = (s4 - s27) * SynthesisFilter.cos9_64;
+			p5 = (s5 - s26) * SynthesisFilter.cos11_64;
+			p6 = (s6 - s25) * SynthesisFilter.cos13_64;
+			p7 = (s7 - s24) * SynthesisFilter.cos15_64;
+			p8 = (s8 - s23) * SynthesisFilter.cos17_64;
+			p9 = (s9 - s22) * SynthesisFilter.cos19_64;
+			p10 = (s10 - s21) * SynthesisFilter.cos21_64;
+			p11 = (s11 - s20) * SynthesisFilter.cos23_64;
+			p12 = (s12 - s19) * SynthesisFilter.cos25_64;
+			p13 = (s13 - s18) * SynthesisFilter.cos27_64;
+			p14 = (s14 - s17) * SynthesisFilter.cos29_64;
+			p15 = (s15 - s16) * SynthesisFilter.cos31_64;
+			pp0 = p0 + p15;
+			pp1 = p1 + p14;
+			pp2 = p2 + p13;
+			pp3 = p3 + p12;
+			pp4 = p4 + p11;
+			pp5 = p5 + p10;
+			pp6 = p6 + p9;
+			pp7 = p7 + p8;
+			pp8 = (p0 - p15) * SynthesisFilter.cos1_32;
+			pp9 = (p1 - p14) * SynthesisFilter.cos3_32;
+			pp10 = (p2 - p13) * SynthesisFilter.cos5_32;
+			pp11 = (p3 - p12) * SynthesisFilter.cos7_32;
+			pp12 = (p4 - p11) * SynthesisFilter.cos9_32;
+			pp13 = (p5 - p10) * SynthesisFilter.cos11_32;
+			pp14 = (p6 - p9) * SynthesisFilter.cos13_32;
+			pp15 = (p7 - p8) * SynthesisFilter.cos15_32;
+			p0 = pp0 + pp7;
+			p1 = pp1 + pp6;
+			p2 = pp2 + pp5;
+			p3 = pp3 + pp4;
+			p4 = (pp0 - pp7) * SynthesisFilter.cos1_16;
+			p5 = (pp1 - pp6) * SynthesisFilter.cos3_16;
+			p6 = (pp2 - pp5) * SynthesisFilter.cos5_16;
+			p7 = (pp3 - pp4) * SynthesisFilter.cos7_16;
+			p8 = pp8 + pp15;
+			p9 = pp9 + pp14;
+			p10 = pp10 + pp13;
+			p11 = pp11 + pp12;
+			p12 = (pp8 - pp15) * SynthesisFilter.cos1_16;
+			p13 = (pp9 - pp14) * SynthesisFilter.cos3_16;
+			p14 = (pp10 - pp13) * SynthesisFilter.cos5_16;
+			p15 = (pp11 - pp12) * SynthesisFilter.cos7_16;
+			pp0 = p0 + p3;
+			pp1 = p1 + p2;
+			pp2 = (p0 - p3) * SynthesisFilter.cos1_8;
+			pp3 = (p1 - p2) * SynthesisFilter.cos3_8;
+			pp4 = p4 + p7;
+			pp5 = p5 + p6;
+			pp6 = (p4 - p7) * SynthesisFilter.cos1_8;
+			pp7 = (p5 - p6) * SynthesisFilter.cos3_8;
+			pp8 = p8 + p11;
+			pp9 = p9 + p10;
+			pp10 = (p8 - p11) * SynthesisFilter.cos1_8;
+			pp11 = (p9 - p10) * SynthesisFilter.cos3_8;
+			pp12 = p12 + p15;
+			pp13 = p13 + p14;
+			pp14 = (p12 - p15) * SynthesisFilter.cos1_8;
+			pp15 = (p13 - p14) * SynthesisFilter.cos3_8;
+			p0 = pp0 + pp1;
+			p1 = (pp0 - pp1) * SynthesisFilter.cos1_4;
+			p2 = pp2 + pp3;
+			p3 = (pp2 - pp3) * SynthesisFilter.cos1_4;
+			p4 = pp4 + pp5;
+			p5 = (pp4 - pp5) * SynthesisFilter.cos1_4;
+			p6 = pp6 + pp7;
+			p7 = (pp6 - pp7) * SynthesisFilter.cos1_4;
+			p8 = pp8 + pp9;
+			p9 = (pp8 - pp9) * SynthesisFilter.cos1_4;
+			p10 = pp10 + pp11;
+			p11 = (pp10 - pp11) * SynthesisFilter.cos1_4;
+			p12 = pp12 + pp13;
+			p13 = (pp12 - pp13) * SynthesisFilter.cos1_4;
+			p14 = pp14 + pp15;
+			p15 = (pp14 - pp15) * SynthesisFilter.cos1_4;
+			var tmp2;
+			new_v5 = (new_v11 = (new_v13 = (new_v15 = p15) + p7) + p11) + p5 + p13;
+			new_v7 = (new_v9 = p15 + p11 + p3) + p13;
+			new_v16 = -(new_v1 = (tmp1 = p13 + p15 + p9) + p1) - p14;
+			new_v18 = -(new_v3 = tmp1 + p5 + p7) - p6 - p14;
+			new_v22 = (tmp1 = -p10 - p11 - p14 - p15) - p13 - p2 - p3;
+			new_v20 = tmp1 - p13 - p5 - p6 - p7;
+			new_v24 = tmp1 - p12 - p2 - p3;
+			new_v26 = tmp1 - p12 - (tmp2 = p4 + p6 + p7);
+			new_v30 = (tmp1 = -p8 - p12 - p14 - p15) - p0;
+			new_v28 = tmp1 - tmp2;
+			var dest = this.actual_v;
+			var pos = this.actual_write_pos;
+			dest[0 + pos] = new_v0;
+			dest[16 + pos] = new_v1;
+			dest[32 + pos] = new_v2;
+			dest[48 + pos] = new_v3;
+			dest[64 + pos] = new_v4;
+			dest[80 + pos] = new_v5;
+			dest[96 + pos] = new_v6;
+			dest[112 + pos] = new_v7;
+			dest[128 + pos] = new_v8;
+			dest[144 + pos] = new_v9;
+			dest[160 + pos] = new_v10;
+			dest[176 + pos] = new_v11;
+			dest[192 + pos] = new_v12;
+			dest[208 + pos] = new_v13;
+			dest[224 + pos] = new_v14;
+			dest[240 + pos] = new_v15;
+			dest[256 + pos] = 0.0;
+			dest[272 + pos] = -new_v15;
+			dest[288 + pos] = -new_v14;
+			dest[304 + pos] = -new_v13;
+			dest[320 + pos] = -new_v12;
+			dest[336 + pos] = -new_v11;
+			dest[352 + pos] = -new_v10;
+			dest[368 + pos] = -new_v9;
+			dest[384 + pos] = -new_v8;
+			dest[400 + pos] = -new_v7;
+			dest[416 + pos] = -new_v6;
+			dest[432 + pos] = -new_v5;
+			dest[448 + pos] = -new_v4;
+			dest[464 + pos] = -new_v3;
+			dest[480 + pos] = -new_v2;
+			dest[496 + pos] = -new_v1;
+			dest = (this.actual_v === this.v1) ? this.v2 : this.v1;
+			dest[0 + pos] = -new_v0;
+			dest[16 + pos] = new_v16;
+			dest[32 + pos] = new_v17;
+			dest[48 + pos] = new_v18;
+			dest[64 + pos] = new_v19;
+			dest[80 + pos] = new_v20;
+			dest[96 + pos] = new_v21;
+			dest[112 + pos] = new_v22;
+			dest[128 + pos] = new_v23;
+			dest[144 + pos] = new_v24;
+			dest[160 + pos] = new_v25;
+			dest[176 + pos] = new_v26;
+			dest[192 + pos] = new_v27;
+			dest[208 + pos] = new_v28;
+			dest[224 + pos] = new_v29;
+			dest[240 + pos] = new_v30;
+			dest[256 + pos] = new_v31;
+			dest[272 + pos] = new_v30;
+			dest[288 + pos] = new_v29;
+			dest[304 + pos] = new_v28;
+			dest[320 + pos] = new_v27;
+			dest[336 + pos] = new_v26;
+			dest[352 + pos] = new_v25;
+			dest[368 + pos] = new_v24;
+			dest[384 + pos] = new_v23;
+			dest[400 + pos] = new_v22;
+			dest[416 + pos] = new_v21;
+			dest[432 + pos] = new_v20;
+			dest[448 + pos] = new_v19;
+			dest[464 + pos] = new_v18;
+			dest[480 + pos] = new_v17;
+			dest[496 + pos] = new_v16;
+		};
+		SynthesisFilter.prototype.compute_pcm_samples0 = function(buffer) {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var pcm_sample;
+				var dp = SynthesisFilter.d16[i];
+				pcm_sample = ((vp[0 + dvp] * dp[0]) + (vp[15 + dvp] * dp[1]) + (vp[14 + dvp] * dp[2]) + (vp[13 + dvp] * dp[3]) + (vp[12 + dvp] * dp[4]) + (vp[11 + dvp] * dp[5]) + (vp[10 + dvp] * dp[6]) + (vp[9 + dvp] * dp[7]) + (vp[8 + dvp] * dp[8]) + (vp[7 + dvp] * dp[9]) + (vp[6 + dvp] * dp[10]) + (vp[5 + dvp] * dp[11]) + (vp[4 + dvp] * dp[12]) + (vp[3 + dvp] * dp[13]) + (vp[2 + dvp] * dp[14]) + (vp[1 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples1 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[1 + dvp] * dp[0]) + (vp[0 + dvp] * dp[1]) + (vp[15 + dvp] * dp[2]) + (vp[14 + dvp] * dp[3]) + (vp[13 + dvp] * dp[4]) + (vp[12 + dvp] * dp[5]) + (vp[11 + dvp] * dp[6]) + (vp[10 + dvp] * dp[7]) + (vp[9 + dvp] * dp[8]) + (vp[8 + dvp] * dp[9]) + (vp[7 + dvp] * dp[10]) + (vp[6 + dvp] * dp[11]) + (vp[5 + dvp] * dp[12]) + (vp[4 + dvp] * dp[13]) + (vp[3 + dvp] * dp[14]) + (vp[2 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples2 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[2 + dvp] * dp[0]) + (vp[1 + dvp] * dp[1]) + (vp[0 + dvp] * dp[2]) + (vp[15 + dvp] * dp[3]) + (vp[14 + dvp] * dp[4]) + (vp[13 + dvp] * dp[5]) + (vp[12 + dvp] * dp[6]) + (vp[11 + dvp] * dp[7]) + (vp[10 + dvp] * dp[8]) + (vp[9 + dvp] * dp[9]) + (vp[8 + dvp] * dp[10]) + (vp[7 + dvp] * dp[11]) + (vp[6 + dvp] * dp[12]) + (vp[5 + dvp] * dp[13]) + (vp[4 + dvp] * dp[14]) + (vp[3 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples3 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[3 + dvp] * dp[0]) + (vp[2 + dvp] * dp[1]) + (vp[1 + dvp] * dp[2]) + (vp[0 + dvp] * dp[3]) + (vp[15 + dvp] * dp[4]) + (vp[14 + dvp] * dp[5]) + (vp[13 + dvp] * dp[6]) + (vp[12 + dvp] * dp[7]) + (vp[11 + dvp] * dp[8]) + (vp[10 + dvp] * dp[9]) + (vp[9 + dvp] * dp[10]) + (vp[8 + dvp] * dp[11]) + (vp[7 + dvp] * dp[12]) + (vp[6 + dvp] * dp[13]) + (vp[5 + dvp] * dp[14]) + (vp[4 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples4 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[4 + dvp] * dp[0]) + (vp[3 + dvp] * dp[1]) + (vp[2 + dvp] * dp[2]) + (vp[1 + dvp] * dp[3]) + (vp[0 + dvp] * dp[4]) + (vp[15 + dvp] * dp[5]) + (vp[14 + dvp] * dp[6]) + (vp[13 + dvp] * dp[7]) + (vp[12 + dvp] * dp[8]) + (vp[11 + dvp] * dp[9]) + (vp[10 + dvp] * dp[10]) + (vp[9 + dvp] * dp[11]) + (vp[8 + dvp] * dp[12]) + (vp[7 + dvp] * dp[13]) + (vp[6 + dvp] * dp[14]) + (vp[5 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples5 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[5 + dvp] * dp[0]) + (vp[4 + dvp] * dp[1]) + (vp[3 + dvp] * dp[2]) + (vp[2 + dvp] * dp[3]) + (vp[1 + dvp] * dp[4]) + (vp[0 + dvp] * dp[5]) + (vp[15 + dvp] * dp[6]) + (vp[14 + dvp] * dp[7]) + (vp[13 + dvp] * dp[8]) + (vp[12 + dvp] * dp[9]) + (vp[11 + dvp] * dp[10]) + (vp[10 + dvp] * dp[11]) + (vp[9 + dvp] * dp[12]) + (vp[8 + dvp] * dp[13]) + (vp[7 + dvp] * dp[14]) + (vp[6 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples6 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[6 + dvp] * dp[0]) + (vp[5 + dvp] * dp[1]) + (vp[4 + dvp] * dp[2]) + (vp[3 + dvp] * dp[3]) + (vp[2 + dvp] * dp[4]) + (vp[1 + dvp] * dp[5]) + (vp[0 + dvp] * dp[6]) + (vp[15 + dvp] * dp[7]) + (vp[14 + dvp] * dp[8]) + (vp[13 + dvp] * dp[9]) + (vp[12 + dvp] * dp[10]) + (vp[11 + dvp] * dp[11]) + (vp[10 + dvp] * dp[12]) + (vp[9 + dvp] * dp[13]) + (vp[8 + dvp] * dp[14]) + (vp[7 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples7 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[7 + dvp] * dp[0]) + (vp[6 + dvp] * dp[1]) + (vp[5 + dvp] * dp[2]) + (vp[4 + dvp] * dp[3]) + (vp[3 + dvp] * dp[4]) + (vp[2 + dvp] * dp[5]) + (vp[1 + dvp] * dp[6]) + (vp[0 + dvp] * dp[7]) + (vp[15 + dvp] * dp[8]) + (vp[14 + dvp] * dp[9]) + (vp[13 + dvp] * dp[10]) + (vp[12 + dvp] * dp[11]) + (vp[11 + dvp] * dp[12]) + (vp[10 + dvp] * dp[13]) + (vp[9 + dvp] * dp[14]) + (vp[8 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples8 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[8 + dvp] * dp[0]) + (vp[7 + dvp] * dp[1]) + (vp[6 + dvp] * dp[2]) + (vp[5 + dvp] * dp[3]) + (vp[4 + dvp] * dp[4]) + (vp[3 + dvp] * dp[5]) + (vp[2 + dvp] * dp[6]) + (vp[1 + dvp] * dp[7]) + (vp[0 + dvp] * dp[8]) + (vp[15 + dvp] * dp[9]) + (vp[14 + dvp] * dp[10]) + (vp[13 + dvp] * dp[11]) + (vp[12 + dvp] * dp[12]) + (vp[11 + dvp] * dp[13]) + (vp[10 + dvp] * dp[14]) + (vp[9 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples9 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[9 + dvp] * dp[0]) +(vp[8 + dvp] * dp[1]) +(vp[7 + dvp] * dp[2]) +(vp[6 + dvp] * dp[3]) +(vp[5 + dvp] * dp[4]) +(vp[4 + dvp] * dp[5]) +(vp[3 + dvp] * dp[6]) +(vp[2 + dvp] * dp[7]) +(vp[1 + dvp] * dp[8]) +(vp[0 + dvp] * dp[9]) +(vp[15 + dvp] * dp[10]) +(vp[14 + dvp] * dp[11]) +(vp[13 + dvp] * dp[12]) +(vp[12 + dvp] * dp[13]) +(vp[11 + dvp] * dp[14]) +(vp[10 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples10 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[10 + dvp] * dp[0]) + (vp[9 + dvp] * dp[1]) + (vp[8 + dvp] * dp[2]) + (vp[7 + dvp] * dp[3]) + (vp[6 + dvp] * dp[4]) + (vp[5 + dvp] * dp[5]) + (vp[4 + dvp] * dp[6]) + (vp[3 + dvp] * dp[7]) + (vp[2 + dvp] * dp[8]) + (vp[1 + dvp] * dp[9]) + (vp[0 + dvp] * dp[10]) + (vp[15 + dvp] * dp[11]) + (vp[14 + dvp] * dp[12]) + (vp[13 + dvp] * dp[13]) + (vp[12 + dvp] * dp[14]) + (vp[11 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples11 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[11 + dvp] * dp[0]) + (vp[10 + dvp] * dp[1]) + (vp[9 + dvp] * dp[2]) + (vp[8 + dvp] * dp[3]) + (vp[7 + dvp] * dp[4]) + (vp[6 + dvp] * dp[5]) + (vp[5 + dvp] * dp[6]) + (vp[4 + dvp] * dp[7]) + (vp[3 + dvp] * dp[8]) + (vp[2 + dvp] * dp[9]) + (vp[1 + dvp] * dp[10]) + (vp[0 + dvp] * dp[11]) + (vp[15 + dvp] * dp[12]) + (vp[14 + dvp] * dp[13]) + (vp[13 + dvp] * dp[14]) + (vp[12 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples12 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[12 + dvp] * dp[0]) + (vp[11 + dvp] * dp[1]) + (vp[10 + dvp] * dp[2]) + (vp[9 + dvp] * dp[3]) + (vp[8 + dvp] * dp[4]) + (vp[7 + dvp] * dp[5]) + (vp[6 + dvp] * dp[6]) + (vp[5 + dvp] * dp[7]) + (vp[4 + dvp] * dp[8]) + (vp[3 + dvp] * dp[9]) + (vp[2 + dvp] * dp[10]) + (vp[1 + dvp] * dp[11]) + (vp[0 + dvp] * dp[12]) + (vp[15 + dvp] * dp[13]) + (vp[14 + dvp] * dp[14]) + (vp[13 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples13 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[13 + dvp] * dp[0]) + (vp[12 + dvp] * dp[1]) + (vp[11 + dvp] * dp[2]) + (vp[10 + dvp] * dp[3]) + (vp[9 + dvp] * dp[4]) + (vp[8 + dvp] * dp[5]) + (vp[7 + dvp] * dp[6]) + (vp[6 + dvp] * dp[7]) + (vp[5 + dvp] * dp[8]) + (vp[4 + dvp] * dp[9]) + (vp[3 + dvp] * dp[10]) + (vp[2 + dvp] * dp[11]) + (vp[1 + dvp] * dp[12]) + (vp[0 + dvp] * dp[13]) + (vp[15 + dvp] * dp[14]) + (vp[14 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples14 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var dp = SynthesisFilter.d16[i];
+				var pcm_sample;
+				pcm_sample = ((vp[14 + dvp] * dp[0]) + (vp[13 + dvp] * dp[1]) + (vp[12 + dvp] * dp[2]) + (vp[11 + dvp] * dp[3]) + (vp[10 + dvp] * dp[4]) + (vp[9 + dvp] * dp[5]) + (vp[8 + dvp] * dp[6]) + (vp[7 + dvp] * dp[7]) + (vp[6 + dvp] * dp[8]) + (vp[5 + dvp] * dp[9]) + (vp[4 + dvp] * dp[10]) + (vp[3 + dvp] * dp[11]) + (vp[2 + dvp] * dp[12]) + (vp[1 + dvp] * dp[13]) + (vp[0 + dvp] * dp[14]) + (vp[15 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples15 = function() {
+			var vp = this.actual_v;
+			var tmpOut = this._tmpOut;
+			var dvp = 0;
+			for (var i = 0; i < 32; i++) {
+				var pcm_sample;
+				var dp = SynthesisFilter.d16[i];
+				pcm_sample = ((vp[15 + dvp] * dp[0]) + (vp[14 + dvp] * dp[1]) + (vp[13 + dvp] * dp[2]) + (vp[12 + dvp] * dp[3]) + (vp[11 + dvp] * dp[4]) + (vp[10 + dvp] * dp[5]) + (vp[9 + dvp] * dp[6]) + (vp[8 + dvp] * dp[7]) + (vp[7 + dvp] * dp[8]) + (vp[6 + dvp] * dp[9]) + (vp[5 + dvp] * dp[10]) + (vp[4 + dvp] * dp[11]) + (vp[3 + dvp] * dp[12]) + (vp[2 + dvp] * dp[13]) + (vp[1 + dvp] * dp[14]) + (vp[0 + dvp] * dp[15])) * this.scalefactor;
+				tmpOut[i] = pcm_sample;
+				dvp += 16;
+			}
+		};
+		SynthesisFilter.prototype.compute_pcm_samples = function(buffer) {
+			switch (this.actual_write_pos) {
+				case 0:
+					this.compute_pcm_samples0(buffer);
+					break;
+				case 1:
+					this.compute_pcm_samples1(buffer);
+					break;
+				case 2:
+					this.compute_pcm_samples2(buffer);
+					break;
+				case 3:
+					this.compute_pcm_samples3(buffer);
+					break;
+				case 4:
+					this.compute_pcm_samples4(buffer);
+					break;
+				case 5:
+					this.compute_pcm_samples5(buffer);
+					break;
+				case 6:
+					this.compute_pcm_samples6(buffer);
+					break;
+				case 7:
+					this.compute_pcm_samples7(buffer);
+					break;
+				case 8:
+					this.compute_pcm_samples8(buffer);
+					break;
+				case 9:
+					this.compute_pcm_samples9(buffer);
+					break;
+				case 10:
+					this.compute_pcm_samples10(buffer);
+					break;
+				case 11:
+					this.compute_pcm_samples11(buffer);
+					break;
+				case 12:
+					this.compute_pcm_samples12(buffer);
+					break;
+				case 13:
+					this.compute_pcm_samples13(buffer);
+					break;
+				case 14:
+					this.compute_pcm_samples14(buffer);
+					break;
+				case 15:
+					this.compute_pcm_samples15(buffer);
+					break;
+			}
+			if (buffer != null) {
+				buffer.appendSamples(this.channel, this._tmpOut);
+			}
+		};
+		SynthesisFilter.prototype.calculate_pcm_samples = function(buffer) {
+			this.compute_new_v();
+			this.compute_pcm_samples(buffer);
+			this.actual_write_pos = (this.actual_write_pos + 1) & 0xf;
+			this.actual_v = (this.actual_v === this.v1) ? this.v2 : this.v1;
+			for (var p = 0; p < 32; p++)
+				this.samples[p] = 0.0;
+		};
+		SynthesisFilter.MY_PI = 3.14159265358979323846;
+		SynthesisFilter.cos1_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI / 64.0)));
+		SynthesisFilter.cos3_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 3.0 / 64.0)));
+		SynthesisFilter.cos5_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 5.0 / 64.0)));
+		SynthesisFilter.cos7_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 7.0 / 64.0)));
+		SynthesisFilter.cos9_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 9.0 / 64.0)));
+		SynthesisFilter.cos11_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 11.0 / 64.0)));
+		SynthesisFilter.cos13_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 13.0 / 64.0)));
+		SynthesisFilter.cos15_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 15.0 / 64.0)));
+		SynthesisFilter.cos17_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 17.0 / 64.0)));
+		SynthesisFilter.cos19_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 19.0 / 64.0)));
+		SynthesisFilter.cos21_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 21.0 / 64.0)));
+		SynthesisFilter.cos23_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 23.0 / 64.0)));
+		SynthesisFilter.cos25_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 25.0 / 64.0)));
+		SynthesisFilter.cos27_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 27.0 / 64.0)));
+		SynthesisFilter.cos29_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 29.0 / 64.0)));
+		SynthesisFilter.cos31_64 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 31.0 / 64.0)));
+		SynthesisFilter.cos1_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI/ 32.0)));
+		SynthesisFilter.cos3_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI* 3.0 / 32.0)));
+		SynthesisFilter.cos5_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI* 5.0 / 32.0)));
+		SynthesisFilter.cos7_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI* 7.0 / 32.0)));
+		SynthesisFilter.cos9_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI* 9.0 / 32.0)));
+		SynthesisFilter.cos11_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 11.0 / 32.0)));
+		SynthesisFilter.cos13_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 13.0 / 32.0)));
+		SynthesisFilter.cos15_32 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 15.0 / 32.0)));
+		SynthesisFilter.cos1_16 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI / 16.0)));
+		SynthesisFilter.cos3_16 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 3.0 / 16.0)));
+		SynthesisFilter.cos5_16 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 5.0 / 16.0)));
+		SynthesisFilter.cos7_16 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 7.0 / 16.0)));
+		SynthesisFilter.cos1_8 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI / 8.0)));
+		SynthesisFilter.cos3_8 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI * 3.0 / 8.0)));
+		SynthesisFilter.cos1_4 = (1.0 / (2.0 * Math.cos(SynthesisFilter.MY_PI / 4.0)));
+		const gr_info_s = function() {
+			this.part2_3_length = 0;
+			this.big_values = 0;
+			this.global_gain = 0;
+			this.scalefac_compress = 0;
+			this.window_switching_flag = 0;
+			this.block_type = 0;
+			this.mixed_block_flag = 0;
+			this.table_select = new Int32Array(3);
+			this.subblock_gain = new Int32Array(3);
+			this.region0_count = 0;
+			this.region1_count = 0;
+			this.preflag = 0;
+			this.scalefac_scale = 0;
+			this.count1table_select = 0;
+		}
+		const temporaire = function() {
+			this.scfsi = new Int32Array(4);
+			this.gr = [new gr_info_s(), new gr_info_s()];
+		}
+		const temporaire2 = function() {
+			this.l = new Int32Array(23);
+			this.s = [new Int32Array(13), new Int32Array(13), new Int32Array(13)];
+		}
+		const III_side_info_t = function() {
+			this.main_data_begin = 0;
+			this.private_bits = 0;
+			this.ch = [new temporaire(), new temporaire()];
+		}
+		const SBI = function(thel, thes) {
+			this.l = thel;
+			this.s = thes;
+		}
+		const Sftable = function(thel, thes) {
+			this.l = thel;
+			this.s = thes;
+		}
+		const MP3Layer3 = function(stream0, header0, filtera, filterb, buffer0, which_ch0) {
+			huffcodetab.initHuff();
+
+			this.checkSumHuff = 0;
+
+			this.is_1d = new Int32Array(MP3Layer3.SBLIMIT * MP3Layer3.SSLIMIT + 4);
+			this.ro = new Array(2);
+			this.lr = new Array(2);
+			this.prevblck = new Array(2);
+			this.k = new Array(2);
+			for (var i = 0; i < 2; i++) {
+				this.ro[i] = new Array(MP3Layer3.SBLIMIT);
+				this.lr[i] = new Array(MP3Layer3.SBLIMIT);
+				this.prevblck[i] = new Float32Array(MP3Layer3.SBLIMIT * MP3Layer3.SSLIMIT);
+				this.k[i] = new Float32Array(MP3Layer3.SBLIMIT * MP3Layer3.SSLIMIT);
+				for (var j = 0; j < MP3Layer3.SBLIMIT; j++) {
+					this.ro[i][j] = new Float32Array(MP3Layer3.SSLIMIT);
+					this.lr[i][j] = new Float32Array(MP3Layer3.SSLIMIT);
+				}
+			}
+			this.out_1d = new Float32Array(MP3Layer3.SBLIMIT * MP3Layer3.SSLIMIT);
+			this.nonzero = new Int32Array(2);
+
+			this.III_scalefac_t = new Array(2);
+			this.III_scalefac_t[0] = new temporaire2();
+			this.III_scalefac_t[1] = new temporaire2();
+			this.scalefac = this.III_scalefac_t;
+
+			MP3Layer3.sfBandIndex = new Array(9);
+			var l0 = [0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 116, 140, 168, 200, 238, 284, 336, 396, 464, 522, 576];
+			var s0 = [0, 4, 8, 12, 18, 24, 32, 42, 56, 74, 100, 132, 174, 192];
+			var l1 = [0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 114, 136, 162, 194, 232, 278, 330, 394, 464, 540, 576];
+			var s1 = [0, 4, 8, 12, 18, 26, 36, 48, 62, 80, 104, 136, 180, 192];
+			var l2 = [0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 116, 140, 168, 200, 238, 284, 336, 396, 464, 522, 576];
+			var s2 = [0, 4, 8, 12, 18, 26, 36, 48, 62, 80, 104, 134, 174, 192];
+
+			var l3 = [0, 4, 8, 12, 16, 20, 24, 30, 36, 44, 52, 62, 74, 90, 110, 134, 162, 196, 238, 288, 342, 418, 576];
+			var s3 = [0, 4, 8, 12, 16, 22, 30, 40, 52, 66, 84, 106, 136, 192];
+			var l4 = [0, 4, 8, 12, 16, 20, 24, 30, 36, 42, 50, 60, 72, 88, 106, 128, 156, 190, 230, 276, 330, 384, 576];
+			var s4 = [0, 4, 8, 12, 16, 22, 28, 38, 50, 64, 80, 100, 126, 192];
+			var l5 = [0, 4, 8, 12, 16, 20, 24, 30, 36, 44, 54, 66, 82, 102, 126, 156, 194, 240, 296, 364, 448, 550, 576];
+			var s5 = [0, 4, 8, 12, 16, 22, 30, 42, 58, 78, 104, 138, 180, 192];
+
+			var l6 = [0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 116, 140, 168, 200, 238, 284, 336, 396, 464, 522, 576];
+			var s6 = [0, 4, 8, 12, 18, 26, 36, 48, 62, 80, 104, 134, 174, 192];
+			var l7 = [0, 6, 12, 18, 24, 30, 36, 44, 54, 66, 80, 96, 116, 140, 168, 200, 238, 284, 336, 396, 464, 522, 576];
+			var s7 = [0, 4, 8, 12, 18, 26, 36, 48, 62, 80, 104, 134, 174, 192];
+			var l8 = [0, 12, 24, 36, 48, 60, 72, 88, 108, 132, 160, 192, 232, 280, 336, 400, 476, 566, 568, 570, 572, 574, 576];
+			var s8 = [0, 8, 16, 24, 36, 52, 72, 96, 124, 160, 162, 164, 166, 192];
+
+			MP3Layer3.sfBandIndex[0] = new SBI(l0, s0);
+			MP3Layer3.sfBandIndex[1] = new SBI(l1, s1);
+			MP3Layer3.sfBandIndex[2] = new SBI(l2, s2);
+
+			MP3Layer3.sfBandIndex[3] = new SBI(l3, s3);
+			MP3Layer3.sfBandIndex[4] = new SBI(l4, s4);
+			MP3Layer3.sfBandIndex[5] = new SBI(l5, s5);
+			// SZD: MPEG2.5
+			MP3Layer3.sfBandIndex[6] = new SBI(l6, s6);
+			MP3Layer3.sfBandIndex[7] = new SBI(l7, s7);
+			MP3Layer3.sfBandIndex[8] = new SBI(l8, s8);
+
+			if (MP3Layer3.reorder_table == null) { // SZD: generate LUT
+				MP3Layer3.reorder_table = new Array(9);
+				for (var i = 0; i < 9; i++)
+					MP3Layer3.reorder_table[i] = MP3Layer3.reorder(MP3Layer3.sfBandIndex[i].s);
+			}
+
+			var ll0 = [0, 6, 11, 16, 21];
+			var ss0 = [0, 6, 12];
+			this.sftable = new Sftable(ll0, ss0);
+
+			this.scalefac_buffer = new Int32Array(54);
+
+			this.stream = stream0;
+			this.header = header0;
+			this.filter1 = filtera;
+			this.filter2 = filterb;
+			this.buffer = buffer0;
+			this.which_channels = which_ch0;
+
+			this.first_channel = 0;
+			this.last_channel = 0;
+
+			this.frame_start = 0;
+			this.channels = (this.header.mode() == MP3Header.SINGLE_CHANNEL) ? 1 : 2;
+			this.max_gr = (this.header.version() == MP3Header.MPEG1) ? 2 : 1;
+			this.sfreq = (this.header.sample_frequency() + ((this.header.version() == MP3Header.MPEG1) ? 3 : (this.header.version() == MP3Header.MPEG25_LSF) ? 6 : 0)) | 0;
+			
+			if (this.channels == 2) {
+				this.first_channel = 0;
+				this.last_channel = 1;
+			} else {
+				this.first_channel = this.last_channel = 0;
+			}
+
+			this.part2_start = 0;
+
+			for (var ch = 0; ch < 2; ch++)
+				for (var j = 0; j < 576; j++)
+					this.prevblck[ch][j] = 0.0;
+
+			this.nonzero[0] = this.nonzero[1] = 576;
+
+			this.br = new BitReserve();
+			this.si = new III_side_info_t();
+
+			this.samples1 = new Float32Array(32);
+			this.samples2 = new Float32Array(32);
+
+			this.new_slen = new Int32Array(4);
+		}
+		MP3Layer3.reorder_table = null;
+		MP3Layer3.reorder = function(scalefac_band) {
+			var j = 0;
+			var ix = new Int32Array(576);
+			for (var sfb = 0; sfb < 13; sfb++) {
+				var start = scalefac_band[sfb];
+				var end = scalefac_band[sfb + 1];
+				for (var _window = 0; _window < 3; _window++)
+					for (var i = start; i < end; i++)
+						ix[3 * i + _window] = j++;
+			}
+			return ix;
+		}
+		MP3Layer3.SSLIMIT = 18;
+		MP3Layer3.SBLIMIT = 32;
+		MP3Layer3.slen = [
+			[0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4],
+			[0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3],
+		];
+		MP3Layer3.pretab = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 3, 2, 0];
+		MP3Layer3.d43 = 4 / 3;
+		MP3Layer3.t_43 = (function() {
+			var t43 = new Float32Array(8192);
+			var d43 = (4.0 / 3.0);
+			for (var i = 0; i < 8192; i++) {
+				t43[i] = Math.pow(i, d43);
+			}
+			return t43;
+		}());
+		MP3Layer3.prototype.decodeFrame = function() {
+			this.decode();
+		}
+		MP3Layer3.prototype.decode = function() {
+			var br = this.br;
+			var out_1d = this.out_1d;
+			var nSlots = this.header.slots();
+			var flush_main = 0;
+			var gr = 0, ch = 0, ss = 0, sb = 0, sb18 = 0;
+			var main_data_end = 0;
+			var bytes_to_discard = 0;
+			var i = 0;
+			if (this.header.crc() == 0) {
+				this.stream.get_bits(16);
+			}
+			this.get_side_info();
+			for (i = 0; i < nSlots; i++) this.br.hputbuf(this.stream.get_bits(8));
+			main_data_end = this.br.hsstell() >>> 3;
+			if ((flush_main = (this.br.hsstell() & 7)) != 0) {
+				this.br.hgetbits(8 - flush_main);
+				main_data_end++;
+			}
+			bytes_to_discard = this.frame_start - main_data_end - this.si.main_data_begin;
+			this.frame_start += nSlots;
+			if (bytes_to_discard < 0) {
+				return;
+			}
+			if (main_data_end > 4096) {
+				this.frame_start -= 4096;
+				this.br.rewindNbytes(4096);
+			}
+			for (; bytes_to_discard > 0; bytes_to_discard--) br.hgetbits(8);
+			for (gr = 0; gr < this.max_gr; gr++) {
+				for (ch = 0; ch < this.channels; ch++) {
+					this.part2_start = br.hsstell();
+					if (this.header.version() == MP3Header.MPEG1) this.get_scale_factors(ch, gr);
+					else this.get_LSF_scale_factors(ch, gr);
+					this.huffman_decode(ch, gr);
+					this.dequantize_sample(this.ro[ch], ch, gr);
+				}
+				this.stereo(gr);
+				for (ch = this.first_channel; ch <= this.last_channel; ch++) {
+					this.reorder(this.lr[ch], ch, gr);
+					this.antialias(ch, gr);
+					this.hybrid(ch, gr);
+					for (sb18 = 18; sb18 < 576; sb18 += 36)
+						for (ss = 1; ss < MP3Layer3.SSLIMIT; ss += 2)
+							out_1d[sb18 + ss] = -out_1d[sb18 + ss];
+					if (ch == 0) {
+						for (ss = 0; ss < MP3Layer3.SSLIMIT; ss++) {
+							sb = 0;
+							for (sb18 = 0; sb18 < 576; sb18 += 18) {
+								this.samples1[sb] = out_1d[sb18 + ss];
+								sb++;
+							}
+							this.filter1.input_samples(this.samples1);
+							this.filter1.calculate_pcm_samples(this.buffer);
+						}
+					} else {
+						for (ss = 0; ss < MP3Layer3.SSLIMIT; ss++) {
+							sb = 0;
+							for (sb18 = 0; sb18 < 576; sb18 += 18) {
+								this.samples2[sb] = out_1d[sb18 + ss];
+								sb++;
+							}
+							this.filter2.input_samples(this.samples2);
+							this.filter2.calculate_pcm_samples(this.buffer);
+						}
+					}
+				}
+			}
+		}
+		MP3Layer3.prototype.get_side_info = function() {
+			var channels = this.channels;
+			var si = this.si;
+			var stream = this.stream;
+			var ch = 0, gr = 0;
+			if (this.header.version() == MP3Header.MPEG1) {
+				si.main_data_begin = stream.get_bits(9);
+				if (channels == 1) si.private_bits = stream.get_bits(5);
+				else si.private_bits = stream.get_bits(3);
+				for (ch = 0; ch < channels; ch++) {
+					si.ch[ch].scfsi[0] = stream.get_bits(1);
+					si.ch[ch].scfsi[1] = stream.get_bits(1);
+					si.ch[ch].scfsi[2] = stream.get_bits(1);
+					si.ch[ch].scfsi[3] = stream.get_bits(1);
+				}
+				for (gr = 0; gr < 2; gr++) {
+					for (ch = 0; ch < channels; ch++) {
+						si.ch[ch].gr[gr].part2_3_length = stream.get_bits(12);
+						si.ch[ch].gr[gr].big_values = stream.get_bits(9);
+						si.ch[ch].gr[gr].global_gain = stream.get_bits(8);
+						si.ch[ch].gr[gr].scalefac_compress = stream.get_bits(4);
+						si.ch[ch].gr[gr].window_switching_flag = stream.get_bits(1);
+						if ((si.ch[ch].gr[gr].window_switching_flag) != 0) {
+							si.ch[ch].gr[gr].block_type = stream.get_bits(2);
+							si.ch[ch].gr[gr].mixed_block_flag = stream.get_bits(1);
+							si.ch[ch].gr[gr].table_select[0] = stream.get_bits(5);
+							si.ch[ch].gr[gr].table_select[1] = stream.get_bits(5);
+							si.ch[ch].gr[gr].subblock_gain[0] = stream.get_bits(3);
+							si.ch[ch].gr[gr].subblock_gain[1] = stream.get_bits(3);
+							si.ch[ch].gr[gr].subblock_gain[2] = stream.get_bits(3);
+							if (si.ch[ch].gr[gr].block_type == 0) {
+								return false;
+							} else if (si.ch[ch].gr[gr].block_type == 2 && si.ch[ch].gr[gr].mixed_block_flag == 0) {
+								si.ch[ch].gr[gr].region0_count = 8;
+							} else {
+								si.ch[ch].gr[gr].region0_count = 7;
+							}
+							si.ch[ch].gr[gr].region1_count = 20 - si.ch[ch].gr[gr].region0_count;
+						} else {
+							si.ch[ch].gr[gr].table_select[0] = stream.get_bits(5);
+							si.ch[ch].gr[gr].table_select[1] = stream.get_bits(5);
+							si.ch[ch].gr[gr].table_select[2] = stream.get_bits(5);
+							si.ch[ch].gr[gr].region0_count = stream.get_bits(4);
+							si.ch[ch].gr[gr].region1_count = stream.get_bits(3);
+							si.ch[ch].gr[gr].block_type = 0;
+						}
+						si.ch[ch].gr[gr].preflag = stream.get_bits(1);
+						si.ch[ch].gr[gr].scalefac_scale = stream.get_bits(1);
+						si.ch[ch].gr[gr].count1table_select = stream.get_bits(1);
+					}
+				}
+			} else {
+				si.main_data_begin = stream.get_bits(8);
+				if (channels == 1) si.private_bits = stream.get_bits(1);
+				else si.private_bits = stream.get_bits(2);
+				for (ch = 0; ch < channels; ch++) {
+					si.ch[ch].gr[0].part2_3_length = stream.get_bits(12);
+					si.ch[ch].gr[0].big_values = stream.get_bits(9);
+					si.ch[ch].gr[0].global_gain = stream.get_bits(8);
+					si.ch[ch].gr[0].scalefac_compress = stream.get_bits(9);
+					si.ch[ch].gr[0].window_switching_flag = stream.get_bits(1);
+					if ((si.ch[ch].gr[0].window_switching_flag) != 0) {
+						si.ch[ch].gr[0].block_type = stream.get_bits(2);
+						si.ch[ch].gr[0].mixed_block_flag = stream.get_bits(1);
+						si.ch[ch].gr[0].table_select[0] = stream.get_bits(5);
+						si.ch[ch].gr[0].table_select[1] = stream.get_bits(5);
+						si.ch[ch].gr[0].subblock_gain[0] = stream.get_bits(3);
+						si.ch[ch].gr[0].subblock_gain[1] = stream.get_bits(3);
+						si.ch[ch].gr[0].subblock_gain[2] = stream.get_bits(3);
+						if (si.ch[ch].gr[0].block_type == 0) {
+							return false;
+						} else if (si.ch[ch].gr[0].block_type == 2 && si.ch[ch].gr[0].mixed_block_flag == 0) {
+							si.ch[ch].gr[0].region0_count = 8;
+						} else {
+							si.ch[ch].gr[0].region0_count = 7;
+							si.ch[ch].gr[0].region1_count = 20 - si.ch[ch].gr[0].region0_count;
+						}
+					} else {
+						si.ch[ch].gr[0].table_select[0] = stream.get_bits(5);
+						si.ch[ch].gr[0].table_select[1] = stream.get_bits(5);
+						si.ch[ch].gr[0].table_select[2] = stream.get_bits(5);
+						si.ch[ch].gr[0].region0_count = stream.get_bits(4);
+						si.ch[ch].gr[0].region1_count = stream.get_bits(3);
+						si.ch[ch].gr[0].block_type = 0;
+					}
+					si.ch[ch].gr[0].scalefac_scale = stream.get_bits(1);
+					si.ch[ch].gr[0].count1table_select = stream.get_bits(1);
+				}
+			}
+			return true;
+		}
+		MP3Layer3.prototype.get_scale_factors = function(ch, gr) {
+			var scalefac = this.scalefac;
+			var br = this.br;
+			var si = this.si;
+			var sfb = 0, _window = 0;
+			var gr_info = (si.ch[ch].gr[gr]);
+			var scale_comp = gr_info.scalefac_compress;
+			var length0 = MP3Layer3.slen[0][scale_comp];
+			var length1 = MP3Layer3.slen[1][scale_comp];
+			if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+				if ((gr_info.mixed_block_flag) != 0) {
+					for (sfb = 0; sfb < 8; sfb++)
+						this.scalefac[ch].l[sfb] = br.hgetbits(MP3Layer3.slen[0][gr_info.scalefac_compress]);
+					for (sfb = 3; sfb < 6; sfb++)
+						for (_window = 0; _window < 3; _window++)
+							this.scalefac[ch].s[_window][sfb] = br.hgetbits(MP3Layer3.slen[0][gr_info.scalefac_compress]);
+					for (sfb = 6; sfb < 12; sfb++)
+						for (_window = 0; _window < 3; _window++)
+							this.scalefac[ch].s[_window][sfb] = br.hgetbits(MP3Layer3.slen[1][gr_info.scalefac_compress]);
+					for (sfb = 12, _window = 0; _window < 3; _window++)
+						this.scalefac[ch].s[_window][sfb] = 0;
+				} else {
+					scalefac[ch].s[0][0] = br.hgetbits(length0);
+					scalefac[ch].s[1][0] = br.hgetbits(length0);
+					scalefac[ch].s[2][0] = br.hgetbits(length0);
+					scalefac[ch].s[0][1] = br.hgetbits(length0);
+					scalefac[ch].s[1][1] = br.hgetbits(length0);
+					scalefac[ch].s[2][1] = br.hgetbits(length0);
+					scalefac[ch].s[0][2] = br.hgetbits(length0);
+					scalefac[ch].s[1][2] = br.hgetbits(length0);
+					scalefac[ch].s[2][2] = br.hgetbits(length0);
+					scalefac[ch].s[0][3] = br.hgetbits(length0);
+					scalefac[ch].s[1][3] = br.hgetbits(length0);
+					scalefac[ch].s[2][3] = br.hgetbits(length0);
+					scalefac[ch].s[0][4] = br.hgetbits(length0);
+					scalefac[ch].s[1][4] = br.hgetbits(length0);
+					scalefac[ch].s[2][4] = br.hgetbits(length0);
+					scalefac[ch].s[0][5] = br.hgetbits(length0);
+					scalefac[ch].s[1][5] = br.hgetbits(length0);
+					scalefac[ch].s[2][5] = br.hgetbits(length0);
+					scalefac[ch].s[0][6] = br.hgetbits(length1);
+					scalefac[ch].s[1][6] = br.hgetbits(length1);
+					scalefac[ch].s[2][6] = br.hgetbits(length1);
+					scalefac[ch].s[0][7] = br.hgetbits(length1);
+					scalefac[ch].s[1][7] = br.hgetbits(length1);
+					scalefac[ch].s[2][7] = br.hgetbits(length1);
+					scalefac[ch].s[0][8] = br.hgetbits(length1);
+					scalefac[ch].s[1][8] = br.hgetbits(length1);
+					scalefac[ch].s[2][8] = br.hgetbits(length1);
+					scalefac[ch].s[0][9] = br.hgetbits(length1);
+					scalefac[ch].s[1][9] = br.hgetbits(length1);
+					scalefac[ch].s[2][9] = br.hgetbits(length1);
+					scalefac[ch].s[0][10] = br.hgetbits(length1);
+					scalefac[ch].s[1][10] = br.hgetbits(length1);
+					scalefac[ch].s[2][10] = br.hgetbits(length1);
+					scalefac[ch].s[0][11] = br.hgetbits(length1);
+					scalefac[ch].s[1][11] = br.hgetbits(length1);
+					scalefac[ch].s[2][11] = br.hgetbits(length1);
+					scalefac[ch].s[0][12] = 0;
+					scalefac[ch].s[1][12] = 0;
+					scalefac[ch].s[2][12] = 0;
+				}
+			} else {
+				if ((si.ch[ch].scfsi[0] == 0) || (gr == 0)) {
+					scalefac[ch].l[0] = br.hgetbits(length0);
+					scalefac[ch].l[1] = br.hgetbits(length0);
+					scalefac[ch].l[2] = br.hgetbits(length0);
+					scalefac[ch].l[3] = br.hgetbits(length0);
+					scalefac[ch].l[4] = br.hgetbits(length0);
+					scalefac[ch].l[5] = br.hgetbits(length0);
+				}
+				if ((si.ch[ch].scfsi[1] == 0) || (gr == 0)) {
+					scalefac[ch].l[6] = br.hgetbits(length0);
+					scalefac[ch].l[7] = br.hgetbits(length0);
+					scalefac[ch].l[8] = br.hgetbits(length0);
+					scalefac[ch].l[9] = br.hgetbits(length0);
+					scalefac[ch].l[10] = br.hgetbits(length0);
+				}
+				if ((si.ch[ch].scfsi[2] == 0) || (gr == 0)) {
+					scalefac[ch].l[11] = br.hgetbits(length1);
+					scalefac[ch].l[12] = br.hgetbits(length1);
+					scalefac[ch].l[13] = br.hgetbits(length1);
+					scalefac[ch].l[14] = br.hgetbits(length1);
+					scalefac[ch].l[15] = br.hgetbits(length1);
+				}
+				if ((si.ch[ch].scfsi[3] == 0) || (gr == 0)) {
+					scalefac[ch].l[16] = br.hgetbits(length1);
+					scalefac[ch].l[17] = br.hgetbits(length1);
+					scalefac[ch].l[18] = br.hgetbits(length1);
+					scalefac[ch].l[19] = br.hgetbits(length1);
+					scalefac[ch].l[20] = br.hgetbits(length1);
+				}
+				scalefac[ch].l[21] = 0;
+				scalefac[ch].l[22] = 0;
+			}
+		}
+		MP3Layer3.prototype.get_LSF_scale_data = function(ch, gr) {
+			var new_slen = this.new_slen;
+			var si = this.si;
+			var br = this.br;
+			var scalefac_comp = 0, int_scalefac_comp = 0;
+			var mode_ext = this.header.mode_extension();
+			var m;
+			var blocktypenumber = 0;
+			var blocknumber = 0;
+			var gr_info = (si.ch[ch].gr[gr]);
+			scalefac_comp = gr_info.scalefac_compress;
+			if (gr_info.block_type == 2) {
+				if (gr_info.mixed_block_flag == 0)
+					blocktypenumber = 1;
+				else if (gr_info.mixed_block_flag == 1)
+					blocktypenumber = 2;
+				else
+					blocktypenumber = 0;
+			} else {
+				blocktypenumber = 0;
+			}
+			if (!(((mode_ext == 1) || (mode_ext == 3)) && (ch == 1))) {
+				if (scalefac_comp < 400) {
+					new_slen[0] = (scalefac_comp >>> 4) / 5;
+					new_slen[1] = (scalefac_comp >>> 4) % 5;
+					new_slen[2] = (scalefac_comp & 0xF) >>> 2;
+					new_slen[3] = (scalefac_comp & 3);
+					si.ch[ch].gr[gr].preflag = 0;
+					blocknumber = 0;
+				} else if (scalefac_comp < 500) {
+					new_slen[0] = ((scalefac_comp - 400) >>> 2) / 5;
+					new_slen[1] = ((scalefac_comp - 400) >>> 2) % 5;
+					new_slen[2] = (scalefac_comp - 400) & 3;
+					new_slen[3] = 0;
+					si.ch[ch].gr[gr].preflag = 0;
+					blocknumber = 1;
+				} else if (scalefac_comp < 512) {
+					new_slen[0] = (scalefac_comp - 500) / 3;
+					new_slen[1] = (scalefac_comp - 500) % 3;
+					new_slen[2] = 0;
+					new_slen[3] = 0;
+					si.ch[ch].gr[gr].preflag = 1;
+					blocknumber = 2;
+				}
+			}
+			if ((((mode_ext == 1) || (mode_ext == 3)) && (ch == 1))) {
+				int_scalefac_comp = scalefac_comp >>> 1;
+				if (int_scalefac_comp < 180) {
+					new_slen[0] = int_scalefac_comp / 36;
+					new_slen[1] = (int_scalefac_comp % 36) / 6;
+					new_slen[2] = (int_scalefac_comp % 36) % 6;
+					new_slen[3] = 0;
+					si.ch[ch].gr[gr].preflag = 0;
+					blocknumber = 3;
+				} else if (int_scalefac_comp < 244) {
+					new_slen[0] = ((int_scalefac_comp - 180) & 0x3F) >>> 4;
+					new_slen[1] = ((int_scalefac_comp - 180) & 0xF) >>> 2;
+					new_slen[2] = (int_scalefac_comp - 180) & 3;
+					new_slen[3] = 0;
+					si.ch[ch].gr[gr].preflag = 0;
+					blocknumber = 4;
+				} else if (int_scalefac_comp < 255) {
+					new_slen[0] = (int_scalefac_comp - 244) / 3;
+					new_slen[1] = (int_scalefac_comp - 244) % 3;
+					new_slen[2] = 0;
+					new_slen[3] = 0;
+					si.ch[ch].gr[gr].preflag = 0;
+					blocknumber = 5;
+				}
+			}
+			for (var x = 0; x < 45; x++)
+				this.scalefac_buffer[x] = 0;
+			m = 0;
+			for (var i = 0; i < 4; i++) {
+				for (var j = 0; j < MP3Layer3.nr_of_sfb_block[blocknumber][blocktypenumber][i]; j++) {
+					this.scalefac_buffer[m] = (new_slen[i] == 0) ? 0 : br.hgetbits(new_slen[i]);
+					m++;
+				}
+			}
+		}
+		MP3Layer3.prototype.get_LSF_scale_factors = function(ch, gr) {
+			var si = this.si;
+			var scalefac = this.scalefac;
+			var m = 0;
+			var sfb = 0, _window = 0;
+			var gr_info = (si.ch[ch].gr[gr]);
+			this.get_LSF_scale_data(ch, gr);
+			if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+				if (gr_info.mixed_block_flag != 0) { // MIXED
+					for (sfb = 0; sfb < 8; sfb++) {
+						scalefac[ch].l[sfb] = this.scalefac_buffer[m];
+						m++;
+					}
+					for (sfb = 3; sfb < 12; sfb++) {
+						for (_window = 0; _window < 3; _window++) {
+							scalefac[ch].s[_window][sfb] = this.scalefac_buffer[m];
+							m++;
+						}
+					}
+					for (_window = 0; _window < 3; _window++)
+						scalefac[ch].s[_window][12] = 0;
+
+				} else { // SHORT
+					for (sfb = 0; sfb < 12; sfb++) {
+						for (_window = 0; _window < 3; _window++) {
+							scalefac[ch].s[_window][sfb] = this.scalefac_buffer[m];
+							m++;
+						}
+					}
+					for (_window = 0; _window < 3; _window++)
+						scalefac[ch].s[_window][12] = 0;
+				}
+			} else { // LONG types 0,1,3
+				for (sfb = 0; sfb < 21; sfb++) {
+					scalefac[ch].l[sfb] = this.scalefac_buffer[m];
+					m++;
+				}
+				scalefac[ch].l[21] = 0; // Jeff
+				scalefac[ch].l[22] = 0;
+			}
+		}
+		var x = new Int32Array(1);
+		var y = new Int32Array(1);
+		var v = new Int32Array(1);
+		var w = new Int32Array(1);
+		MP3Layer3.prototype.huffman_decode = function(ch, gr) {
+			var br = this.br;
+			var si = this.si;
+			var is_1d = this.is_1d;
+			var sfreq = this.sfreq;
+			x[0] = 0;
+			y[0] = 0;
+			v[0] = 0;
+			w[0] = 0;
+			var part2_3_end = this.part2_start + si.ch[ch].gr[gr].part2_3_length;
+			var num_bits = 0;
+			var region1Start = 0;
+			var region2Start = 0;
+			var index = 0;
+			var buf = 0, buf1 = 0;
+			var h = null;
+			if (((si.ch[ch].gr[gr].window_switching_flag) != 0) && (si.ch[ch].gr[gr].block_type == 2)) {
+				region1Start = (sfreq == 8) ? 72 : 36;
+				region2Start = 576;
+			} else {
+				buf = si.ch[ch].gr[gr].region0_count + 1;
+				buf1 = buf + si.ch[ch].gr[gr].region1_count + 1;
+				if (buf1 > MP3Layer3.sfBandIndex[sfreq].l.length - 1) {
+					buf1 = MP3Layer3.sfBandIndex[sfreq].l.length - 1;
+				}
+				region1Start = MP3Layer3.sfBandIndex[sfreq].l[buf];
+				region2Start = MP3Layer3.sfBandIndex[sfreq].l[buf1];
+			}
+			index = 0;
+			for (var i = 0; i < (si.ch[ch].gr[gr].big_values << 1); i += 2) {
+				if (i < region1Start) h = huffcodetab.ht[si.ch[ch].gr[gr].table_select[0]];
+				else if (i < region2Start) h = huffcodetab.ht[si.ch[ch].gr[gr].table_select[1]];
+				else h = huffcodetab.ht[si.ch[ch].gr[gr].table_select[2]];
+				huffcodetab.huffman_decoder(h, x, y, v, w, br);
+				is_1d[index++] = x[0];
+				is_1d[index++] = y[0];
+				this.checkSumHuff = this.checkSumHuff + x[0] + y[0];
+			}
+			h = huffcodetab.ht[si.ch[ch].gr[gr].count1table_select + 32];
+			num_bits = br.hsstell();
+			while ((num_bits < part2_3_end) && (index < 576)) {
+				huffcodetab.huffman_decoder(h, x, y, v, w, br);
+				is_1d[index++] = v[0];
+				is_1d[index++] = w[0];
+				is_1d[index++] = x[0];
+				is_1d[index++] = y[0];
+				this.checkSumHuff = this.checkSumHuff + v[0] + w[0] + x[0] + y[0];
+				num_bits = br.hsstell();
+			}
+			if (num_bits > part2_3_end) {
+				br.rewindNbits(num_bits - part2_3_end);
+				index -= 4;
+			}
+			num_bits = br.hsstell();
+			if (num_bits < part2_3_end)
+				br.hgetbits(part2_3_end - num_bits);
+			this.nonzero[ch] = Math.min(index, 576);
+			if (index < 0) index = 0;
+			for (; index < 576; index++)
+				is_1d[index] = 0;
+		}
+		MP3Layer3.prototype.dequantize_sample = function(xr, ch, gr) {
+			var scalefac = this.scalefac;
+			var sfreq = this.sfreq;
+			var is_1d = this.is_1d;
+			var si = this.si;
+			var gr_info = (si.ch[ch].gr[gr]);
+			var cb = 0;
+			var next_cb_boundary = 0;
+			var cb_begin = 0;
+			var cb_width = 0;
+			var index = 0, t_index = 0, j = 0;
+			var g_gain = 0;
+			var xr_1d = xr;
+			if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+				if (gr_info.mixed_block_flag != 0)
+					next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].l[1];
+				else {
+					cb_width = MP3Layer3.sfBandIndex[sfreq].s[1];
+					next_cb_boundary = (cb_width << 2) - cb_width;
+					cb_begin = 0;
+				}
+			} else {
+				next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].l[1];
+			}
+			g_gain = Math.pow(2.0, (0.25 * (gr_info.global_gain - 210.0)));
+			for (j = 0; j < this.nonzero[ch]; j++) {
+				var reste = j % MP3Layer3.SSLIMIT;
+				var quotien = ((j - reste) / MP3Layer3.SSLIMIT) | 0;
+				if (is_1d[j] == 0) xr_1d[quotien][reste] = 0.0;
+				else {
+					var abv = is_1d[j];
+					if (abv < MP3Layer3.t_43.length) {
+						if (is_1d[j] > 0) xr_1d[quotien][reste] = g_gain * MP3Layer3.t_43[abv];
+						else {
+							if (-abv < MP3Layer3.t_43.length) xr_1d[quotien][reste] = -g_gain * MP3Layer3.t_43[-abv];
+							else xr_1d[quotien][reste] = -g_gain * Math.pow(-abv, MP3Layer3.d43);
+						}
+					} else {
+						if (is_1d[j] > 0) xr_1d[quotien][reste] = g_gain * Math.pow(abv, MP3Layer3.d43);
+						else xr_1d[quotien][reste] = -g_gain * Math.pow(-abv, MP3Layer3.d43);
+					}
+				}
+			}
+			for (j = 0; j < this.nonzero[ch]; j++) {
+				var reste = j % MP3Layer3.SSLIMIT;
+				var quotien = ((j - reste) / MP3Layer3.SSLIMIT) | 0;
+				if (index == next_cb_boundary) {
+					if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+						if (gr_info.mixed_block_flag != 0) {
+							if (index == MP3Layer3.sfBandIndex[sfreq].l[8]) {
+								next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].s[4];
+								next_cb_boundary = (next_cb_boundary << 2) - next_cb_boundary;
+								cb = 3;
+								cb_width = MP3Layer3.sfBandIndex[sfreq].s[4] - MP3Layer3.sfBandIndex[sfreq].s[3];
+								cb_begin = MP3Layer3.sfBandIndex[sfreq].s[3];
+								cb_begin = (cb_begin << 2) - cb_begin;
+							} else if (index < MP3Layer3.sfBandIndex[sfreq].l[8]) {
+								next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].l[(++cb) + 1];
+							} else {
+								next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].s[(++cb) + 1];
+								next_cb_boundary = (next_cb_boundary << 2) - next_cb_boundary;
+								cb_begin = MP3Layer3.sfBandIndex[sfreq].s[cb];
+								cb_width = MP3Layer3.sfBandIndex[sfreq].s[cb + 1] - cb_begin;
+								cb_begin = (cb_begin << 2) - cb_begin;
+							}
+						} else {
+							next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].s[(++cb) + 1];
+							next_cb_boundary = (next_cb_boundary << 2) - next_cb_boundary;
+							cb_begin = MP3Layer3.sfBandIndex[sfreq].s[cb];
+							cb_width = MP3Layer3.sfBandIndex[sfreq].s[cb + 1] - cb_begin;
+							cb_begin = (cb_begin << 2) - cb_begin;
+						}
+					} else {
+						next_cb_boundary = MP3Layer3.sfBandIndex[sfreq].l[(++cb) + 1];
+					}
+				}
+				if ((gr_info.window_switching_flag != 0) && (((gr_info.block_type == 2) && (gr_info.mixed_block_flag == 0)) || ((gr_info.block_type == 2) && (gr_info.mixed_block_flag != 0) && (j >= 36)))) {
+					t_index = ((index - cb_begin) / cb_width) | 0;
+					var idx = scalefac[ch].s[t_index][cb] << gr_info.scalefac_scale;
+					idx += (gr_info.subblock_gain[t_index] << 2);
+					xr_1d[quotien][reste] *= MP3Layer3.two_to_negative_half_pow[idx];
+				} else {
+					var idx = scalefac[ch].l[cb];
+					if (gr_info.preflag != 0) idx += MP3Layer3.pretab[cb];
+					idx = idx << gr_info.scalefac_scale;
+					xr_1d[quotien][reste] *= MP3Layer3.two_to_negative_half_pow[idx];
+				}
+				index++;
+			}
+			for (j = this.nonzero[ch]; j < 576; j++) {
+				var reste = j % MP3Layer3.SSLIMIT;
+				var quotien = ((j - reste) / MP3Layer3.SSLIMIT) | 0;
+				if (reste < 0) reste = 0;
+				if (quotien < 0) quotien = 0;
+				xr_1d[quotien][reste] = 0.0;
+			}
+		}
+		MP3Layer3.nr_of_sfb_block = [
+			[[6, 5, 5, 5], [9, 9, 9, 9], [6, 9, 9, 9]],
+			[[6, 5, 7, 3], [9, 9, 12, 6], [6, 9, 12, 6]],
+			[[11, 10, 0, 0], [18, 18, 0, 0], [15, 18, 0, 0]],
+			[[7, 7, 7, 0], [12, 12, 12, 0], [6, 15, 12, 0]],
+			[[6, 6, 6, 3], [12, 9, 9, 6], [6, 12, 9, 6]],
+			[[8, 8, 5, 0], [15, 12, 9, 0], [6, 18, 9, 0]]
+		];
+		var is_pos = new Int32Array(576);
+		var is_ratio = new Float32Array(576);
+		MP3Layer3.io = [[1.0000000000E+00, 8.4089641526E-01, 7.0710678119E-01, 5.9460355751E-01, 5.0000000001E-01, 4.2044820763E-01, 3.5355339060E-01, 2.9730177876E-01, 2.5000000001E-01, 2.1022410382E-01, 1.7677669530E-01, 1.4865088938E-01, 1.2500000000E-01, 1.0511205191E-01, 8.8388347652E-02, 7.4325444691E-02, 6.2500000003E-02, 5.2556025956E-02, 4.4194173826E-02, 3.7162722346E-02, 3.1250000002E-02, 2.6278012978E-02, 2.2097086913E-02, 1.8581361173E-02, 1.5625000001E-02, 1.3139006489E-02, 1.1048543457E-02, 9.2906805866E-03, 7.8125000006E-03, 6.5695032447E-03, 5.5242717285E-03, 4.6453402934E-03], [1.0000000000E+00, 7.0710678119E-01, 5.0000000000E-01, 3.5355339060E-01, 2.5000000000E-01, 1.7677669530E-01, 1.2500000000E-01, 8.8388347650E-02, 6.2500000001E-02, 4.4194173825E-02, 3.1250000001E-02, 2.2097086913E-02, 1.5625000000E-02, 1.1048543456E-02, 7.8125000002E-03, 5.5242717282E-03, 3.9062500001E-03, 2.7621358641E-03, 1.9531250001E-03, 1.3810679321E-03, 9.7656250004E-04, 6.9053396603E-04, 4.8828125002E-04, 3.4526698302E-04, 2.4414062501E-04, 1.7263349151E-04, 1.2207031251E-04, 8.6316745755E-05, 6.1035156254E-05, 4.3158372878E-05, 3.0517578127E-05, 2.1579186439E-05]]
+		MP3Layer3.TAN12 = new Float32Array([0.0, 0.26794919, 0.57735027, 1.0, 1.73205081, 3.73205081, 9.9999999e10, -3.73205081, -1.73205081, -1.0, -0.57735027, -0.26794919, 0.0, 0.26794919, 0.57735027, 1.0]);
+		MP3Layer3.cs = new Float32Array([0.857492925712, 0.881741997318, 0.949628649103, 0.983314592492, 0.995517816065, 0.999160558175, 0.999899195243, 0.999993155067]);
+		MP3Layer3.ca = new Float32Array([-0.5144957554270, -0.4717319685650, -0.3133774542040, -0.1819131996110, -0.0945741925262, -0.0409655828852, -0.0141985685725, -0.00369997467375]);
+		MP3Layer3.two_to_negative_half_pow = new Float32Array([1.0000000000E+00, 7.0710678119E-01, 5.0000000000E-01, 3.5355339059E-01, 2.5000000000E-01, 1.7677669530E-01, 1.2500000000E-01, 8.8388347648E-02, 6.2500000000E-02, 4.4194173824E-02, 3.1250000000E-02, 2.2097086912E-02, 1.5625000000E-02, 1.1048543456E-02, 7.8125000000E-03, 5.5242717280E-03, 3.9062500000E-03, 2.7621358640E-03, 1.9531250000E-03, 1.3810679320E-03, 9.7656250000E-04, 6.9053396600E-04, 4.8828125000E-04, 3.4526698300E-04, 2.4414062500E-04, 1.7263349150E-04, 1.2207031250E-04, 8.6316745750E-05, 6.1035156250E-05, 4.3158372875E-05, 3.0517578125E-05, 2.1579186438E-05, 1.5258789062E-05, 1.0789593219E-05, 7.6293945312E-06, 5.3947966094E-06, 3.8146972656E-06, 2.6973983047E-06, 1.9073486328E-06, 1.3486991523E-06, 9.5367431641E-07, 6.7434957617E-07, 4.7683715820E-07, 3.3717478809E-07, 2.3841857910E-07, 1.6858739404E-07, 1.1920928955E-07, 8.4293697022E-08, 5.9604644775E-08, 4.2146848511E-08, 2.9802322388E-08, 2.1073424255E-08, 1.4901161194E-08, 1.0536712128E-08, 7.4505805969E-09, 5.2683560639E-09, 3.7252902985E-09, 2.6341780319E-09, 1.8626451492E-09, 1.3170890160E-09, 9.3132257462E-10, 6.5854450798E-10, 4.6566128731E-10, 3.2927225399E-10]);
+		MP3Layer3.prototype.i_stereo_k_values = function(is_pos, io_type, i) {
+			var k = this.k;
+			if (is_pos == 0) {
+				k[0][i] = 1.0;
+				k[1][i] = 1.0;
+			} else if ((is_pos & 1) != 0) {
+				k[0][i] = MP3Layer3.io[io_type][(is_pos + 1) >>> 1];
+				k[1][i] = 1.0;
+			} else {
+				k[0][i] = 1.0;
+				k[1][i] = MP3Layer3.io[io_type][is_pos >>> 1];
+			}
+		}
+		MP3Layer3.prototype.stereo = function(gr) {
+			var sfreq = this.sfreq;
+			var scalefac = this.scalefac;
+			var ro = this.ro;
+			var lr = this.lr;
+			var si = this.si;
+			var k = this.k;
+			var sb = 0, ss = 0;
+			if (this.channels == 1) {
+				for (sb = 0; sb < MP3Layer3.SBLIMIT; sb++)
+					for (ss = 0; ss < MP3Layer3.SSLIMIT; ss += 3) {
+						lr[0][sb][ss] = ro[0][sb][ss];
+						lr[0][sb][ss + 1] = ro[0][sb][ss + 1];
+						lr[0][sb][ss + 2] = ro[0][sb][ss + 2];
+					}
+			} else {
+				var gr_info = (si.ch[0].gr[gr]);
+				var mode_ext = this.header.mode_extension();
+				var sfb = 0;
+				var i = 0;
+				var lines = 0, temp = 0, temp2 = 0;
+				var ms_stereo = ((this.header.mode() == MP3Header.JOINT_STEREO) && ((mode_ext & 0x2) != 0));
+				var i_stereo = ((this.header.mode() == MP3Header.JOINT_STEREO) && ((mode_ext & 0x1) != 0));
+				var lsf = ((this.header.version() == MP3Header.MPEG2_LSF || this.header.version() == MP3Header.MPEG25_LSF));
+				var io_type = (gr_info.scalefac_compress & 1);
+				for (i = 0; i < 576; i++) {
+					is_pos[i] = 7;
+					is_ratio[i] = 0.0;
+				}
+				if (i_stereo) {
+					if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+						if (gr_info.mixed_block_flag != 0) {
+							var max_sfb = 0;
+							for (var j = 0; j < 3; j++) {
+								var sfbcnt = 0;
+								sfbcnt = 2;
+								for (sfb = 12; sfb >= 3; sfb--) {
+									i = MP3Layer3.sfBandIndex[sfreq].s[sfb];
+									lines = MP3Layer3.sfBandIndex[sfreq].s[sfb + 1] - i;
+									i = (i << 2) - i + (j + 1) * lines - 1;
+									while (lines > 0) {
+										if (ro[1][(i / 18) | 0][i % 18] != 0.0) {
+											sfbcnt = sfb;
+											sfb = -10;
+											lines = -10;
+										}
+										lines--;
+										i--;
+									}
+								}
+								sfb = sfbcnt + 1;
+								if (sfb > max_sfb)
+									max_sfb = sfb;
+								while (sfb < 12) {
+									temp = MP3Layer3.sfBandIndex[sfreq].s[sfb];
+									sb = MP3Layer3.sfBandIndex[sfreq].s[sfb + 1] - temp;
+									i = (temp << 2) - temp + j * sb;
+									for (; sb > 0; sb--) {
+										is_pos[i] = scalefac[1].s[j][sfb];
+										if (is_pos[i] != 7)
+											if (lsf)
+												this.i_stereo_k_values(is_pos[i], io_type, i);
+											else
+												is_ratio[i] = MP3Layer3.TAN12[is_pos[i]];
+										i++;
+									}
+									sfb++;
+								}
+								sfb = MP3Layer3.sfBandIndex[sfreq].s[10];
+								sb = MP3Layer3.sfBandIndex[sfreq].s[11] - sfb;
+								sfb = (sfb << 2) - sfb + j * sb;
+								temp = MP3Layer3.sfBandIndex[sfreq].s[11];
+								sb = MP3Layer3.sfBandIndex[sfreq].s[12] - temp;
+								i = (temp << 2) - temp + j * sb;
+								for (; sb > 0; sb--) {
+									is_pos[i] = is_pos[sfb];
+									if (lsf) {
+										k[0][i] = k[0][sfb];
+										k[1][i] = k[1][sfb];
+									} else {
+										is_ratio[i] = is_ratio[sfb];
+									}
+									i++;
+								}
+							}
+							if (max_sfb <= 3) {
+								i = 2;
+								ss = 17;
+								sb = -1;
+								while (i >= 0) {
+									if (ro[1][i][ss] != 0.0) {
+										sb = (i << 4) + (i << 1) + ss;
+										i = -1;
+									} else {
+										ss--;
+										if (ss < 0) {
+											i--;
+											ss = 17;
+										}
+									}
+								}
+								i = 0;
+								while (MP3Layer3.sfBandIndex[sfreq].l[i] <= sb)
+									i++;
+								sfb = i;
+								i = MP3Layer3.sfBandIndex[sfreq].l[i];
+								for (; sfb < 8; sfb++) {
+									sb = MP3Layer3.sfBandIndex[sfreq].l[sfb + 1] - MP3Layer3.sfBandIndex[sfreq].l[sfb];
+									for (; sb > 0; sb--) {
+										is_pos[i] = scalefac[1].l[sfb];
+										if (is_pos[i] != 7)
+											if (lsf)
+												this.i_stereo_k_values(is_pos[i], io_type, i);
+											else
+												is_ratio[i] = MP3Layer3.TAN12[is_pos[i]];
+										i++;
+									}
+								}
+							}
+						} else {
+							for (var j = 0; j < 3; j++) {
+								var sfbcnt = 0;
+								sfbcnt = -1;
+								for (sfb = 12; sfb >= 0; sfb--) {
+									temp = MP3Layer3.sfBandIndex[sfreq].s[sfb];
+									lines = MP3Layer3.sfBandIndex[sfreq].s[sfb + 1] - temp;
+									i = (temp << 2) - temp + (j + 1) * lines - 1;
+									while (lines > 0) {
+										if (ro[1][(i / 18) | 0][i % 18] != 0.0) {
+											sfbcnt = sfb;
+											sfb = -10;
+											lines = -10;
+										}
+										lines--;
+										i--;
+									}
+								}
+								sfb = sfbcnt + 1;
+								while (sfb < 12) {
+									temp = MP3Layer3.sfBandIndex[sfreq].s[sfb];
+									sb = MP3Layer3.sfBandIndex[sfreq].s[sfb + 1] - temp;
+									i = (temp << 2) - temp + j * sb;
+									for (; sb > 0; sb--) {
+										is_pos[i] = scalefac[1].s[j][sfb];
+										if (is_pos[i] != 7)
+											if (lsf)
+												this.i_stereo_k_values(is_pos[i], io_type, i);
+											else
+												is_ratio[i] = MP3Layer3.TAN12[is_pos[i]];
+										i++;
+									}
+									sfb++;
+								}
+								temp = MP3Layer3.sfBandIndex[sfreq].s[10];
+								temp2 = MP3Layer3.sfBandIndex[sfreq].s[11];
+								sb = temp2 - temp;
+								sfb = (temp << 2) - temp + j * sb;
+								sb = MP3Layer3.sfBandIndex[sfreq].s[12] - temp2;
+								i = (temp2 << 2) - temp2 + j * sb;
+								for (; sb > 0; sb--) {
+									is_pos[i] = is_pos[sfb];
+									if (lsf) {
+										k[0][i] = k[0][sfb];
+										k[1][i] = k[1][sfb];
+									} else {
+										is_ratio[i] = is_ratio[sfb];
+									}
+									i++;
+								}
+							}
+						}
+					} else {
+						i = 31;
+						ss = 17;
+						sb = 0;
+						while (i >= 0) {
+							if (ro[1][i][ss] != 0.0) {
+								sb = (i << 4) + (i << 1) + ss;
+								i = -1;
+							} else {
+								ss--;
+								if (ss < 0) {
+									i--;
+									ss = 17;
+								}
+							}
+						}
+						i = 0;
+						while (MP3Layer3.sfBandIndex[sfreq].l[i] <= sb)
+							i++;
+						sfb = i;
+						i = MP3Layer3.sfBandIndex[sfreq].l[i];
+						for (; sfb < 21; sfb++) {
+							sb = MP3Layer3.sfBandIndex[sfreq].l[sfb + 1] - MP3Layer3.sfBandIndex[sfreq].l[sfb];
+							for (; sb > 0; sb--) {
+								is_pos[i] = scalefac[1].l[sfb];
+								if (is_pos[i] != 7)
+									if (lsf)
+										this.i_stereo_k_values(is_pos[i], io_type, i);
+									else
+										is_ratio[i] = MP3Layer3.TAN12[is_pos[i]];
+								i++;
+							}
+						}
+						sfb = MP3Layer3.sfBandIndex[sfreq].l[20];
+						for (sb = 576 - MP3Layer3.sfBandIndex[sfreq].l[21]; (sb > 0) && (i < 576); sb--) {
+							is_pos[i] = is_pos[sfb];
+							if (lsf) {
+								k[0][i] = k[0][sfb];
+								k[1][i] = k[1][sfb];
+							} else {
+								is_ratio[i] = is_ratio[sfb];
+							}
+							i++;
+						}
+					}
+				}
+				i = 0;
+				for (sb = 0; sb < MP3Layer3.SBLIMIT; sb++)
+					for (ss = 0; ss < MP3Layer3.SSLIMIT; ss++) {
+						if (is_pos[i] == 7) {
+							if (ms_stereo) {
+								lr[0][sb][ss] = (ro[0][sb][ss] + ro[1][sb][ss]) * 0.707106781;
+								lr[1][sb][ss] = (ro[0][sb][ss] - ro[1][sb][ss]) * 0.707106781;
+							} else {
+								lr[0][sb][ss] = ro[0][sb][ss];
+								lr[1][sb][ss] = ro[1][sb][ss];
+							}
+						} else if (i_stereo) {
+							if (lsf) {
+								lr[0][sb][ss] = ro[0][sb][ss] * k[0][i];
+								lr[1][sb][ss] = ro[0][sb][ss] * k[1][i];
+							} else {
+								lr[1][sb][ss] = ro[0][sb][ss] / (1 + is_ratio[i]);
+								lr[0][sb][ss] = lr[1][sb][ss] * is_ratio[i];
+							}
+						}
+						i++;
+					}
+			}
+		}
+		MP3Layer3.prototype.do_downmix = function() {
+			var lr = this.lr;
+			for (var sb = 0; sb < MP3Layer3.SSLIMIT; sb++) {
+				for (var ss = 0; ss < MP3Layer3.SSLIMIT; ss += 3) {
+					lr[0][sb][ss] = (lr[0][sb][ss] + lr[1][sb][ss]) * 0.5;
+					lr[0][sb][ss + 1] = (lr[0][sb][ss + 1] + lr[1][sb][ss + 1]) * 0.5;
+					lr[0][sb][ss + 2] = (lr[0][sb][ss + 2] + lr[1][sb][ss + 2]) * 0.5;
+				}
+			}
+		}
+		MP3Layer3.prototype.reorder = function(xr, ch, gr) {
+			var sfreq = this.sfreq;
+			var si = this.si;
+			var out_1d = this.out_1d;
+			var gr_info = (si.ch[ch].gr[gr]);
+			var freq = 0, freq3 = 0;
+			var index = 0;
+			var sfb = 0, sfb_start = 0, sfb_lines = 0;
+			var src_line = 0, des_line = 0;
+			var xr_1d = xr;
+			if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2)) {
+				for (index = 0; index < 576; index++)
+					out_1d[index] = 0.0;
+				if (gr_info.mixed_block_flag != 0) {
+					for (index = 0; index < 36; index++) {
+						var reste = index % MP3Layer3.SSLIMIT;
+						var quotien = ((index - reste) / MP3Layer3.SSLIMIT) | 0;
+						out_1d[index] = xr_1d[quotien][reste];
+					}
+					for (sfb = 3; sfb < 13; sfb++) {
+						sfb_start = MP3Layer3.sfBandIndex[sfreq].s[sfb];
+						sfb_lines = MP3Layer3.sfBandIndex[sfreq].s[sfb + 1] - sfb_start;
+						var sfb_start3 = (sfb_start << 2) - sfb_start;
+						for (freq = 0, freq3 = 0; freq < sfb_lines; freq++, freq3 += 3) {
+							src_line = sfb_start3 + freq;
+							des_line = sfb_start3 + freq3;
+							var reste = src_line % MP3Layer3.SSLIMIT;
+							var quotien = ((src_line - reste) / MP3Layer3.SSLIMIT) | 0;
+							out_1d[des_line] = xr_1d[quotien][reste];
+							src_line += sfb_lines;
+							des_line++;
+							reste = src_line % MP3Layer3.SSLIMIT;
+							quotien = ((src_line - reste) / MP3Layer3.SSLIMIT) | 0;
+							out_1d[des_line] = xr_1d[quotien][reste];
+							src_line += sfb_lines;
+							des_line++;
+							reste = src_line % MP3Layer3.SSLIMIT;
+							quotien = ((src_line - reste) / MP3Layer3.SSLIMIT) | 0;
+							out_1d[des_line] = xr_1d[quotien][reste];
+						}
+					}
+				} else {
+					for (index = 0; index < 576; index++) {
+						var j = MP3Layer3.reorder_table[sfreq][index];
+						var reste = j % MP3Layer3.SSLIMIT;
+						var quotien = ((j - reste) / MP3Layer3.SSLIMIT) | 0;
+						out_1d[index] = xr_1d[quotien][reste];
+					}
+				}
+			} else {
+				for (index = 0; index < 576; index++) {
+					var reste = index % MP3Layer3.SSLIMIT;
+					var quotien = ((index - reste) / MP3Layer3.SSLIMIT) | 0;
+					out_1d[index] = xr_1d[quotien][reste];
+				}
+			}
+		}
+		MP3Layer3.prototype.antialias = function(ch, gr) {
+			var si = this.si;
+			var out_1d = this.out_1d;
+			var sb18 = 0, ss = 0, sb18lim = 0;
+			var gr_info = (si.ch[ch].gr[gr]);
+			if ((gr_info.window_switching_flag != 0) && (gr_info.block_type == 2) && !(gr_info.mixed_block_flag != 0))
+				return;
+			if ((gr_info.window_switching_flag != 0) && (gr_info.mixed_block_flag != 0) && (gr_info.block_type == 2)) {
+				sb18lim = 18;
+			} else {
+				sb18lim = 558;
+			}
+			for (sb18 = 0; sb18 < sb18lim; sb18 += 18) {
+				for (ss = 0; ss < 8; ss++) {
+					var src_idx1 = sb18 + 17 - ss;
+					var src_idx2 = sb18 + 18 + ss;
+					var bu = out_1d[src_idx1];
+					var bd = out_1d[src_idx2];
+					out_1d[src_idx1] = (bu * MP3Layer3.cs[ss]) - (bd * MP3Layer3.ca[ss]);
+					out_1d[src_idx2] = (bd * MP3Layer3.cs[ss]) + (bu * MP3Layer3.ca[ss]);
+				}
+			}
+		}
+		var tsOutCopy = new Float32Array(18);
+		var rawout = new Float32Array(36);
+		function arraycopy(_in, a, out, b, c) {
+			var _ = 0;
+			for (var i = b; i < c; i++) {
+				out[i] = _in[a + _];
+				_++;
+			}
+		}
+		MP3Layer3.prototype.hybrid = function(ch, gr) {
+			var si = this.si;
+			var out_1d = this.out_1d;
+			var bt = 0;
+			var sb18 = 0;
+			var gr_info = (si.ch[ch].gr[gr]);
+			var tsOut = null;
+			var prvblk = null;
+			for (sb18 = 0; sb18 < 576; sb18 += 18) {
+				bt = ((gr_info.window_switching_flag != 0) && (gr_info.mixed_block_flag != 0) && (sb18 < 36)) ? 0 : gr_info.block_type;
+				tsOut = out_1d;
+				arraycopy(tsOut, 0 + sb18, tsOutCopy, 0, 18);
+				this.inv_mdct(tsOutCopy, rawout, bt);
+				arraycopy(tsOutCopy, 0, tsOut, 0 + sb18, 18);
+				prvblk = this.prevblck;
+				tsOut[0 + sb18] = rawout[0] + prvblk[ch][sb18 + 0];
+				prvblk[ch][sb18 + 0] = rawout[18];
+				tsOut[1 + sb18] = rawout[1] + prvblk[ch][sb18 + 1];
+				prvblk[ch][sb18 + 1] = rawout[19];
+				tsOut[2 + sb18] = rawout[2] + prvblk[ch][sb18 + 2];
+				prvblk[ch][sb18 + 2] = rawout[20];
+				tsOut[3 + sb18] = rawout[3] + prvblk[ch][sb18 + 3];
+				prvblk[ch][sb18 + 3] = rawout[21];
+				tsOut[4 + sb18] = rawout[4] + prvblk[ch][sb18 + 4];
+				prvblk[ch][sb18 + 4] = rawout[22];
+				tsOut[5 + sb18] = rawout[5] + prvblk[ch][sb18 + 5];
+				prvblk[ch][sb18 + 5] = rawout[23];
+				tsOut[6 + sb18] = rawout[6] + prvblk[ch][sb18 + 6];
+				prvblk[ch][sb18 + 6] = rawout[24];
+				tsOut[7 + sb18] = rawout[7] + prvblk[ch][sb18 + 7];
+				prvblk[ch][sb18 + 7] = rawout[25];
+				tsOut[8 + sb18] = rawout[8] + prvblk[ch][sb18 + 8];
+				prvblk[ch][sb18 + 8] = rawout[26];
+				tsOut[9 + sb18] = rawout[9] + prvblk[ch][sb18 + 9];
+				prvblk[ch][sb18 + 9] = rawout[27];
+				tsOut[10 + sb18] = rawout[10] + prvblk[ch][sb18 + 10];
+				prvblk[ch][sb18 + 10] = rawout[28];
+				tsOut[11 + sb18] = rawout[11] + prvblk[ch][sb18 + 11];
+				prvblk[ch][sb18 + 11] = rawout[29];
+				tsOut[12 + sb18] = rawout[12] + prvblk[ch][sb18 + 12];
+				prvblk[ch][sb18 + 12] = rawout[30];
+				tsOut[13 + sb18] = rawout[13] + prvblk[ch][sb18 + 13];
+				prvblk[ch][sb18 + 13] = rawout[31];
+				tsOut[14 + sb18] = rawout[14] + prvblk[ch][sb18 + 14];
+				prvblk[ch][sb18 + 14] = rawout[32];
+				tsOut[15 + sb18] = rawout[15] + prvblk[ch][sb18 + 15];
+				prvblk[ch][sb18 + 15] = rawout[33];
+				tsOut[16 + sb18] = rawout[16] + prvblk[ch][sb18 + 16];
+				prvblk[ch][sb18 + 16] = rawout[34];
+				tsOut[17 + sb18] = rawout[17] + prvblk[ch][sb18 + 17];
+				prvblk[ch][sb18 + 17] = rawout[35];
+			}
+		}
+		MP3Layer3.win = [new Float32Array([-1.6141214951E-02, -5.3603178919E-02, -1.0070713296E-01, -1.6280817573E-01, -4.9999999679E-01, -3.8388735032E-01, -6.2061144372E-01, -1.1659756083E+00, -3.8720752656E+00, -4.2256286556E+00, -1.5195289984E+00, -9.7416483388E-01, -7.3744074053E-01, -1.2071067773E+00, -5.1636156596E-01, -4.5426052317E-01, -4.0715656898E-01, -3.6969460527E-01, -3.3876269197E-01, -3.1242222492E-01, -2.8939587111E-01, -2.6880081906E-01, -5.0000000266E-01, -2.3251417468E-01, -2.1596714708E-01, -2.0004979098E-01, -1.8449493497E-01, -1.6905846094E-01, -1.5350360518E-01, -1.3758624925E-01, -1.2103922149E-01, -2.0710679058E-01, -8.4752577594E-02, -6.4157525656E-02, -4.1131172614E-02, -1.4790705759E-02]), new Float32Array([-1.6141214951E-02, -5.3603178919E-02, -1.0070713296E-01, -1.6280817573E-01, -4.9999999679E-01, -3.8388735032E-01, -6.2061144372E-01, -1.1659756083E+00, -3.8720752656E+00, -4.2256286556E+00, -1.5195289984E+00, -9.7416483388E-01, -7.3744074053E-01, -1.2071067773E+00, -5.1636156596E-01, -4.5426052317E-01, -4.0715656898E-01, -3.6969460527E-01, -3.3908542600E-01, -3.1511810350E-01, -2.9642226150E-01, -2.8184548650E-01, -5.4119610000E-01, -2.6213228100E-01, -2.5387916537E-01, -2.3296291359E-01, -1.9852728987E-01, -1.5233534808E-01, -9.6496400054E-02, -3.3423828516E-02, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00]), new Float32Array([-4.8300800645E-02, -1.5715656932E-01, -2.8325045177E-01, -4.2953747763E-01, -1.2071067795E+00, -8.2426483178E-01, -1.1451749106E+00, -1.7695290101E+00, -4.5470225061E+00, -3.4890531002E+00, -7.3296292804E-01, -1.5076514758E-01, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00]), new Float32Array([0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, 0.0000000000E+00, -1.5076513660E-01, -7.3296291107E-01, -3.4890530566E+00, -4.5470224727E+00, -1.7695290031E+00, -1.1451749092E+00, -8.3137738100E-01, -1.3065629650E+00, -5.4142014250E-01, -4.6528974900E-01, -4.1066990750E-01, -3.7004680800E-01, -3.3876269197E-01, -3.1242222492E-01, -2.8939587111E-01, -2.6880081906E-01, -5.0000000266E-01, -2.3251417468E-01, -2.1596714708E-01, -2.0004979098E-01, -1.8449493497E-01, -1.6905846094E-01, -1.5350360518E-01, -1.3758624925E-01, -1.2103922149E-01, -2.0710679058E-01, -8.4752577594E-02, -6.4157525656E-02, -4.1131172614E-02, -1.4790705759E-02])];
+		MP3Layer3.prototype.inv_mdct = function(_in, out, block_type) {
+			var win_bt = 0;
+			var i = 0;
+			var tmpf_0, tmpf_1, tmpf_2, tmpf_3, tmpf_4, tmpf_5, tmpf_6, tmpf_7, tmpf_8, tmpf_9;
+			var tmpf_10, tmpf_11, tmpf_12, tmpf_13, tmpf_14, tmpf_15, tmpf_16, tmpf_17;
+			tmpf_0 = tmpf_1 = tmpf_2 = tmpf_3 = tmpf_4 = tmpf_5 = tmpf_6 = tmpf_7 = tmpf_8 = tmpf_9 = tmpf_10 = tmpf_11 = tmpf_12 = tmpf_13 = tmpf_14 = tmpf_15 = tmpf_16 = tmpf_17 = 0.0;
+			if (block_type == 2) {
+				out[0] = 0.0;
+				out[1] = 0.0;
+				out[2] = 0.0;
+				out[3] = 0.0;
+				out[4] = 0.0;
+				out[5] = 0.0;
+				out[6] = 0.0;
+				out[7] = 0.0;
+				out[8] = 0.0;
+				out[9] = 0.0;
+				out[10] = 0.0;
+				out[11] = 0.0;
+				out[12] = 0.0;
+				out[13] = 0.0;
+				out[14] = 0.0;
+				out[15] = 0.0;
+				out[16] = 0.0;
+				out[17] = 0.0;
+				out[18] = 0.0;
+				out[19] = 0.0;
+				out[20] = 0.0;
+				out[21] = 0.0;
+				out[22] = 0.0;
+				out[23] = 0.0;
+				out[24] = 0.0;
+				out[25] = 0.0;
+				out[26] = 0.0;
+				out[27] = 0.0;
+				out[28] = 0.0;
+				out[29] = 0.0;
+				out[30] = 0.0;
+				out[31] = 0.0;
+				out[32] = 0.0;
+				out[33] = 0.0;
+				out[34] = 0.0;
+				out[35] = 0.0;
+				var six_i = 0;
+				for (i = 0; i < 3; i++) {
+					_in[15 + i] += _in[12 + i];
+					_in[12 + i] += _in[9 + i];
+					_in[9 + i] += _in[6 + i];
+					_in[6 + i] += _in[3 + i];
+					_in[3 + i] += _in[0 + i];
+					_in[15 + i] += _in[9 + i];
+					_in[9 + i] += _in[3 + i];
+					var pp1, pp2, sum = 0;
+					pp2 = _in[12 + i] * 0.500000000;
+					pp1 = _in[6 + i] * 0.866025403;
+					sum = _in[0 + i] + pp2;
+					tmpf_1 = _in[0 + i] - _in[12 + i];
+					tmpf_0 = sum + pp1;
+					tmpf_2 = sum - pp1;
+					pp2 = _in[15 + i] * 0.500000000;
+					pp1 = _in[9 + i] * 0.866025403;
+					sum = _in[3 + i] + pp2;
+					tmpf_4 = _in[3 + i] - _in[15 + i];
+					tmpf_5 = sum + pp1;
+					tmpf_3 = sum - pp1;
+					tmpf_3 *= 1.931851653;
+					tmpf_4 *= 0.707106781;
+					tmpf_5 *= 0.517638090;
+					var save = tmpf_0;
+					tmpf_0 += tmpf_5;
+					tmpf_5 = save - tmpf_5;
+					save = tmpf_1;
+					tmpf_1 += tmpf_4;
+					tmpf_4 = save - tmpf_4;
+					save = tmpf_2;
+					tmpf_2 += tmpf_3;
+					tmpf_3 = save - tmpf_3;
+					tmpf_0 *= 0.504314480;
+					tmpf_1 *= 0.541196100;
+					tmpf_2 *= 0.630236207;
+					tmpf_3 *= 0.821339815;
+					tmpf_4 *= 1.306562965;
+					tmpf_5 *= 3.830648788;
+					tmpf_8 = -tmpf_0 * 0.793353340;
+					tmpf_9 = -tmpf_0 * 0.608761429;
+					tmpf_7 = -tmpf_1 * 0.923879532;
+					tmpf_10 = -tmpf_1 * 0.382683432;
+					tmpf_6 = -tmpf_2 * 0.991444861;
+					tmpf_11 = -tmpf_2 * 0.130526192;
+					tmpf_0 = tmpf_3;
+					tmpf_1 = tmpf_4 * 0.382683432;
+					tmpf_2 = tmpf_5 * 0.608761429;
+					tmpf_3 = -tmpf_5 * 0.793353340;
+					tmpf_4 = -tmpf_4 * 0.923879532;
+					tmpf_5 = -tmpf_0 * 0.991444861;
+					tmpf_0 *= 0.130526192;
+					out[six_i + 6] += tmpf_0;
+					out[six_i + 7] += tmpf_1;
+					out[six_i + 8] += tmpf_2;
+					out[six_i + 9] += tmpf_3;
+					out[six_i + 10] += tmpf_4;
+					out[six_i + 11] += tmpf_5;
+					out[six_i + 12] += tmpf_6;
+					out[six_i + 13] += tmpf_7;
+					out[six_i + 14] += tmpf_8;
+					out[six_i + 15] += tmpf_9;
+					out[six_i + 16] += tmpf_10;
+					out[six_i + 17] += tmpf_11;
+					six_i += 6;
+				}
+			} else {
+				_in[17] += _in[16];
+				_in[16] += _in[15];
+				_in[15] += _in[14];
+				_in[14] += _in[13];
+				_in[13] += _in[12];
+				_in[12] += _in[11];
+				_in[11] += _in[10];
+				_in[10] += _in[9];
+				_in[9] += _in[8];
+				_in[8] += _in[7];
+				_in[7] += _in[6];
+				_in[6] += _in[5];
+				_in[5] += _in[4];
+				_in[4] += _in[3];
+				_in[3] += _in[2];
+				_in[2] += _in[1];
+				_in[1] += _in[0];
+				_in[17] += _in[15];
+				_in[15] += _in[13];
+				_in[13] += _in[11];
+				_in[11] += _in[9];
+				_in[9] += _in[7];
+				_in[7] += _in[5];
+				_in[5] += _in[3];
+				_in[3] += _in[1];
+				var tmp0 = 0, tmp1 = 0, tmp2 = 0, tmp3 = 0, tmp4 = 0, tmp0_ = 0, tmp1_ = 0, tmp2_ = 0, tmp3_ = 0;
+				var tmp0o, tmp1o, tmp2o, tmp3o, tmp4o, tmp0_o, tmp1_o, tmp2_o, tmp3_o = 0;
+				var i00 = _in[0] + _in[0];
+				var iip12 = i00 + _in[12];
+				tmp0 = iip12 + _in[4] * 1.8793852415718 + _in[8] * 1.532088886238 + _in[16] * 0.34729635533386;
+				tmp1 = i00 + _in[4] - _in[8] - _in[12] - _in[12] - _in[16];
+				tmp2 = iip12 - _in[4] * 0.34729635533386 - _in[8] * 1.8793852415718 + _in[16] * 1.532088886238;
+				tmp3 = iip12 - _in[4] * 1.532088886238 + _in[8] * 0.34729635533386 - _in[16] * 1.8793852415718;
+				tmp4 = _in[0] - _in[4] + _in[8] - _in[12] + _in[16];
+				var i66_ = _in[6] * 1.732050808;
+				tmp0_ = _in[2] * 1.9696155060244 + i66_ + _in[10] * 1.2855752193731 + _in[14] * 0.68404028665134;
+				tmp1_ = (_in[2] - _in[10] - _in[14]) * 1.732050808;
+				tmp2_ = _in[2] * 1.2855752193731 - i66_ - _in[10] * 0.68404028665134 + _in[14] * 1.9696155060244;
+				tmp3_ = _in[2] * 0.68404028665134 - i66_ + _in[10] * 1.9696155060244 - _in[14] * 1.2855752193731;
+				var i0 = _in[0 + 1] + _in[0 + 1];
+				var i0p12 = i0 + _in[12 + 1];
+				tmp0o = i0p12 + _in[4 + 1] * 1.8793852415718 + _in[8 + 1] * 1.532088886238 + _in[16 + 1] * 0.34729635533386;
+				tmp1o = i0 + _in[4 + 1] - _in[8 + 1] - _in[12 + 1] - _in[12 + 1] - _in[16 + 1];
+				tmp2o = i0p12 - _in[4 + 1] * 0.34729635533386 - _in[8 + 1] * 1.8793852415718 + _in[16 + 1] * 1.532088886238;
+				tmp3o = i0p12 - _in[4 + 1] * 1.532088886238 + _in[8 + 1] * 0.34729635533386 - _in[16 + 1] * 1.8793852415718;
+				tmp4o = (_in[0 + 1] - _in[4 + 1] + _in[8 + 1] - _in[12 + 1] + _in[16 + 1]) * 0.707106781; // Twiddled
+				var i6_ = _in[6 + 1] * 1.732050808;
+				tmp0_o = _in[2 + 1] * 1.9696155060244 + i6_ + _in[10 + 1] * 1.2855752193731 + _in[14 + 1] * 0.68404028665134;
+				tmp1_o = (_in[2 + 1] - _in[10 + 1] - _in[14 + 1]) * 1.732050808;
+				tmp2_o = _in[2 + 1] * 1.2855752193731 - i6_ - _in[10 + 1] * 0.68404028665134 + _in[14 + 1] * 1.9696155060244;
+				tmp3_o = _in[2 + 1] * 0.68404028665134 - i6_ + _in[10 + 1] * 1.9696155060244 - _in[14 + 1] * 1.2855752193731;
+				var e, o = 0;
+				e = tmp0 + tmp0_;
+				o = (tmp0o + tmp0_o) * 0.501909918;
+				tmpf_0 = e + o;
+				tmpf_17 = e - o;
+				e = tmp1 + tmp1_;
+				o = (tmp1o + tmp1_o) * 0.517638090;
+				tmpf_1 = e + o;
+				tmpf_16 = e - o;
+				e = tmp2 + tmp2_;
+				o = (tmp2o + tmp2_o) * 0.551688959;
+				tmpf_2 = e + o;
+				tmpf_15 = e - o;
+				e = tmp3 + tmp3_;
+				o = (tmp3o + tmp3_o) * 0.610387294;
+				tmpf_3 = e + o;
+				tmpf_14 = e - o;
+				tmpf_4 = tmp4 + tmp4o;
+				tmpf_13 = tmp4 - tmp4o;
+				e = tmp3 - tmp3_;
+				o = (tmp3o - tmp3_o) * 0.871723397;
+				tmpf_5 = e + o;
+				tmpf_12 = e - o;
+				e = tmp2 - tmp2_;
+				o = (tmp2o - tmp2_o) * 1.183100792;
+				tmpf_6 = e + o;
+				tmpf_11 = e - o;
+				e = tmp1 - tmp1_;
+				o = (tmp1o - tmp1_o) * 1.931851653;
+				tmpf_7 = e + o;
+				tmpf_10 = e - o;
+				e = tmp0 - tmp0_;
+				o = (tmp0o - tmp0_o) * 5.736856623;
+				tmpf_8 = e + o;
+				tmpf_9 = e - o;
+				win_bt = MP3Layer3.win[block_type];
+				out[0] = -tmpf_9 * win_bt[0];
+				out[1] = -tmpf_10 * win_bt[1];
+				out[2] = -tmpf_11 * win_bt[2];
+				out[3] = -tmpf_12 * win_bt[3];
+				out[4] = -tmpf_13 * win_bt[4];
+				out[5] = -tmpf_14 * win_bt[5];
+				out[6] = -tmpf_15 * win_bt[6];
+				out[7] = -tmpf_16 * win_bt[7];
+				out[8] = -tmpf_17 * win_bt[8];
+				out[9] = tmpf_17 * win_bt[9];
+				out[10] = tmpf_16 * win_bt[10];
+				out[11] = tmpf_15 * win_bt[11];
+				out[12] = tmpf_14 * win_bt[12];
+				out[13] = tmpf_13 * win_bt[13];
+				out[14] = tmpf_12 * win_bt[14];
+				out[15] = tmpf_11 * win_bt[15];
+				out[16] = tmpf_10 * win_bt[16];
+				out[17] = tmpf_9 * win_bt[17];
+				out[18] = tmpf_8 * win_bt[18];
+				out[19] = tmpf_7 * win_bt[19];
+				out[20] = tmpf_6 * win_bt[20];
+				out[21] = tmpf_5 * win_bt[21];
+				out[22] = tmpf_4 * win_bt[22];
+				out[23] = tmpf_3 * win_bt[23];
+				out[24] = tmpf_2 * win_bt[24];
+				out[25] = tmpf_1 * win_bt[25];
+				out[26] = tmpf_0 * win_bt[26];
+				out[27] = tmpf_0 * win_bt[27];
+				out[28] = tmpf_1 * win_bt[28];
+				out[29] = tmpf_2 * win_bt[29];
+				out[30] = tmpf_3 * win_bt[30];
+				out[31] = tmpf_4 * win_bt[31];
+				out[32] = tmpf_5 * win_bt[32];
+				out[33] = tmpf_6 * win_bt[33];
+				out[34] = tmpf_7 * win_bt[34];
+				out[35] = tmpf_8 * win_bt[35];
+			}
+		}
+		const SampleBuffer = function(sample_frequency, number_of_channels) {
+			this.buffer = new Int16Array(SampleBuffer.OBUFFERSIZE);
+			this.bufferp = new Int32Array(SampleBuffer.MAXCHANNELS);
+			this.channels = number_of_channels;
+			this.frequency = sample_frequency;
+			for (var i = 0; i < number_of_channels; ++i)
+				this.bufferp[i] = i;
+		}
+		SampleBuffer.OBUFFERSIZE = 2 * 1152;
+		SampleBuffer.MAXCHANNELS = 2;
+		SampleBuffer.prototype.getChannelCount = function() {
+			return this.channels;
+		}
+		SampleBuffer.prototype.getSampleFrequency = function() {
+			return this.frequency;
+		}
+		SampleBuffer.prototype.getBuffer = function() {
+			return this.buffer;
+		}
+		SampleBuffer.prototype.getBufferLength = function() {
+			return this.bufferp[0];
+		}
+		SampleBuffer.prototype.write_buffer = function() {
+		}
+		SampleBuffer.prototype.clear_buffer = function() {
+			for (var i = 0; i < this.channels; ++i)
+				this.bufferp[i] = i;
+		}
+		SampleBuffer.prototype.appendSamples = function(channel, f) {
+			var pos = this.bufferp[channel];
+			var s;
+			var fs;
+			for (var i = 0; i < 32; ) {
+				fs = f[i++];
+				fs = (fs > 32767.0 ? 32767.0 : (Math.max(fs, -32767.0)));
+				s = fs << 16 >> 16;
+				this.buffer[pos] = s;
+				pos += this.channels;
+			}
+			this.bufferp[channel] = pos;
+		}
+		const MP3Decoder = function() {
+			this.output = null;
+			this.initialized = false;
+		}
+		MP3Decoder.prototype.setOutputBuffer = function(out) {
+			this.output = out;
+		}
+		MP3Decoder.prototype.initialize = function(header) {
+			var scalefactor = 32700;
+			var mode = header.mode();
+			var channels = mode == MP3Header.SINGLE_CHANNEL ? 1 : 2;
+			if (this.output == null) this.output = new SampleBuffer(header.frequency(), channels);
+			this.filter1 = new SynthesisFilter(0, scalefactor, null);
+			if (channels == 2) this.filter2 = new SynthesisFilter(1, scalefactor, null);
+			this.outputChannels = channels;
+			this.outputFrequency = header.frequency();
+			this.initialized = true;
+		}
+		MP3Decoder.prototype.decodeFrame = function(header, stream) {
+			if (!this.initialized) {
+				this.initialize(header);
+			}
+			this.output.clear_buffer();
+			var decoder = this.retrieveDecoder(header, stream);
+			decoder.decodeFrame();
+			this.output.write_buffer(1);
+			return this.output;
+		}
+		MP3Decoder.prototype.retrieveDecoder = function(header, stream) {
+			if (this.l3decoder == null) {
+				this.l3decoder = new MP3Layer3(stream, header, this.filter1, this.filter2, this.output);
+			}
+			return this.l3decoder;
+		}
+		wpjsm.exportJS = {
+			Decoder: MP3Decoder,
+			Header: MP3Header,
+			BitStream
 		}
 	},
 	"src/utils/at-nihav-vp6-decoder.js": function(wpjsm){
@@ -7868,6 +11836,425 @@ var PinkFie = (function(moduleResults) {
 			YUV420_FORMAT,
 			VP_YUVA420_FORMAT
 		};
+	},
+	"src/utils/at-tess.js": function(wpjsm){
+		// TODO: Unsupported at-lyon-js.
+
+		var libtess = (function(){var n;function t(a,b){return a.b===b.b&&a.a===b.a}function u(a,b){return a.b<b.b||a.b===b.b&&a.a<=b.a}function v(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?d<e?b.a-a.a+d/(d+e)*(a.a-c.a):b.a-c.a+e/(d+e)*(c.a-a.a):0}function x(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?(b.a-c.a)*d+(b.a-a.a)*e:0}function z(a,b){return a.a<b.a||a.a===b.a&&a.b<=b.b}function aa(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?d<e?b.b-a.b+d/(d+e)*(a.b-c.b):b.b-c.b+e/(d+e)*(c.b-a.b):0}function ba(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?(b.b-c.b)*d+(b.b-a.b)*e:0}function ca(a){return u(a.b.a,a.a)}function da(a){return u(a.a,a.b.a)}function A(a,b,c,d){a=0>a?0:a;c=0>c?0:c;return a<=c?0===c?(b+d)/2:b+a/(a+c)*(d-b):d+c/(a+c)*(b-d)};function ea(a){var b=B(a.b);C(b,a.c);C(b.b,a.c);D(b,a.a);return b}function E(a,b){var c=!1,d=!1;a!==b&&(b.a!==a.a&&(d=!0,F(b.a,a.a)),b.d!==a.d&&(c=!0,G(b.d,a.d)),H(b,a),d||(C(b,a.a),a.a.c=a),c||(D(b,a.d),a.d.a=a))}function I(a){var b=a.b,c=!1;a.d!==a.b.d&&(c=!0,G(a.d,a.b.d));a.c===a?F(a.a,null):(a.b.d.a=J(a),a.a.c=a.c,H(a,J(a)),c||D(a,a.d));b.c===b?(F(b.a,null),G(b.d,null)):(a.d.a=J(b),b.a.c=b.c,H(b,J(b)));fa(a)}function K(a){var b=B(a),c=b.b;H(b,a.e);b.a=a.b.a;C(c,b.a);b.d=c.d=a.d;b=b.b;H(a.b,J(a.b));H(a.b,b);a.b.a=b.a;b.b.a.c=b.b;b.b.d=a.b.d;b.f=a.f;b.b.f=a.b.f;return b}function L(a,b){var c=!1,d=B(a),e=d.b;b.d!==a.d&&(c=!0,G(b.d,a.d));H(d,a.e);H(e,b);d.a=a.b.a;e.a=b.a;d.d=e.d=a.d;a.d.a=e;c||D(d,a.d);return d}function B(a){var b=new M,c=new M,d=a.b.h;c.h=d;d.b.h=b;b.h=a;a.b.h=c;b.b=c;b.c=b;b.e=c;c.b=b;c.c=c;return c.e=b}function H(a,b){var c=a.c,d=b.c;c.b.e=b;d.b.e=a;a.c=d;b.c=c}function C(a,b){var c=b.f,d=new N(b,c);c.e=d;b.f=d;c=d.c=a;do c.a=d,c=c.c;while(c!==a)}function D(a,b){var c=b.d,d=new ga(b,c);c.b=d;b.d=d;d.a=a;d.c=b.c;c=a;do c.d=d,c=c.e;while(c!==a)}function fa(a){var b=a.h;a=a.b.h;b.b.h=a;a.b.h=b}function F(a,b){var c=a.c,d=c;do d.a=b,d=d.c;while(d!==c);c=a.f;d=a.e;d.f=c;c.e=d}function G(a,b){var c=a.a,d=c;do d.d=b,d=d.e;while(d!==c);c=a.d;d=a.b;d.d=c;c.b=d};function ha(a){var b=0;Math.abs(a[1])>Math.abs(a[0])&&(b=1);Math.abs(a[2])>Math.abs(a[b])&&(b=2);return b};var O=4*1E150;function P(a,b){a.f+=b.f;a.b.f+=b.b.f}function ia(a,b,c){a=a.a;b=b.a;c=c.a;if(b.b.a===a)return c.b.a===a?u(b.a,c.a)?0>=x(c.b.a,b.a,c.a):0<=x(b.b.a,c.a,b.a):0>=x(c.b.a,a,c.a);if(c.b.a===a)return 0<=x(b.b.a,a,b.a);b=v(b.b.a,a,b.a);a=v(c.b.a,a,c.a);return b>=a}function Q(a){a.a.i=null;var b=a.e;b.a.c=b.c;b.c.a=b.a;a.e=null}function ja(a,b){I(a.a);a.c=!1;a.a=b;b.i=a}function ka(a){var b=a.a.a;do a=R(a);while(a.a.a===b);a.c&&(b=L(S(a).a.b,a.a.e),ja(a,b),a=R(a));return a}function la(a,b,c){var d=new ma;d.a=c;d.e=na(a.f,b.e,d);return c.i=d}function oa(a,b){switch(a.s){case 100130:return 0!==(b&1);case 100131:return 0!==b;case 100132:return 0<b;case 100133:return 0>b;case 100134:return 2<=b||-2>=b}return!1}function pa(a){var b=a.a,c=b.d;c.c=a.d;c.a=b;Q(a)}function T(a,b,c){a=b;for(b=b.a;a!==c;){a.c=!1;var d=S(a),e=d.a;if(e.a!==b.a){if(!d.c){pa(a);break}e=L(b.c.b,e.b);ja(d,e)}b.c!==e&&(E(J(e),e),E(b,e));pa(a);b=d.a;a=d}return b}function U(a,b,c,d,e,f){var g=!0;do la(a,b,c.b),c=c.c;while(c!==d);for(null===e&&(e=S(b).a.b.c);;){d=S(b);c=d.a.b;if(c.a!==e.a)break;c.c!==e&&(E(J(c),c),E(J(e),c));d.f=b.f-c.f;d.d=oa(a,d.f);b.b=!0;!g&&qa(a,b)&&(P(c,e),Q(b),I(e));g=!1;b=d;e=c}b.b=!0;f&&ra(a,b)}function sa(a,b,c,d,e){var f=[b.g[0],b.g[1],b.g[2]];b.d=null;b.d=a.o?a.o(f,c,d,a.c)||null:null;null===b.d&&(e?a.n||(V(a,100156),a.n=!0):b.d=c[0])}function ta(a,b,c){var d=[null,null,null,null];d[0]=b.a.d;d[1]=c.a.d;sa(a,b.a,d,[.5,.5,0,0],!1);E(b,c)}function ua(a,b,c,d,e){var f=Math.abs(b.b-a.b)+Math.abs(b.a-a.a),g=Math.abs(c.b-a.b)+Math.abs(c.a-a.a),h=e+1;d[e]=.5*g/(f+g);d[h]=.5*f/(f+g);a.g[0]+=d[e]*b.g[0]+d[h]*c.g[0];a.g[1]+=d[e]*b.g[1]+d[h]*c.g[1];a.g[2]+=d[e]*b.g[2]+d[h]*c.g[2]}function qa(a,b){var c=S(b),d=b.a,e=c.a;if(u(d.a,e.a)){if(0<x(e.b.a,d.a,e.a))return!1;if(!t(d.a,e.a))K(e.b),E(d,J(e)),b.b=c.b=!0;else if(d.a!==e.a){var c=a.e,f=d.a.h;if(0<=f){var c=c.b,g=c.d,h=c.e,k=c.c,l=k[f];g[l]=g[c.a];k[g[l]]=l;l<=--c.a&&(1>=l?W(c,l):u(h[g[l>>1]],h[g[l]])?W(c,l):va(c,l));h[f]=null;k[f]=c.b;c.b=f}else for(c.c[-(f+1)]=null;0<c.a&&null===c.c[c.d[c.a-1]];)--c.a;ta(a,J(e),d)}}else{if(0>x(d.b.a,e.a,d.a))return!1;R(b).b=b.b=!0;K(d.b);E(J(e),d)}return!0}function wa(a,b){var c=S(b),d=b.a,e=c.a,f=d.a,g=e.a,h=d.b.a,k=e.b.a,l=new N;x(h,a.a,f);x(k,a.a,g);if(f===g||Math.min(f.a,h.a)>Math.max(g.a,k.a))return!1;if(u(f,g)){if(0<x(k,f,g))return!1}else if(0>x(h,g,f))return!1;var r=h,p=f,q=k,y=g,m,w;u(r,p)||(m=r,r=p,p=m);u(q,y)||(m=q,q=y,y=m);u(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);u(q,p)?u(p,y)?(m=v(r,q,p),w=v(q,p,y),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,p.b)):(m=x(r,q,p),w=-x(r,y,p),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,y.b)):l.b=(q.b+p.b)/2;z(r,p)||(m=r,r=p,p=m);z(q,y)||(m=q,q=y,y=m);z(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);z(q,p)?z(p,y)?(m=aa(r,q,p),w=aa(q,p,y),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,p.a)):(m=ba(r,q,p),w=-ba(r,y,p),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,y.a)):l.a=(q.a+p.a)/2;u(l,a.a)&&(l.b=a.a.b,l.a=a.a.a);r=u(f,g)?f:g;u(r,l)&&(l.b=r.b,l.a=r.a);if(t(l,f)||t(l,g))return qa(a,b),!1;if(!t(h,a.a)&&0<=x(h,a.a,l)||!t(k,a.a)&&0>=x(k,a.a,l)){if(k===a.a)return K(d.b),E(e.b,d),b=ka(b),d=S(b).a,T(a,S(b),c),U(a,b,J(d),d,d,!0),!0;if(h===a.a){K(e.b);E(d.e,J(e));f=c=b;g=f.a.b.a;do f=R(f);while(f.a.b.a===g);b=f;f=S(b).a.b.c;c.a=J(e);e=T(a,c,null);U(a,b,e.c,d.b.c,f,!0);return!0}0<=x(h,a.a,l)&&(R(b).b=b.b=!0,K(d.b),d.a.b=a.a.b,d.a.a=a.a.a);0>=x(k,a.a,l)&&(b.b=c.b=!0,K(e.b),e.a.b=a.a.b,e.a.a=a.a.a);return!1}K(d.b);K(e.b);E(J(e),d);d.a.b=l.b;d.a.a=l.a;d.a.h=xa(a.e,d.a);d=d.a;e=[0,0,0,0];l=[f.d,h.d,g.d,k.d];d.g[0]=d.g[1]=d.g[2]=0;ua(d,f,h,e,0);ua(d,g,k,e,2);sa(a,d,l,e,!0);R(b).b=b.b=c.b=!0;return!1}function ra(a,b){for(var c=S(b);;){for(;c.b;)b=c,c=S(c);if(!b.b&&(c=b,b=R(b),null===b||!b.b))break;b.b=!1;var d=b.a,e=c.a,f;if(f=d.b.a!==e.b.a)a:{f=b;var g=S(f),h=f.a,k=g.a,l=void 0;if(u(h.b.a,k.b.a)){if(0>x(h.b.a,k.b.a,h.a)){f=!1;break a}R(f).b=f.b=!0;l=K(h);E(k.b,l);l.d.c=f.d}else{if(0<x(k.b.a,h.b.a,k.a)){f=!1;break a}f.b=g.b=!0;l=K(k);E(h.e,k.b);l.b.d.c=f.d}f=!0}f&&(c.c?(Q(c),I(e),c=S(b),e=c.a):b.c&&(Q(b),I(d),b=R(c),d=b.a));if(d.a!==e.a)if(d.b.a===e.b.a||b.c||c.c||d.b.a!==a.a&&e.b.a!==a.a)qa(a,b);else if(wa(a,b))break;d.a===e.a&&d.b.a===e.b.a&&(P(e,d),Q(b),I(d),b=R(c))}}function ya(a,b){a.a=b;for(var c=b.c;null===c.i;)if(c=c.c,c===b.c){var c=a,d=b,e=new ma;e.a=d.c.b;var f=c.f,g=f.a;do g=g.a;while(null!==g.b&&!f.c(f.b,e,g.b));var f=g.b,h=S(f),e=f.a,g=h.a;if(0===x(e.b.a,d,e.a))e=f.a,t(e.a,d)||t(e.b.a,d)||(K(e.b),f.c&&(I(e.c),f.c=!1),E(d.c,e),ya(c,d));else{var k=u(g.b.a,e.b.a)?f:h,h=void 0;f.d||k.c?(k===f?h=L(d.c.b,e.e):h=L(g.b.c.b,d.c).b,k.c?ja(k,h):(e=c,f=la(c,f,h),f.f=R(f).f+f.a.f,f.d=oa(e,f.f)),ya(c,d)):U(c,f,d.c,d.c,null,!0)}return}c=ka(c.i);e=S(c);f=e.a;e=T(a,e,null);if(e.c===f){var f=e,e=f.c,g=S(c),h=c.a,k=g.a,l=!1;h.b.a!==k.b.a&&wa(a,c);t(h.a,a.a)&&(E(J(e),h),c=ka(c),e=S(c).a,T(a,S(c),g),l=!0);t(k.a,a.a)&&(E(f,J(k)),f=T(a,g,null),l=!0);l?U(a,c,f.c,e,e,!0):(u(k.a,h.a)?d=J(k):d=h,d=L(f.c.b,d),U(a,c,d,d.c,d.c,!1),d.b.i.c=!0,ra(a,c))}else U(a,c,e.c,f,f,!0)}function za(a,b){var c=new ma,d=ea(a.b);d.a.b=O;d.a.a=b;d.b.a.b=-O;d.b.a.a=b;a.a=d.b.a;c.a=d;c.f=0;c.d=!1;c.c=!1;c.h=!0;c.b=!1;d=a.f;d=na(d,d.a,c);c.e=d};function Aa(a){this.a=new Ba;this.b=a;this.c=ia}function na(a,b,c){do b=b.c;while(null!==b.b&&!a.c(a.b,b.b,c));a=new Ba(c,b.a,b);b.a.c=a;return b.a=a};function Ba(a,b,c){this.b=a||null;this.a=b||this;this.c=c||this};function X(){this.d=Y;this.p=this.b=this.q=null;this.j=[0,0,0];this.s=100130;this.n=!1;this.o=this.a=this.e=this.f=null;this.m=!1;this.c=this.r=this.i=this.k=this.l=this.h=null}var Y=0;n=X.prototype;n.x=function(){Z(this,Y)};n.B=function(a,b){switch(a){case 100142:return;case 100140:switch(b){case 100130:case 100131:case 100132:case 100133:case 100134:this.s=b;return}break;case 100141:this.m=!!b;return;default:V(this,100900);return}V(this,100901)};n.y=function(a){switch(a){case 100142:return 0;case 100140:return this.s;case 100141:return this.m;default:V(this,100900)}return!1};n.A=function(a,b,c){this.j[0]=a;this.j[1]=b;this.j[2]=c};n.z=function(a,b){var c=b?b:null;switch(a){case 100100:case 100106:this.h=c;break;case 100104:case 100110:this.l=c;break;case 100101:case 100107:this.k=c;break;case 100102:case 100108:this.i=c;break;case 100103:case 100109:this.p=c;break;case 100105:case 100111:this.o=c;break;case 100112:this.r=c;break;default:V(this,100900)}};n.C=function(a,b){var c=!1,d=[0,0,0];Z(this,2);for(var e=0;3>e;++e){var f=a[e];-1E150>f&&(f=-1E150,c=!0);1E150<f&&(f=1E150,c=!0);d[e]=f}c&&V(this,100155);c=this.q;null===c?(c=ea(this.b),E(c,c.b)):(K(c),c=c.e);c.a.d=b;c.a.g[0]=d[0];c.a.g[1]=d[1];c.a.g[2]=d[2];c.f=1;c.b.f=-1;this.q=c};n.u=function(a){Z(this,Y);this.d=1;this.b=new Ca;this.c=a};n.t=function(){Z(this,1);this.d=2;this.q=null};n.v=function(){Z(this,2);this.d=1};n.w=function(){Z(this,1);this.d=Y;var a=this.j[0],b=this.j[1],c=this.j[2],d=!1,e=[a,b,c];if(0===a&&0===b&&0===c){for(var b=[-2*1E150,-2*1E150,-2*1E150],f=[2*1E150,2*1E150,2*1E150],c=[],g=[],d=this.b.c,a=d.e;a!==d;a=a.e)for(var h=0;3>h;++h){var k=a.g[h];k<f[h]&&(f[h]=k,g[h]=a);k>b[h]&&(b[h]=k,c[h]=a)}a=0;b[1]-f[1]>b[0]-f[0]&&(a=1);b[2]-f[2]>b[a]-f[a]&&(a=2);if(f[a]>=b[a])e[0]=0,e[1]=0,e[2]=1;else{b=0;f=g[a];c=c[a];g=[0,0,0];f=[f.g[0]-c.g[0],f.g[1]-c.g[1],f.g[2]-c.g[2]];h=[0,0,0];for(a=d.e;a!==d;a=a.e)h[0]=a.g[0]-c.g[0],h[1]=a.g[1]-c.g[1],h[2]=a.g[2]-c.g[2],g[0]=f[1]*h[2]-f[2]*h[1],g[1]=f[2]*h[0]-f[0]*h[2],g[2]=f[0]*h[1]-f[1]*h[0],k=g[0]*g[0]+g[1]*g[1]+g[2]*g[2],k>b&&(b=k,e[0]=g[0],e[1]=g[1],e[2]=g[2]);0>=b&&(e[0]=e[1]=e[2]=0,e[ha(f)]=1)}d=!0}g=ha(e);a=this.b.c;b=(g+1)%3;c=(g+2)%3;g=0<e[g]?1:-1;for(e=a.e;e!==a;e=e.e)e.b=e.g[b],e.a=g*e.g[c];if(d){e=0;d=this.b.a;for(a=d.b;a!==d;a=a.b)if(b=a.a,!(0>=b.f)){do e+=(b.a.b-b.b.a.b)*(b.a.a+b.b.a.a),b=b.e;while(b!==a.a)}if(0>e)for(e=this.b.c,d=e.e;d!==e;d=d.e)d.a=-d.a}this.n=!1;e=this.b.b;for(a=e.h;a!==e;a=d)if(d=a.h,b=a.e,t(a.a,a.b.a)&&a.e.e!==a&&(ta(this,b,a),I(a),a=b,b=a.e),b.e===a){if(b!==a){if(b===d||b===d.b)d=d.h;I(b)}if(a===d||a===d.b)d=d.h;I(a)}this.e=e=new Da;d=this.b.c;for(a=d.e;a!==d;a=a.e)a.h=xa(e,a);Ea(e);this.f=new Aa(this);za(this,-O);for(za(this,O);null!==(e=Fa(this.e));){for(;;){a:if(a=this.e,0===a.a)d=Ga(a.b);else if(d=a.c[a.d[a.a-1]],0!==a.b.a&&(a=Ga(a.b),u(a,d))){d=a;break a}if(null===d||!t(d,e))break;d=Fa(this.e);ta(this,e.c,d.c)}ya(this,e)}this.a=this.f.a.a.b.a.a;for(e=0;null!==(d=this.f.a.a.b);)d.h||++e,Q(d);this.f=null;e=this.e;e.b=null;e.d=null;this.e=e.c=null;e=this.b;for(a=e.a.b;a!==e.a;a=d)d=a.b,a=a.a,a.e.e===a&&(P(a.c,a),I(a));if(!this.n){e=this.b;if(this.m)for(a=e.b.h;a!==e.b;a=d)d=a.h,a.b.d.c!==a.d.c?a.f=a.d.c?1:-1:I(a);else for(a=e.a.b;a!==e.a;a=d)if(d=a.b,a.c){for(a=a.a;u(a.b.a,a.a);a=a.c.b);for(;u(a.a,a.b.a);a=a.e);b=a.c.b;for(c=void 0;a.e!==b;)if(u(a.b.a,b.a)){for(;b.e!==a&&(ca(b.e)||0>=x(b.a,b.b.a,b.e.b.a));)c=L(b.e,b),b=c.b;b=b.c.b}else{for(;b.e!==a&&(da(a.c.b)||0<=x(a.b.a,a.a,a.c.b.a));)c=L(a,a.c.b),a=c.b;a=a.e}for(;b.e.e!==a;)c=L(b.e,b),b=c.b}if(this.h||this.i||this.k||this.l)if(this.m)for(e=this.b,d=e.a.b;d!==e.a;d=d.b){if(d.c){this.h&&this.h(2,this.c);a=d.a;do this.k&&this.k(a.a.d,this.c),a=a.e;while(a!==d.a);this.i&&this.i(this.c)}}else{e=this.b;d=!!this.l;a=!1;b=-1;for(c=e.a.d;c!==e.a;c=c.d)if(c.c){a||(this.h&&this.h(4,this.c),a=!0);g=c.a;do d&&(f=g.b.d.c?0:1,b!==f&&(b=f,this.l&&this.l(!!b,this.c))),this.k&&this.k(g.a.d,this.c),g=g.e;while(g!==c.a)}a&&this.i&&this.i(this.c)}if(this.r){e=this.b;for(a=e.a.b;a!==e.a;a=d)if(d=a.b,!a.c){b=a.a;c=b.e;g=void 0;do g=c,c=g.e,g.d=null,null===g.b.d&&(g.c===g?F(g.a,null):(g.a.c=g.c,H(g,J(g))),f=g.b,f.c===f?F(f.a,null):(f.a.c=f.c,H(f,J(f))),fa(g));while(g!==b);b=a.d;a=a.b;a.d=b;b.b=a}this.r(this.b);this.c=this.b=null;return}}this.b=this.c=null};function Z(a,b){if(a.d!==b)for(;a.d!==b;)if(a.d<b)switch(a.d){case Y:V(a,100151);a.u(null);break;case 1:V(a,100152),a.t()}else switch(a.d){case 2:V(a,100154);a.v();break;case 1:V(a,100153),a.w()}}function V(a,b){a.p&&a.p(b,a.c)};function ga(a,b){this.b=a||this;this.d=b||this;this.a=null;this.c=!1};function M(){this.h=this;this.i=this.d=this.a=this.e=this.c=this.b=null;this.f=0}function J(a){return a.b.e};function Ca(){this.c=new N;this.a=new ga;this.b=new M;this.d=new M;this.b.b=this.d;this.d.b=this.b};function N(a,b){this.e=a||this;this.f=b||this;this.d=this.c=null;this.g=[0,0,0];this.h=this.a=this.b=0};function Da(){this.c=[];this.d=null;this.a=0;this.e=!1;this.b=new Ha}function Ea(a){a.d=[];for(var b=0;b<a.a;b++)a.d[b]=b;a.d.sort(function(a){return function(b,e){return u(a[b],a[e])?1:-1}}(a.c));a.e=!0;Ia(a.b)}function xa(a,b){if(a.e){var c=a.b,d=++c.a;2*d>c.f&&(c.f*=2,c.c=Ja(c.c,c.f+1));var e;0===c.b?e=d:(e=c.b,c.b=c.c[c.b]);c.e[e]=b;c.c[e]=d;c.d[d]=e;c.h&&va(c,d);return e}c=a.a++;a.c[c]=b;return-(c+1)}function Fa(a){if(0===a.a)return Ka(a.b);var b=a.c[a.d[a.a-1]];if(0!==a.b.a&&u(Ga(a.b),b))return Ka(a.b);do--a.a;while(0<a.a&&null===a.c[a.d[a.a-1]]);return b};function Ha(){this.d=Ja([0],33);this.e=[null,null];this.c=[0,0];this.a=0;this.f=32;this.b=0;this.h=!1;this.d[1]=1}function Ja(a,b){for(var c=Array(b),d=0;d<a.length;d++)c[d]=a[d];for(;d<b;d++)c[d]=0;return c}function Ia(a){for(var b=a.a;1<=b;--b)W(a,b);a.h=!0}function Ga(a){return a.e[a.d[1]]}function Ka(a){var b=a.d,c=a.e,d=a.c,e=b[1],f=c[e];0<a.a&&(b[1]=b[a.a],d[b[1]]=1,c[e]=null,d[e]=a.b,a.b=e,0<--a.a&&W(a,1));return f}function W(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f<<1;h<a.a&&u(d[c[h+1]],d[c[h]])&&(h+=1);var k=c[h];if(h>a.a||u(d[g],d[k])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}}function va(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f>>1,k=c[h];if(0===h||u(d[k],d[g])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}};function ma(){this.e=this.a=null;this.f=0;this.c=this.b=this.h=this.d=!1}function S(a){return a.e.c.b}function R(a){return a.e.a.b};var _={GluTesselator:X,windingRule:{GLU_TESS_WINDING_ODD:100130,GLU_TESS_WINDING_NONZERO:100131,GLU_TESS_WINDING_POSITIVE:100132,GLU_TESS_WINDING_NEGATIVE:100133,GLU_TESS_WINDING_ABS_GEQ_TWO:100134},primitiveType:{GL_LINE_LOOP:2,GL_TRIANGLES:4,GL_TRIANGLE_STRIP:5,GL_TRIANGLE_FAN:6},errorType:{GLU_TESS_MISSING_BEGIN_POLYGON:100151,GLU_TESS_MISSING_END_POLYGON:100153,GLU_TESS_MISSING_BEGIN_CONTOUR:100152,GLU_TESS_MISSING_END_CONTOUR:100154,GLU_TESS_COORD_TOO_LARGE:100155,GLU_TESS_NEED_COMBINE_CALLBACK:100156},gluEnum:{GLU_TESS_MESH:100112,GLU_TESS_TOLERANCE:100142,GLU_TESS_WINDING_RULE:100140,GLU_TESS_BOUNDARY_ONLY:100141,GLU_INVALID_ENUM:100900,GLU_INVALID_VALUE:100901,GLU_TESS_BEGIN:100100,GLU_TESS_VERTEX:100101,GLU_TESS_END:100102,GLU_TESS_ERROR:100103,GLU_TESS_EDGE_FLAG:100104,GLU_TESS_COMBINE:100105,GLU_TESS_BEGIN_DATA:100106,GLU_TESS_VERTEX_DATA:100107,GLU_TESS_END_DATA:100108,GLU_TESS_ERROR_DATA:100109,GLU_TESS_EDGE_FLAG_DATA:100110,GLU_TESS_COMBINE_DATA:100111}};X.prototype.gluDeleteTess=X.prototype.x;X.prototype.gluTessProperty=X.prototype.B;X.prototype.gluGetTessProperty=X.prototype.y;X.prototype.gluTessNormal=X.prototype.A;X.prototype.gluTessCallback=X.prototype.z;X.prototype.gluTessVertex=X.prototype.C;X.prototype.gluTessBeginPolygon=X.prototype.u;X.prototype.gluTessBeginContour=X.prototype.t;X.prototype.gluTessEndContour=X.prototype.v;X.prototype.gluTessEndPolygon=X.prototype.w;return _}());
+		var tessy = (function initTesselator() {
+			// function called for each vertex of tesselator output
+			function vertexCallback(data, polyVertArray) {
+			  // console.log(data[0], data[1]);
+			  polyVertArray[polyVertArray.length] = data[0];
+			  polyVertArray[polyVertArray.length] = data[1];
+			}
+			function begincallback(type) {
+			  if (type !== libtess.primitiveType.GL_TRIANGLES) {
+				console.log('expected TRIANGLES but got type: ' + type);
+			  }
+			}
+			function errorcallback(errno) {
+			  console.log('error callback');
+			  console.log('error number: ' + errno);
+			}
+			// callback for when segments intersect and must be split
+			function combinecallback(coords, data, weight) {
+			  // console.log('combine callback');
+			  return [coords[0], coords[1], coords[2]];
+			}
+			function edgeCallback(flag) {
+			  // don't really care about the flag, but need no-strip/no-fan behavior
+			  // console.log('edge flag: ' + flag);
+			}
+
+			var tessy = new libtess.GluTesselator();
+			// tessy.gluTessProperty(libtess.gluEnum.GLU_TESS_WINDING_RULE, libtess.windingRule.GLU_TESS_WINDING_POSITIVE);
+			tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_VERTEX_DATA, vertexCallback);
+			tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_BEGIN, begincallback);
+			tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_ERROR, errorcallback);
+			tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_COMBINE, combinecallback);
+			tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_EDGE_FLAG, edgeCallback);
+
+			return tessy;
+		})();
+		function TaskList() {
+			this.list = [];
+			this.hash = Object.create(null);
+		}
+		TaskList.prototype.push = function(index) {
+			if (this.hash[index]) return;
+			this.hash[index] = true;
+			this.list.push(index);
+		};
+		TaskList.prototype.pop = function() {
+			if (this.list.length) {
+				var value = this.list.pop();
+				delete this.hash[value];
+				return value;
+			} else return null;
+		};
+		
+		/* Union-find functions */
+		
+		function unionFindUnion(obj1, obj2) {
+			var root1 = unionFindFind(obj1);
+			var root2 = unionFindFind(obj2);
+			if (root1 !== root2) {
+				if (root1.rank < root2.rank) {
+					root1.parent = root2;
+				} else {
+					root2.parent = root1;
+					if (root1.rank === root2.rank) root1.rank += 1;
+				}
+			}
+		}
+		
+		function unionFindFind(x) {
+			if (x.parent !== x) x.parent = unionFindFind(x.parent);
+			return x.parent;
+		}
+		
+		/* Fast collision test for rectangles*/
+		
+		function subTest(p1, p2 , r) {
+			var position;
+			var norm = norm2(p1, p2);
+			var product, localPosition;
+			for (var i = 0; i < 4; i++) {
+				product = innerProduct(p1, p2, p1, r[i]);
+				if (product <= 0) localPosition = -1;
+				else if (product >= norm) localPosition = 1;
+				else return false;
+				if (i === 0) {
+					position = localPosition;
+				} else {
+					if (localPosition !== position) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+		
+		function rectanglesCollide(r1, r2) {
+			return !(subTest(r1[0], r1[1], r2) || subTest(r1[1], r1[2], r2) || subTest(r2[0], r2[1], r1) || subTest(r2[1], r2[2], r1));
+		}
+		
+		/* Geometry helpers */
+		
+		function innerProduct(p1, p2, p3, p4) {
+			return (p2[0] - p1[0]) * (p4[0] - p3[0]) + (p2[1] - p1[1]) * (p4[1] - p3[1]);
+		}
+		function norm2(p1, p2) {
+			var dx = p2[0] - p1[0];
+			var dy = p2[1] - p1[1];
+			return dx * dx + dy * dy;
+		}
+		
+		function segmentIntersection(p1, p2, p3, p4) {
+			// find intersection point of [p1, p2] and [p3, p4], supposing it exists
+			var dx = p2[0] - p1[0];
+			var dy = p2[1] - p1[1];
+			var dx2 = p4[0] - p3[0];
+			var dy2 = p4[1] - p3[1];
+			var lambda = ((p2[0] - p3[0]) * dy - dx * (p2[1] - p3[1])) /
+				(dx2 * dy - dx * dy2);
+			return [p3[0] + lambda * dx2, p3[1] + lambda * dy2];
+		}
+		function rayIntersection(p1, p2, p3, p4) {
+			// find intersection point of (p1, p2] and (p3, p4]
+			var dx = p2[0] - p1[0];
+			var dy = p2[1] - p1[1];
+			var dx2 = p4[0] - p3[0];
+			var dy2 = p4[1] - p3[1];
+			var denom = dx2 * dy - dx * dy2;
+			if (denom === 0) return {point: p1, valid: true};
+			var lambda = ((p2[0] - p3[0]) * dy - dx * (p2[1] - p3[1])) / denom;
+			var inter = [p3[0] + lambda * dx2, p3[1] + lambda * dy2];
+			if (lambda > 1 || innerProduct(p2, inter, p2, p1) < 0) return {point: inter, valid: false};
+			else return {point: inter, valid: true};
+		}
+		
+		function getData(from, to, w) {
+			var ux = to[0] - from[0];
+			var uy = to[1] - from [1];
+			var Nu = Math.sqrt(ux * ux + uy * uy);
+			var theta = Math.acos(ux / Nu);
+			if (uy < 0) theta *= -1;
+			return {
+				angle: theta,
+				norm: Nu,
+				dir: [ux, uy],
+				ortho: [- w * uy / Nu, w * ux / Nu]
+			};
+		}
+		
+		/* main function */
+		
+		function graphDraw(graph, width, cb, maxAngle) {
+			var w = width / 2;
+			maxAngle = Math.max(Math.PI, maxAngle || 2 * Math.PI);
+			/* Data structures setup */
+		
+			var vertices = graph.vertices.map(function(coords) {
+				return {
+					coords: coords,
+					neighList: []
+				};
+			});
+			var edges = graph.edges.map(function(edge, index) {
+				var from = edge[0];
+				var to = edge[1];
+				var vertexFrom = vertices[from];
+				var vertexTo = vertices[to];
+				var data = getData(vertexFrom.coords, vertexTo.coords, w);
+				vertexFrom.neighList.push({
+					to: to,
+					angle: data.angle,
+					dir: data.dir,
+					ortho: data.ortho,
+					index: index
+				});
+				vertexTo.neighList.push({
+					to: from,
+					angle: data.angle <= 0 ? data.angle + Math.PI : data.angle - Math.PI,
+					dir: [-data.dir[0], -data.dir[1]],
+					ortho: [-data.ortho[0], -data.ortho[1]],
+					index: index
+				});
+				var obj = {
+					rank: 0,
+					edge: edge,
+					points: {}
+				};
+				obj.points[to] = {};
+				obj.points[from] = {};
+				obj.parent = obj;
+				return obj;
+			});
+		
+			/* Build edges contour points */
+		
+			var toPostProcess = [];
+			vertices.forEach(function(vertex, vindex) {
+				var point = vertex.coords;
+				var prepared = vertex.neighList;
+				prepared.sort(function(a, b) {return a.angle - b.angle;});
+				var n = prepared.length;
+				if (n === 1) {
+					var edge = prepared[0];
+					var p1 = [point[0] + edge.ortho[0], point[1] + edge.ortho[1]];
+					var p2 = [point[0] - edge.ortho[0], point[1] - edge.ortho[1]];
+					var edgePoints = edges[edge.index].points;
+					edgePoints[vindex].first_vertex = edge.index;
+					edgePoints[vindex].last_vertex = edge.index;
+					edgePoints[vindex].first = p1;
+					edgePoints[vindex].remove_middle_first = true;
+					edgePoints[vindex].remove_middle_last = true;
+					edgePoints[vindex].last = p2;
+				} else {
+					prepared.forEach(function(edge, index) {
+						var last = (index === n - 1);
+						var next = prepared[last ? 0 : index + 1];
+						var edgePoints = edges[edge.index].points;
+						var nextPoints = edges[next.index].points;
+						edgePoints[vindex].first_vertex = next.index;
+						nextPoints[vindex].last_vertex = edge.index;
+						var p1 = [point[0] + edge.ortho[0], point[1] + edge.ortho[1]];
+						var p2 = [p1[0] + edge.dir[0], p1[1] + edge.dir[1]];
+						var p3 = [point[0] - next.ortho[0], point[1] - next.ortho[1]];
+						var p4 = [p3[0] + next.dir[0], p3[1] + next.dir[1]];
+						var intersection = rayIntersection(p1, p2, p3, p4);
+						var newPoint = intersection.point;
+						if (intersection.valid) {
+							var nextAngle = last ? next.angle + 2 * Math.PI : next.angle;
+							if (nextAngle - edge.angle > maxAngle) {
+								edgePoints[vindex].first = p1;
+								nextPoints[vindex].last = p3;
+								var vec = [newPoint[0] - point[0], newPoint[1] - point[1]];
+								var invNorm = 1 / Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1]);
+								edgePoints[vindex].miter_first = nextPoints[vindex].miter_last = [
+									point[0] + w * vec[0] * invNorm,
+									point[1] + w * vec[1] * invNorm
+								];
+							} else {
+								edgePoints[vindex].first = newPoint;
+								nextPoints[vindex].last = newPoint;
+							}
+							if (n === 2) {
+								edgePoints[vindex].remove_middle_first = true;
+								nextPoints[vindex].remove_middle_last = true;
+							}
+						} else {
+							var q1 = [newPoint[0] - edge.ortho[0], newPoint[1] - edge.ortho[1]];
+							var q3 = [newPoint[0] + next.ortho[0], newPoint[1] + next.ortho[1]];
+		
+							toPostProcess.push({
+								done: [edge.index, next.index],
+								todo: [vindex, edge.to, next.to],
+								rectangles: [[p1, newPoint, q1, point], [p3, newPoint, q3, point]]
+							});
+		
+							edgePoints[vindex].first = p1;
+							nextPoints[vindex].last = p3;
+						}
+					});
+				}
+			});
+		
+			/* Build each edge polygon */
+		
+			edges.forEach(function(obj) {
+				var edge = obj.edge;
+				var from = edge[0];
+				var to = edge[1];
+				var obj1 = obj.points[from];
+				var obj2 = obj.points[to];
+				var fromCoords = vertices[from].coords;
+				var toCoords = vertices[to].coords;
+				var newPoly = obj.polygon = [];
+		
+				if (innerProduct(obj1.last, obj2.first, fromCoords, toCoords) < 0) {
+					var i1 = obj1.last_vertex;
+					var i2 = obj2.first_vertex;
+					unionFindUnion(edges[i1], edges[i2]);
+					newPoly.push(segmentIntersection(obj1.miter_last || fromCoords, obj1.last, obj2.first, obj2.miter_first || toCoords));
+				} else {
+					newPoly.push(obj1.last, obj2.first);
+				}
+				if (obj2.miter_first) newPoly.push(obj2.miter_first);
+				if (!(obj2.remove_middle_first && obj2.remove_middle_last)) newPoly.push(toCoords);
+				if (obj2.miter_last) newPoly.push(obj2.miter_last);
+				if (innerProduct(obj1.first, obj2.last, fromCoords, toCoords) < 0) {
+					var i1 = obj1.first_vertex;
+					var i2 = obj2.last_vertex;
+					unionFindUnion(edges[i1], edges[i2]);
+					newPoly.push(segmentIntersection(obj1.first, obj1.miter_first || fromCoords, obj2.miter_last || toCoords, obj2.last));
+				} else {
+					newPoly.push(obj2.last, obj1.first);
+				}
+				if (obj1.miter_first) newPoly.push(obj1.miter_first);
+				if (!(obj1.remove_middle_first && obj1.remove_middle_last)) newPoly.push(fromCoords);
+				if (obj1.miter_last) newPoly.push(obj1.miter_last);
+			});
+		
+			/* Find locally overlapping edges */
+		
+			var shapeMemo = Object.create(null);
+		
+			toPostProcess.forEach(function(obj) {
+				var done = Object.create(null);
+				var i1 = obj.done[0];
+				var i2 = obj.done[1];
+				var e1 = edges[i1];
+				var e2 = edges[i2];
+				unionFindUnion(e1, e2);
+				done[i1] = true;
+				done[i2] = true;
+				var todo = new TaskList();
+				obj.todo.forEach(function(vertex) {
+					todo.push(vertex);
+				});
+				var from;
+				var r1 = obj.rectangles[0];
+				var r2 = obj.rectangles[1];
+				while((from = todo.pop()) !== null) {
+					vertices[from].neighList.forEach(function(neigh) {
+						var index = neigh.index;
+						if (done[index]) return;
+						var to = neigh.to;
+						var rectangle = shapeMemo[index];
+						if (!rectangle) {
+							var fromCoords = vertices[from].coords;
+							var toCoords = vertices[to].coords;
+							var p1 = [fromCoords[0] + neigh.ortho[0], fromCoords[1] + neigh.ortho[1]];
+							var p2 = [toCoords[0] + neigh.ortho[0], toCoords[1] + neigh.ortho[1]];
+							var p3 = [toCoords[0] - neigh.ortho[0], toCoords[1] - neigh.ortho[1]];
+							var p4 = [fromCoords[0] - neigh.ortho[0], fromCoords[1] - neigh.ortho[1]];
+							rectangle = shapeMemo[index] = [p1, p2, p3, p4];
+						}
+						done[index] = true;
+						if (rectanglesCollide(rectangle, r1) || rectanglesCollide(rectangle, r2)) {
+							unionFindUnion(e1, edges[index]);
+							todo.push(to);
+						}
+					});
+				}
+			});
+		
+			/* Execute cb on each polygon */
+		
+			var needUnion = [];
+			edges.forEach(function(obj, index) {
+				if (obj.rank > 0 && obj.parent === obj) {
+					obj.union = obj.union || [];
+					obj.union.push(obj.polygon);
+					needUnion.push(index);
+				} else {
+					if (obj.parent === obj) {
+						cb(obj.polygon);
+					} else {
+						var root = unionFindFind(obj);
+						root.union = root.union || [];
+						root.union.push(obj.polygon);
+					}
+				}
+			});
+		}
+		function triangulate(contours) {
+			tessy.gluTessNormal(0, 0, 1);
+			var triangleVerts = [];
+			tessy.gluTessBeginPolygon(triangleVerts);
+			for (var i = 0; i < contours.length; i++) {
+			  tessy.gluTessBeginContour();
+			  var contour = contours[i];
+			  for (var j = 0; j < contour.length; j += 2) {
+				var coords = [contour[j], contour[j + 1], 0];
+				tessy.gluTessVertex(coords, coords);
+			  }
+			  tessy.gluTessEndContour();
+			}
+			tessy.gluTessEndPolygon();
+			return triangleVerts;
+		}
+		wpjsm.exportJS = {
+			stroke: function(arrs, width) {
+				var vex = [];
+				for (let i = 0; i < arrs.length; i++) {
+					var _arr = arrs[i];
+					if (_arr.length < 4) continue;
+					var vertices = [];
+					var edges = [];
+					var id = 0;
+					for (let j = 0; j < _arr.length; j+=2) {
+						var fs1 = _arr[j];
+						var fs2 = _arr[j + 1];
+						if (j == 0) {
+							vertices.push([fs1, fs2])
+						} else {
+							vertices.push([fs1, fs2])
+							edges.push([id - 1, id]);
+						}
+						id++;
+					}
+					graphDraw({vertices, edges}, width, function(fhfg) {
+						var r = [];
+						for (let j = 0; j < fhfg.length; j++) {
+							const s = fhfg[j];
+							if (!(isNaN(s[0]) || isNaN(s[1]))) {
+								r.push(s[0]);
+								r.push(s[1]);
+							}
+						}
+						vex.push(...triangulate([r]));
+					});
+				}
+				return vex;
+			},
+			fill: function(data) {
+				return triangulate(data);
+			}
+		}
 	},
 	"src/utils/ByteStream.js": function(wpjsm){
 		const ByteStream = function(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
@@ -10163,7 +14550,7 @@ var PinkFie = (function(moduleResults) {
 					this._debug_colorTransform[6] = c[6];
 					this._debug_colorTransform[7] = c[7];
 				} else {
-					var val = (this.movieplayer.wth == 1) ? (0.04 * (this.movieplayer.interpolation ? 1 : (60 / this.movieplayer.frameRate))) : this.movieplayer.getTickForFrameRate();
+					var val = (this.movieplayer.wth == 1) ? (0.04 * (this.movieplayer.interpolation ? (this.movieplayer.speed / 2) : (45 / this.movieplayer.frameRate))) : this.movieplayer.getTickForFrameRate();
 					this._debug_colorTransform[0] += ((c[0] - this._debug_colorTransform[0]) * val);
 					this._debug_colorTransform[1] += ((c[1] - this._debug_colorTransform[1]) * val);
 					this._debug_colorTransform[2] += ((c[2] - this._debug_colorTransform[2]) * val);
@@ -10293,6 +14680,7 @@ var PinkFie = (function(moduleResults) {
 		wpjsm.exportJS = FlashFont;
 	},
 	"src/index.js": function(wpjsm){
+		const config = wpjsm.importJS("src/config.js");
 		const SwfTag = wpjsm.importJS("src/SwfTag.js");
 		const shapeUtils = wpjsm.importJS("src/utils/shapeUtils.js");
 		const Player = wpjsm.importJS("src/PinkFiePlayer.js");
@@ -10305,6 +14693,12 @@ var PinkFie = (function(moduleResults) {
 			Player,
 			AT_H263_Decoder,
 			AT_NIHAV_VP6_Decoder,
+			config
+		}
+	},
+	"src/config.js": function(wpjsm){
+		wpjsm.exportJS = {
+			useWebGL: false
 		}
 	},
 	"src/IO.js": function(wpjsm){
@@ -10682,18 +15076,22 @@ var PinkFie = (function(moduleResults) {
 					}
 				};
 				tagCallback._onend = function () {
-					return function (callback) {
-						if (obj.soundStreamBlocks.length) {
-							obj.soundStreamBlockRecords.push(obj.soundStreamBlocks);
-							obj.soundStreamBlocks = [];
-						}
-						clip.frameCount = obj.frameCount;
-						clip.init(timelineTags);
-						_this.loadSoundStreamSprite(clip, stage, obj.soundStreamBlockRecords, function () {
-							callback();
-							endFunc();
-						});
-					};
+					if (obj.soundStreamBlocks.length) {
+						obj.soundStreamBlockRecords.push(obj.soundStreamBlocks);
+						obj.soundStreamBlocks = [];
+					}
+					clip.frameCount = obj.frameCount;
+					clip.init(timelineTags);
+					if (obj.soundStreamBlockRecords.length) {
+						return function (callback) {
+							_this.loadSoundStreamSprite(clip, stage, obj.soundStreamBlockRecords, function () {
+								callback();
+								endFunc();
+							});
+						};
+					} else {
+						endFunc();
+					}
 				};
 			}
 			defineFont(tag, stage) {
@@ -11033,8 +15431,10 @@ var PinkFie = (function(moduleResults) {
 		const Avm1 = wpjsm.importJS("src/Avm1.js");
 		const TransformStack = wpjsm.importJS("src/utils/TransformStack.js");
 		const RenderCanvas2d = wpjsm.importJS("src/renderer/Canvas2d.js");
+		const RenderWebGL = wpjsm.importJS("src/renderer/WebGL.js");
 		const pinkfieFont = wpjsm.importJS("src/PinkFieFonts.js");
 		const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
+		const config = wpjsm.importJS("src/config.js");
 		
 		class Timer {
 			constructor() {
@@ -11191,7 +15591,7 @@ var PinkFie = (function(moduleResults) {
 
 				this.debugSample = false;
 
-				this.renderScaleType = 0;
+				this.renderScaleType = 2;
 		
 				this.backgroundColor = [255, 255, 255, 1];
 		
@@ -11199,8 +15599,17 @@ var PinkFie = (function(moduleResults) {
 				this.root.classList.add('pinkfie-root');
 		
 				this.library = new Library(this);
-		
-				this.renderer = new RenderCanvas2d();
+				
+				try {
+					if (config.useWebGL) {
+						this.renderer = new RenderWebGL();
+					} else {
+						this.renderer = new RenderCanvas2d();
+					}
+				} catch(e) {
+					console.log(e);
+					this.renderer = new RenderCanvas2d();
+				}
 		
 				this.canvas = this.renderer.canvas;
 		
@@ -11336,13 +15745,19 @@ var PinkFie = (function(moduleResults) {
 				var ym = e.clientY - rect.top;
 		
 				var rc = this.getRectStage();
-				var x = (xm / rc[2]);
-				var y = (ym / rc[3]);
+
+				var g = this.getScaleRender();
+
+				var x = ((xm / g[6]) - g[2]) / g[4];
+				var y = ((ym / g[7]) - g[3]) / g[5];
 		
 				var wx = Math.round(x * this.width);
 				var wy = Math.round(y * this.height);
 		
 				this.mouseMove(Math.max(Math.min(wx, this.width), 0), Math.max(Math.min(wy, this.height), 0));
+			}
+			allowStrokeMaxWidth() {
+				return this.renderer instanceof RenderWebGL;
 			}
 			updateMouseDown(e) {
 				this.mouseDown();
@@ -11441,14 +15856,12 @@ var PinkFie = (function(moduleResults) {
 				var scaleW = this._width / 640;
 				var scaleH = this._height / 360;
 				var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
-
 				if (this.quality == "low") {
 					scale *= 0.5;
 				} else if (this.quality == "medium") {
 					scale *= 0.8;
 				}
-
-				return scale
+				return (this.renderScaleType == 1) ? 1 : scale;
 			}
 			getRectStage() {
 				var _movieCanvas = this.canvas;
@@ -11456,14 +15869,21 @@ var PinkFie = (function(moduleResults) {
 				var x = 0, y = 0;
 				var __Width = this._width;
 				var __Height = this._height;
-				if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
-					w = (_movieCanvas.width * (__Height / _movieCanvas.height));
-					h = (_movieCanvas.height * (__Height / _movieCanvas.height));
-					x = (__Width - w) / 2;
+				if (this.renderScaleType) {
+					w = _movieCanvas.width;
+					h = _movieCanvas.height;
+					x = 0;
+					y = 0;
 				} else {
-					w = (_movieCanvas.width * (__Width / _movieCanvas.width));
-					h = (_movieCanvas.height * (__Width / _movieCanvas.width));
-					y = (__Height - h) / 2;
+					if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+						w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+						h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+						x = (__Width - w) / 2;
+					} else {
+						w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+						h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+						y = (__Height - h) / 2;
+					}	
 				}
 				return [x, y, w, h];
 			}
@@ -11481,15 +15901,35 @@ var PinkFie = (function(moduleResults) {
 				var ty = 0;
 				var scaleX;
 				var scaleY;
-				if (this.renderScaleType) {
+				var r = this.getRectStage();
+				var a = r[2];
+				var b = r[3];
+				var c = 0;
+				var d = 0;
+				if (this.renderScaleType == 2) {
+					scaleX = (this.canvas.width / this.width);
+					scaleY = (this.canvas.height / this.height);
+					a = this.width;
+					b = this.height;
+					c = (this._width / this.width);
+					d = (this._height / this.height);
+					tx = 0;
+					ty = 0;
+				} else if (this.renderScaleType == 1) {
 					scaleX = scaleY = 1;
+					a = this.width;
+					b = this.height;
+					c = (this._width / this.canvas.width);
+					d = (this._height / this.canvas.height);
 					tx = ((this.canvas.width / 2) - (this.width / 2));
 					ty = ((this.canvas.height / 2) - (this.height / 2));
 				} else {
 					scaleX = (this.canvas.width / this.width);
 					scaleY = (this.canvas.height / this.height);
+					c = 1;
+					d = 1;
 				}
-				return [scaleX, scaleY, tx, ty];
+				return [scaleX, scaleY, tx, ty, a, b, c, d];
 			}
 			tick() {
 				this.closeCursor();
@@ -11843,6 +16283,7 @@ var PinkFie = (function(moduleResults) {
 						this.transformStack.stackPop();    
 					}
 				}
+				this.renderer.render();
 			}
 			drawTextW(x, y, scal, txt) {
 				var renderer = this.renderer;
@@ -11894,9 +16335,10 @@ var PinkFie = (function(moduleResults) {
 			lagObjToInfo(obj, cmd) {
 				var isLine = ("width" in obj);
 				if (isLine) {
+					var fgh = this.allowStrokeMaxWidth();
 					return {
 						type: 1,
-						width: obj.width,
+						width: fgh ? Math.max(obj.width, 20) : obj.width,
 						path2d: cmd,
 						fill: this.lineToInfo(obj),
 					};
@@ -11941,11 +16383,19 @@ var PinkFie = (function(moduleResults) {
 							var ratio = record.ratio;
 							css.push([color, ratio]);
 						}
+						var repeatMode = 0;
+						if (gradient.spreadMode == "repeat") {
+							repeatMode = 1;
+						}
+						if (gradient.spreadMode == "reflect") {
+							repeatMode = 2;
+						}
 						return {
 							type: 1,
 							matrix: gradientMatrix,
 							focal: focal,
 							isRadial,
+							repeat: repeatMode,
 							records: css
 						};
 					case 0x40:
@@ -12210,7 +16660,7 @@ var PinkFie = (function(moduleResults) {
 				this.root.appendChild(this.playerContainer);
 				this.options = {};
 				this._viewFrame = false;
-				this._displayMessage = [0, "", 0, 1000];
+				this._displayMessage = [0, "", 0, 1500];
 				this.mousePoint = [0, 0];
 				this.tickTime = 0;
 				this.isLoad = false;
@@ -12299,6 +16749,24 @@ var PinkFie = (function(moduleResults) {
 					this.viewStats();
 					this.MenuVertical.style.display = 'none';
 				}));
+
+				this.fullscreenButton = this._createE('Enter fullscreen', (e) => {
+					e.preventDefault();
+					this.setOptions({
+						fullscreenMode: e.shiftKey ? 'window' : 'full'
+					});
+					if (this.fullscreenEnabled) {
+						this.fullscreenButton.textContent = "Enter fullscreen";
+						this.exitFullscreen();
+					} else {
+						this.fullscreenButton.textContent = "Exit fullscreen";
+						this.enterFullscreen();
+					}
+					this.MenuVertical.style.display = 'none';
+				});
+
+				this.MenuVertical.appendChild(this.fullscreenButton);
+
 				this.MenuVertical.appendChild(this._createE('Save Screenshot', (e) => {
 					e.preventDefault();
 					this.saveScreenshot();
@@ -12312,25 +16780,6 @@ var PinkFie = (function(moduleResults) {
 				});
 
 				this.MenuVertical.appendChild(this.swfDataElement);
-
-				this.MenuVertical.appendChild(this._createE('Full Screen', (e) => {
-					e.preventDefault();
-					this.setOptions({
-						fullscreenMode: e.shiftKey ? 'window' : 'full'
-					});
-					if (this.fullscreenEnabled) {
-						this._displayMessage[1] = "Full Screen: Off";
-						this._displayMessage[0] = 2;
-						this._displayMessage[2] = this.tickTime;
-						this.exitFullscreen();
-					} else {
-						this._displayMessage[1] = "Full Screen: On";
-						this._displayMessage[0] = 2;
-						this._displayMessage[2] = this.tickTime;
-						this.enterFullscreen();
-					}
-					this.MenuVertical.style.display = 'none';
-				}));
 				var rr = this._createE('Settings', (e) => {
 					e.preventDefault();
 					this.showSetting();
@@ -12404,6 +16853,21 @@ var PinkFie = (function(moduleResults) {
 				});
 		
 				this._rrj6 = rrj6;
+
+				var kjhjhkh = document.createElement('label');
+				kjhjhkh.innerHTML = "Render Scale Mode: ";
+
+				var _kjhjhkh = document.createElement('select');
+				_kjhjhkh.innerHTML = '<option value="0">screen scale<option value="1">normal<option value="2">full scale';
+				_kjhjhkh.addEventListener("change", () => {
+					if (_kjhjhkh.value) {
+						this.setOptions({
+							renderscalemode: +_kjhjhkh.value
+						});
+					}
+				});
+
+				this._kjhjhkh = _kjhjhkh;
 		
 				var rrj7 = document.createElement('label');
 				rrj7.innerHTML = "Quality: ";
@@ -12426,6 +16890,8 @@ var PinkFie = (function(moduleResults) {
 				var rrj9 = document.createElement('input');
 				rrj9.type = 'text';
 				rrj9.style.width = "80px";
+
+				rrj9.placeholder = "(sprite id)";
 
 				rrj9.addEventListener("change", () => {
 					if (rrj9.value) {
@@ -12501,6 +16967,11 @@ var PinkFie = (function(moduleResults) {
 
 				this.settingVertical.appendChild(document.createElement('br'));
 
+				this.settingVertical.appendChild(kjhjhkh);
+				this.settingVertical.appendChild(_kjhjhkh);
+
+				this.settingVertical.appendChild(document.createElement('br'));
+
 				this.settingVertical.appendChild(_fdfj);
 
 				this.settingVertical.appendChild(di3);
@@ -12519,6 +16990,13 @@ var PinkFie = (function(moduleResults) {
 
 				this.settingVertical.appendChild(fdgdf2);
 				this.settingVertical.appendChild(fdgdf);
+
+				var rfg = document.createElement('label');
+				rfg.textContent = "(c) 2025 Anim Tred Studio";
+				rfg.style.opacity = "0.75";
+
+				this.settingVertical.appendChild(document.createElement('br'));
+				this.settingVertical.appendChild(rfg);
 		
 				this.playerContainer.appendChild(this.settingVertical);
 			}
@@ -12578,6 +17056,17 @@ var PinkFie = (function(moduleResults) {
 				loadingContainer.appendChild(a1);
 				loadingContainer.appendChild(a2);
 				loadingContainer.appendChild(a3);
+
+				var rfg = document.createElement('p');
+				rfg.textContent = "(c) 2025 Anim Tred Studio";
+				rfg.style.color = "#000";
+				rfg.style.margin = "4px";
+				rfg.style.position = "absolute";
+				rfg.style.bottom = "0";
+				rfg.style.left = "50%";
+				rfg.style.transform = "translate(-50%,0)";
+
+				loadingContainer.appendChild(rfg);
 		
 				loadingContainer.style.display = "none";
 				this.loadingContainerProgress = a4;
@@ -12624,6 +17113,7 @@ var PinkFie = (function(moduleResults) {
 				var _movieCanvas = this.stage.canvas;
 				if (!this.isLoad) return;
 				var j = this.getSwfName();
+				this.stage.render();
 				this.scanned.scanWithBlob(_movieCanvas, calllback);
 			}
 			saveScreenshot() {
@@ -12631,6 +17121,7 @@ var PinkFie = (function(moduleResults) {
 				var _movieCanvas = this.stage.canvas;
 				if (!this.isLoad) return;
 				var j = this.getSwfName();
+				this.stage.render();
 				var h = this.scanned.scan(_movieCanvas);
 				var a = document.createElement("a");
 				a.href = h;
@@ -12965,6 +17456,10 @@ var PinkFie = (function(moduleResults) {
 						this.stage.renderType = this.options.rendermode;
 						renderDirty = true;
 					}
+					if (this.stage.renderScaleType != this.options.renderscalemode) {
+						this.stage.renderScaleType = this.options.renderscalemode;
+						renderDirty = true;
+					}
 					if (renderDirty) {
 						this.applyResizeStage();
 					}
@@ -13130,7 +17625,8 @@ var PinkFie = (function(moduleResults) {
 			allowAvm: false,
 			wth: false,
 			unloop: false,
-			interpolation: false
+			interpolation: false,
+			renderscalemode: 0
 		}
 		wpjsm.exportJS = Player;
 	},
@@ -13883,7 +18379,7 @@ var PinkFie = (function(moduleResults) {
 					obj.bitmapMatrix = this.matrix();
 					// Bitmap smoothing only occurs in SWF version 8+.
 					obj.isSmoothed = ((this._swfVersion >= 8) && ((bitType & 0b10) == 0));
-					obj.isRepeating = (bitType & 0b01);
+					obj.isRepeating = (bitType & 0b01) == 0;
 					break;
 				default:
 					this.emitMessage("Invalid fill style: " + bitType, "error");

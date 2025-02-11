@@ -17,7 +17,7 @@
 				text-decoration: underline;
 			}
 			#pkfcontrols {
-				background-color: #ccc;
+				background-color: #0d0;
 				height: 40px;
 				overflow: hidden;
 			}
@@ -27,7 +27,7 @@
 			#pkfcontrols .pkfcontrolB {
 				margin: 3px;
 				padding: 5px;
-				background-color: #666;
+				background-color: #080;
 				color: #ffffff;
 				border-radius: 8px;
 				text-decoration-line: none;
@@ -43,7 +43,7 @@
 			}
 			#pinkswfmetadata {
 				float: left;
-				background-color: #ccc;
+				background-color: #0d0;
 				margin: 0;
 				width: 250px;
 				height: 100%;
@@ -59,13 +59,13 @@
 				padding: 6px;
 				margin: 3px;
 				background-image: url(pinkfie_logo.svg);
-				background-size: 100% 100%;
+				background-size: 87px 36px;
 			}
 		</style>
 	</head>
 	<body>
 		<div id="pkfcontrols">
-			<a href="./" class="pinkfielogo"></a>
+			<a href="https://animtred67pe.github.io/atpinkfie/" class="pinkfielogo"></a>
 			<div style="height: 20px; margin: 12px; position: absolute; left: 50%; transform: translate(-50%, 0);">
 				<a class="pkfcontrolB" id="loadswffile">Select File</a>
 				<label id="ggtitle5">No file selected.</label>
@@ -82,9 +82,9 @@
 				</div>
 			</div>
 		</div>
+		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
 		<script src="common.js"></script>
-		<script src="pinkfie.js"></script>
 		<script>
 			(function() {
 				var autoplayL = true;
@@ -199,7 +199,7 @@
 				player.onload.subscribe(function() {
 					showSwf();
 					player.debugSample = false;
-					if (autoplayL) {
+					if ((!Common.autoplay) && autoplayL) {
 						player.setOptions({autoplayPolicy: "never"});
 						autoplayL = false;
 					}
@@ -286,7 +286,7 @@
 				}
 				if (Common.swfUrl) {
 					player.debugSample = false;
-					player.setOptions({autoplayPolicy: "never"})
+					if (!Common.autoplay) player.setOptions({autoplayPolicy: "never"})
 					sampleSWFpkf.value = '';
 					loadSwfUrl(Common.swfUrl);
 				} else {

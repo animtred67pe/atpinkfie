@@ -88,7 +88,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background: #bbb;
+  background: #0c0;
 }
 .pinkfie-player-loading-anim{
   position: absolute;
@@ -105,7 +105,8 @@
   width: 320px;
   height: 120px;
   margin: auto;
-  background-image: url(pinkfie_logo_l.svg); background-size: 100% 100%;
+  background-image: url(pinkfie_logo_l.svg);
+  background-size: 320px 120px;
 }
 .pinkfie-player-loading-progress{
   position: absolute;

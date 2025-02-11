@@ -41,6 +41,8 @@ var Common = (function() {
   if (!swfUrl) {
     if (URLsearchParams("apology", true)) swfUrl = ["50f0d850bca885ee5e6196597cf3964c"];
     if (URLsearchParams("gotta_catch_em_all_again", true)) swfUrl = ["c09da91a1b96cb3f061dd634605b5c15"];
+    if (URLsearchParams("guardian", true)) swfUrl = ["200cb9d6fbf02a30add188244e6c69a1","7e383a22fb070f0afaa8400770e35f6b"];
+    if (URLsearchParams("once_upon_a_time_in_canterlot", true)) swfUrl = ["deef195cbadc444515be401f7bab13ca","cd18e3bd92c164c7307670afdce35096"];
     if (swfMd5) swfUrl = swfMd5.split("_");
   }
   
@@ -49,9 +51,11 @@ var Common = (function() {
 
   if (URLsearchParams("viral", true)) {
     playerOptions.wth = 1;
-    playerOptions.speed = 2;
+    playerOptions.speed = 1.575; // 1.575
     playerOptions.quality = "low";
   }
+
+  PinkFie.config.useWebGL = URLsearchParams("webgl", true);
 
   return {
     playerOptions: playerOptions,

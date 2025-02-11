@@ -1,15 +1,21 @@
 var SWFE = function(datas, f) {
+	var dataG = JSON.parse(JSON.stringify(datas));
 	this.root = document.createElement('div');
-	this.root.style.width = "640px";
-	this.root.style.height = "360px";
-	this.root.style.overflow = "auto";
 	this._di = document.createElement('div');
 	this.root.appendChild(this._di);
+	this.list = document.createElement('div');
+	this.root.appendChild(this.list);
+	this.list.style.width = "640px";
+	this.list.style.height = "300px";
+	this.list.style.overflow = "auto";
 	this.elements = [];
 	var result = [];
-	for (var i = 0; i < datas.length; i++) {
-		var data = datas[i];
-		if (data.md5 && data.thumb) if (!f || (data.metadata.indexOf(f) >= 0)) result.push(data);
+	for (var i = 0; i < dataG.length; i++) {
+		var data = dataG[i];
+		if (data.md5 && data.thumb) if (!f || (data.metadata.indexOf(f) >= 0)) {
+			data.thumb_id = (1000000 + (Math.random() * 9000000)) | 0;
+			result.push(data);
+		}
 	}
 	this.images = {};
 	this.datas = result;
@@ -36,14 +42,14 @@ SWFE.prototype.load = function() {
 SWFE.prototype.loadElements = function(a) {
 	while (this.elements.length) {
 		var elem = this.elements.pop();
-		this.root.removeChild(elem);
+		this.list.removeChild(elem);
 	}
 	for (var i = 0; i < 20; i++) {
 		var data = this.datas[i + a];
 		if (data) {
 			var elem = this.loadElement(data);
 			this.elements.push(elem);
-			this.root.appendChild(elem);
+			this.list.appendChild(elem);
 		}
 	}
 }
@@ -62,13 +68,13 @@ SWFE.prototype.loadElement = function(data) {
 	img.width = 130;
 	img.height = 90;
 	img.title = data.metadata;
-	if (data.thumb in _this.images) {
-		if (_this.images[data.thumb]) img.src = URL.createObjectURL(_this.images[data.thumb]);
+	if (data.thumb_id in _this.images) {
+		if (_this.images[data.thumb_id]) img.src = URL.createObjectURL(_this.images[data.thumb_id]);
 	} else {
-		_this.images[data.thumb] = null;
+		_this.images[data.thumb_id] = null;
 		fetch("https://assets.scratch.mit.edu/internalapi/asset/" + data.thumb + "/get/").then(function(e) {
 			e.blob().then(function(a) {
-				_this.images[data.thumb] = a;
+				_this.images[data.thumb_id] = a;
 				img.src = URL.createObjectURL(a);
 			});
 		});	

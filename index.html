@@ -28,7 +28,7 @@
 			<p>The Flash Player emulator in Javascript, is still in development.</p>
 			<div style="position: relative;">
 				<a id="loadswffile">Open .swf</a>
-				<a id="ssag2">Close</a>
+				<a id="ssag2" style="display: none;">Close</a>
 				<label id="ggtitle5"></label>
 			</div>
 			<div id="pinkfiestage" style="display: none;">
@@ -40,7 +40,6 @@
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
-				<label>or </label>
 				<a id="clickswfe">SWF Examples</a>
 				<div id="swfeArea"></div>
 				<ul>
@@ -56,16 +55,17 @@
 					<li><a href="about.html">credits</a></li>
 					<li><a href="https://animtred67pe.github.io/pinkfie-v2/">New version PinkFie v2</a></li>
 				</ul>
+				<label>Enable WebGL Renderer:</label>
+				<input type="checkbox" id="enwebgla">
 			</div>
 			<section>
 				<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
-				<p style="color: #888;">created by <a style="color: #888;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
+				<p style="color: #888;">(c) 2025 Anim Tred Studio</p>
 			</section>
 		</div>
-		<a href="https://animtred67pe.github.io/introtry9/" title="Go To SEATGERY Website" style="position:fixed; bottom: 10px; right: 10px; width: 50px; height: 50px;background-size: 50px; background-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2250%22%20height%3D%2250%22%20viewBox%3D%220%2C0%2C50%2C50%22%3E%3Cg%20transform%3D%22translate%28-215%2C-155.2%29%22%3E%3Cg%20stroke%3D%22%23ffffff%22%3E%3Cpath%20d%3D%22M215.75%2C179.95c0%2C-13.3%2010.8%2C-24%2024%2C-24c13.3%2C0%2024%2C10.8%2024%2C24c0%2C13.3%20-10.8%2C24%20-24%2C24c-13.3%2C0%20-24%2C-10.8%20-24%2C-24z%22%20fill-opacity%3D%220.5%22%20fill%3D%22%23000000%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22butt%22%2F%3E%3Cpath%20d%3D%22M234.60%2C173.15c0%2C0%20-2.76%2C-1.04%20-4.9%2C-0.49c-1.97%2C0.5%20-3.11%2C1.94%20-2.75%2C3.92c0.35%2C1.97%201.94%2C2.86%204.08%2C3.44c2.15%2C0.58%205.84%2C2.47%203.42%2C5.76c-1.6%2C2.17%20-8.14%2C0.81%20-8.14%2C0.81%22%20fill%3D%22none%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M252.77%2C172.91c0%2C0%20-5.09%2C-1.3%20-8.56%2C0.76c-4.54%2C2.82%20-3.99%2C10.71%200.58%2C12.81c3.47%2C1.59%208.52%2C0.24%208.52%2C0.24l-0.04%2C-6.14l-4.16%2C-0.04%22%20fill%3D%22none%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E);"></a>
-		<script src="common.js"></script>
-		<script src="pinkfie_logo.js"></script>
 		<script src="pinkfie.js"></script>
+		<script src="pinkfie_logo.js"></script>
+		<script src="common.js"></script>
 		<script src="swfexamples.js"></script>
 		<script>
 			(function() {
@@ -97,6 +97,8 @@
 				var viewbbb3 = document.getElementById('viewbbb3');
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfieplayerarea');
+
+				var advancedWebGL = document.getElementById('enwebgla');
 
 				playerArea.appendChild(player.root);
 				fvolumeff.addEventListener('input', function (e) {
@@ -136,7 +138,7 @@
 						SWF Background Color
 					*/
 
-					dfgfd += "compression: " + resultswf.header.compression;
+					dfgfd += "signature: " + resultswf.header.compression;
 					dfgfd += " version: " + resultswf.header.version;
 					dfgfd += " uncompressed length: " + resultswf.header.uncompressedLength + "<br>";
 
@@ -156,7 +158,7 @@
 					demo.title = "ActionScript 3: " +
 						player.stage.isActionScript3() +
 						(soundsC.length ? (" Sounds Compressions: " + soundsC.join(",")) : "") + (videosC.length ? (" Videos Codec: " + videosC.join(",")) : "") + " DisplayObject Types: " +
-						(player.stage.getDisplayTypes().join(",") || "entry");
+						(player.stage.getDisplayTypes().join(",") || "emtry");
 				}
 
 				viewbbb2.onclick = function () {
@@ -173,6 +175,7 @@
 					pinkfiemenu.style.display = "";
 					ggtitle5.textContent = "";
 					player.cleanup();
+					ssag2.style.display = "none";
 				}
 				ssag2.onclick = function () {
 					oohid();
@@ -207,6 +210,7 @@
 					document.title = initialTitle;
 					pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
+					ssag2.style.display = "";
 					demo.innerHTML = '';
 					demo.style.display = "none";
 					var gGs = (file.name || "").split(".");
@@ -220,6 +224,7 @@
 					document.title = initialTitle;
 					pinkfiestage.style.display = "";
 					pinkfiemenu.style.display = "none";
+					ssag2.style.display = "";
 					demo.style.display = "none";
 					demo.innerHTML = '';
 					ggtitle5.textContent = "";
@@ -342,6 +347,10 @@
 					}, false);
 					sa.click();
 				}
+				advancedWebGL.checked = PinkFie.config.useWebGL;
+				advancedWebGL.addEventListener('click', function(e) {
+					PinkFie.config.useWebGL = e.target.checked;
+				});
 			}());
 		</script>
     </body>
