@@ -1,6 +1,6 @@
 html {
     font-family: monospace;
-    background-color: #ddd;
+    background-color: #fff;
 }
 a {
   cursor: pointer;
@@ -32,10 +32,10 @@ a:hover{
 .app{
     width: 640px;
     margin: auto;
-    color: #333;
+    color: #111;
 }
 .app a{
-    color: #333;
+    color: #111;
 }
 .dark {
     background-color: #111;

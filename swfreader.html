@@ -98,15 +98,15 @@
 									// TODO Array
 									var aags = _showobj(RRy);
 									aaa.appendChild(aags);
-								} else if (RRy instanceof ArrayBuffer) {
+								} else if (RRy instanceof Uint8Array) {
 									var ar = document.createElement("a");
 									ar.href = "#";
-									ar.innerHTML = ("[ArrayBuffer(" + RRy.byteLength + ")]");
+									ar.innerHTML = ("[Uint8Array(" + RRy.length + ")]");
 									ar.onclick = (function(arrTag) {
 										var _arrTag = arrTag;
 										return function() {
 											var r = document.createElement("a");
-											r.href = URL.createObjectURL(new Blob([new Uint8Array(_arrTag)]));
+											r.href = URL.createObjectURL(new Blob([_arrTag.slice(0)]));
 											r.download = "pinkfie_" + _arrTag.byteLength + ".dat";
 											r.click();
 										}
@@ -141,7 +141,7 @@
 						for (let i = gfgbvbvbvb; i < tags.length; i++) {
 							const tag = tags[i];
 							var aaa = document.createElement("li");
-							aaa.innerHTML = tag.tagType + ": ";
+							aaa.innerHTML = SwfTag.tagCodes[tag.tagcode] + ": ";
 							var ar = document.createElement("a");
 							ar.href = "#";
 							ar.onclick = (function(objTag) {
@@ -223,7 +223,7 @@
 						demo.innerHTML = "<br>opening swf file";
 						var reader = new FileReader();
 						reader.onload = function(e) {
-							var swfparser = new SwfTag(e.target.result);
+							var swfparser = new SwfTag(new Uint8Array(e.target.result));
 							swfparser.onprogress = function(fs) {
 								if (fs[0]) {
 									demo.innerHTML = "<br>decoding tags " + Math.round(fs[1] * 100) + "%";
@@ -249,7 +249,6 @@
 										return null;
 									}
 									s._onend = function() {
-										console.log(5);
 										h(g);
 									}
 								}

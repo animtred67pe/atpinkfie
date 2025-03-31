@@ -1,7 +1,7 @@
 /*!
  * Pinkfie - The Flash Player emulator in Javascript Create on domingo, 7 de abril de 2024, 16:18:46
  * 
- * v1.3.6 (2025-02-11)
+ * v1.3.62 (2025-03-30)
  * 
  * (c) 2025 Anim Tred Studio
  * 
@@ -19,13 +19,13 @@ var PinkFie = (function(moduleResults) {
 			exportJS: {}
 		}
 		moduleInstalls[moduleId] = wpjsmodules;
-		moduleResults[moduleId](moduleInstalls[moduleId]);
+		moduleResults[moduleId](wpjsmodules);
 		return wpjsmodules.exportJS;
 	};
-	return __webpack_require__("src/index.js");
+	return __webpack_require__("./src/index.js");
 }({
-	"src/audio/AudioBackend.js": function(wpjsm){
-		const SoundDecoderCall = wpjsm.importJS("src/audio/SoundDecoder.js");
+	"./src/audio/AudioBackend.js": function(wpjsm) {
+		const SoundDecoderCall = wpjsm.importJS("./src/audio/SoundDecoder.js");
 		
 		class Sound {
 			constructor() {
@@ -56,8 +56,8 @@ var PinkFie = (function(moduleResults) {
 		}
 		
 		class SoundData {
-			constructor(movieplayer, data) {
-				this.movieplayer = movieplayer;
+			constructor(data) {
+				this.displayType = "sound";
 				this.data = data;
 				this.audio = null;
 				this.characterId = data.id;
@@ -70,7 +70,7 @@ var PinkFie = (function(moduleResults) {
 			}
 		}
 		
-		const MAX_SOUND = 30;
+		const MAX_SOUND = 32;
 		
 		class AudioBackend {
 			constructor(stage) {
@@ -218,78 +218,48 @@ var PinkFie = (function(moduleResults) {
 			}
 			tickPlayingSoundStream(playingaudio) {
 				if (!playingaudio.ended) {
-					if (this.streamSoundIsEnded(playingaudio)) {
-						this.stopStreamSound(playingaudio);
-					}
 					if (playingaudio.source) {
 						playingaudio.source.playbackRate.value = this.stage.speed;
 					}
 				} else {
 				}
 			}
+			oTickSoundStream(playingaudio) {
+				var gs = playingaudio._time;
+				var ga = playingaudio._otime;
+				var h = playingaudio._oframe - playingaudio._frame;
+				var _ = +((1000 / this.stage.frameRate).toFixed(1));
+				var o = (h * (_ / 1000)) + ga;
+				var a = ((this.audioContext.currentTime - playingaudio.startTime2) * this.stage.speed) + gs;
+				if (Math.abs(o - a) > 0.15) {
+					playingaudio.isO = o;
+				}
+			}
 			infoFrameBlock(mc, frame, block) {
 				var result = null;
-				var f = 0;
-				var tags = mc.tags;
-				var blockFound = false;
-				var hasBlock = false;
-				var bCount = 0;
-				var startF = 1;
-				var bStart = false;
-				for (let j = 0; j < tags.length; j++) {
-					const tag = tags[j];
-					switch (tag.tagType) {
-						case "SoundStreamBlock":
-							hasBlock = true;
-							if (!bStart) {
-								startF = (f + 1);
-								bStart = true;
-							}
-							if (block === tag) {
-								blockFound = true;
-							}
+				var soundFound = false;
+				var soundStreamBlockRecords = mc.soundStreamBlockRecords;
+				for (let i = 0; i < soundStreamBlockRecords.length; i++) {
+					const b = soundStreamBlockRecords[i];
+					var bm = b.soundInfo.blocks;
+					for (let g = 0; g < bm.length; g++) {
+						const blo = bm[g];
+						if (block.compressed === blo) {
+							var audioStream = b.audioStream;
+							var result_time = (g / bm.length) * audioStream.duration;
+							result = {
+								audioStream: b.audioStream,
+								time: result_time,
+								startFrame: i,
+								isEnd: (g >= (bm.length - 1)),
+								blocks: bm
+							};
+							soundFound = true;
 							break;
-						case "ShowFrame":
-							f++;
-							if (hasBlock) {
-								bCount++;
-								hasBlock = false;
-							} else {
-								if (bCount) {
-									bStart = false;
-									bCount = 0;
-								}
-							}
-							break;
+						}
 					}
-					if (blockFound) {
+					if (soundFound) {
 						break;
-					}
-				}
-				var rate = +((1000 / this.stage.frameRate).toFixed(1));
-				if (blockFound) {
-					var soundFound = false;
-					var soundStreamBlockRecords = mc.soundStreamBlockRecords;
-					for (let i = 0; i < soundStreamBlockRecords.length; i++) {
-						const b = soundStreamBlockRecords[i];
-						var bm = b.soundInfo.blocks;
-						for (let g = 0; g < bm.length; g++) {
-							const blo = bm[g];
-							if (block === blo) {
-								result = {
-									audioStream: b.audioStream,
-									time: (frame - startF) * (rate / 1000),
-									startFrame: startF,
-									isEnd: (g >= (bm.length - 1)),
-									blocks: bm
-								};
-								soundFound = true;
-								break;
-							}
-						}
-						if (soundFound) {
-							break;
-						}
 					}
 				}
 				return result;
@@ -302,49 +272,40 @@ var PinkFie = (function(moduleResults) {
 				}
 				return null;
 			}
-			streamSoundIsEnded(a) {
-				return (a.__start + ((this.tickTime - a.startTime) / 1000)) >= a.duration;
-			}
 			startStreamSound(mc, frame, block) {
 				if (!this.audioContext) {
 					return;
 				}
-				var result = this.infoFrameBlock(mc, frame, block);
-		
 				if (this.playingAudios.length >= MAX_SOUND) {
 					return;
 				}
-		
+				var result = this.infoFrameBlock(mc, frame, block);
 				if (!result) return;
-		
 				var audioStream = result.audioStream;
 				if (!audioStream) return;
-		
 				let seekTime = result.time;
-		
 				var g = this.checkStreamSound(mc, block, audioStream);
 				if (g) {
-
-					var isS = (Math.abs(((this.audioContext.currentTime - g.startTime2) * this.stage.speed) - (seekTime - g._time)) > 0.15);
-
-					if ((g._uframe != result.startFrame) || isS) {
+					g._oframe = frame;
+					this.oTickSoundStream(g);
+					var isChange = g._uframe != result.startFrame;
+					if (isChange || (g.isO != null)) {
+						if (g.isO != null) {
+							g._time = g.isO;
+						} else {
+							g._time = seekTime;
+							g._otime = seekTime;
+							g._frame = frame;
+						}
+						g.startTime2 = this.audioContext.currentTime;
+						g.isO = null;
 						g.isStart = false;
 						g._uframe = result.startFrame;
 						g.audioStream = audioStream;
-						g._time = seekTime;
-						g._frame = frame;
-						g.startTime2 = this.audioContext.currentTime;
 					}
-		
 					this.playStreamSound(g);
-		
-					if (result.isEnd) {
-						g.isEnd = true;
-					}
-		
 					return g;
 				}
-		
 				var rs = {};
 				rs.audioStream = audioStream;
 		
@@ -352,17 +313,19 @@ var PinkFie = (function(moduleResults) {
 				rs.__start = seekTime;
 		
 				rs._time = seekTime;
+				rs._otime = seekTime;
 		
 				rs.isStart = false;
 				rs.isEnd = result.isEnd;
+
+				rs.isO = null;
+		
+				rs._oframe = frame;
 		
 				rs._frame = frame;
 				rs._uframe = result.startFrame;
 
 				rs.audioStreamInfo = mc.staticData.audioStreamInfo;
-		
-				rs.playtime = this.audioContext.currentTime;
-				rs.playtime2 = this.tickTime;
 		
 				rs.mc = mc;
 				rs.startTime = this.tickTime;
@@ -386,8 +349,6 @@ var PinkFie = (function(moduleResults) {
 						source.playbackRate.value = this.stage.speed;
 						source.connect(this.node);
 						source.start(this.audioContext.currentTime, gs);
-						playingaudio.playtime = this.audioContext.currentTime;
-						playingaudio.playtime2 = this.tickTime;
 						playingaudio.source = source;
 						playingaudio.isStart = true;
 					}
@@ -426,18 +387,12 @@ var PinkFie = (function(moduleResults) {
 			isSoundPlaying(sound) {
 				return !sound.ended;
 			}
-			startSound(soundinfo, mc) {
+			startSound(soundinfo, sound, mc) {
 				if (!this.audioContext) {
 					return;
 				}
+				if (!sound) return;
 				if (this.playingAudios.length >= MAX_SOUND) {
-					return;
-				}
-				if ("className" in soundinfo) {
-					return;
-				}
-				var sound = this.getSound(soundinfo.id);
-				if (!sound) {
 					return;
 				}
 				if (sound.audio) {
@@ -491,9 +446,6 @@ var PinkFie = (function(moduleResults) {
 		
 				let duration = (sud.numSamples / sampleRate);
 		
-				var nodeLR = this._createPan(this.node);
-				sound.nodeLR = nodeLR;
-		
 				sound.duration = duration;
 				sound.__start = 0;
 				sound.__rate = 44100;
@@ -514,6 +466,7 @@ var PinkFie = (function(moduleResults) {
 					sound.__endSound = duration;
 				}
 				if ("envelope" in __info) {
+					sound.nodeLR = this._createPan(this.node);
 					sound.stateEnvelopeSound = true;
 					sound.envelopeId = 0;
 					var envelopes = __info.envelope;
@@ -521,11 +474,12 @@ var PinkFie = (function(moduleResults) {
 					if (rs) {
 						const leftVal = rs.leftVolume / 32768;
 						const rightVal = rs.rightVolume / 32768;
-						nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
-						nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
+						sound.nodeLR.rightGain.gain.value = Math.max(Math.min(rightVal, 1), 0);
+						sound.nodeLR.leftGain.gain.value = Math.max(Math.min(leftVal, 1), 0);
 					}
 					sound._envelopes = envelopes;
 				} else {
+					sound.nodeLR = null;
 					sound.stateEnvelopeSound = false;
 				}
 				sound.startTime = this.tickTime;
@@ -579,26 +533,45 @@ var PinkFie = (function(moduleResults) {
 					callback(s);
 				}
 			}
-			getSound(id) {
-				return this.stage.library.characterById(id);
+			streamFromSwfTag(streamInfo, tags) {
+				return SoundDecoderCall.streamFromSwfTag(streamInfo, tags);
 			}
 			registerSound(sound) {
-				return new SoundData(this.stage, sound);
+				return new SoundData(sound);
 			}
 		}
 		
 		wpjsm.exportJS = AudioBackend;
 	},
-	"src/audio/SoundDecoder.js": function(wpjsm){
-		const JSNellymoserDecoder = wpjsm.importJS("src/utils/nellymoser.js");
-		const AT_MP3_Decoder = wpjsm.importJS("src/utils/at-mp3-decoder.js");
-		const ByteStream = wpjsm.importJS("src/utils/ByteStream.js");
+	"./src/audio/SoundDecoder.js": function(wpjsm) {
+		const JSNellymoserDecoder = wpjsm.importJS("./src/utils/nellymoser.js");
+		const AT_MP3_Decoder = wpjsm.importJS("./src/utils/at-mp3-decoder.js");
+		const ByteStream = wpjsm.importJS("./src/utils/ByteStream.js");
+		const log = wpjsm.importJS("./src/log.js");
 
+		const MP3Reader = function(data) {
+			this.data = data;
+			this.position = 0;
+		}
+		MP3Reader.prototype.readBytes = function(len) {
+			var n = this.data.subarray(this.position, this.position + len);
+			this.position += len;
+			return n;
+		}
+		MP3Reader.prototype.readInt16 = function() {
+			return this.data[this.position++] + (this.data[this.position++] << 8);
+		}
+		MP3Reader.prototype.readInt32BE = function() {
+			return (this.data[this.position++] << 24) + (this.data[this.position++] << 16) + (this.data[this.position++] << 8) + this.data[this.position++];
+		}
+		MP3Reader.prototype.getBytesAvailable = function() {
+			return this.data.length - this.position;
+		}
 		function getMP3Header(stream, header) {
 			var mp3FrameHeader = header;
 			while (stream.getBytesAvailable() > 4) {
 				var frameStart = stream.position;
-				var header = stream.readInt32();
+				var header = stream.readInt32BE();
 				if (AT_MP3_Decoder.Header.isValidHeader(header)) {
 					mp3FrameHeader.parseHeader(header);
 					return mp3FrameHeader;
@@ -610,10 +583,8 @@ var PinkFie = (function(moduleResults) {
 		function decodeMP3(audioContext, data, numSamples, useSeekSample) {
 			var decoder = new AT_MP3_Decoder.Decoder();
 			var bitstream = new AT_MP3_Decoder.BitStream();
-			var byteStream = new ByteStream(data);
-			byteStream.littleEndian = true;
+			var byteStream = new MP3Reader(data);
 			var seekSample = useSeekSample == undefined ? byteStream.readInt16() : useSeekSample;
-			byteStream.littleEndian = false;
 			var header = new AT_MP3_Decoder.Header();
 			var startPos = byteStream.position;
 			getMP3Header(byteStream, header);
@@ -631,17 +602,17 @@ var PinkFie = (function(moduleResults) {
 				if (!((byteStream.getBytesAvailable() - eeee) > 4)) 
 					break;
 				var frameStream = byteStream.readBytes(eeee);
-				bitstream.setData(new Uint8Array(frameStream));
+				bitstream.setData(frameStream);
 				var buf = decoder.decodeFrame(header, bitstream);
 				var pcm = buf.getBuffer();
 				var sc = ((header.version() == AT_MP3_Decoder.Header.MPEG1) ? 1152 : 576) * channels;
 				for (var i = 0; i < sc; i += channels) {
 					if ((sampleId >= seekSample) && sampleId < (numSamples + seekSample)) {
 						if (channels == 2) {
-							channelData0[idx1++] = (pcm[i] / 32768);
-							channelData1[idx2++] = (pcm[i + 1] / 32768);
+							channelData0[idx1++] = pcm[i];
+							channelData1[idx2++] = pcm[i + 1];
 						} else {
-							channelData0[idx1++] = (pcm[i] / 32768);
+							channelData0[idx1++] = pcm[i];
 						}	
 					}
 					sampleId++;
@@ -657,6 +628,13 @@ var PinkFie = (function(moduleResults) {
 				s += _in.readUint16();
 			}
 			return s;
+		}
+
+		class AdpcmState {
+			constructor() {
+				this.sample = 0;
+				this.stepIndex = 0;
+			}
 		}
 		
 		const SoundDecoder = function(audioContext) {
@@ -732,33 +710,6 @@ var PinkFie = (function(moduleResults) {
 			}
 			return delta;
 		}
-		SoundDecoder.prototype.convertToMp3A = function(buffer, sampleCount, sampleRate, seekSample, channels) {
-			var audioContext = this.audioContext;
-		
-			var b = audioContext.createBuffer(channels, sampleCount, sampleRate);
-			
-			var _left = buffer.getChannelData(0);
-			var _right = null;
-			if (channels == 2) {
-				_right = buffer.getChannelData(1);
-			}
-		
-			var o_left = b.getChannelData(0);
-			var o_right = null;
-			if (channels == 2) {
-				o_right = b.getChannelData(1);
-			}
-		
-			for (let i = 0; i < sampleCount; i++) {
-				var r = Math.floor((((i + seekSample) / sampleRate) * buffer.sampleRate));
-				o_left[i] = _left[r] || 0;
-				if (channels == 2) {
-					o_right[i] = _right[r] || 0;
-				}
-		
-			}
-			return b;
-		}
 		SoundDecoder.prototype.load = function() {
 			var _this = this;
 			var audioContext = this.audioContext;
@@ -774,7 +725,7 @@ var PinkFie = (function(moduleResults) {
 						});
 					}
 				} catch(e) {
-					console.log("ERROR: MP3 failed");
+					log.error("ERROR: MP3 failed");
 					if (_this.onload) {
 						_this.onload({
 							buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
@@ -790,7 +741,7 @@ var PinkFie = (function(moduleResults) {
 			try {
 				buffer = audioContext.createBuffer(channels, this.numSamples, format.sampleRate);
 			} catch(e) {
-				console.log(e);
+				log.error(e);
 				if (this.onload) {
 					this.onload({
 						buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
@@ -798,31 +749,32 @@ var PinkFie = (function(moduleResults) {
 				}
 				return;
 			}
-			this.decodeFormat(format.compression, buffer, channels, 0, this.numSamples);
+			var left = buffer.getChannelData(0);
+			var right = (channels == 2) ? buffer.getChannelData(1) : null;
+			this.decodeFormat(format.compression, channels, 0, this.numSamples, left, right);
 			if (this.onload) {
 				this.onload({
 					buffer
 				});
 			}
 		}
-		SoundDecoder.prototype.decodeFormat = function(compression, buffer, channels, pos_buffer, sample_length) {
+		SoundDecoder.prototype.decodeFormat = function(compression, channels, pos_buffer, sample_length, left, right) {
 			switch(compression) {
 				case "uncompressed":
 				case "uncompressedUnknownEndian":
-					return this.decodePCM(buffer, channels, pos_buffer, sample_length);
+					return this.decodePCM(channels, pos_buffer, sample_length, left, right);
 				case "ADPCM":
-					return this.decodeADPCM(buffer, channels, pos_buffer, sample_length);
+					return this.decodeADPCM(channels, pos_buffer, sample_length, left, right);
 				case "nellymoser":
-					return this.decodeNellymoser(buffer, channels, pos_buffer);
+					return this.decodeNellymoser(left);
 				default:
-					console.log("TODO", compression);
 					return 0;
 			}
 		}
 		// info.format.is16Bit
 		// info.format.isStereo
 		// info.format.sampleRate
-		SoundDecoder.prototype.decodePCM = function(buffer, channels, pos_buffer, sample_length) {
+		SoundDecoder.prototype.decodePCM = function(channels, pos_buffer, sample_length, _left, _right) {
 			var _pos_buffer = pos_buffer || 0;
 		
 			var format = this.formatInfo;
@@ -830,11 +782,6 @@ var PinkFie = (function(moduleResults) {
 			/// Flash exports this when you use the "Raw" compression setting.
 			/// 8-bit unsigned or 16-bit signed PCM.
 			var i = _pos_buffer;
-			var _left = buffer.getChannelData(0);
-			var _right = null;
-			if (channels == 2) {
-				_right = buffer.getChannelData(1);
-			}
 			var isEnd = false;
 			let left = 0;
 			let right = 0;
@@ -858,21 +805,16 @@ var PinkFie = (function(moduleResults) {
 			}
 			return i;
 		}
-		SoundDecoder.prototype.decodeADPCM = function(buffer, channels, pos_buffer, sample_length) {
+		SoundDecoder.prototype.decodeADPCM = function(channels, pos_buffer, sample_length, _left, _right) {
 			var byteStream = this.byteStream;
-			let adpcmCodeSize = byteStream.getUIBits(2);
+			let adpcmCodeSize = byteStream.readUB(2);
 			let bits_per_sample = (adpcmCodeSize + 2);
 			var _pos_buffer = pos_buffer || 0;
 			var h = _pos_buffer;
-			var _left = buffer.getChannelData(0);
-			var _right = null;
-			if (channels == 2) {
-				_right = buffer.getChannelData(1);
-			}
 			var decoder = SoundDecoder.SAMPLE_DELTA_CALCULATOR[bits_per_sample - 2];
 			var idxTable = SoundDecoder.INDEX_TABLE[bits_per_sample - 2];
 			let num_channels = channels;
-			var _channels = [{ sample: 0, stepIndex: 0 }, { sample: 0, stepIndex: 0 }];
+			var _channels = [new AdpcmState(), new AdpcmState()];
 			let sign_mask = (1 << (bits_per_sample - 1));
 			var isEnd = false;
 			let left = 0;
@@ -884,14 +826,14 @@ var PinkFie = (function(moduleResults) {
 						if (sample_num == 0) 
 							for (let i = 0; i < num_channels; i++) {
 								const ch = _channels[i];
-								ch.sample = byteStream.getSIBits(16);
-								ch.stepIndex = byteStream.getUIBits(6);
+								ch.sample = byteStream.readSB(16);
+								ch.stepIndex = byteStream.readUB(6);
 							}
 						sample_num = (sample_num + 1) % 4095;
 						for (let i2 = 0; i2 < num_channels; i2++) {
 							const ch = _channels[i2];
 							let step = SoundDecoder.STEP_TABLE[ch.stepIndex];
-							let data = byteStream.getUIBits(bits_per_sample);
+							let data = byteStream.readUB(bits_per_sample);
 							let magnitude = (data & (sign_mask - 1));
 							let delta = decoder(step, magnitude);
 							if (data & sign_mask) ch.sample -= delta;
@@ -918,8 +860,24 @@ var PinkFie = (function(moduleResults) {
 		}
 		SoundDecoder.prototype.decodeMP3 = function() {
 		}
-		SoundDecoder.prototype.decodeNellymoser = function(buffer) {
-			JSNellymoserDecoder(buffer.getChannelData(0), this.data);
+		SoundDecoder.prototype.decodeNellymoser = function(out) {
+			var data = this.data;
+			var _pos_buffer = 0;
+			var state = new Float32Array(128);
+			var r = 0;
+			var audioD = new Float32Array(256);
+			while (true) {
+				var block = data.subarray(r, r + 64);
+				JSNellymoserDecoder.decode(state, block, audioD);
+				for (let i = 0; i < 256; i++) {
+					out[_pos_buffer] = (audioD[i] / 32768);
+					_pos_buffer++;
+				};
+				r += 64;
+				if (r >= data.length) {
+					break;
+				}
+			}
 		}
 		const SoundStreamDecoder = function(audioContext, streamInfo, blocks) {
 			SoundDecoder.call(this, audioContext);
@@ -927,7 +885,7 @@ var PinkFie = (function(moduleResults) {
 		
 			var b = [];
 			for (let i = 0; i < blocks.length; i++) {
-				b.push(blocks[i].compressed);
+				b.push(blocks[i]);
 			}
 		
 			this.blocks = b;
@@ -952,27 +910,34 @@ var PinkFie = (function(moduleResults) {
 			var gg1 = 0;
 			for (var i = 0; i < blocks.length; i++) {
 				var b1 = blocks[i];
-				gg1 += (b1.byteLength - idlimit);
+				gg1 += (b1.length - idlimit);
 			}
 			var gg = new Uint8Array(gg1);
 			var idd = 0;
 			for (var i = 0; i < blocks.length; i++) {
-				var bb = blocks[i];
-				var ui8view = new Uint8Array(bb);
-				for (var i2 = idlimit; i2 < bb.byteLength; i2++) {
-					gg[idd++] = ui8view[i2];
-				}
+				var ui8view = blocks[i].subarray(idlimit);
+				gg.set(ui8view, idd);
+				idd += ui8view.length;
 			}
 		
-			var compressed = gg.buffer;
-			if (compressed.byteLength > 0) {
+			var compressed = gg;
+			if (compressed.length > 0) {
 				this.data = compressed;
 				this.formatInfo = streamStream;
 				this.numSamples = isMP3 ? getMP3Sample(blocks) : blocks.length * streamInfo.samplePerBlock;
-				// _this.numSamples, _this.formatInfo.sampleRate, seekSample, channels
 				if (isMP3) {
 					var seekSample = streamInfo.latencySeek || 0;
 					try {
+						/*var g = new Blob([compressed.slice(0)]);
+						console.log({
+							get download() {
+								var a = document.createElement("a");
+								a.href = URL.createObjectURL(g);
+								a.download = "pinkfie_sound_stream.mp3";
+								a.click();
+								return "downloaded";
+							}
+						});*/
 						var resultMP3Buffer = decodeMP3(audioContext, this.data, this.numSamples, seekSample);
 						if (_this.onload) {
 							_this.onload({
@@ -980,7 +945,7 @@ var PinkFie = (function(moduleResults) {
 							});
 						}
 					} catch(e) {
-						console.log("ERROR: MP3 failed");
+						log.error("ERROR: MP3 failed");
 						if (_this.onload) {
 							_this.onload({
 								buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
@@ -995,7 +960,7 @@ var PinkFie = (function(moduleResults) {
 				try {
 					buffer = audioContext.createBuffer(channels, this.numSamples, streamStream.sampleRate);
 				} catch(e) {
-					console.log(e);
+					log.error(e);
 					if (this.onload) {
 						this.onload({
 							buffer: audioContext.createBuffer(1, 1, audioContext.sampleRate)
@@ -1003,7 +968,9 @@ var PinkFie = (function(moduleResults) {
 					}
 					return;
 				}
-				this.decodeStreamFormat(streamStream.compression, buffer, channels, blocks, streamInfo.samplePerBlock);
+				var left = buffer.getChannelData(0);
+				var right = (channels == 2) ? buffer.getChannelData(1) : null;
+				this.decodeStreamFormat(streamStream.compression, channels, blocks, streamInfo.samplePerBlock, left, right);
 				if (this.onload) {
 					this.onload({
 						buffer,
@@ -1017,17 +984,77 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-		SoundStreamDecoder.prototype.decodeStreamFormat = function (compression, buffer, channels, blocks, sample_length) {
+		SoundStreamDecoder.prototype.decodeStreamFormat = function (compression, channels, blocks, sample_length, left, right) {
 			if (compression == "nellymoser") {
-				this.decodeNellymoser(buffer, channels, 0);
+				this.decodeNellymoser(left);
 			} else {
 				var oPos = 0;
 				for (let i = 0; i < blocks.length; i++) {
 					const block = blocks[i];
 					this.data = block;
 					this.byteStream = new ByteStream(this.data);
-					var posBuffer = this.decodeFormat(compression, buffer, channels, oPos, sample_length);
+					var posBuffer = this.decodeFormat(compression, channels, oPos, sample_length, left, right);
 					oPos = posBuffer;
+				}
+			}
+		}
+
+		const StreamTagReader = function(streamInfo, tags) {
+			this.tags = tags;
+			this.pos = 0;
+			this.compression = streamInfo.stream.compression;
+			this.current_audio_data = null;
+			this.mp3_samples_buffered = 0;
+			this.mp3_samples_per_block = streamInfo.samplePerBlock;
+		}
+		StreamTagReader.prototype.reset = function() {
+			this.current_audio_data = null;
+			this.mp3_samples_buffered = 0;
+		}
+		StreamTagReader.prototype.isEnd = function() {
+			return !(this.pos < this.tags.length);
+		}
+		StreamTagReader.prototype.skip = function() {
+			var pos = this.pos;
+			while(pos < this.tags.length) {
+				var tag = this.tags[this.pos];
+				this.pos++;
+				if (tag.tagcode == 19) {
+					break;
+				} else if (tag.tagcode == 1) {
+					pos = this.pos;
+				}
+			}
+			this.pos = pos;
+		}
+		StreamTagReader.prototype.next = function() {
+			let compression = this.compression;
+			var found = false;
+			while (true) {
+				var pos = this.pos;
+				while(pos < this.tags.length) {
+					var tag = this.tags[pos];
+					pos++;
+					if (tag.tagcode == 19) {
+						if (!found) {
+							found = true;
+							var audio_block = tag.compressed;
+							if ((compression == "MP3") && (audio_block.length >= 4)) {
+								let num_samples = audio_block[0] + (audio_block[1] << 8);
+								this.mp3_samples_buffered += num_samples;
+							}
+							this.current_audio_data = audio_block;
+						}
+					} else if (tag.tagcode == 1) {
+						if (compression == "MP3") this.mp3_samples_buffered -= this.mp3_samples_per_block;
+						break;
+					}
+				}
+				this.pos = pos;
+				if (found) {
+					return this.current_audio_data;
+				} else if ((compression != "MP3") || (this.mp3_samples_buffered <= -this.mp3_samples_per_block) || !(this.pos < this.tags.length)) {
+					return null;
 				}
 			}
 		}
@@ -1048,14 +1075,33 @@ var PinkFie = (function(moduleResults) {
 			}
 			sd.load();
 		}
+		function streamFromSwfTag(streamInfo, tags) {
+			var result = [];
+			if (streamInfo) {
+				var stream = new StreamTagReader(streamInfo, tags);
+				stream.skip();
+				while (!stream.isEnd()) {
+					var blocks = [];
+					var a;
+					while(a = stream.next()) {
+						blocks.push(a);
+					}
+					result.push(blocks);
+					stream.reset();
+					stream.skip();
+				}
+			}
+			return result;
+		}
 		wpjsm.exportJS = {
 			loadSound,
-			loadSoundStream
+			loadSoundStream,
+			streamFromSwfTag
 		}
 	},
-	"src/avm1/objects/ScriptObject.js": function(wpjsm){
-		const Avm1Property = wpjsm.importJS("src/avm1/Property.js");
-		const Avm1ValueTypes = wpjsm.importJS("src/avm1/ValueTypes.js");
+	"./src/avm1/objects/ScriptObject.js": function(wpjsm) {
+		const Avm1Property = wpjsm.importJS("./src/avm1/Property.js");
+		const Avm1ValueTypes = wpjsm.importJS("./src/avm1/ValueTypes.js");
 		
 		class Avm1ScriptObject {
 			constructor() {
@@ -1070,8 +1116,9 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Avm1ScriptObject;
 	},
-	"src/avm1/Activation.js": function(wpjsm){
-		const Avm1ValueTypes = wpjsm.importJS("src/avm1/ValueTypes.js");
+	"./src/avm1/Activation.js": function(wpjsm) {
+		const log = wpjsm.importJS("./src/log.js");
+		const Avm1ValueTypes = wpjsm.importJS("./src/avm1/ValueTypes.js");
 		
 		const Avm1ReturnType = {
 			implicit: 0,
@@ -1081,8 +1128,8 @@ var PinkFie = (function(moduleResults) {
 			continue: 0,
 			return: 1
 		};
-		const Avm1Activation = function(avm1, caches, clip) {
-			this.avm1 = avm1;
+		const Avm1Activation = function(context, caches, clip) {
+			this.context = context;
 			this.clip = clip;
 			this.spoce = null;
 			this.caches = caches;
@@ -1134,7 +1181,6 @@ var PinkFie = (function(moduleResults) {
 			if (obj.hasProp(name)) {
 				return obj.getProp(name);
 			} else {
-				console.log("TODO", name, obj);
 				return Avm1ValueTypes.originalUndefined;
 			}
 		}
@@ -1164,7 +1210,6 @@ var PinkFie = (function(moduleResults) {
 		Avm1Activation.prototype.runActions = function() {
 			var caches = this.caches;
 			var cLength = caches.length;
-			//console.log(caches);
 			this.pos = 0;
 			while(this.pos < cLength) { 
 				var aScript = caches[this.pos];
@@ -1178,8 +1223,6 @@ var PinkFie = (function(moduleResults) {
 						}
 					}
 				} else {
-					//console.log(aScript);
-					//console.log(Avm1Activation.actionLibrary[aScript.opcode]);
 					return Avm1ValueTypes.originalUndefined;
 				}
 				this.pos = aScript.end;
@@ -1198,33 +1241,33 @@ var PinkFie = (function(moduleResults) {
 		}
 		// SWFv3
 		actionLibrary[0x81] = function(activation, aScript) { // ActionGotoFrame
-			activation.clip.gotoFrame(aScript.frame + 1, true);
+			activation.clip.gotoFrame(activation.context, aScript.frame + 1, true);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x83] = function(activation, aScript) { // ActionGetURL
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x04] = function(activation, aScript) { // ActionNextFrame
-			activation.clip.nextFrame();
+			activation.clip.nextFrame(activation.context);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x05] = function(activation, aScript) { // ActionPreviousFrame
-			activation.clip.prevFrame();
+			activation.clip.prevFrame(activation.context);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x06] = function(activation, aScript) { // ActionPlay
-			activation.clip.play();
+			activation.clip.play(activation.context);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x07] = function(activation, aScript) { // ActionStop
-			activation.clip.stop();
+			activation.clip.stop(activation.context);
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x08] = function(activation, aScript) { // ActionToggleQuality
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x09] = function(activation, aScript) { // ActionStopSounds
-			activation.avm1.movieplayer.stopAllSounds();
+			activation.context.stopAllSounds();
 			return [Avm1FrameControl.continue];
 		}
 		actionLibrary[0x8A] = function(activation, aScript) { // ActionWaitForFrame
@@ -1267,7 +1310,7 @@ var PinkFie = (function(moduleResults) {
 							activation.push([Avm1ValueTypes.String, activation.constantPool[result]]);
 						} else {
 							activation.push(Avm1ValueTypes.originalUndefined);
-							console.log("ActionPush: constantPool missing: " + result);
+							log.error("ActionPush: constantPool missing: " + result);
 						}
 						break;
 					case 4:
@@ -1335,7 +1378,7 @@ var PinkFie = (function(moduleResults) {
 		}
 		actionLibrary[0x18] = function(activation, aScript) { // ActionToInteger
 			let value = activation.pop();
-			let result = activation.avm1.valueToI32(value);
+			let result = activation.context.avm1.valueToI32(value);
 			activation.push([Avm1ValueTypes.Number, result]);
 			return [Avm1FrameControl.continue];
 		}
@@ -1414,7 +1457,7 @@ var PinkFie = (function(moduleResults) {
 		
 		}
 		actionLibrary[0x30] = function(activation, aScript) { // ActionRandomNumber
-			let max = activation.avm1.valueToF64(activation.pop());
+			let max = activation.context.avm1.valueToF64(activation.pop());
 			let result = (max > 0) ? (Math.random() * max) : 0;
 			activation.push([Avm1ValueTypes.Number, result]);
 			return [Avm1FrameControl.continue];
@@ -1626,7 +1669,7 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Avm1Activation;
 	},
-	"src/avm1/Object.js": function(wpjsm){
+	"./src/avm1/Object.js": function(wpjsm) {
 		class Avm1Object {
 			constructor(scriptObject) {
 				this.scriptObject = scriptObject;
@@ -1643,7 +1686,7 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Avm1Object;
 	},
-	"src/avm1/Property.js": function(wpjsm){
+	"./src/avm1/Property.js": function(wpjsm) {
 
 		class Avm1Property {
 			constructor() {
@@ -1665,7 +1708,7 @@ var PinkFie = (function(moduleResults) {
 		
 		wpjsm.exportJS = Avm1Property;
 	},
-	"src/avm1/ValueTypes.js": function(wpjsm){
+	"./src/avm1/ValueTypes.js": function(wpjsm) {
 		const originalUndefined = [0];
 		const originalNull = [1];
 		
@@ -1685,14 +1728,16 @@ var PinkFie = (function(moduleResults) {
 		
 		wpjsm.exportJS = Types;
 	},
-	"src/display_objects/InteractiveObject.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
+	"./src/display_objects/InteractiveObject.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
 		
 		class InteractiveObject extends DisplayObject {
 			constructor() {
 				super();
-				this.displayType = "InteractiveObject";
 				this._mouseEnabled = true;
+			}
+			get displayType() {
+				return "InteractiveObject";
 			}
 			isInteractive() {
 				return true;
@@ -1701,17 +1746,14 @@ var PinkFie = (function(moduleResults) {
 		
 		wpjsm.exportJS = InteractiveObject;
 	},
-	"src/display_objects/DisplayObjectContainer.js": function(wpjsm){
-		const InteractiveObject = wpjsm.importJS("src/display_objects/InteractiveObject.js");
-		
-		class DisplayObjectContainer extends InteractiveObject {
+	"./src/display_objects/DisplayObjectContainer.js": function(wpjsm) {
+		const InteractiveObject = wpjsm.importJS("./src/display_objects/InteractiveObject.js");
+
+		class ChildContainer {
 			constructor() {
-				super();
-				this.displayType = "Container";
 				this.renderList = [];
 				this.depthList = [];
 			}
-			// renderList
 			numChildren() {
 				return this.renderList.length;
 			}
@@ -1741,18 +1783,35 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 			}
-			isContainer() {
-				return true;
+			removeChildFromDepthList(child) {
+				let depth = child.getDepth();
+				delete this.depthList[depth];
+			}
+			removeChildFromRenderList(child, context) {
+				let rs = this.renderList.indexOf(child);
+				if (rs >= 0) {
+					this.removeId(rs);
+				} else {
+					console.log(child);
+				}
+			}
+			getDepth(depth) {
+				return this.depthList[depth];
+			}
+			insertChildIntoDepthList(depth, child) {
+				let r = this.depthList[depth];
+				this.depthList[depth] = child;
+				return r;
 			}
 			replaceAtDepth(depth, child) {
-				var prevChild = this.insertChildIntoDepthList(depth, child);
+				let prevChild = this.insertChildIntoDepthList(depth, child);
 				if (prevChild) {
 					console.log(prevChild);
 				}
-				var aboveChild = null;
+				let aboveChild = null;
 				for (let i = 0; i < this.depthList.length; i++) {
 					const c = this.depthList[i];
-					if (c && (i !== depth)) {
+					if (c && i !== depth) {
 						if (i > depth) {
 							aboveChild = c;
 							break;
@@ -1760,7 +1819,7 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 				if (aboveChild) {
-					var rs = this.renderList.indexOf(aboveChild);
+					let rs = this.renderList.indexOf(aboveChild);
 					if (rs >= 0) {
 						this.insertId(rs, child);
 					} else {
@@ -1770,41 +1829,44 @@ var PinkFie = (function(moduleResults) {
 					this.pushId(child);
 				}
 			}
-			childByDepth(depth) {
-				return this.depthListGetDepth(depth);
-			}
-			removeChild(child) {
-				this.removeChildDirectly(child);
-			}
-			removeChildDirectly(child) {
-				// Remove the child from the depth list, before moving it to a negative depth
-				this.removeChildFromDepthList(child);
-				this.removeChildFromRenderList(child);
+		}
 		
-				child.avm1Unload();
+		class DisplayObjectContainer extends InteractiveObject {
+			constructor() {
+				super();
+				this.container = new ChildContainer();
 			}
-			removeChildFromDepthList(child) {
-				let depth = child.getDepth();
-				delete this.depthList[depth];
+			get displayType() {
+				return "Container";
 			}
-			removeChildFromRenderList(child) {
-				var rs = this.renderList.indexOf(child);
-				if (rs >= 0) {
-					this.removeId(rs);
-				} else {
-					console.log(child);
-				}
+			// renderList
+			numChildren() {
+				return this.container.numChildren();
 			}
-			insertChildIntoDepthList(depth, child) {
-				var r = this.depthList[depth];
-				this.depthList[depth] = child;
-				return r;
+			isContainer() {
+				return true;
 			}
-			depthListGetDepth(depth) {
-				return this.depthList[depth];
+			replaceAtDepth(context, depth, child) {
+				let rawContainer = this.container;
+				rawContainer.replaceAtDepth(depth, child);
+			}
+			childByDepth(depth) {
+				return this.container.getDepth(depth);
+			}
+			removeChild(context, child) {
+				this.removeChildDirectly(context, child);
+			}
+			removeChildDirectly(context, child) {
+				let rawContainer = this.container;
+
+				// Remove the child from the depth list, before moving it to a negative depth
+				rawContainer.removeChildFromDepthList(child);
+				rawContainer.removeChildFromRenderList(child, context);
+		
+				child.avm1Unload(context);
 			}
 			iterRenderList() {
-				return this.renderList.slice(0);
+				return this.container.renderList.slice(0);
 			}
 			updatePendingRemovals() {
 				var chs = this.iterRenderList();
@@ -1839,13 +1901,13 @@ var PinkFie = (function(moduleResults) {
 				return { xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax };
 			}
 			/// Renders the children of this container in render list order.
-			renderChildren() {
+			renderChildren(context) {
 				let clipDepth = 0;
 				let clipDepthStack = [];
 
 				var children = this.iterRenderList();
 
-				var renderer = this.movieplayer.renderer;
+				var renderer = context.renderer;
 
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i];
@@ -1854,146 +1916,142 @@ var PinkFie = (function(moduleResults) {
 						let [prevClipDepth, clipChild] = clipDepthStack.pop();
 						clipDepth = prevClipDepth;
 						renderer.deactivateMask();
-						clipChild.render();
+						clipChild.render(context);
 						renderer.popMask();
 					}
 					if (child.clipDepth > 0) {
 						clipDepthStack.push([clipDepth, child]);
 						clipDepth = child.clipDepth;
 						renderer.pushMask();
-						child.render();
+						child.render(context);
 						renderer.activateMask();
 					} else if (child.getVisible() || renderer.drawingMask()) {
-						child.render();
+						child.render(context);
 					}
 				}
 				for (let j = clipDepthStack.length - 1; j >= 0; j--) {
 					renderer.deactivateMask();
-					clipDepthStack[j][1].render();
+					clipDepthStack[j][1].render(context);
 					renderer.popMask();
 				}
 			}
-			debugRender(ctx) {
-				this.movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
+			debugRender(movieplayer) {
+				var renderer = movieplayer.renderer;
+				movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(movieplayer.useLastBound), this.getRenderColorTransform(movieplayer.useLastBound));
 				var children = this.iterRenderList();
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i];
 					if (child.getVisible()) {
-						child.debugRender(ctx);
+						child.debugRender(movieplayer);
 					}
 				}
 				if (!this.isRoot()) {
 					var b = this.selfBounds();
-					if (this.movieplayer.useLastBound) {
-						this.debugSetLastBound(false, b);
+					if (movieplayer.useLastBound) {
+						this.debugSetLastBound(movieplayer, false, b);
 						b = this._debug_boundsLast;
 					}
-					var bm = this.boundsMatrix(b, this.movieplayer.debugTransformStack.getMatrix());
+					var bm = this.boundsMatrix(b, movieplayer.debugTransformStack.getMatrix());
 					var coll = this._debug_colorDisplayType;
-					this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], this.movieplayer.debugTransformStack.getColorTransform());
-					this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
-					this.movieplayer.drawTextW(bm.xMin, bm.yMin - (28 * this.movieplayer.getScaleBoundsText()), (0.25 * this.movieplayer.getScaleBoundsText()), this.getDisplayName());
-					this.movieplayer.transformStack.stackPop();
-					this.movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 100, 0, 0, (bm.yMax - bm.yMin) / 100, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
-					ctx.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
-					ctx.setTransform(...this.movieplayer.transformStack.getMatrix());
-					ctx.renderShape(this.movieplayer.debugRectLineShapeRender);
-					this.movieplayer.transformStack.stackPop();
-					this.movieplayer.transformStack.stackPop();
+					movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], movieplayer.debugTransformStack.getColorTransform());
+					movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
+					movieplayer.drawTextW(bm.xMin, bm.yMin - (320 * movieplayer.getScaleBoundsText()), (0.25 * movieplayer.getScaleBoundsText()), this.getDisplayName());
+					movieplayer.transformStack.stackPop();
+					movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 2000, 0, 0, (bm.yMax - bm.yMin) / 2000, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
+					renderer.renderShape(movieplayer.debugRectLineShapeRender, movieplayer.transformStack.getMatrix(), movieplayer.transformStack.getColorTransform());
+					movieplayer.transformStack.stackPop();
+					movieplayer.transformStack.stackPop();
 				}
-				this.movieplayer.debugTransformStack.stackPop();
-			}
-			takeHitButton(x, y) {
-				this.movieplayer.buttomTransformStack.stackPush(this.getMatrix(), [1, 1, 1, 1, 0, 0, 0, 0]);
-				var children = this.iterRenderList();
-				for (let i = 0; i < children.length; i++) {
-					const child = children[i];
-					child.takeHitButton(x, y);
-				}
-				this.movieplayer.buttomTransformStack.stackPop();
+				movieplayer.debugTransformStack.stackPop();
 			}
 		}
 		
 		wpjsm.exportJS = DisplayObjectContainer;
 	},
-	"src/display_objects/Shape.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
-		const shapeUtils = wpjsm.importJS("src/utils/shapeUtils.js");
+	"./src/display_objects/Shape.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
+		const shapeUtils = wpjsm.importJS("./src/utils/shapeUtils.js");
+		const matrixUtils = wpjsm.importJS("./src/utils/matrixUtils.js");
 		
 		class Shape extends DisplayObject {
 			constructor() {
 				super();
 				this.shapeData = null;
-				this.displayType = "Shape";
-				this._debug_colorDisplayType = [0, 0, 255, 1];
 			}
-			static createNew(movieplayer) {
-				var shape = new Shape();
-				shape.movieplayer = movieplayer;
-				return shape;
+			get displayType() {
+				return "Shape";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new ShapeData(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [0, 0, 255, 1];
+			}
+			static fromSwfTag(movie, tag) {
+				return new ShapeData(movie, tag);
+			}
+			getId() {
+				return this.shapeData.characterId;
 			}
 			init(shapeData) {
 				if (!shapeData) return;
-				this.setId(shapeData.characterId);
 				this.shapeData = shapeData;
 			}
-			replaceWith(characterId) {
-				this.init(this.movieplayer.library.characterById(characterId));
+			replaceWith(context, characterId) {
+				var movie = this.getMovie();
+				this.init(movie.library.characterById(characterId));
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.movieplayer.avm1.addExecuteList(this);
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				context.avm1.addExecuteList(this);
 			}
-			runFrameAvm1() {
+			runFrameAvm1(context) {
 				// Noop
 			}
 			selfBounds() {
-				var r = this.shapeData.bounds;
-				return r;
+				return this.shapeData.bounds;
 			}
-			renderSelf() {
-				this.shapeData.render();
+			getMovie() {
+				return this.shapeData.movie;
+			}
+			hitTestShape(_context, point, options) {
+				var _m = this.globalToLocalMatrix();
+				var data = this.shapeData.data;
+				return shapeUtils.shapeHitTest(data, matrixUtils.generateMatrix(point, _m), _m);
+			}
+			renderSelf(context) {
+				var renderer = context.renderer;
+				var m2 = context.transformStack.getMatrix();
+				var rColorTransform = context.transformStack.getColorTransform();
+				var shapeRender = this.shapeData.getShape(context);
+				renderer.renderShape(shapeRender, m2, rColorTransform);
 			}
 		}
 		
-		
 		class ShapeData {
-			constructor(movieplayer, data) {
+			constructor(movie, data) {
 				this.displayType = "shape";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.data = data;
 				this.characterId = data.id;
 				this.bounds = data.bounds;
 				this.shapeRender = null;
 			}
-			getShape() {
+			getShape(context) {
 				if (!this.shapeRender) {
-					var resultShape = shapeUtils.convert(this.data.shapes, "shape");
-					this.shapeRender = this.movieplayer.registerShape(resultShape);
+					var resultShape = shapeUtils.shapeToRendererInfo(shapeUtils.convert(this.data, "shape"));
+					this.shapeRender = context.renderer.shapeToInterval(resultShape, this.movie.library);
 				}
 				return this.shapeRender;
 			}
-			getCache() {
-			}
 			instantiate() {
-				var shape = Shape.createNew(this.movieplayer);
+				var shape = new Shape();
 				shape.init(this);
 				return shape;
-			}
-			render() {
-				var m2 = this.movieplayer.transformStack.getMatrix();
-				var rColorTransform = this.movieplayer.transformStack.getColorTransform();
-				this.movieplayer.renderShape(this.getShape(), m2, rColorTransform);
 			}
 		}
 		
 		wpjsm.exportJS = Shape;
 	},
-	"src/display_objects/MorphShape.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
-		const shapeUtils = wpjsm.importJS("src/utils/shapeUtils.js");
+	"./src/display_objects/MorphShape.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
+		const shapeUtils = wpjsm.importJS("./src/utils/shapeUtils.js");
 		
 		function cloneObject(src) {
 			return JSON.parse(JSON.stringify(src));
@@ -2004,26 +2062,31 @@ var PinkFie = (function(moduleResults) {
 				super();
 				this.morphShapeData = null;
 				this.ratio = 0;
-				this.displayType = "MorphShape";
-				this._debug_colorDisplayType = [0, 255, 255, 1];
 			}
-			static createNew(movieplayer) {
-				var shape = new MorphShape();
-				shape.movieplayer = movieplayer;
-				return shape;
+			get displayType() {
+				return "MorphShape";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new MorphShapeStatic(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [0, 255, 255, 1];
+			}
+			static fromSwfTag(movie, tag) {
+				return new MorphShapeStatic(movie, tag);
+			}
+			getId() {
+				return this.morphShapeData.characterId;
 			}
 			init(morphShapeData) {
 				if (!morphShapeData) return;
-				this.setId(morphShapeData.characterId);
 				this.morphShapeData = morphShapeData;
 			}
-			replaceWith(characterId) {
-				this.init(this.movieplayer.library.characterById(characterId));
+			getMovie() {
+				return this.morphShapeData.movie;
 			}
-			runFrameAvm1() {
+			replaceWith(context, characterId) {
+				var movie = this.getMovie();
+				this.init(movie.library.characterById(characterId));
+			}
+			runFrameAvm1(context) {
 				// Noop
 			}
 			setRatio(ratio) {
@@ -2033,37 +2096,36 @@ var PinkFie = (function(moduleResults) {
 				var frame = this.morphShapeData.getFrame(this.ratio);
 				return frame.bounds;
 			}
-			renderSelf() {
-				this.morphShapeData.render(this.ratio);
+			renderSelf(context) {
+				var ratio = this.ratio;
+				var renderer = context.renderer;
+				var m2 = context.transformStack.getMatrix();
+				var rColorTransform = context.transformStack.getColorTransform();
+				var renderShape = this.morphShapeData.getShape(context, ratio);
+				renderer.renderShape(renderShape, m2, rColorTransform);
 			}
 		}
 		
 		class MorphShapeStatic {
-			constructor(movieplayer, data) {
+			constructor(movie, data) {
 				this.displayType = "morphshape";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.data = data;
 				this.characterId = data.id;
 				this.morphCaches = [];
 			}
-			getShape(ratio) {
+			getShape(context, ratio) {
 				var frame = this.getFrame(ratio);
 				if (!frame.shapeRender) {
-					var resultCache = shapeUtils.convert(frame.shape, "morphshape");
-					frame.shapeRender = this.movieplayer.registerShape(resultCache);
+					var resultCache = shapeUtils.shapeToRendererInfo(shapeUtils.convert(frame.shape, "morphshape"));
+					frame.shapeRender = context.renderer.shapeToInterval(resultCache, this.movie);
 				}
 				return frame.shapeRender;
 			}
 			instantiate() {
-				var shape = MorphShape.createNew(this.movieplayer);
+				var shape = new MorphShape();
 				shape.init(this);
 				return shape;
-			}
-			render(ratio) {
-				var m2 = this.movieplayer.transformStack.getMatrix();
-				var rColorTransform = this.movieplayer.transformStack.getColorTransform();
-				var renderShape = this.getShape(ratio);
-				this.movieplayer.renderShape(renderShape, m2, rColorTransform);
 			}
 			getFrame(ratio) {
 				if (!this.morphCaches[ratio]) {
@@ -2117,20 +2179,14 @@ var PinkFie = (function(moduleResults) {
 						};
 					} else {
 						var gradient = fillStyle.gradient;
-						if (!gradient) {
-							gradient = fillStyle.linearGradient;
-						}
-						if (!gradient) {
-							gradient = fillStyle.radialGradient;
-						}
 						var focalPoint = 0;
 						if (fillStyleType == 19) {
 							focalPoint = this.lerpTwips(fillStyle.startFocalPoint, fillStyle.endFocalPoint, per);
 						}
 						var gRecords = [];
-						var GradientRecords = gradient.gradientRecords;
-						for (var gIdx = 0; gIdx < GradientRecords.length; gIdx++) {
-							var gRecord = GradientRecords[gIdx];
+						var records = gradient.records;
+						for (var gIdx = 0; gIdx < records.length; gIdx++) {
+							var gRecord = records[gIdx];
 							gRecords[gIdx] = {
 								color: this.lerpColor(gRecord.startColor, gRecord.endColor, per),
 								ratio: this.lerpTwips(gRecord.startRatio, gRecord.endRatio, per)
@@ -2139,7 +2195,7 @@ var PinkFie = (function(moduleResults) {
 						return {
 							gradient: {
 								matrix: this.lerpMatrix(gradient.startMatrix, gradient.endMatrix, per),
-								gradientRecords: gRecords,
+								records: gRecords,
 								spreadMode: gradient.spreadMode,
 								interpolationMode: gradient.interpolationMode
 							},
@@ -2396,106 +2452,132 @@ var PinkFie = (function(moduleResults) {
 				};
 			}
 		}
-		
+
 		wpjsm.exportJS = MorphShape;
 	},
-	"src/display_objects/StaticText.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
+	"./src/display_objects/StaticText.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
+		const matrixUtils = wpjsm.importJS("./src/utils/matrixUtils.js");
+		const shapeUtils = wpjsm.importJS("./src/utils/shapeUtils.js");
 		
 		class StaticText extends DisplayObject {
 			constructor() {
 				super();
 				this.staticData = null;
-				this.displayType = "StaticText";
-				this._debug_colorDisplayType = [255, 0, 255, 1];
 			}
-			static createNew(movieplayer) {
-				var d = new StaticText();
-				d.movieplayer = movieplayer;
-				return d;
+			get displayType() {
+				return "StaticText";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new TextStatic(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [255, 0, 255, 1];
+			}
+			static fromSwfTag(movie, tag) {
+				return new TextStatic(movie, tag);
+			}
+			getId() {
+				return this.staticData.characterId;
 			}
 			init(textData) {
 				if (!textData) return;
 				this.staticData = textData;
-				this.setId(textData.characterId);
 			}
-			replaceWith(characterId) {
-				this.init(this.movieplayer.library.characterById(characterId));
+			replaceWith(context, characterId) {
+				var movie = this.getMovie();
+				this.init(movie.library.characterById(characterId));
 			}
-			runFrameAvm1() {
+			runFrameAvm1(context) {
 				// Noop
 			}
-			selfBounds() {
-				var r = this.staticData.bounds;
-				return r;
+			getMovie() {
+				return this.staticData.movie;
 			}
-			renderSelf() {
-				var renderer = this.movieplayer.renderer;
-		
-				var offsetX = 0;
-				var offsetY = 0;
+			selfBounds() {
+				return this.staticData.bounds;
+			}
+			renderSelf(context) {
+				var movie = this.getMovie();
+				var renderer = context.renderer;
 				var color = [0, 0, 0, 0];
 				var textHeight = 0;
-				var isZoneTable = false;
-				this.movieplayer.transformStack.stackPush(this.staticData.matrix, [1, 1, 1, 1, 0, 0, 0, 0]);
-				for (var i = 0; i < this.staticData.textBlocks.length; i++) {
-					var record = this.staticData.textBlocks[i];
-					if ("fontId" in record) {
-						var fontId = record.fontId;
-						var fontData = this.movieplayer.library.characterById(fontId);
-						isZoneTable = false;
-						if ("alignZones" in fontData) {
-							isZoneTable = true;
-						}
-					}
-					if ("XOffset" in record) {
-						offsetX = record.XOffset;
-					}
-					if ("YOffset" in record) {
-						offsetY = record.YOffset;
-					}
-					if ("textColor" in record) {
-						color = record.textColor;
-					}
-					if ("textHeight" in record) {
-						textHeight = record.textHeight;
-						if (isZoneTable) {
-							textHeight /= 20;
-						}
-					}
-					var entries = record.glyphEntries;
-					var _scale = textHeight / 1024;
-					for (var idx = 0; idx < entries.length; idx++) {
-						var entry = entries[idx];
-						var glyph = fontData.getGlyph(entry.index);
-						if (glyph) {
-							var shapeRender = glyph.shapeHandle;
-							if (shapeRender) {
-								var _matrix = [_scale, 0, 0, _scale, offsetX, offsetY];
-								this.movieplayer.transformStack.stackPush(_matrix, [color[0] / 255, color[1] / 255, color[2] / 255, color[3], 0, 0, 0, 0]);
-								var m2 = this.movieplayer.transformStack.getMatrix();
-								var colorTransform = this.movieplayer.transformStack.getColorTransform();
-								renderer.setColorTransform(...colorTransform);
-								renderer.setTransform(...m2);
-								renderer.renderShape(shapeRender);
-								this.movieplayer.transformStack.stackPop();
-								offsetX += entry.advance;
+				var fontData = null;
+				context.transformStack.stackPush(this.staticData.matrix, [1, 1, 1, 1, 0, 0, 0, 0]);
+				var glyphMatrix = [1, 0, 0, 1, 0, 0];
+				var textBlocks = this.staticData.textBlocks;
+				for (var i = 0; i < textBlocks.length; i++) {
+					var record = textBlocks[i];
+					if ("fontId" in record) fontData = movie.library.characterById(record.fontId);
+					if ("x" in record) glyphMatrix[4] = record.x;
+					if ("y" in record) glyphMatrix[5] = record.y;
+					if ("textColor" in record) color = record.textColor;
+					if ("textHeight" in record) textHeight = record.textHeight;
+					var entries = record.entries;
+					if (fontData) {
+						var _scale = textHeight / fontData.scale;
+						glyphMatrix[0] = _scale;
+						glyphMatrix[3] = _scale;
+						for (var idx = 0; idx < entries.length; idx++) {
+							var entry = entries[idx];
+							var glyph = fontData.getGlyph(entry.index);
+							if (glyph) {
+								var shapeRender = glyph.getShapeHandle(renderer);
+								if (shapeRender) {
+									context.transformStack.stackPush(glyphMatrix, [color[0] / 255, color[1] / 255, color[2] / 255, color[3], 0, 0, 0, 0]);
+									var m2 = context.transformStack.getMatrix();
+									var colorTransform = context.transformStack.getColorTransform();
+									renderer.renderShape(shapeRender, m2, colorTransform);
+									context.transformStack.stackPop();
+									glyphMatrix[4] += entry.advance;
+								}
 							}
 						}
 					}
 				}
-				this.movieplayer.transformStack.stackPop();
+				context.transformStack.stackPop();
+			}
+			hitTestShape(context, point, _) {
+				var movie = this.getMovie();
+				var localMatrix = this.globalToLocalMatrix();
+				var textMatrix = matrixUtils.invertMatrix(this.staticData.matrix);
+				var _point = matrixUtils.generateMatrix(point, matrixUtils.multiplicationMatrix(textMatrix, localMatrix));
+				var fontData = null;
+				var textHeight = 0;
+				var glyphMatrix = [1, 0, 0, 1, 0, 0];
+				var textBlocks = this.staticData.textBlocks;
+				for (var i = 0; i < textBlocks.length; i++) {
+					var record = textBlocks[i];
+					if ("fontId" in record) fontData = movie.library.characterById(record.fontId);
+					if ("x" in record) glyphMatrix[4] = record.x;
+					if ("y" in record) glyphMatrix[5] = record.y;
+					if ("textHeight" in record) textHeight = record.textHeight;
+					var entries = record.entries;
+					if (fontData) {
+						var _scale = textHeight / fontData.scale;
+						glyphMatrix[0] = _scale;
+						glyphMatrix[3] = _scale;
+						for (var idx = 0; idx < entries.length; idx++) {
+							var entry = entries[idx];
+							var glyph = fontData.getGlyph(entry.index);
+							if (glyph) {
+								var commands = glyph.commands;
+								var matrix = matrixUtils.invertMatrix(glyphMatrix);
+								var __point = matrixUtils.generateMatrix(_point, matrix);
+								if (shapeUtils.drawCommandFillHitTest(commands, matrixUtils.generateMatrix(__point, localMatrix))) {
+									return true;
+								}
+								glyphMatrix[4] += entry.advance;
+							}
+						}	
+					}
+				}
+				return false;
 			}
 		}
 		
 		class TextStatic {
-			constructor(movieplayer, data) {
+			constructor(movie, data) {
 				this.displayType = "text";
 		
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.data = data;
 				this.characterId = data.id;
 				this.settings = null;
@@ -2515,7 +2597,7 @@ var PinkFie = (function(moduleResults) {
 				this.settings = settings;
 			}
 			instantiate() {
-				var d = StaticText.createNew(this.movieplayer);
+				var d = new StaticText();
 				d.init(this);
 				return d;
 			}
@@ -2523,111 +2605,113 @@ var PinkFie = (function(moduleResults) {
 		
 		wpjsm.exportJS = StaticText;
 	},
-	"src/display_objects/TextField.js": function(wpjsm){
-		const InteractiveObject = wpjsm.importJS("src/display_objects/InteractiveObject.js");
+	"./src/display_objects/TextField.js": function(wpjsm) {
+		const TextFormat = wpjsm.importJS("./src/html/TextFormat.js");
+		const FormatSpans = wpjsm.importJS("./src/html/FormatSpans.js");
+		const InteractiveObject = wpjsm.importJS("./src/display_objects/InteractiveObject.js");
 		
 		class TextField extends InteractiveObject {
 			constructor() {
 				super();
-				this.displayType = "TextField";
-				this._debug_colorDisplayType = [255, 255, 0, 1];
 				this.text_bounds = { xMin: 0, yMin: 0, yMax: 0, xMax: 0 };
-				this.is_html = false;
-				this.text_html = "";
-				this.textColor = [0, 0, 0, 1];
-				this.fontHeight = 0;
-				this.fontId = -1;
 				this.__backgroundColor = [255, 255, 255, 1];
 				this.__border_color = [0, 0, 0, 1];
+				this.__text = "";
+				this.textColor = [0, 0, 0, 1];
+				this.fontHeight = 0;
+				this.staticData = null;
 				this.HAS_BACKGROUND = false;
 			}
-			static createNew(movieplayer) {
-				var t = new TextField();
-				t.movieplayer = movieplayer;
-				return t;
+			get displayType() {
+				return "TextField";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new EditTextStatic(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [255, 255, 0, 1];
 			}
-			init(textInfo) {
-				this.setId(textInfo.id);
+			static fromSwfTag(movie, tag) {
+				var defaultFormat = TextFormat.fromSwfTag(movie, tag);
+
+				var text = ("initialText" in tag) ? tag.initialText : "";
+				
+				//var text_spans = tag.HTML ? FormatSpans.fromHTML(text, default_format, false, movie.getVersion()) : FormatSpans.fromText(text, default_format);
+
+				var r = new EditTextStatic(movie);
+				r.data = tag;
+				r.characterId = tag.id;
+				r.textFormat = defaultFormat;
+				return r;
+			}
+			getMovie() {
+				return this.staticData.movie;
+			}
+			getId() {
+				return this.staticData.characterId;
+			}
+			init(sd) {
+				this.staticData = sd;
+				var textInfo = sd.data;
 				this.text_bounds = textInfo.bounds;
-				this.fontHeight = textInfo.fontHeight || 0;
-				this.is_html = !!textInfo.HTML;
-				if (this.is_html) {
-				}
-				if ("initialText" in textInfo) {
-					if (!this.is_html) {
-						this.text_html = ("" + textInfo.initialText);
-					} else {
-						this.text_html = "TextField";
-					}
-				}
-				if ("textColor" in textInfo) {
-					this.textColor = textInfo.textColor;
-				}
-				if ("fontId" in textInfo) {
-					this.fontId = textInfo.fontId;
-				}
-				if (textInfo.border) {
-					this.HAS_BACKGROUND = true;
-				}
+				if (textInfo.border) this.HAS_BACKGROUND = true;
+				this.__text = ("initialText" in textInfo) ? textInfo.initialText : "";
+				if (textInfo.HTML) this.__text = "";
+				if ("fontHeight" in textInfo) this.fontHeight = textInfo.fontHeight;
+				if ("textColor" in textInfo) this.textColor = textInfo.textColor.slice(0);
 			}
 			selfBounds() {
 				return this.text_bounds;
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.setDefaultInstanceName();
-				this.movieplayer.avm1.addExecuteList(this);
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				this.setDefaultInstanceName(context);
+				context.avm1.addExecuteList(this);
 			}
-			runFrameAvm1() {
+			runFrameAvm1(context) {
 				// Noop
 			}
-			renderSelf() {
-				var renderer = this.movieplayer.renderer;
-				var b = this.selfBounds();
-				var color = this.textColor;
-				if (this.HAS_BACKGROUND) {
-					var bgcolor = this.__backgroundColor;
-					this.movieplayer.transformStack.stackPush([(b.xMax - b.xMin), 0, 0, (b.yMax - b.yMin), b.xMin, b.yMin], [bgcolor[0] / 255, bgcolor[1] / 255, bgcolor[2] / 255, bgcolor[3], 0, 0, 0, 0]);
-					renderer.setTransform(...this.movieplayer.transformStack.getMatrix());
-					renderer.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
-					renderer.renderShape(this.movieplayer.backgroundShapeRender);
-					this.movieplayer.transformStack.stackPop();
+			renderSelf(context) {
+				var font = context.library.deviceFont;
+				var sc = this.fontHeight / font.scale;
+				var xMin = this.text_bounds.xMin;
+				var yMin = this.text_bounds.yMin;
+				var lists = this.__text.split("\r");
+				var x = xMin;
+				var y = yMin;
+				for (let i = 0; i < lists.length; i++) {
+					y += (font.ascent * sc);
+					const element = lists[i];
+					this.renderText(context, font, element, x, y);
 				}
-				var resText = this.text_html;
-				var textArray = [];
-				textArray.push('');
-				for (let i = 0; i < resText.length; i++) {
-					const t = resText[i];
-					if ((t == "\r") || (t == "\n")) {
-						textArray.push('');
-					} else {
-						var lt = textArray[textArray.length - 1];
-						textArray[textArray.length - 1] = (lt + t);
+			}
+			renderText(context, font, text, x, y) {
+				var renderer = context.renderer;
+				var rrr = 0;
+				var sc = this.fontHeight / font.scale;
+				context.transformStack.stackPush([1, 0, 0, 1, 0, 0], [this.textColor[0] / 255, this.textColor[1] / 255, this.textColor[2] / 255, this.textColor[3], 0, 0, 0, 0]);
+				for (var i = 0; i < text.length; i++) {
+					var glyph = font.getGlyphForChar(text.charCodeAt(i));
+					if (glyph) {
+						var shapeHandle = glyph.getShapeHandle(renderer);
+						context.transformStack.stackPush([sc, 0, 0, sc, x + rrr, y], [1, 1, 1, 1, 0, 0, 0, 0]);
+						renderer.renderShape(shapeHandle, context.transformStack.getMatrix(), context.transformStack.getColorTransform());
+						context.transformStack.stackPop();
+						rrr += glyph.advance * sc;
 					}
 				}
-				var scale = this.fontHeight / 1024;
-				for (let f = 0; f < textArray.length; f++) {
-					const gd = textArray[f];
-					this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [color[0] / 255, color[1] / 255, color[2] / 255, color[3], 0, 0, 0, 0]);
-					this.movieplayer.drawTextW(scale * b.xMin, scale * (f * (800 + (20 * 20))), scale * 20, gd);
-					this.movieplayer.transformStack.stackPop();
-				}
+				context.transformStack.stackPop();
 			}
 		}
 		
 		class EditTextStatic {
-			constructor(movieplayer, data) {
+			constructor(movie) {
 				this.displayType = "edittext";
-				this.movieplayer = movieplayer;
-				this.data = data;
-				this.characterId = data.id;
+				this.movie = movie;
+				this.data = null;
+				this.characterId = 0;
+				this.textFormat = null;
 				this.settings = null;
 			}
 			instantiate() {
-				var t = TextField.createNew(this.movieplayer);
-				t.init(this.data);
+				var t = new TextField();
+				t.init(this);
 				return t;
 			}
 			setRenderSettings(settings) {
@@ -2637,11 +2721,12 @@ var PinkFie = (function(moduleResults) {
 		
 		wpjsm.exportJS = TextField;
 	},
-	"src/display_objects/VideoDisplay.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
-		const ZLib = wpjsm.importJS("src/utils/ZLib.js");
-		const AT_H263_Decoder = wpjsm.importJS("src/utils/at-h263-decoder.js");
-		const AT_NIHAV_VP6_Decoder = wpjsm.importJS("src/utils/at-nihav-vp6-decoder.js");
+	"./src/display_objects/VideoDisplay.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
+		const ZLib = wpjsm.importJS("./src/utils/ZLib.js");
+		const AT_H263_Decoder = wpjsm.importJS("./src/utils/at-h263-decoder.js");
+		const AT_NIHAV_VP6_Decoder = wpjsm.importJS("./src/utils/at-nihav-vp6-decoder.js");
+		const log = wpjsm.importJS("./src/log.js");
 
 		const Bitmap = function(width, height, format, data) {
 			this.width = width;
@@ -2656,8 +2741,8 @@ var PinkFie = (function(moduleResults) {
 				case "yuv420p":
 				case "yuva420p":
 					var isAlpha = this.format == "yuva420p";
-					var chroma_width = (((width + 1) / 2) | 0);
-					var chroma_height = (((height + 1) / 2) | 0);
+					var chroma_width = ((width + 1) / 2) | 0;
+					var chroma_height = ((height + 1) / 2) | 0;
 					var yuv = this.data;
 					var data = new Uint8Array((width * height) * 4);
 					var yOffset = 0;
@@ -2696,7 +2781,7 @@ var PinkFie = (function(moduleResults) {
 			this.deblocking = deblocking;
 		};
 		H263Decoder.prototype.preloadFrame = function (encodedFrame) {
-			var reader = new AT_H263_Decoder.H263Reader(new Uint8Array(encodedFrame.data));
+			var reader = new AT_H263_Decoder.H263Reader(encodedFrame.data);
 			let picture = this.state.parsePicture(reader, null);
 			switch(picture.picture_type.getType()) {
 				case "IFrame":
@@ -2709,7 +2794,7 @@ var PinkFie = (function(moduleResults) {
 			}
 		};
 		H263Decoder.prototype.decodeFrame = function (encodedFrame) {
-			var reader = new AT_H263_Decoder.H263Reader(new Uint8Array(encodedFrame.data));
+			var reader = new AT_H263_Decoder.H263Reader(encodedFrame.data);
 			this.state.decodeNextPicture(reader);
 			var picture = this.state.getLastPicture();
 			let [y, b, r] = picture.as_yuv();
@@ -2722,7 +2807,7 @@ var PinkFie = (function(moduleResults) {
 		};
 
 		const ByteReader = function(data) {
-			this.data = new Uint8Array(data);
+			this.data = data;
 			this.offest = 0;
 		}
 		ByteReader.prototype.readByte = function() {
@@ -2738,7 +2823,7 @@ var PinkFie = (function(moduleResults) {
 		ByteReader.prototype.readBuf = function(length) {
 			if ((this.offest + length) > this.data.length) 
 				throw new Error("Unexpected end of file");
-			var result = this.data.slice(this.offest, this.offest + length);
+			var result = this.data.subarray(this.offest, this.offest + length);
 			this.offest += length;
 			return result;
 		}
@@ -2802,7 +2887,7 @@ var PinkFie = (function(moduleResults) {
 				for (let xc = 0; xc < this.w; xc += this.blockW) {
 					let cur_w = Math.min((this.w - xc), this.blockW);
 					var dataSize = byte_input.readUint16be();
-					if (dataSize > 0) this.fillBlock(rgba, new Uint8Array(ZLib.decompress(byte_input.readBuf(dataSize).buffer, (cur_w * cur_h) * 3)), xc, (this.h - yc) - cur_h, cur_w, cur_h);
+					if (dataSize > 0) this.fillBlock(rgba, ZLib.decompress(byte_input.readBuf(dataSize), (cur_w * cur_h) * 3), xc, (this.h - yc) - cur_h, cur_w, cur_h);
 					else is_intra = false;
 				}
 			}
@@ -2838,10 +2923,10 @@ var PinkFie = (function(moduleResults) {
 		};
 		VP6Decoder.prototype.preloadFrame = function (encodedFrame) {
 			let flag_index = this.withAlpha ? 3 : 0;
-			return new Uint8Array(encodedFrame.data)[flag_index] & 128;
+			return encodedFrame.data[flag_index] & 128;
 		};
 		VP6Decoder.prototype.decodeFrame = function (encodedFrame) {
-			var videoData = new Uint8Array(encodedFrame.data);
+			var videoData = encodedFrame.data;
 			if (!this.initCalled) {
 				var bool_coder = new AT_NIHAV_VP6_Decoder.BoolCoder(videoData.subarray(this.withAlpha ? 3 : 0));
 				let header = this.bitreader.parseHeader(bool_coder);
@@ -2862,7 +2947,7 @@ var PinkFie = (function(moduleResults) {
 				frame.get_offset(2)
 			];
 			if ((width < this.width) || (height < this.height)) {
-				console.log("A VP6 video frame is smaller than the bounds of the stream it belongs in. This is not supported.");
+				log.warn("A VP6 video frame is smaller than the bounds of the stream it belongs in. This is not supported.");
 			}
 			let y = yuv.subarray(offsets[0], offsets[0] + width * height);
 			let u = yuv.subarray(offsets[1], offsets[1] + chroma_width * chroma_height);
@@ -2916,7 +3001,7 @@ var PinkFie = (function(moduleResults) {
 					decoder = new VP6Decoder(size, true);
 					break;
 				default:
-					console.log("Unsupported video codec type " + codec);
+					log.error("Unsupported video codec type " + codec);
 			}
 			return new VideoStream(decoder);
 		}
@@ -2941,9 +3026,9 @@ var PinkFie = (function(moduleResults) {
 			if (result || !stream.bitmap) {
 				if (stream.bitmap) {
 					handle = stream.bitmap;
-					handle.setImage(imageData);
+					renderer.updateTexture(handle, imageData);
 				} else {
-					handle = renderer.imageToTexture(imageData);
+					handle = renderer.registerBitmap(imageData);
 				}    
 			} else {
 				handle = stream.bitmap;
@@ -2957,8 +3042,6 @@ var PinkFie = (function(moduleResults) {
 				super();
 				this.__size = [0, 0];
 
-				this._ratio = 0;
-
 				this.isInstantiated = false;
 				this._result = 0;
 
@@ -2968,20 +3051,24 @@ var PinkFie = (function(moduleResults) {
 				this.decoded_frame = null;
 
 				this._debug_decoder_time = 0;
-		
-				this._debug_colorDisplayType = [255, 100, 100, 1];
-				this.displayType = "Video";
 			}
-			static createNew(movieplayer) {
-				var v = new VideoDisplay();
-				v.movieplayer = movieplayer;
-				return v;
+			get displayType() {
+				return "Video";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new DefineVideoData(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [255, 100, 100, 1];
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.movieplayer.avm1.addExecuteList(this);
+			static fromSwfTag(movie, tag) {
+				return new DefineVideoData(movie, tag);
+			}
+			getId() {
+				return this.staticData.characterId;
+			}
+			getMovie() {
+				return this.staticData.movie;
+			}
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				context.avm1.addExecuteList(this);
 				var streamdef = this.staticData.data;
 				this.isSmoothed = !!streamdef.isSmoothed;
 				var stream = registerVideoStream(streamdef.numFrames, [streamdef.width, streamdef.height], streamdef.codec, streamdef.codec);
@@ -3001,7 +3088,7 @@ var PinkFie = (function(moduleResults) {
 				var starting_seek = (this.isInstantiated ? 0 : this._result);
 				this.isInstantiated = true;
 				this._result = stream;
-				this.seek(starting_seek);
+				this.seek(context, starting_seek);
 			}
 			selfBounds() {
 				return {
@@ -3012,10 +3099,9 @@ var PinkFie = (function(moduleResults) {
 				};
 			}
 			setRatio(ratio) {
-				this._ratio = ratio;
 				this.seek(ratio);
 			}
-			seek(frame_id) {
+			seek(context, frame_id) {
 				if (!this.isInstantiated) {
 					this._result = frame_id;
 					return;
@@ -3048,11 +3134,11 @@ var PinkFie = (function(moduleResults) {
 				}
 				var fr = sweep_from;
 				while (fr <= frame_id) {
-					this.seek_internal(fr);
+					this.seek_internal(context, fr);
 					fr++;
 				}
 			}
-			seek_internal(frameId) {
+			seek_internal(context, frameId) {
 				if (!this.isInstantiated) return;
 				let stream = this._result;
 				var res;
@@ -3065,10 +3151,10 @@ var PinkFie = (function(moduleResults) {
 					};
 					try {
 						var _ = Date.now();
-						res = decodeVideoStreamFrame(stream, encframe, this.movieplayer.renderer);
+						res = decodeVideoStreamFrame(stream, encframe, context.renderer);
 						this._debug_decoder_time = Date.now() - _;
 					} catch(e) {
-						console.log("Got error when seeking to video frame " + frameId + ":", e);
+						log.error("Got error when seeking to video frame " + frameId + ":", e);
 						return;
 					}
 				} else {
@@ -3084,23 +3170,21 @@ var PinkFie = (function(moduleResults) {
 					return "";
 				}
 			}
-			renderSelf() {
-				var renderer = this.movieplayer.renderer;
-				this.movieplayer.transformStack.stackPush([20, 0, 0, 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+			renderSelf(context) {
+				var renderer = context.renderer;
+				context.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
 				if (this.decoded_frame && this.decoded_frame[1]) {
-					var m2 = this.movieplayer.transformStack.getMatrix();
-					var rColorTransform = this.movieplayer.transformStack.getColorTransform();
-					renderer.setTransform(...m2);
-					renderer.setColorTransform(...rColorTransform);
-					renderer.renderTexture(this.decoded_frame[1], this.isSmoothed);	
+					var m2 = context.transformStack.getMatrix();
+					var rColorTransform = context.transformStack.getColorTransform();
+					renderer.renderBitmap(this.decoded_frame[1], m2, rColorTransform, this.isSmoothed);	
 				}
-				this.movieplayer.transformStack.stackPop();
+				context.transformStack.stackPop();
 			}
 		}
 		class DefineVideoData {
-			constructor(movieplayer, data) {
+			constructor(movie, data) {
 				this.displayType = "video";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.characterId = data.id;
 				this.width = data.width;
 				this.height = data.height;
@@ -3108,41 +3192,40 @@ var PinkFie = (function(moduleResults) {
 				this.frames = [];
 			}
 			instantiate() {
-				var v = VideoDisplay.createNew(this.movieplayer);
+				var v = new VideoDisplay();
 				v.__size[0] = this.width;
 				v.__size[1] = this.height;
 				v.staticData = this;
-				v.setId(this.data.id);
 				return v;
 			}
-			preloadSwfFrame(tag, stage) {
+			preloadSwfFrame(tag) {
 				this.frames[tag.frameNum] = tag.videoData;
 			}
 		}
 		wpjsm.exportJS = VideoDisplay;
 	},
-	"src/display_objects/BitmapGraphic.js": function(wpjsm){
-		const DisplayObject = wpjsm.importJS("src/DisplayObject.js");
+	"./src/display_objects/BitmapGraphic.js": function(wpjsm) {
+		const DisplayObject = wpjsm.importJS("./src/DisplayObject.js");
 		
 		class BitmapGraphic extends DisplayObject {
 			constructor() {
 				super();
-		
-				this._debug_colorDisplayType = [255, 155, 0, 1];
-				this.displayType = "Bitmap";
-		
 				this.staticBitmap = null;
 			}
-			static createStatic(movieplayer, id) {
-				return new BitmapGraphicData(movieplayer, id);
+			get displayType() {
+				return "Bitmap";
 			}
-			static createNew(movieplayer) {
-				var d = new BitmapGraphic();
-				d.movieplayer = movieplayer;
-				return d;
+			get _debug_colorDisplayType() {
+				return [255, 155, 0, 1];
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.movieplayer.avm1.addExecuteList(this);
+			static createStatic(movie, id) {
+				return new BitmapGraphicData(movie, id);
+			}
+			getMovie() {
+				return this.staticBitmap.movie;
+			}
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				context.avm1.addExecuteList(this);
 			}
 			selfBounds() {
 				if (this.staticBitmap) {
@@ -3151,17 +3234,23 @@ var PinkFie = (function(moduleResults) {
 					return DisplayObject.prototype.selfBounds.call(this);
 				}
 			}
-			renderSelf() {
+			renderSelf(context) {
 				if (this.staticBitmap) {
-					this.staticBitmap.render();
+					var renderer = context.renderer;
+					var tex = this.staticBitmap.getTexture(renderer);
+					if (tex) {
+						context.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
+						renderer.renderBitmap(tex, context.transformStack.getMatrix(), context.transformStack.getColorTransform(), false);
+						context.transformStack.stackPop();
+					}
 				}
 			}
 		}
 		
 		class BitmapGraphicData {
-			constructor(movieplayer, id) {
+			constructor(movie, id) {
 				this.displayType = "bitmap";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.characterId = id;
 				this.image = null;
 				this.texture = null;
@@ -3170,13 +3259,13 @@ var PinkFie = (function(moduleResults) {
 				this.image = image;
 			}
 			instantiate() {
-				var d = BitmapGraphic.createNew(this.movieplayer);
+				var d = new BitmapGraphic();
 				d.staticBitmap = this;
 				return d;
 			}
-			getTexture() {
+			getTexture(renderer) {
 				if (!this.texture) {
-					var tex = this.movieplayer.renderer.imageToTexture(this.image);
+					var tex = renderer.registerBitmap(this.image);
 					this.texture = tex;
 				}
 				return this.texture;
@@ -3189,24 +3278,14 @@ var PinkFie = (function(moduleResults) {
 					yMax: this.image.height * 20,
 				};
 			}
-			render() {
-				var tex = this.getTexture();
-				if (tex) {
-					var renderer = this.movieplayer.renderer;
-					this.movieplayer.transformStack.stackPush([20, 0, 0, 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-					renderer.setTransform(...this.movieplayer.transformStack.getMatrix());
-					renderer.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
-					renderer.renderTexture(tex, false);
-					this.movieplayer.transformStack.stackPop();
-				}
-			}
 		}
 		
 		wpjsm.exportJS = BitmapGraphic;
 	},
-	"src/display_objects/Avm1Buttom.js": function(wpjsm){
-		const DisplayObjectContainer = wpjsm.importJS("src/display_objects/DisplayObjectContainer.js");
-		const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
+	"./src/display_objects/Avm1Buttom.js": function(wpjsm) {
+		const DisplayObjectContainer = wpjsm.importJS("./src/display_objects/DisplayObjectContainer.js");
+		const MovieClip = wpjsm.importJS("./src/display_objects/MovieClip.js");
+		const log = wpjsm.importJS("./src/log.js");
 		
 		const typeButton = {
 			"up": "buttonStateUp",
@@ -3229,8 +3308,8 @@ var PinkFie = (function(moduleResults) {
 				this._recordColorTransforms = null;
 				this._state = "";
 				this.__clickflag = false;
-				this.displayType = "Buttom";
-				this._debug_colorDisplayType = [0, 255, 0, 1];
+
+				this.staticData = null;
 		
 				this.___appendclick = false;
 		
@@ -3238,29 +3317,37 @@ var PinkFie = (function(moduleResults) {
 		
 				this.___hitArea = [];
 			}
-			static createNew(movieplayer) {
-				var b = new Avm1Buttom();
-				b.movieplayer = movieplayer;
-				return b;
+			get displayType() {
+				return "Buttom";
 			}
-			static fromSwfTag(movieplayer, tag) {
-				return new ButtonData(movieplayer, tag);
+			get _debug_colorDisplayType() {
+				return [0, 255, 0, 1];
+			}
+			static fromSwfTag(movie, tag) {
+				return new ButtonData(movie, tag);
+			}
+			getMovie() {
+				return this.staticData.movie;
+			}
+			getId() {
+				return this.staticData.characterId;
 			}
 			init(i) {
+				this.staticData = i;
 				this._records = i.data.records;
 				this._soundInfo = i.soundInfo;
 				this._actions = i.actions;
 				this._recordColorTransforms = i.colorTransforms;
-				this.setId(i.characterId);
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.setDefaultInstanceName();
-				this.movieplayer.avm1.addExecuteList(this);
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				this.setDefaultInstanceName(context);
+				context.avm1.addExecuteList(this);
 				if (!this.___object) {
-					this.___object = this.movieplayer.avm1.fromDisplayObject(this);
+					this.___object = context.avm1.fromDisplayObject(this);
 				}
 			}
-			setState(state) {
+			setState(context, state) {
+				var movie = this.getMovie();
 				this._state = state;
 				var removedDepths = [];
 		
@@ -3287,8 +3374,8 @@ var PinkFie = (function(moduleResults) {
 							}
 						}
 						if (!child) {
-							child = this.movieplayer.library.instantiateById(record.characterId);
-							child.setParent(this);
+							child = movie.library.instantiateById(record.characterId);
+							child.setParent(context, this);
 							child.setDepth(record.depth);
 							children.push([record.depth, child]);
 						}
@@ -3297,11 +3384,14 @@ var PinkFie = (function(moduleResults) {
 						child.applyMatrix(record.matrix);
 						if ("colorTransform" in record) {
 							child.applyColorTransform(record.colorTransform);
+						} else {
+							child.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
 						}
 						if ("blendMode" in record) {
 							child.setBlendMode(record.blendMode);
+						} else {
+							child.setBlendMode("normal");
 						}
-		
 					}
 				}
 				for (let k = 0; k < removedDepths.length; k++) {
@@ -3309,7 +3399,7 @@ var PinkFie = (function(moduleResults) {
 					if (d) {
 						var child = this.childByDepth(k);
 						if (child) {
-							this.removeChild(child);
+							this.removeChild(context, child);
 						}
 					}
 				}
@@ -3319,27 +3409,28 @@ var PinkFie = (function(moduleResults) {
 		
 					var lastC = this.childByDepth(depth);
 					if (lastC) {
-						this.removeChild(lastC);
+						this.removeChild(context, lastC);
 					}
 		
 					var child = c[1];
 		
 					// Initialize new child.
-					child.postInstantiation(null, null, false);
-					child.runFrameAvm1();
+					child.postInstantiation(context, null, null, false);
+					child.runFrameAvm1(context);
 
-					if (this.movieplayer.useLastBound) {
-						child.debugSetLastMC(true, child.getMatrix(), child.getColorTransform());
-						child.debugSetLastBound(true, child.selfBounds());
+					if (context.player.useLastBound) {
+						child.debugSetLastMC(context.player, true, child.getMatrix(), child.getColorTransform());
+						child.debugSetLastBound(context.player, true, child.selfBounds());
 					}
 					
-					this.replaceAtDepth(depth, child);
+					this.replaceAtDepth(context, depth, child);
 				}
 		
 				if (this._soundInfo && !this.__clickflag) {
 					var g = this._soundInfo[state];
 					if (g) {
-						this.movieplayer.audio.startSound(g, this);
+						var sound = movie.library.characterById(g.id);
+						context.audio.startSound(g, sound, this);
 					}
 				}
 				if (this._recordColorTransforms) {
@@ -3349,79 +3440,70 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 			}
-			runFrameAvm1() {
+			runFrameAvm1(context) {
+				var movie = this.getMovie();
 				if (!this.__initialized) {
+					var new_children = [];
 					this.__initialized = true;
-					this.setState("up");
+					this.setState(context, "up");
+					for (var i = 0; i < this._records.length; i++) {
+						var record = this._records[i];
+						if (record.buttonStateHitTest) {
+							var child = movie.library.instantiateById(record.characterId);
+							if (child) {
+								child.applyMatrix(record.matrix);
+								child.setParent(context, this);
+								child.setDepth(record.depth);
+								new_children.push([child, record.depth]);
+							} else {
+								log.error("Button ID: " + this.getId() + " could not instantiate child ID: " + record.characterId);
+							}
+						}
+					}
+					for (let o = 0; o < new_children.length; o++) {
+						var c = new_children[o];
+						var child = c[0];
+						var depth = c[1];
+						child.postInstantiation(context, null, null, false);
+						this.___hitArea[depth] = child;
+					}
 				}
 			}
 			avm1Unload() {
 				this.AVM1_REMOVED = true;
 			}
-			renderSelf() {
-				this.renderChildren();
+			renderSelf(context) {
+				this.renderChildren(context);
 			}
-			clickAction(typ) {
+			clickAction(context, typ) {
 				var rootClip = this.getParent();
 				if (rootClip && (rootClip instanceof MovieClip)) {
 					for (var i = 0; i < this._actions.length; i++) {
 						var g = this._actions[i];
 						if (g[typ]) {
-							this.movieplayer.queueAction(rootClip, {
+							context.queueAction(rootClip, {
 								type: "normal",
 								caches: g.actionScript
-							});
+							}, false);
 						}
 					}
 				}
 			}
-			takeHitButton(x, y) {
-				this.movieplayer.buttomTransformStack.stackPush(this.getMatrix(), [1, 1, 1, 1, 0, 0, 0, 0]);
-		
-				var pos = [x, y];
-		
-				if (!this.movieplayer.mousePressed) {
-					this.___appendclick = false;
-				}
-		
-				var bounds = this.boundsMatrix(this.selfBounds(), this.movieplayer.buttomTransformStack.getMatrix());
-				if ((pos[0] > bounds.xMin) && (pos[0] < bounds.xMax)) {
-					if ((pos[1] > bounds.yMin) && (pos[1] < bounds.yMax)) {
-						if (!this.movieplayer.mousePressed) {
-							this.___appendclick = true;
+			mousePickAvm1(context, point, _) {
+				for (let i = 0; i < this.___hitArea.length; i++) {
+					const child = this.___hitArea[i];
+					if (child) {
+						if (child.hitTestShape(null, point, null)) {
+							return this;
 						}
 					}
 				}
-		
-				if (this.___appendclick) {
-					this.movieplayer.openCursor();
-					if (this.movieplayer.mousePressed) {
-						if (this._state !== 'down') {
-							this.clickAction("condOverDownToOverUp");
-							this.setState("down");
-						}
-						this.__clickflag = true;
-					} else {
-						if (this._state !== 'over') {
-							this.setState("over");
-						}
-						this.__clickflag = false;
-					}
-				} else {
-					if (this._state !== 'up') {
-						this.setState("up");
-					}
-					if (this.__clickflag) {
-						this.__clickflag = false;
-					}
-				}
-				this.movieplayer.buttomTransformStack.stackPop();
 			}
 		}
 		class ButtonData {
-			constructor(movieplayer, data) {
+			constructor(movie, data) {
 				this.displayType = "buttom";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.data = data;
 				this.characterId = data.id;
 
@@ -3431,7 +3513,7 @@ var PinkFie = (function(moduleResults) {
 				this.colorTransforms = [];
 			}
 			instantiate() {
-				var b = Avm1Buttom.createNew(this.movieplayer);
+				var b = new Avm1Buttom();
 				b.init(this);
 				return b;
 			}
@@ -3483,8 +3565,9 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Avm1Buttom;
 	},
-	"src/display_objects/MovieClip.js": function(wpjsm){
-		const DisplayObjectContainer = wpjsm.importJS("src/display_objects/DisplayObjectContainer.js");
+	"./src/display_objects/MovieClip.js": function(wpjsm) {
+		const DisplayObjectContainer = wpjsm.importJS("./src/display_objects/DisplayObjectContainer.js");
+		const log = wpjsm.importJS("./src/log.js");
 		
 		function objectCopy(src) {
 			var obj = {};
@@ -3535,7 +3618,7 @@ var PinkFie = (function(moduleResults) {
 							this.placeData.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
 						}
 						if (!("blendMode" in place)) {
-							this.placeData.blendMode = "normal";
+							this.placeData.blendMode = 1;
 						}
 						/*if ("visible" in place) {
 							this.placeData.visible = place.visible;
@@ -3555,21 +3638,11 @@ var PinkFie = (function(moduleResults) {
 			merge(next) {
 				let cur_place = this.placeData;
 				let next_place = next.placeData;
-				var nextActionMode = 0;
-		
 				if (("characterId" in next_place)) {
 					cur_place.characterId = next_place.characterId;
 					cur_place.isMove = next_place.isMove;
 					this.frame = next.frame;
-					if (next_place.isMove) {
-						nextActionMode = 2;
-					} else {
-						nextActionMode = 1;
-					}
-				} else {
-					nextActionMode = 0;
 				}
-		
 				if ("matrix" in next_place) {
 					cur_place.matrix = next_place.matrix;
 				}
@@ -3601,7 +3674,6 @@ var PinkFie = (function(moduleResults) {
 				this.staticData = null;
 		
 				this.currentFrame = 0;
-				this.totalframes = 0;
 				this.framesloaded = 0;
 				this.tags = [];
 				this.soundStreamBlockRecords = [];
@@ -3622,104 +3694,112 @@ var PinkFie = (function(moduleResults) {
 				this.PROGRAMMATICALLY_PLAYED = false;
 				this.EXECUTING_AVM2_FRAME_SCRIPT = false;
 				this.LOOP_QUEUED = false;
-				this.displayType = "MovieClip";
-				this._debug_colorDisplayType = [255, 0, 0, 1];
 			}
-			static createNew(movieplayer) {
-				var mc = new MovieClip();
-				mc.movieplayer = movieplayer;
-				return mc;
+			get displayType() {
+				return "MovieClip";
 			}
-			static createStatic(movieplayer) {
-				return new MovieClipStatic(movieplayer);
+			get _debug_colorDisplayType() {
+				return [255, 0, 0, 1];
 			}
-			setTotalFrames(frame) {
-				this.totalframes = frame;
-				this.framesloaded = frame;
+			static createStatic(movie) {
+				return new MovieClipStatic(movie);
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
-				this.setDefaultInstanceName();
-				this.movieplayer.avm1.addExecuteList(this);
-				this.constructAvm1ValueObject(initObject, instantiatedBy, runFrame);
+			getMovie() {
+				return this.staticData.movie;
 			}
-			constructAvm1ValueObject(initObject, instantiatedBy, runFrame) {
+			getId() {
+				return this.staticData.characterId;
+			}
+			getTotalFrames() {
+				return this.staticData.frameCount;
+			}
+			getFramesloaded() {
+				return this.staticData.frameCount;
+			}
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
+				this.setDefaultInstanceName(context);
+				context.avm1.addExecuteList(this);
+				this.constructAvm1ValueObject(context, initObject, instantiatedBy, runFrame);
+			}
+			constructAvm1ValueObject(context, initObject, instantiatedBy, runFrame) {
 				if (!this.___object) {
-					this.___object = this.movieplayer.avm1.fromDisplayObject(this);
+					this.___object = context.avm1.fromDisplayObject(this);
 		
 				}
 			}
-			play() {
+			play(context) {
 				// Can only play clips with multiple frames.
-				if (this.totalframes > 1) {
+				if (this.getFramesloaded() > 1) {
 					this.isPlaying = true;
 				}
 			}
-			stop() {
+			stop(context) {
 				this.isPlaying = false;
-				this.stopAudioStream();
+				this.stopAudioStream(context);
 			}
 			determineNextFrame() {
-				if (this.currentFrame < this.totalframes) {
+				var totalframes = this.getFramesloaded();
+				if (this.currentFrame < totalframes) {
 					return "next";
-				} else if (this.totalframes > 1) {
+				} else if (totalframes > 1) {
 					return "first";
 				} else {
 					return "same";
 				}
 			}
-			runIntervalFrame(runDisplayAction, runSounds) {
+			runIntervalFrame(context, runDisplayAction, runSounds) {
 				let nextFrame = this.determineNextFrame();
 				switch (nextFrame) {
 					case "next":
 						this.currentFrame++;
 						if (this.debugSample) {
-							this.stop();
+							this.stop(context);
 							this.debugSample = false;
 						} else {
-							if ((!this.isLoop) && (this.currentFrame == this.totalframes)) {
-								this.stop();
+							if ((!this.isLoop) && (this.currentFrame == this.getFramesloaded())) {
+								this.stop(context);
 							}	
 						}
 						break;
 					case "first":
-						this.runGoto(1, true);
+						this.runGoto(context, 1, true);
 						return;
 					case "same":
-						this.stop();
+						this.stop(context);
 						break;
 				}
 				var reader = new SwfTagStream(this.tagStreamPos, this.tags);
 				let tagCallback = function (tag) {
-					switch (tag.tagType) {
-						case "PlaceObject":
-						case "PlaceObject2":
-						case "PlaceObject3":
-						case "PlaceObject4":
+					switch (tag.tagcode) {
+						case 4:
+						case 26:
+						case 70:
+						case 94:
 							if (runDisplayAction) {
-								this.placeObject(tag);
+								this.placeObject(context, tag);
 							}
 							break;
-						case "RemoveObject":
-						case "RemoveObject2":
+						case 5:
+						case 28:
 							if (runDisplayAction) {
-								this.removeObject(tag);
+								this.removeObject(context, tag);
 							}
 							break;
-						case "StartSound":
-						case "StartSound2":
+						case 15:
+						case 89:
 							if (runSounds) {
-								this.startSound(tag);
+								this.startSound(context, tag);
 							}
 							break;
-						case "SoundStreamBlock":
+						case 19:
 							if (runSounds) {
-								this.soundStreamBlock(tag);
+								this.soundStreamBlock(context, tag);
 							}
 							break;
-						case "DoAction":
-							this.doAction(tag);
+						case 12:
+							this.doAction(context, tag);
 							break;
-						case "ShowFrame":
+						case 1:
 							return "exit";
 					}
 					return "continue";
@@ -3730,19 +3810,21 @@ var PinkFie = (function(moduleResults) {
 		
 				// Check if our audio track has finished playing.
 				if (this.audioStream) {
-					if (!this.movieplayer.isSoundPlaying(this.audioStream)) {
+					if (!context.isSoundPlaying(this.audioStream)) {
 						this.audioStream = null;
+					} else {
+						this.audioStream._oframe = this.currentFrame;
 					}
 				}
 		
 			}
-			runGoto(frame, isImplicit) {
+			runGoto(context, frame, isImplicit) {
 				let frameBeforeRewind = this.currentFrame;
 				this.setSkipNextEnterFrame(false);
 		
 				var gotoCommands = [];
 		
-				this.stopAudioStream();
+				this.stopAudioStream(context);
 		
 				let isRewind = (frame <= this.currentFrame);
 				if (isRewind) {
@@ -3775,19 +3857,19 @@ var PinkFie = (function(moduleResults) {
 					frame_pos = reader.pos;
 		
 					let tagCallback = function (tag) {
-						switch (tag.tagType) {
-							case "PlaceObject":
-							case "PlaceObject2":
-							case "PlaceObject3":
-							case "PlaceObject4":
+						switch (tag.tagcode) {
+							case 4:
+							case 26:
+							case 70:
+							case 94:
 								index++;
 								this.gotoPlaceObject(tag, gotoCommands, isRewind, index);
 								break;
-							case "RemoveObject":
-							case "RemoveObject2":
-								this.gotoRemoveObject(tag, gotoCommands, isRewind, fromFrame);
+							case 5:
+							case 28:
+								this.gotoRemoveObject(context, tag, gotoCommands, isRewind, fromFrame);
 								break;
-							case "ShowFrame":
+							case 1:
 								return "exit";
 						}
 						return "continue";
@@ -3815,7 +3897,7 @@ var PinkFie = (function(moduleResults) {
 					//collect
 					for (var i = 0; i < children.length; i++) {
 						var child = children[i];
-						this.removeChild(child);
+						this.removeChild(context, child);
 					}
 				}
 		
@@ -3824,22 +3906,22 @@ var PinkFie = (function(moduleResults) {
 					var place = params.placeData;
 					if (child_entry) {
 						if ("characterId" in place) {
-							child_entry.replaceWith(place.characterId);
-							child_entry.applyPlaceObject(place);
+							child_entry.replaceWith(context, place.characterId);
+							child_entry.applyPlaceObject(context, place);
 							child_entry.setPlaceFrame(params.frame);
 						} else {
 							if (place.isMove) {
-								child_entry.applyPlaceObject(place);
+								child_entry.applyPlaceObject(context, place);
 							}
 						}
 					} else {
 						if ("characterId" in place) { // Place Replace
-							var clip = this.instantiateChild(place.characterId, params.getDepth(), place);
+							var clip = this.instantiateChild(context, place.characterId, params.getDepth(), place);
 							if (clip) {
 								clip.setPlaceFrame(params.frame);
 							}
 						} else {
-							console.log("Unexpected PlaceObject during goto", params);
+							log.error("Unexpected PlaceObject during goto", params);
 							if (place.isMove) {
 							}
 						}
@@ -3859,7 +3941,7 @@ var PinkFie = (function(moduleResults) {
 				if (hitTargetFrame) {
 					this.currentFrame--;
 					this.tagStreamPos = frame_pos;
-					this.runIntervalFrame(false, frame != frameBeforeRewind);
+					this.runIntervalFrame(context, false, frame != frameBeforeRewind);
 				} else {
 					this.currentFrame = clamped_frame;
 				}
@@ -3886,7 +3968,7 @@ var PinkFie = (function(moduleResults) {
 					gotoCommands.push(gotoPlace);
 				}
 			}
-			gotoRemoveObject(place, gotoCommands, isRewind, fromFrame) {
+			gotoRemoveObject(context, place, gotoCommands, isRewind, fromFrame) {
 				var depth = place.depth;
 				for (let i = 0; i < gotoCommands.length; i++) {
 					const gc = gotoCommands[i];
@@ -3900,32 +3982,32 @@ var PinkFie = (function(moduleResults) {
 					this.currentFrame = fromFrame;
 					var child = this.childByDepth(depth);
 					if (child) {
-						this.removeChild(child);
+						this.removeChild(context, child);
 					}
 					this.currentFrame = to_frame;
 				}
 			}
-			nextFrame() {
-				if (this.currentFrame < this.totalframes) {
-					this.gotoFrame(this.currentFrame + 1, true);
+			nextFrame(context) {
+				if (this.currentFrame < this.getFramesloaded()) {
+					this.gotoFrame(context, this.currentFrame + 1, true);
 				}
 			}
-			prevFrame() {
+			prevFrame(context) {
 				if (this.currentFrame > 1) {
-					this.gotoFrame(this.currentFrame - 1, true);
+					this.gotoFrame(context, this.currentFrame - 1, true);
 				}
 			}
-			gotoFrame(frame, stop) {
+			gotoFrame(context, frame, stop) {
 				if (stop) {
-					this.stop();
+					this.stop(context);
 				} else {
-					this.play();
+					this.play(context);
 				}
 		
 				var _frame = Math.max(frame, 1);
 		
 				if (_frame != this.currentFrame) {
-					this.runGoto(_frame, false);
+					this.runGoto(context, _frame, false);
 				}
 			}
 			setLoopQueued() {
@@ -3934,10 +4016,10 @@ var PinkFie = (function(moduleResults) {
 			unsetLoopQueued() {
 				this.LOOP_QUEUED = false;
 			}
-			renderSelf() {
-				this.renderChildren();
+			renderSelf(context) {
+				this.renderChildren(context);
 			}
-			runFrameAvm1() {
+			runFrameAvm1(context) {
 				var isLoadFrame = !this.INITIALIZED;
 				if (isLoadFrame) {
 					this.INITIALIZED = true;
@@ -3945,22 +4027,23 @@ var PinkFie = (function(moduleResults) {
 				// Run my SWF tags.
 				// In AVM2, SWF tags are processed at enterFrame time.
 				if (this.isPlaying) {
-					this.runIntervalFrame(true, true);
+					this.runIntervalFrame(context, true, true);
 				}
 			}
-			instantiateChild(id, depth, place) {
-				let child = this.movieplayer.library.instantiateById(id);
+			instantiateChild(context, id, depth, place) {
+				var movie = this.getMovie();
+				let child = movie.library.instantiateById(id);
 				if (child) {
-					let prevChild = this.replaceAtDepth(depth, child);
+					let prevChild = this.replaceAtDepth(context, depth, child);
 		
 					// Set initial properties for child.
 					child.INSTANTIATED_BY_TIMELINE = true;
 					child.setDepth(depth);
-					child.setParent(this);
+					child.setParent(context, this);
 					child.setPlaceFrame(this.currentFrame);
 		
 					// Apply PlaceObject parameters.
-					child.applyPlaceObject(place);
+					child.applyPlaceObject(context, place);
 					if ("name" in place) {
 						/*
 						let name = AvmString::new(context.gc_context, name.decode(encoding));
@@ -3979,24 +4062,24 @@ var PinkFie = (function(moduleResults) {
 					}
 					// TODO: Missing PlaceObject property: amf_data
 					// Run first frame.
-					child.postInstantiation(null, null, false);
-					child.enterFrame();
+					child.postInstantiation(context, null, null, false);
+					child.enterFrame(context);
 		
 					// In AVM1, children are added in `run_frame` so this is necessary.
 					// In AVM2 we add them in `construct_frame` so calling this causes
 					// duplicate frames
-					child.runFrameAvm1();
+					child.runFrameAvm1(context);
 
-					if (this.movieplayer.useLastBound) {
-						child.debugSetLastMC(true, child.getMatrix(), child.getColorTransform());
-						child.debugSetLastBound(true, child.selfBounds());    
+					if (context.player.useLastBound) {
+						child.debugSetLastMC(context.player, true, child.getMatrix(), child.getColorTransform());
+						child.debugSetLastBound(context.player, true, child.selfBounds());    
 					}
 				} else {
-					console.log("Unable to instantiate display node id, reason being");
+					log.error("Unable to instantiate display node id, reason being");
 				}
 				return child;
 			}
-			enterFrame() {
+			enterFrame(context) {
 				let skipFrame = this.shouldSkipNextEnterFrame();
 				//Child removals from looping gotos appear to resolve in reverse order.
 				var children = this.iterRenderList();
@@ -4014,79 +4097,90 @@ var PinkFie = (function(moduleResults) {
 						// FIXME - does this propagate through non-movie-clip children (Loader/Button)?
 						child.setSkipNextEnterFrame(true);
 					}
-					child.enterFrame();
+					child.enterFrame(context);
 				}
 				if (skipFrame) {
 					this.setSkipNextEnterFrame(false);
 				}
 			}
-			stopAudioStream() {
+			stopAudioStream(context) {
 				if (this.audioStream) {
-					this.movieplayer.audio.stopStreamSound(this.audioStream);
+					context.audio.stopStreamSound(this.audioStream);
 				}
 			}
 			getObject() {
 				return this.___object;
 			}
-			avm1Unload() {
+			avm1Unload(context) {
 				var children = this.iterRenderList();
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i];
-					child.avm1Unload();
+					child.avm1Unload(context);
 				}
-				this.stopAudioStream();
+				this.stopAudioStream(context);
 				this.AVM1_REMOVED = true;
 			}
 			// Control tags
-			doAction(tag) {
-				this.movieplayer.queueAction(this, {
+			doAction(context, tag) {
+				context.queueAction(this, {
 					type: "normal",
 					caches: tag.action
 				}, false);
 			}
-			placeObject(place) {
+			placeObject(context, place) {
 				if ("characterId" in place) {
 					if (place.isMove) {
 						var child = this.childByDepth(place.depth);
 						if (child) {
-							child.replaceWith(place.characterId);
-							child.applyPlaceObject(place);
+							child.replaceWith(context, place.characterId);
+							child.applyPlaceObject(context, place);
 							child.setPlaceFrame(this.currentFrame);
 						}
 					} else {
-						this.instantiateChild(place.characterId, place.depth, place);
+						this.instantiateChild(context, place.characterId, place.depth, place);
 					}
 				} else {
 					if (place.isMove) {
 						var child = this.childByDepth(place.depth);
-						if (child) child.applyPlaceObject(place);
+						if (child) child.applyPlaceObject(context, place);
 					}
 				}
 			}
-			removeObject(re) {
+			removeObject(context, re) {
 				var child = this.childByDepth(re.depth);
 				if (child) {
-					this.removeChild(child);
+					this.removeChild(context, child);
 				}
 			}
-			soundStreamBlock(tag) {
+			soundStreamBlock(context, tag) {
 				if (this.isPlaying) {
-					var audioStream = this.movieplayer.audio.startStreamSound(this, this.currentFrame, tag);
-					this.audioStream = audioStream;
+					var audioStream = context.audio.startStreamSound(this, this.currentFrame, tag);
+					this.audioStream = audioStream;	
 				}
 			}
-			startSound(tag) {
-				this.movieplayer.audio.startSound(tag, this);
+			startSound(context, tag) {
+				var movie = this.getMovie();
+				var sound = movie.library.characterById(tag.id);
+				context.audio.startSound(tag, sound, this);
+			}
+			mousePickAvm1(context, point, _) {
+				var children = this.iterRenderList();
+				var result = null;
+				for (let i = children.length - 1; i >= 0; i--) {
+					const child = children[i];
+					if (!result) result = child.mousePickAvm1(context, point, false);
+				}
+				return result;
 			}
 		}
 		
-		
 		class MovieClipStatic {
-			constructor(movieplayer) {
+			constructor(movie) {
 				this.displayType = "movieclip";
-				this.movieplayer = movieplayer;
+				this.movie = movie;
 				this.tags = [];
 				this.frameCount = 0;
+				this.totalframe = 0;
 				this.characterId = 0;
 				this.audioStreamInfo = null;
 				this.soundStreamBlockRecords = [];
@@ -4097,9 +4191,7 @@ var PinkFie = (function(moduleResults) {
 				this.tags = tags;
 			}
 			instantiate() {
-				var clip = MovieClip.createNew(this.movieplayer);
-				clip.setId(this.characterId);
-				clip.setTotalFrames(this.frameCount);
+				var clip = new MovieClip();
 				clip.tags = this.tags;
 				clip.soundStreamBlockRecords = this.soundStreamBlockRecords;
 				clip.audioStreamInfo = this.audioStreamInfo;
@@ -4109,7 +4201,262 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = MovieClip;
 	},
-	"src/renderer/Canvas2d.js": function(wpjsm){
+	"./src/html/FormatSpans.js": function(wpjsm) {
+		const HTMLReader = wpjsm.importJS("./src/html/HTMLReader.js");
+
+		function parseHTML(html) {
+			var reader = new HTMLReader(html);
+			var events = [];
+			while(true) {
+				try {
+					var result = reader.readEvent();
+					if (result) {
+						events.push(result);
+					} else {
+						break;
+					}
+				} catch(e) {
+					console.log("Error while parsing HTML", e);
+					break;
+				}
+			}
+			return events;
+		}
+
+		function getAttributes(attributes, name) {
+			for (let i = 0; i < attributes.length; i++) {
+				const a = attributes[i];
+				if (a[0].toLowerCase() == name) return a[1];
+			}
+			return null;
+		}
+
+		class TextSpan {
+			constructor(parameters) {
+				
+			}
+		}
+
+		class FormatSpans {
+			constructor() {
+				this.text = "";
+				this.displayedText = "";
+				this.spans = [];
+				this.defaultFormat = null;
+			}
+			static fromHTML(html, defaultFormat, isMultiline, swfVersion) {
+				var h = parseHTML(html);
+				console.log(h);
+
+				var r = new FormatSpans();
+				r.defaultFormat = defaultFormat;
+				return r;
+			}
+			static fromText(text, format) {
+				var r = new FormatSpans();
+				r.text = text;
+				r.defaultFormat = format;
+				return r;
+			}
+		}
+		wpjsm.exportJS = FormatSpans;
+	},
+	"./src/html/HTMLReader.js": function(wpjsm) {
+		class HTMLReader {
+			constructor(source) {
+				this.source = source;
+				this.index = 0;
+			}
+			char() {
+				return this.source[this.index];
+			}
+			charAt(index) {
+				return this.source[index];
+			}
+			next() {
+				this.index++;
+			}
+			isEOF() {
+				return this.index >= this.source.length;
+			}
+			peek(length = 1, offset = 1) {
+				if (length === 1)
+					return this.charAt(this.index + offset);
+				let result = '';
+				for (var i = 0; i < length; i++) {
+					result += this.charAt(this.index + offset + i);
+				}
+				return result;
+			}
+			skipWhilespace() {
+				while (/\s/.test(this.char())) {
+					if (this.isEOF()) break;
+					this.next();
+				}
+			}
+			lineInfo() {
+				let line = 0;
+				let column = 0;
+				for (var i = 0; i < this.index; i++) {
+					if (this.source[i] === '\n') {
+						line++;
+						column = 0;
+					}
+					else {
+						column++;
+					}
+				}
+				return { line: line + 1, column: column + 1 };
+			}
+			error(message) {
+				const { line, column } = this.lineInfo();
+				throw new SyntaxError(`HTMLParser: ${message} (Line ${line} Column ${column})`);
+			}
+			expect(char) {
+				if (this.char() !== char) {
+					this.error(`Expected '${char}' but found '${this.char()}'`);
+				}
+				this.next();
+			}
+			readAttributes() {
+				var result = [];
+				this.skipWhilespace();
+				while(this.char() != ">") {
+					this.skipWhilespace();
+					if (this.isEOF()) break;
+					var name = "";
+					while(((!this.isEOF()) && (this.char() != " ") && (this.char() != "=") && (this.char() != ">"))) {
+						name += this.char();
+						this.next();
+					}
+					this.skipWhilespace();
+					if (this.isEOF() || (this.char() == ">")) {
+						result.push([name]);
+					} else {
+						if (this.char() == "=") {
+							this.next();
+							this.skipWhilespace();
+							var value = this.readString();
+							result.push([name, value]);
+						}
+					}
+				}
+				return result;
+			}
+			readString() {
+				this.expect('"');
+				let result = '';
+				if (this.char() === '"') {
+					this.next();
+					return '';
+				}
+				while (true) {
+					const char = this.char();
+					result += char;
+					if (this.peek() === '"') {
+						break;
+					}
+					this.next();
+				}
+				this.next();
+				this.expect('"');
+				return result;
+			}
+			readEvent() {
+				this.skipWhilespace();
+				if (this.isEOF()) return null;
+				if (this.char() == "<") {
+					this.next();
+					var tagName = "";
+					if (this.char() == "/") {
+						this.next();
+						while(((!this.isEOF()) && (this.char() != " ") && (this.char() != ">"))) {
+							tagName += this.char();
+							this.next();
+						}
+						this.expect(">");
+						return {
+							type: "end",
+							tagName
+						}
+					} else {
+						while(((!this.isEOF()) && (this.char() != " ") && (this.char() != ">"))) {
+							tagName += this.char();
+							this.next();
+						}
+						var attributes = this.readAttributes();
+						this.expect(">");
+						return {
+							type: "start",
+							tagName,
+							attributes
+						}
+					}
+					
+				} else {
+					var text = "";
+					while(((!this.isEOF()) && (this.char() != "<"))) {
+						text += this.char();
+						this.next();
+					}
+					return {
+						type: "text",
+						text
+					}
+				}
+			}
+		}
+
+		wpjsm.exportJS = HTMLReader;
+	},
+	"./src/html/TextFormat.js": function(wpjsm) {
+		class TextFormat {
+			constructor() {
+				this.font = null;
+				this.size = null;
+				this.color = null;
+				this.align = null;
+				this.bold = null;
+				this.italic = null;
+				this.underline = null;
+				this.leftMargin = null;
+				this.rightMargin = null;
+				this.indent = null;
+				this.blockIndent = null;
+				this.kerning = null;
+				this.leading = null;
+				this.letterSpacing = null;
+				this.tabStops = null;
+				this.bullet = null;
+				this.url = null;
+				this.target = null;
+			}
+			static fromSwfTag(movie, tag) {
+				var tf = new TextFormat();
+				var layout = tag.layout;
+				if ("fontID" in tag) {
+				}
+				if ("fontHeight" in tag) {
+					tf.size = tag.fontHeight;
+				}
+				if ("textColor" in tag) {
+					tf.color = tag.textColor.slice(0);
+				}
+				if (layout) {
+					tf.leftMargin = layout.leftMargin;
+					tf.rightMargin = layout.rightMargin;
+					tf.indent = layout.indent;
+					tf.leading = layout.leading;
+				}
+				return tf;
+			}
+			clone() {
+
+			}
+		}
+		wpjsm.exportJS = TextFormat;
+	},
+	"./src/renderer/Canvas2d.js": function(wpjsm) {
 		function cloneObject(src) {
 			return JSON.parse(JSON.stringify(src));
 		}
@@ -4143,6 +4490,12 @@ var PinkFie = (function(moduleResults) {
 			vy2 /= r1;
 			var r2 = (x1 - x0) * vx2 + (y1 - y0) * vy2;
 			return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
+		}
+		class RenderCanvas2dShapeInterval {
+			constructor(renderer, interval) {
+				this.renderer = renderer;
+				this.shapeIntervalData = interval;
+			}
 		}
 		class RenderCanvas2dTexture {
 			constructor(renderer) {
@@ -4228,6 +4581,16 @@ var PinkFie = (function(moduleResults) {
 		function sameBlendMode(first, second) {
 			return first == second;
 		}
+		function twipsToNumber(twips) {
+			var n = ((twips || 0) / 20);
+			return +n.toFixed(2);
+		}
+		function twipsToMatrix(matrix) {
+			return [matrix[0], matrix[1], matrix[2], matrix[3], matrix[4] / 20, matrix[5] / 20];
+		}
+		function twipsToBitmapMatrix(matrix) {
+			return [matrix[0] / 20, matrix[1] / 20, matrix[2] / 20, matrix[3] / 20, matrix[4] / 20, matrix[5] / 20];
+		}
 		class RenderCanvas2d {
 			constructor() {
 				this.canvas = document.createElement("canvas");
@@ -4240,9 +4603,6 @@ var PinkFie = (function(moduleResults) {
 				this.canvas.width = this.width;
 				this.canvas.height = this.height;
 		
-				this.matrixTransform = [1, 0, 0, 1, 0, 0];
-				this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
-		
 				this.maskState = MaskState.DrawContent;
 				this.maskersInProgress = 0;
 				this.blendModes = ["normal"];
@@ -4251,8 +4611,6 @@ var PinkFie = (function(moduleResults) {
 				this.tmpCtx = this.tmpCanvas.getContext("2d");
 			}
 			clear() {
-				this.setTransform(1, 0, 0, 1, 0, 0);
-				this.setColorTransform(1, 1, 1, 1, 0, 0, 0, 0);
 				this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 				this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 			}
@@ -4261,25 +4619,30 @@ var PinkFie = (function(moduleResults) {
 			}
 			destroy() {
 			}
+			debugInfo() {
+				return "Renderer: Canvas";
+			} 
+			get name() {
+				return "canvas";
+			}
 			resize(w, h) {
 				this.width = w;
 				this.height = h;
 				this.canvas.width = this.width;
 				this.canvas.height = this.height;
 			}
-			imageToTexture(image) {
+			registerBitmap(image) {
 				var tex = new RenderCanvas2dTexture(this);
 				tex.setImage(image);
 				return tex;
 			}
+			updateTexture(handle, image) {
+				if (handle) {
+					handle.setImage(image);
+				}
+			}
 			isAllowImageColorTransform() {
 				return (this.quality == "high");
-			}
-			setColorTransform(a, b, c, d, e, f, x, y) {
-				this.colorTransform = [a, b, c, d, e, f, x, y];
-			}
-			setTransform(a, b, c, d, e, f) {
-				this.matrixTransform = [a, b, c, d, e, f];
 			}
 			buildCmd2dPath(cmd) {
 				var str = "";
@@ -4287,19 +4650,19 @@ var PinkFie = (function(moduleResults) {
 					const a = cmd[i];
 					switch (a[0]) {
 						case 0:
-							str += "ctx.moveTo(" + a[1] + "," + a[2] + ");\n";
+							str += "ctx.moveTo(" + twipsToNumber(a[1]) + "," + twipsToNumber(a[2]) + ");\n";
 							break;
 						case 1:
-							str += "ctx.quadraticCurveTo(" + a[1] + "," + a[2] + "," + a[3] + "," + a[4] + ");\n";
+							str += "ctx.quadraticCurveTo(" + twipsToNumber(a[1]) + "," + twipsToNumber(a[2]) + "," + twipsToNumber(a[3]) + "," + twipsToNumber(a[4]) + ");\n";
 							break;
 						case 2:
-							str += "ctx.lineTo(" + a[1] + "," + a[2] + ");\n";
+							str += "ctx.lineTo(" + twipsToNumber(a[1]) + "," + twipsToNumber(a[2]) + ");\n";
 							break;
 					}
 				}
 				return new Function("ctx", str);
 			}
-			shapeToInterval(shapeCache) {
+			shapeToInterval(shapeCache, library) {
 				// 0 fill
 				// 1 stroke
 				// 0 color
@@ -4308,13 +4671,13 @@ var PinkFie = (function(moduleResults) {
 				var result = [];
 				for (let i = 0; i < shapeCache.length; i++) {
 					const si = shapeCache[i];
-					result.push(this.shapeToCanvas(si));
+					result.push(this.shapeToCanvas(si, library));
 				}
-				return result;
+				return new RenderCanvas2dShapeInterval(this, result);
 			}
-			shapeToCanvas(shape) {
+			shapeToCanvas(shape, library) {
 				var isStroke = (shape.type == 1);
-				var width = shape.width || 0;
+				var width = twipsToNumber(shape.width);
 				var fillInfo = shape.fill;
 				if (!fillInfo) return;
 				var cmdResult = this.buildCmd2dPath(shape.path2d);
@@ -4332,17 +4695,19 @@ var PinkFie = (function(moduleResults) {
 						cmd: cmdResult,
 						isRadial: fillInfo.isRadial,
 						focal: fillInfo.focal,
-						matrix: fillInfo.matrix.slice(0),
+						matrix: fillInfo.matrix,
 						records: cloneObject(fillInfo.records),
 						isStroke,
 						width
 					};
 				} else if (fillInfo.type == 2) {
+					var id = fillInfo.id;
+					var bitmap = library.characterById(id);
 					return {
 						type: 2,
 						cmd: cmdResult,
-						matrix: fillInfo.matrix.slice(0),
-						texture: fillInfo.texture,
+						matrix: fillInfo.matrix,
+						texture: bitmap.getTexture(this),
 						isSmoothed: fillInfo.isSmoothed,
 						isRepeating: fillInfo.isRepeating,
 						isStroke,
@@ -4434,38 +4799,42 @@ var PinkFie = (function(moduleResults) {
 				}
 				this.ctx.globalCompositeOperation = mode;
 			}
-			renderTexture(texture, isSmoothed) {
+			renderBitmap(texture, matrixTransform, colorTransform, isSmoothed) {
 				if (this.maskersInProgress <= 1) {
+					var tMatrix = twipsToMatrix(matrixTransform);
 					var isA = this.isAllowImageColorTransform();
 					this.ctx.imageSmoothingEnabled = (isSmoothed || false);
 					if (texture) {
-						this.ctx.setTransform(...this.matrixTransform);
-						if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
-						this.ctx.drawImage(texture.getTexture(isA ? this.colorTransform : null), 0, 0);
+						this.ctx.setTransform(...tMatrix);
+						if ((!isA) || (!checkImageColorTransform(colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
+						this.ctx.drawImage(texture.getTexture(isA ? colorTransform : null), 0, 0);
+						this.ctx.globalAlpha = 1;
 					}    
 				}
 			}
-			renderShape(shapeInterval) {
+			renderShape(shapeInterval, matrixTransform, colorTransform) {
+				var tMatrix = twipsToMatrix(matrixTransform);
 				if (this.maskersInProgress <= 1) {
+					var shapeRecords = shapeInterval.shapeIntervalData;
 					var isA = this.isAllowImageColorTransform();
-					for (let i = 0; i < shapeInterval.length; i++) {
-						const si = shapeInterval[i];
+					for (let i = 0; i < shapeRecords.length; i++) {
+						const si = shapeRecords[i];
 						if (!si) return;
 						var isStroke = si.isStroke;
 						var cmd = si.cmd;
 						var width = si.width || 0;
 						if (this.maskState == MaskState.DrawMask) {
-							this.ctx.setTransform(...this.matrixTransform);
+							this.ctx.setTransform(...tMatrix);
 							cmd(this.ctx);
 						} else if (this.maskState == MaskState.ClearMask) {
 							// Canvas backend doesn't have to do anything to clear masks.
 						} else {
 							if (si.type == 0) {
 								var color = si.color;
-								this.ctx.setTransform(...this.matrixTransform);
+								this.ctx.setTransform(...tMatrix);
 								this.ctx.beginPath();
 								cmd(this.ctx);
-								var css = 'rgba(' + generateColorTransform(color, this.colorTransform).join(',') + ')';
+								var css = 'rgba(' + generateColorTransform(color, colorTransform).join(',') + ')';
 								if (isStroke) {
 									this.ctx.lineWidth = width;
 									this.ctx.lineCap = "round";
@@ -4478,7 +4847,7 @@ var PinkFie = (function(moduleResults) {
 								}
 							} else if (si.type == 1) {
 								var isRadial = si.isRadial;
-								this.ctx.setTransform(...this.matrixTransform);
+								this.ctx.setTransform(...tMatrix);
 								this.ctx.beginPath();
 								cmd(this.ctx);
 								var css;
@@ -4486,15 +4855,15 @@ var PinkFie = (function(moduleResults) {
 									css = this.ctx.createRadialGradient((16384 * Math.min(Math.max(si.focal, -0.98), 0.98)), 0, 0, 0, 0, 16384);
 								} else {
 									var xy = linearGradientXY(si.matrix);
-									css = this.ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
+									css = this.ctx.createLinearGradient(twipsToNumber(xy[0] || 0), twipsToNumber(xy[1] || 0), twipsToNumber(xy[2] || 0), twipsToNumber(xy[3] || 0));
 								}
 								for (let j = 0; j < si.records.length; j++) {
 									const rc = si.records[j];
-									css.addColorStop(rc[1], 'rgba(' + generateColorTransform(rc[0], this.colorTransform).join(',') + ')');
+									css.addColorStop(rc[1], 'rgba(' + generateColorTransform(rc[0], colorTransform).join(',') + ')');
 								}
 								if (isRadial) {
 									this.ctx.save();
-									this.ctx.transform(...si.matrix);
+									this.ctx.transform(...twipsToBitmapMatrix(si.matrix));
 								}
 								if (isStroke) {
 									this.ctx.lineWidth = width;
@@ -4510,18 +4879,18 @@ var PinkFie = (function(moduleResults) {
 									this.ctx.restore();
 								}
 							} else if (si.type == 2) {
-								var bMatrix = si.matrix;
+								var bMatrix = twipsToBitmapMatrix(si.matrix);
 								var repeat = si.isRepeating ? "repeat" : "no-repeat";
 								var texture = si.texture;
 								if (texture) {
-									this.ctx.setTransform(...this.matrixTransform);
+									this.ctx.setTransform(...tMatrix);
 									this.ctx.beginPath();
 									cmd(this.ctx);
 									this.ctx.save();
 									this.ctx.transform(...bMatrix);
 									this.ctx.imageSmoothingEnabled = (si.isSmoothed || false);
-									var image = texture.getTexture(isA ? this.colorTransform : null);
-									if ((!isA) || (!checkImageColorTransform(this.colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * this.colorTransform[3]) + this.colorTransform[7], 255)) / 255;
+									var image = texture.getTexture(isA ? colorTransform : null);
+									if ((!isA) || (!checkImageColorTransform(colorTransform))) this.ctx.globalAlpha = Math.max(0, Math.min((255 * colorTransform[3]) + colorTransform[7], 255)) / 255;
 									var p = this.ctx.createPattern(image, repeat);
 									this.ctx.fillStyle = p;
 									this.ctx.fill();
@@ -4536,10 +4905,12 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = RenderCanvas2d;
 	},
-	"src/renderer/WebGL.js": function(wpjsm){
-		const AT_Tess = wpjsm.importJS("src/utils/at-tess.js");
+	"./src/renderer/WebGL.js": function(wpjsm) {
+		const AT_Tess = wpjsm.importJS("./src/utils/at-tess.js");
 
-		const multiplicationMatrix = function (a, b) {
+		// for like Ruffle Render WebGL
+
+		function multiplicationMatrix(a, b) {
 			return [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
 		};
 		function QuadraticBezierP0( t, p ) {
@@ -4556,19 +4927,19 @@ var PinkFie = (function(moduleResults) {
 			return QuadraticBezierP0(t, p0) + QuadraticBezierP1(t, p1) + QuadraticBezierP2(t, p2);
 		}
 		function swf_to_gl_matrix(m) {
-			let tx = m[4];
-			let ty = m[5];
-			let det = m[0] * m[3] - m[2] * m[1];
-			let a = m[3] / det;
-			let b = -m[2] / det;
-			let c = -(tx * m[3] - m[2] * ty) / det;
-			let d = -m[1] / det;
-			let e = m[0] / det;
-			let f = (tx * m[1] - m[0] * ty) / det;
-			a *= 1 / 32768.0;
-			b *= 1 / 32768.0;
-			d *= 1 / 32768.0;
-			e *= 1 / 32768.0;
+			var tx = m[4];
+			var ty = m[5];
+			var det = m[0] * m[3] - m[2] * m[1];
+			var a = m[3] / det;
+			var b = -m[2] / det;
+			var c = -(tx * m[3] - m[2] * ty) / det;
+			var d = -m[1] / det;
+			var e = m[0] / det;
+			var f = (tx * m[1] - m[0] * ty) / det;
+			a *= 20 / 32768.0;
+			b *= 20 / 32768.0;
+			d *= 20 / 32768.0;
+			e *= 20 / 32768.0;
 			c /= 32768.0;
 			f /= 32768.0;
 			c += 0.5;
@@ -4576,19 +4947,19 @@ var PinkFie = (function(moduleResults) {
 			return [a, d, 0.0, b, e, 0.0, c, f, 1.0];
 		}
 		function swf_bitmap_to_gl_matrix(m, bitmap_width, bitmap_height) {
-			let tx = m[4];
-			let ty = m[5];
-			let det = m[0] * m[3] - m[2] * m[1];
-			let a = m[3] / det;
-			let b = -m[2] / det;
-			let c = -(tx * m[3] - m[2] * ty) / det;
-			let d = -m[1] / det;
-			let e = m[0] / det;
-			let f = (tx * m[1] - m[0] * ty) / det;
-			a *= 1 / bitmap_width;
-			b *= 1 / bitmap_width;
-			d *= 1 / bitmap_height;
-			e *= 1 / bitmap_height;
+			var tx = m[4];
+			var ty = m[5];
+			var det = m[0] * m[3] - m[2] * m[1];
+			var a = m[3] / det;
+			var b = -m[2] / det;
+			var c = -(tx * m[3] - m[2] * ty) / det;
+			var d = -m[1] / det;
+			var e = m[0] / det;
+			var f = (tx * m[1] - m[0] * ty) / det;
+			a *= 20 / bitmap_width;
+			b *= 20 / bitmap_width;
+			d *= 20 / bitmap_height;
+			e *= 20 / bitmap_height;
 			c /= bitmap_width;
 			f /= bitmap_height;
 			return [a, d, 0.0, b, e, 0.0, c, f, 1.0];
@@ -4666,24 +5037,6 @@ var PinkFie = (function(moduleResults) {
 				}
 				return this.uniformLocations[name];
 			}
-			attributeBuffer(name, value, count) {
-				if (!this.hasAttribute(name)) {
-					throw new Error('attribute of name ' + name + ' does not exist');
-				}
-				const location = this.attributeLocations[name];
-				this.gl.enableVertexAttribArray(location);
-				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, value);
-				this.gl.vertexAttribPointer(location, count, this.gl.FLOAT, false, 0, 0);
-			}
-			hasAttribute(name) {
-				return this.attributeLocations.hasOwnProperty(name);
-			}
-			getAttribute(name) {
-				if (!this.hasAttribute(name)) {
-					throw new Error('attribute of name ' + name + ' does not exist');
-				}
-				return this.attributeLocations[name];
-			}
 		}
 		class RenderWebGLShapeInterval {
 			constructor(renderer, interval) {
@@ -4731,12 +5084,13 @@ var PinkFie = (function(moduleResults) {
 					failIfMajorPerformanceCaveat: true,
 					premultipliedAlpha: true
 				});
-				if (!gl) throw new Error('cannot get webgl rendering context');
+				if (!gl) throw new Error('cannot get webgl2 rendering context');
 				this.canvas = canvas;
 				this.gl = gl;
 				this.shaderTexture = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_bitmap);
 				this.shaderColor = this.createShader(RenderWebGL.vs_color, RenderWebGL.fs_color);
 				this.shaderGradient = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_gradient);
+				this.shaderCopy = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_copy);
 				this.initShaderBlend();
 				this.maskState = 0;
 				this.numMasks = 0;
@@ -4744,13 +5098,23 @@ var PinkFie = (function(moduleResults) {
 				this.blendType = null;
 				this.view_matrix = null;
 				this.maskersInProgress = 0;
-				gl.enable(this.gl.BLEND);
+				gl.enable(gl.BLEND);
+				gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+				this.quatVao = this.buildQuadMesh();
 				gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
-				gl.blendFuncSeparate(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
-				this.quatBuffer = this.gl.createBuffer();
-				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.quatBuffer);
-				this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1]), this.gl.STATIC_DRAW);
+				gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 				this.resize(480, 360);
+			}
+			buildQuadMesh() {
+				const gl = this.gl;
+				var quatVao = this.createVertexArray();
+				var quatBuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, quatBuffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+				gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(0);
+				this.bindVertexArray(null);
+				return quatVao;
 			}
 			initShaderBlend() {
 				this.shaderBlendNormal = this.createShader(RenderWebGL.shader_texture, RenderWebGL.shader_blend_normal);
@@ -4836,12 +5200,6 @@ var PinkFie = (function(moduleResults) {
 			drawingMask() {
 				return this.maskersInProgress > 0;
 			}
-			setColorTransform(a, b, c, d, e, f, x, y) {
-				this.colorTransform = [a, b, c, d, e, f, x, y];
-			}
-			setTransform(a, b, c, d, e, f) {
-				this.matrixTransform = [a, b, c, d, e, f];
-			}
 			createShader(vs, fs, definitions) {
 				const program = this.compileProgram(vs, fs, definitions);
 				return new Shader(this.gl, program);
@@ -4888,10 +5246,65 @@ var PinkFie = (function(moduleResults) {
 					this.currentShader = shader;
 				}
 			}
-			shapeToInterval(shapeCache) {
+			shapeToInterval(shapeCache, library) {
 				var result = [];
 				for (let i = 0; i < shapeCache.length; i++) {
-					result.push(this.shapeToCanvas(shapeCache[i]));
+					var shape = shapeCache[i];
+					var fill = shape.fill;
+					var r = (shape.type == 1) ? this.createStroke(shape.path2d, Math.max(shape.width / 20, 1)) : this.createFill(shape.path2d);
+					var num = r.length / 2;
+					var vao = this.createVertexArray();
+					var bufferPos = this.gl.createBuffer();
+					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferPos);
+					this.gl.bufferData(this.gl.ARRAY_BUFFER, r, this.gl.STATIC_DRAW);
+					this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+					this.gl.enableVertexAttribArray(0);
+					if (fill.type == 0) {
+						var color = fill.color;
+						result.push({
+							type: 0,
+							color: [color[0] / 255, color[1] / 255, color[2] / 255, color[3]],
+							num,
+							vao
+						});
+					} else if (fill.type == 1) {
+						var ratios = [];
+						var colors = [];
+						var re = fill.records;
+						for (let i = 0; i < 16; i++) {
+							const g = re[Math.min(i, re.length - 1)];
+							colors.push(g[0][0] / 255);
+							colors.push(g[0][1] / 255);
+							colors.push(g[0][2] / 255);
+							colors.push(g[0][3]);
+							ratios.push(g[1]);
+						}
+						result.push({
+							type: 1,
+							num,
+							ratios,
+							colors,
+							focal: fill.focal || 0,
+							isRadial: fill.isRadial,
+							repeat: fill.repeat,
+							matrix: swf_to_gl_matrix(fill.matrix),
+							vao
+						});
+					} else if (fill.type == 2) {
+						var id = fill.id;
+						var bitmap = library.characterById(id);
+						var texture = bitmap.getTexture(this);
+						result.push({
+							type: 2,
+							num,
+							texture: texture.texture,
+							isRepeating: fill.isRepeating,
+							isSmoothed: fill.isSmoothed,
+							matrix: swf_bitmap_to_gl_matrix(fill.matrix, texture.width, texture.height),
+							vao
+						});
+					}
+					this.bindVertexArray(null);
 				}
 				return new RenderWebGLShapeInterval(this, result);
 			}
@@ -4900,6 +5313,27 @@ var PinkFie = (function(moduleResults) {
 				if (ext) {
 					ext.loseContext();
 				}
+			}
+			debugInfo() {
+				var result = ["Renderer: WebGL2"];
+
+				var add_line = function(name, val) {
+					if (val) {
+						result.push(name + ": " + val);
+					}
+				}
+				
+				add_line("Adapter Vendor", this.gl.getParameter(this.gl.VENDOR));
+				add_line("Adapter Renderer", this.gl.getParameter(this.gl.RENDERER));
+				add_line("Adapter Version", this.gl.getParameter(this.gl.VERSION));
+		
+				var driver_info = this.gl.getExtension("WEBGL_debug_renderer_info");
+				if (driver_info) add_line("Driver: ", this.gl.getParameter(driver_info.UNMASKED_RENDERER_WEBGL));
+
+				return result.join("\n");
+			} 
+			get name() {
+				return "canvas";
 			}
 			resize(w, h) {
 				this.width = w;
@@ -4917,111 +5351,65 @@ var PinkFie = (function(moduleResults) {
 				this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 				this.build_msaa_buffers();
 			}
-			imageToTexture(image) {
+			registerBitmap(image) {
 				var s = new RenderWebGLImageInterval(this);
 				s.setImage(image);
 				return s;
 			}
-			shapeToCanvas(shape) {
-				var fill = shape.fill;
-				var r = (shape.type == 1) ? this.createStroke(shape.path2d, shape.width) : this.createFill(shape.path2d);
-				var bufferPos = this.gl.createBuffer();
-				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferPos);
-				this.gl.bufferData(this.gl.ARRAY_BUFFER, r, this.gl.STATIC_DRAW);
-				if (fill.type == 0) {
-					var color = fill.color;
-					return {
-						type: 0,
-						bufferPos: bufferPos,
-						color: [color[0] / 255, color[1] / 255, color[2] / 255, color[3]],
-						num: (r.length / 2),
-					};
-				} else if (fill.type == 1) {
-					var ratios = [];
-					var colors = [];
-					var re = fill.records;
-					for (let i = 0; i < 16; i++) {
-						const g = re[Math.min(i, re.length - 1)];
-						colors.push(g[0][0] / 255);
-						colors.push(g[0][1] / 255);
-						colors.push(g[0][2] / 255);
-						colors.push(g[0][3]);
-						ratios.push(g[1]);
-					}
-					return {
-						type: 1,
-						bufferPos: bufferPos,
-						num: (r.length / 2),
-						ratios,
-						colors,
-						focal: fill.focal || 0,
-						isRadial: fill.isRadial,
-						repeat: fill.repeat,
-						matrix: swf_to_gl_matrix(fill.matrix)
-					};
-				} else if (fill.type == 2) {
-					var texture = fill.texture;
-					return {
-						type: 2,
-						bufferPos: bufferPos,
-						num: (r.length / 2),
-						texture: texture.texture,
-						isRepeating: fill.isRepeating,
-						isSmoothed: fill.isSmoothed,
-						matrix: swf_bitmap_to_gl_matrix(fill.matrix, texture.width, texture.height)
-					};
+			updateTexture(handle, image) {
+				if (handle) {
+					handle.setImage(image);
+				}
+			}
+			createVertexArray() {
+				let vao = this.gl.createVertexArray();
+				this.gl.bindVertexArray(vao);
+				return vao;
+			}
+			bindVertexArray(vao) {
+				this.gl.bindVertexArray(vao);
+			}
+			getBlendShader(blendMode) {
+				switch (blendMode) {
+					case "add":
+						return this.shaderBlendAdd;
+					case "subtract":
+						return this.shaderBlendSubtract;
+					case "multiply":
+						return this.shaderBlendMultiply;
+					case "lighten":
+						return this.shaderBlendLighten;
+					case "darken":
+						return this.shaderBlendDarken;
+					case "screen":
+						return this.shaderBlendScreen;
+					case "overlay":
+						return this.shaderBlendOverlay;
+					case "hardlight":
+						return this.shaderBlendHardlight;
+					case "difference":
+						return this.shaderBlendDifference;
+					case "invert":
+						return this.shaderBlendInvert;
+					default:
+						return this.shaderBlendNormal;
 				}
 			}
 			pushBlendMode(blendMode) {
 				const gl = this.gl;
 				if ((this.maskState == 0) && (this.blendState == 0)) {
-					switch (blendMode) {
-						case "add":
-							this.blendType = this.shaderBlendAdd;
-							break;
-						case "subtract":
-							this.blendType = this.shaderBlendSubtract;
-							break;
-						case "multiply":
-							this.blendType = this.shaderBlendMultiply;
-							break;
-						case "lighten":
-							this.blendType = this.shaderBlendLighten;
-							break;
-						case "darken":
-							this.blendType = this.shaderBlendDarken;
-							break;
-						case "screen":
-							this.blendType = this.shaderBlendScreen;
-							break;
-						case "overlay":
-							this.blendType = this.shaderBlendOverlay;
-							break;
-						case "hardlight":
-							this.blendType = this.shaderBlendHardlight;
-							break;
-						case "difference":
-							this.blendType = this.shaderBlendDifference;
-							break;
-						case "invert":
-							this.blendType = this.shaderBlendInvert;
-							break;
-						default:
-							this.blendType = this.shaderBlendNormal;
-					}
+					this.blendType = this.getBlendShader(blendMode);
 					gl.disable(gl.STENCIL_TEST);
 					gl.colorMask(true, true, true, true);
 					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
 					gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
 					gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
 					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_front_framebuffer);
-					this.useShader(this.shaderTexture);
-					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-					this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
-					this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
-					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					this.useShader(this.shaderCopy);
+					this.shaderCopy.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.shaderCopy.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.shaderCopy.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.bindVertexArray(this.quatVao);
 					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -5045,13 +5433,11 @@ var PinkFie = (function(moduleResults) {
 					gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.msaa_buffers.color_framebuffer);
 					gl.blitFramebuffer(0, 0, this.renderbuffer_width, this.renderbuffer_height, 0, 0, this.renderbuffer_width, this.renderbuffer_height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
 					gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_blend_back_framebuffer);
-					this.useShader(this.shaderTexture);
-					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-					this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
-					this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
-					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					this.useShader(this.shaderCopy);
+					this.shaderCopy.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.shaderCopy.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.shaderCopy.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.bindVertexArray(this.quatVao);
 					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -5063,12 +5449,12 @@ var PinkFie = (function(moduleResults) {
 					gl.stencilMask(0xff);
 					gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 					this.useShader(this.blendType);
-					this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
-					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-					this.currentShader.uniform1i('parent_texture', 0);
-					this.currentShader.uniform1i('current_texture', 1);
-					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					this.blendType.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
+					this.blendType.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+					this.blendType.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.blendType.uniform1i('parent_texture', 0);
+					this.blendType.uniform1i('current_texture', 1);
+					this.bindVertexArray(this.quatVao);
 					gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.blend_texture_front);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -5091,10 +5477,8 @@ var PinkFie = (function(moduleResults) {
 					this.blendType = null;
 				}
 			}
-			renderTexture(imageInterval, isSmoothed) {
+			renderBitmap(imageInterval, matrix, colorTransform, isSmoothed) {
 				if (this.maskersInProgress <= 1) {
-					var matrix = this.matrixTransform;
-					var colorTransform = this.colorTransform;
 					if (!imageInterval) return;
 					if (!imageInterval.isRender) return;
 					matrix = multiplicationMatrix(matrix, [imageInterval.width, 0, 0, imageInterval.height, 0, 0])
@@ -5102,15 +5486,15 @@ var PinkFie = (function(moduleResults) {
 						matrix[0], matrix[1], 0.0, 0.0,
 						matrix[2], matrix[3], 0.0, 0.0,
 						0.0, 0.0, 1.0, 0.0,
-						matrix[4], matrix[5], 0.0, 1.0,
+						matrix[4] / 20, matrix[5] / 20, 0.0, 1.0,
 					];
 					this.useShader(this.shaderTexture);
-					this.currentShader.uniformMatrix4("view_matrix", this.view_matrix);
-					this.currentShader.uniformMatrix4("world_matrix", world_matrix);
-					this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-					this.currentShader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
-					this.currentShader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
-					this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+					this.shaderTexture.uniformMatrix4("view_matrix", this.view_matrix);
+					this.shaderTexture.uniformMatrix4("world_matrix", world_matrix);
+					this.shaderTexture.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+					this.shaderTexture.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
+					this.shaderTexture.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
+					this.bindVertexArray(this.quatVao);
 					let filter = isSmoothed ? this.gl.LINEAR : this.gl.NEAREST;
 					this.gl.bindTexture(this.gl.TEXTURE_2D, imageInterval.texture);
 					this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, filter);
@@ -5121,18 +5505,16 @@ var PinkFie = (function(moduleResults) {
 					this.gl.drawArrays(this.gl.TRIANGLES, 0, 12);
 				}
 			}
-			renderShape(shapeInterval) {
+			renderShape(shapeInterval, matrix, colorTransform) {
 				if (this.maskersInProgress <= 1) {
 					if (!shapeInterval) return;
-					var matrix = this.matrixTransform;
-					var colorTransform = this.colorTransform;
 					var array = shapeInterval.shapeIntervalData;
 					this.setStencilState();
 					let world_matrix = [
 						matrix[0], matrix[1], 0.0, 0.0,
 						matrix[2], matrix[3], 0.0, 0.0,
 						0.0, 0.0, 1.0, 0.0,
-						matrix[4], matrix[5], 0.0, 1.0,
+						matrix[4] / 20, matrix[5] / 20, 0.0, 1.0,
 					];
 					for (let i = 0; i < array.length; i++) {
 						const si = array[i];
@@ -5145,18 +5527,17 @@ var PinkFie = (function(moduleResults) {
 							shader = this.shaderTexture;
 						}
 						this.useShader(shader);
-						this.gl.bindBuffer(this.gl.ARRAY_BUFFER, si.bufferPos);
-						this.currentShader.attributeBuffer("position", si.bufferPos, 2);
+						this.bindVertexArray(si.vao);
 						if (si.type == 0) {
-							this.currentShader.uniform4f('u_color', si.color[0], si.color[1], si.color[2], si.color[3]);
+							shader.uniform4f("u_color", si.color[0], si.color[1], si.color[2], si.color[3]);
 						} else if (si.type == 1) {
-							this.currentShader.uniformMatrix3("u_matrix", si.matrix);
-							this.currentShader.uniform1fv("u_ratios[0]", si.ratios);
-							this.currentShader.uniform4fv("u_colors[0]", si.colors);
-							this.currentShader.uniform1i("u_gradient_type", si.isRadial ? 2 : 0);
-							this.currentShader.uniform1i("u_repeat_mode", si.repeat);
-							this.currentShader.uniform1f("u_focal_point", si.focal);
-							this.currentShader.uniform1i("u_interpolation", 0);
+							shader.uniformMatrix3("u_matrix", si.matrix);
+							shader.uniform1fv("u_ratios[0]", si.ratios);
+							shader.uniform4fv("u_colors[0]", si.colors);
+							shader.uniform1i("u_gradient_type", si.isRadial ? 2 : 0);
+							shader.uniform1i("u_repeat_mode", si.repeat);
+							shader.uniform1f("u_focal_point", si.focal);
+							shader.uniform1i("u_interpolation", 0);
 						} else if (si.type == 2) {
 							let filter = si.isSmoothed ? this.gl.LINEAR : this.gl.NEAREST;
 							this.gl.bindTexture(this.gl.TEXTURE_2D, si.texture);
@@ -5165,12 +5546,12 @@ var PinkFie = (function(moduleResults) {
 							let wrap = si.isRepeating ? this.gl.REPEAT : this.gl.CLAMP_TO_EDGE;
 							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, wrap);
 							this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, wrap);
-							this.currentShader.uniformMatrix3("u_matrix", si.matrix);
+							shader.uniformMatrix3("u_matrix", si.matrix);
 						}
-						this.currentShader.uniformMatrix4("view_matrix", this.view_matrix);
-						this.currentShader.uniformMatrix4("world_matrix", world_matrix);
-						this.currentShader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
-						this.currentShader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
+						shader.uniformMatrix4("view_matrix", this.view_matrix);
+						shader.uniformMatrix4("world_matrix", world_matrix);
+						shader.uniform4f('mult_color', colorTransform[0], colorTransform[1], colorTransform[2], colorTransform[3]);
+						shader.uniform4f('add_color', colorTransform[4] / 255, colorTransform[5] / 255, colorTransform[6] / 255, colorTransform[7] / 255);
 						this.gl.drawArrays(this.gl.TRIANGLES, 0, si.num);
 					}
 				}
@@ -5187,7 +5568,7 @@ var PinkFie = (function(moduleResults) {
 					const a = path2d[i];
 					switch (a[0]) {
 						case 0:
-							arr = [a[1] || 0, a[2] || 0];
+							arr = [(a[1] || 0) / 20, (a[2] || 0) / 20];
 							arrs.push(arr);
 							posX = a[1] || 0;
 							posY = a[2] || 0;
@@ -5196,14 +5577,14 @@ var PinkFie = (function(moduleResults) {
 							for (let _ = 1; _ <= 5; _++) {
 								var x = QuadraticBezier(_ / 5, posX, a[1] || 0, a[3] || 0) | 0;
 								var y = QuadraticBezier(_ / 5, posY, a[2] || 0, a[4] || 0) | 0;
-								arr.push(x, y);
+								arr.push(x / 20, y / 20);
 							}
 							posX = a[3];
 							posY = a[4];
 							break;
 						case 2:
 							if (!(((a[1] || 0) == posX) && ((a[2] || 0) == posY))) {
-								arr.push(a[1] || 0, a[2] || 0);
+								arr.push((a[1] || 0) / 20, (a[2] || 0) / 20);
 								posX = a[1] || 0;
 								posY = a[2] || 0;	
 							}
@@ -5306,13 +5687,11 @@ var PinkFie = (function(moduleResults) {
 				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-				this.useShader(this.shaderTexture);
+				this.useShader(this.shaderCopy);
 				this.currentShader.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
 				this.currentShader.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
 				this.currentShader.uniformMatrix3("u_matrix", [1, 0, 0, 0, 1, 0, 0, 0, 1]);
-				this.currentShader.uniform4f('mult_color', 1, 1, 1, 1);
-				this.currentShader.uniform4f('add_color', 0, 0, 0, 0);
-				this.currentShader.attributeBuffer("position", this.quatBuffer, 2);
+				this.bindVertexArray(this.quatVao);
 				gl.bindTexture(gl.TEXTURE_2D, this.msaa_buffers.framebuffer_texture);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -5376,6 +5755,28 @@ var PinkFie = (function(moduleResults) {
 
 		gl_FragColor = color;
 	}`;
+		RenderWebGL.shader_copy = `
+#version 100
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+	precision highp float;
+#else
+	precision mediump float;
+#endif
+
+uniform mat4 view_matrix;
+uniform mat4 world_matrix;
+uniform vec4 mult_color;
+uniform vec4 add_color;
+uniform mat3 u_matrix;
+
+uniform sampler2D u_texture;
+
+varying vec2 frag_uv;
+
+void main() {
+	gl_FragColor = texture2D(u_texture, frag_uv);
+}`;
 		RenderWebGL.vs_color = `
 	uniform mat4 view_matrix;
 	uniform mat4 world_matrix;
@@ -5911,7 +6312,7 @@ var PinkFie = (function(moduleResults) {
 		}`;
 		wpjsm.exportJS = RenderWebGL;
 	},
-	"src/utils/at-h263-decoder.js": function(wpjsm){
+	"./src/utils/at-h263-decoder.js": function(wpjsm) {
 		const saturatingSub = function(a, b) {
 			return a - b;
 		}
@@ -7302,7 +7703,870 @@ var PinkFie = (function(moduleResults) {
 			H263State
 		}
 	},
-	"src/utils/at-mp3-decoder.js": function(wpjsm){
+	"./src/utils/at-jpg-decoder.js": function(wpjsm) {
+		var AT_JPG_Decoder = function() {
+			var dctZigZag = new Int32Array([0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63]);
+			var dctCos1 = 4017;
+			var dctSin1 = 799;
+			var dctCos3 = 3406;
+			var dctSin3 = 2276;
+			var dctCos6 = 1567;
+			var dctSin6 = 3784;
+			var dctSqrt2 = 5793;
+			var dctSqrt1d2 = 2896;
+			function constructor() {}
+			function buildHuffmanTable(codeLengths, values) {
+				var k = 0, code = [], i, j, length = 16;
+				while (length > 0 && !codeLengths[length - 1])
+					length--;
+				code.push({
+					children: [],
+					index: 0
+				});
+				var p = code[0], q;
+				for (i = 0; i < length; i++) {
+					for (j = 0; j < codeLengths[i]; j++) {
+						p = code.pop();
+						p.children[p.index] = values[k];
+						while (p.index > 0) {
+							p = code.pop()
+						}
+						p.index++;
+						code.push(p);
+						while (code.length <= i) {
+							code.push(q = {
+								children: [],
+								index: 0
+							});
+							p.children[p.index] = q.children;
+							p = q
+						}
+						k++
+					}
+					if (i + 1 < length) {
+						code.push(q = {
+							children: [],
+							index: 0
+						});
+						p.children[p.index] = q.children;
+						p = q
+					}
+				}
+				return code[0].children
+			}
+			function decodeScan(data, offset, frame, components, resetInterval, spectralStart, spectralEnd, successivePrev, successive) {
+				var precision = frame.precision;
+				var samplesPerLine = frame.samplesPerLine;
+				var scanLines = frame.scanLines;
+				var mcusPerLine = frame.mcusPerLine;
+				var progressive = frame.progressive;
+				var maxH = frame.maxH
+				  , maxV = frame.maxV;
+				var startOffset = offset
+				  , bitsData = 0
+				  , bitsCount = 0;
+				function readBit() {
+					if (bitsCount > 0) {
+						bitsCount--;
+						return bitsData >> bitsCount & 1
+					}
+					bitsData = data[offset++];
+					if (bitsData == 255) {
+						var nextByte = data[offset++];
+						if (nextByte) {
+							throw new Error("unexpected marker: " + (bitsData << 8 | nextByte).toString(16))
+						}
+					}
+					bitsCount = 7;
+					return bitsData >>> 7
+				}
+				function decodeHuffman(tree) {
+					var node = tree, bit;
+					while ((bit = readBit()) !== null) {
+						node = node[bit];
+						if (typeof node === "number")
+							return node;
+						if (typeof node !== "object")
+							throw new Error("invalid huffman sequence")
+					}
+					return null
+				}
+				function receive(length) {
+					var n = 0;
+					while (length > 0) {
+						var bit = readBit();
+						if (bit === null)
+							return;
+						n = n << 1 | bit;
+						length--
+					}
+					return n
+				}
+				function receiveAndExtend(length) {
+					var n = receive(length);
+					if (n >= 1 << length - 1)
+						return n;
+					return n + (-1 << length) + 1
+				}
+				function decodeBaseline(component, zz) {
+					var t = decodeHuffman(component.huffmanTableDC);
+					var diff = t === 0 ? 0 : receiveAndExtend(t);
+					zz[0] = component.pred += diff;
+					var k = 1;
+					while (k < 64) {
+						var rs = decodeHuffman(component.huffmanTableAC);
+						var s = rs & 15
+						  , r = rs >> 4;
+						if (s === 0) {
+							if (r < 15)
+								break;
+							k += 16;
+							continue
+						}
+						k += r;
+						var z = dctZigZag[k];
+						zz[z] = receiveAndExtend(s);
+						k++
+					}
+				}
+				function decodeDCFirst(component, zz) {
+					var t = decodeHuffman(component.huffmanTableDC);
+					var diff = t === 0 ? 0 : receiveAndExtend(t) << successive;
+					zz[0] = component.pred += diff
+				}
+				function decodeDCSuccessive(component, zz) {
+					zz[0] |= readBit() << successive
+				}
+				var eobrun = 0;
+				function decodeACFirst(component, zz) {
+					if (eobrun > 0) {
+						eobrun--;
+						return
+					}
+					var k = spectralStart
+					  , e = spectralEnd;
+					while (k <= e) {
+						var rs = decodeHuffman(component.huffmanTableAC);
+						var s = rs & 15
+						  , r = rs >> 4;
+						if (s === 0) {
+							if (r < 15) {
+								eobrun = receive(r) + (1 << r) - 1;
+								break
+							}
+							k += 16;
+							continue
+						}
+						k += r;
+						var z = dctZigZag[k];
+						zz[z] = receiveAndExtend(s) * (1 << successive);
+						k++
+					}
+				}
+				var successiveACState = 0, successiveACNextValue;
+				function decodeACSuccessive(component, zz) {
+					var k = spectralStart
+					  , e = spectralEnd
+					  , r = 0;
+					while (k <= e) {
+						var z = dctZigZag[k];
+						var direction = zz[z] < 0 ? -1 : 1;
+						switch (successiveACState) {
+						case 0:
+							var rs = decodeHuffman(component.huffmanTableAC);
+							var s = rs & 15
+							  , r = rs >> 4;
+							if (s === 0) {
+								if (r < 15) {
+									eobrun = receive(r) + (1 << r);
+									successiveACState = 4
+								} else {
+									r = 16;
+									successiveACState = 1
+								}
+							} else {
+								if (s !== 1)
+									throw new Error("invalid ACn encoding");
+								successiveACNextValue = receiveAndExtend(s);
+								successiveACState = r ? 2 : 3
+							}
+							continue;
+						case 1:
+						case 2:
+							if (zz[z])
+								zz[z] += (readBit() << successive) * direction;
+							else {
+								r--;
+								if (r === 0)
+									successiveACState = successiveACState == 2 ? 3 : 0
+							}
+							break;
+						case 3:
+							if (zz[z])
+								zz[z] += (readBit() << successive) * direction;
+							else {
+								zz[z] = successiveACNextValue << successive;
+								successiveACState = 0
+							}
+							break;
+						case 4:
+							if (zz[z])
+								zz[z] += (readBit() << successive) * direction;
+							break
+						}
+						k++
+					}
+					if (successiveACState === 4) {
+						eobrun--;
+						if (eobrun === 0)
+							successiveACState = 0
+					}
+				}
+				function decodeMcu(component, decode, mcu, row, col) {
+					var mcuRow = mcu / mcusPerLine | 0;
+					var mcuCol = mcu % mcusPerLine;
+					var blockRow = mcuRow * component.v + row;
+					var blockCol = mcuCol * component.h + col;
+					decode(component, component.blocks[blockRow][blockCol])
+				}
+				function decodeBlock(component, decode, mcu) {
+					var blockRow = mcu / component.blocksPerLine | 0;
+					var blockCol = mcu % component.blocksPerLine;
+					decode(component, component.blocks[blockRow][blockCol])
+				}
+				var componentsLength = components.length;
+				var component, i, j, k, n;
+				var decodeFn;
+				if (progressive) {
+					if (spectralStart === 0)
+						decodeFn = successivePrev === 0 ? decodeDCFirst : decodeDCSuccessive;
+					else
+						decodeFn = successivePrev === 0 ? decodeACFirst : decodeACSuccessive
+				} else {
+					decodeFn = decodeBaseline
+				}
+				var mcu = 0, marker;
+				var mcuExpected;
+				if (componentsLength == 1) {
+					mcuExpected = components[0].blocksPerLine * components[0].blocksPerColumn
+				} else {
+					mcuExpected = mcusPerLine * frame.mcusPerColumn
+				}
+				if (!resetInterval)
+					resetInterval = mcuExpected;
+				var h, v;
+				while (mcu < mcuExpected) {
+					for (i = 0; i < componentsLength; i++)
+						components[i].pred = 0;
+					eobrun = 0;
+					if (componentsLength == 1) {
+						component = components[0];
+						for (n = 0; n < resetInterval; n++) {
+							decodeBlock(component, decodeFn, mcu);
+							mcu++
+						}
+					} else {
+						for (n = 0; n < resetInterval; n++) {
+							for (i = 0; i < componentsLength; i++) {
+								component = components[i];
+								h = component.h;
+								v = component.v;
+								for (j = 0; j < v; j++) {
+									for (k = 0; k < h; k++) {
+										decodeMcu(component, decodeFn, mcu, j, k)
+									}
+								}
+							}
+							mcu++;
+							if (mcu === mcuExpected)
+								break
+						}
+					}
+					bitsCount = 0;
+					marker = data[offset] << 8 | data[offset + 1];
+					if (marker < 65280) {
+						throw new Error("marker was not found")
+					}
+					if (marker >= 65488 && marker <= 65495) {
+						offset += 2
+					} else
+						break
+				}
+				return offset - startOffset
+			}
+			function buildComponentData(frame, component) {
+				var lines = [];
+				var blocksPerLine = component.blocksPerLine;
+				var blocksPerColumn = component.blocksPerColumn;
+				var samplesPerLine = blocksPerLine << 3;
+				var R = new Int32Array(64)
+				  , r = new Uint8Array(64);
+				function quantizeAndInverse(zz, dataOut, dataIn) {
+					var qt = component.quantizationTable;
+					var v0, v1, v2, v3, v4, v5, v6, v7, t;
+					var p = dataIn;
+					var i;
+					for (i = 0; i < 64; i++)
+						p[i] = zz[i] * qt[i];
+					for (i = 0; i < 8; ++i) {
+						var row = 8 * i;
+						if (p[1 + row] == 0 && p[2 + row] == 0 && p[3 + row] == 0 && p[4 + row] == 0 && p[5 + row] == 0 && p[6 + row] == 0 && p[7 + row] == 0) {
+							t = dctSqrt2 * p[0 + row] + 512 >> 10;
+							p[0 + row] = t;
+							p[1 + row] = t;
+							p[2 + row] = t;
+							p[3 + row] = t;
+							p[4 + row] = t;
+							p[5 + row] = t;
+							p[6 + row] = t;
+							p[7 + row] = t;
+							continue
+						}
+						v0 = dctSqrt2 * p[0 + row] + 128 >> 8;
+						v1 = dctSqrt2 * p[4 + row] + 128 >> 8;
+						v2 = p[2 + row];
+						v3 = p[6 + row];
+						v4 = dctSqrt1d2 * (p[1 + row] - p[7 + row]) + 128 >> 8;
+						v7 = dctSqrt1d2 * (p[1 + row] + p[7 + row]) + 128 >> 8;
+						v5 = p[3 + row] << 4;
+						v6 = p[5 + row] << 4;
+						t = v0 - v1 + 1 >> 1;
+						v0 = v0 + v1 + 1 >> 1;
+						v1 = t;
+						t = v2 * dctSin6 + v3 * dctCos6 + 128 >> 8;
+						v2 = v2 * dctCos6 - v3 * dctSin6 + 128 >> 8;
+						v3 = t;
+						t = v4 - v6 + 1 >> 1;
+						v4 = v4 + v6 + 1 >> 1;
+						v6 = t;
+						t = v7 + v5 + 1 >> 1;
+						v5 = v7 - v5 + 1 >> 1;
+						v7 = t;
+						t = v0 - v3 + 1 >> 1;
+						v0 = v0 + v3 + 1 >> 1;
+						v3 = t;
+						t = v1 - v2 + 1 >> 1;
+						v1 = v1 + v2 + 1 >> 1;
+						v2 = t;
+						t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
+						v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
+						v7 = t;
+						t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
+						v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
+						v6 = t;
+						p[0 + row] = v0 + v7;
+						p[7 + row] = v0 - v7;
+						p[1 + row] = v1 + v6;
+						p[6 + row] = v1 - v6;
+						p[2 + row] = v2 + v5;
+						p[5 + row] = v2 - v5;
+						p[3 + row] = v3 + v4;
+						p[4 + row] = v3 - v4
+					}
+					for (i = 0; i < 8; ++i) {
+						var col = i;
+						if (p[1 * 8 + col] == 0 && p[2 * 8 + col] == 0 && p[3 * 8 + col] == 0 && p[4 * 8 + col] == 0 && p[5 * 8 + col] == 0 && p[6 * 8 + col] == 0 && p[7 * 8 + col] == 0) {
+							t = dctSqrt2 * dataIn[i + 0] + 8192 >> 14;
+							p[0 * 8 + col] = t;
+							p[1 * 8 + col] = t;
+							p[2 * 8 + col] = t;
+							p[3 * 8 + col] = t;
+							p[4 * 8 + col] = t;
+							p[5 * 8 + col] = t;
+							p[6 * 8 + col] = t;
+							p[7 * 8 + col] = t;
+							continue
+						}
+						v0 = dctSqrt2 * p[0 * 8 + col] + 2048 >> 12;
+						v1 = dctSqrt2 * p[4 * 8 + col] + 2048 >> 12;
+						v2 = p[2 * 8 + col];
+						v3 = p[6 * 8 + col];
+						v4 = dctSqrt1d2 * (p[1 * 8 + col] - p[7 * 8 + col]) + 2048 >> 12;
+						v7 = dctSqrt1d2 * (p[1 * 8 + col] + p[7 * 8 + col]) + 2048 >> 12;
+						v5 = p[3 * 8 + col];
+						v6 = p[5 * 8 + col];
+						t = v0 - v1 + 1 >> 1;
+						v0 = v0 + v1 + 1 >> 1;
+						v1 = t;
+						t = v2 * dctSin6 + v3 * dctCos6 + 2048 >> 12;
+						v2 = v2 * dctCos6 - v3 * dctSin6 + 2048 >> 12;
+						v3 = t;
+						t = v4 - v6 + 1 >> 1;
+						v4 = v4 + v6 + 1 >> 1;
+						v6 = t;
+						t = v7 + v5 + 1 >> 1;
+						v5 = v7 - v5 + 1 >> 1;
+						v7 = t;
+						t = v0 - v3 + 1 >> 1;
+						v0 = v0 + v3 + 1 >> 1;
+						v3 = t;
+						t = v1 - v2 + 1 >> 1;
+						v1 = v1 + v2 + 1 >> 1;
+						v2 = t;
+						t = v4 * dctSin3 + v7 * dctCos3 + 2048 >> 12;
+						v4 = v4 * dctCos3 - v7 * dctSin3 + 2048 >> 12;
+						v7 = t;
+						t = v5 * dctSin1 + v6 * dctCos1 + 2048 >> 12;
+						v5 = v5 * dctCos1 - v6 * dctSin1 + 2048 >> 12;
+						v6 = t;
+						p[0 * 8 + col] = v0 + v7;
+						p[7 * 8 + col] = v0 - v7;
+						p[1 * 8 + col] = v1 + v6;
+						p[6 * 8 + col] = v1 - v6;
+						p[2 * 8 + col] = v2 + v5;
+						p[5 * 8 + col] = v2 - v5;
+						p[3 * 8 + col] = v3 + v4;
+						p[4 * 8 + col] = v3 - v4
+					}
+					for (i = 0; i < 64; ++i) {
+						var sample = 128 + (p[i] + 8 >> 4);
+						dataOut[i] = sample < 0 ? 0 : sample > 255 ? 255 : sample
+					}
+				}
+				var i, j;
+				for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
+					var scanLine = blockRow << 3;
+					for (i = 0; i < 8; i++)
+						lines.push(new Uint8Array(samplesPerLine));
+					for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
+						quantizeAndInverse(component.blocks[blockRow][blockCol], r, R);
+						var offset = 0
+						  , sample = blockCol << 3;
+						for (j = 0; j < 8; j++) {
+							var line = lines[scanLine + j];
+							for (i = 0; i < 8; i++)
+								line[sample + i] = r[offset++]
+						}
+					}
+				}
+				return lines
+			}
+			function clampTo8bit(a) {
+				return a < 0 ? 0 : a > 255 ? 255 : a
+			}
+			constructor.prototype = {
+				parse: function parse(data) {
+					var offset = 0
+					  , length = data.length;
+					function readUint16() {
+						var value = data[offset] << 8 | data[offset + 1];
+						offset += 2;
+						return value
+					}
+					function readDataBlock() {
+						var length = readUint16();
+						var array = data.subarray(offset, offset + length - 2);
+						offset += array.length;
+						return array
+					}
+					function prepareComponents(frame) {
+						var maxH = 0
+						  , maxV = 0;
+						var component, componentId;
+						for (componentId in frame.components) {
+							if (frame.components.hasOwnProperty(componentId)) {
+								component = frame.components[componentId];
+								if (maxH < component.h)
+									maxH = component.h;
+								if (maxV < component.v)
+									maxV = component.v
+							}
+						}
+						var mcusPerLine = Math.ceil(frame.samplesPerLine / 8 / maxH);
+						var mcusPerColumn = Math.ceil(frame.scanLines / 8 / maxV);
+						for (componentId in frame.components) {
+							if (frame.components.hasOwnProperty(componentId)) {
+								component = frame.components[componentId];
+								var blocksPerLine = Math.ceil(Math.ceil(frame.samplesPerLine / 8) * component.h / maxH);
+								var blocksPerColumn = Math.ceil(Math.ceil(frame.scanLines / 8) * component.v / maxV);
+								var blocksPerLineForMcu = mcusPerLine * component.h;
+								var blocksPerColumnForMcu = mcusPerColumn * component.v;
+								var blocks = [];
+								for (var i = 0; i < blocksPerColumnForMcu; i++) {
+									var row = [];
+									for (var j = 0; j < blocksPerLineForMcu; j++)
+										row.push(new Int32Array(64));
+									blocks.push(row)
+								}
+								component.blocksPerLine = blocksPerLine;
+								component.blocksPerColumn = blocksPerColumn;
+								component.blocks = blocks
+							}
+						}
+						frame.maxH = maxH;
+						frame.maxV = maxV;
+						frame.mcusPerLine = mcusPerLine;
+						frame.mcusPerColumn = mcusPerColumn
+					}
+					var jfif = null;
+					var adobe = null;
+					var pixels = null;
+					var frame, resetInterval;
+					var quantizationTables = []
+					  , frames = [];
+					var huffmanTablesAC = []
+					  , huffmanTablesDC = [];
+					var fileMarker = readUint16();
+					if (fileMarker != 65496) {
+						throw new Error("SOI not found")
+					}
+					fileMarker = readUint16();
+					while (fileMarker != 65497) {
+						var i, j, l;
+						switch (fileMarker) {
+						case 65280:
+							break;
+						case 65504:
+						case 65505:
+						case 65506:
+						case 65507:
+						case 65508:
+						case 65509:
+						case 65510:
+						case 65511:
+						case 65512:
+						case 65513:
+						case 65514:
+						case 65515:
+						case 65516:
+						case 65517:
+						case 65518:
+						case 65519:
+						case 65534:
+							var appData = readDataBlock();
+							if (fileMarker === 65504) {
+								if (appData[0] === 74 && appData[1] === 70 && appData[2] === 73 && appData[3] === 70 && appData[4] === 0) {
+									jfif = {
+										version: {
+											major: appData[5],
+											minor: appData[6]
+										},
+										densityUnits: appData[7],
+										xDensity: appData[8] << 8 | appData[9],
+										yDensity: appData[10] << 8 | appData[11],
+										thumbWidth: appData[12],
+										thumbHeight: appData[13],
+										thumbData: appData.subarray(14, 14 + 3 * appData[12] * appData[13])
+									}
+								}
+							}
+							if (fileMarker === 65518) {
+								if (appData[0] === 65 && appData[1] === 100 && appData[2] === 111 && appData[3] === 98 && appData[4] === 101 && appData[5] === 0) {
+									adobe = {
+										version: appData[6],
+										flags0: appData[7] << 8 | appData[8],
+										flags1: appData[9] << 8 | appData[10],
+										transformCode: appData[11]
+									}
+								}
+							}
+							break;
+						case 65499:
+							var quantizationTablesLength = readUint16();
+							var quantizationTablesEnd = quantizationTablesLength + offset - 2;
+							while (offset < quantizationTablesEnd) {
+								var quantizationTableSpec = data[offset++];
+								var tableData = new Int32Array(64);
+								if (quantizationTableSpec >> 4 === 0) {
+									for (j = 0; j < 64; j++) {
+										var z = dctZigZag[j];
+										tableData[z] = data[offset++]
+									}
+								} else if (quantizationTableSpec >> 4 === 1) {
+									for (j = 0; j < 64; j++) {
+										var z = dctZigZag[j];
+										tableData[z] = readUint16()
+									}
+								} else
+									throw new Error("DQT: invalid table spec");
+								quantizationTables[quantizationTableSpec & 15] = tableData
+							}
+							break;
+						case 65472:
+						case 65473:
+						case 65474:
+							readUint16();
+							frame = {};
+							frame.extended = fileMarker === 65473;
+							frame.progressive = fileMarker === 65474;
+							frame.precision = data[offset++];
+							frame.scanLines = readUint16();
+							frame.samplesPerLine = readUint16();
+							frame.components = {};
+							frame.componentsOrder = [];
+							var componentsCount = data[offset++], componentId;
+							var maxH = 0
+							  , maxV = 0;
+							for (i = 0; i < componentsCount; i++) {
+								componentId = data[offset];
+								var h = data[offset + 1] >> 4;
+								var v = data[offset + 1] & 15;
+								var qId = data[offset + 2];
+								frame.componentsOrder.push(componentId);
+								frame.components[componentId] = {
+									h: h,
+									v: v,
+									quantizationIdx: qId
+								};
+								offset += 3
+							}
+							prepareComponents(frame);
+							frames.push(frame);
+							break;
+						case 65476:
+							var huffmanLength = readUint16();
+							for (i = 2; i < huffmanLength; ) {
+								var huffmanTableSpec = data[offset++];
+								var codeLengths = new Uint8Array(16);
+								var codeLengthSum = 0;
+								for (j = 0; j < 16; j++,
+								offset++)
+									codeLengthSum += codeLengths[j] = data[offset];
+								var huffmanValues = new Uint8Array(codeLengthSum);
+								for (j = 0; j < codeLengthSum; j++,
+								offset++)
+									huffmanValues[j] = data[offset];
+								i += 17 + codeLengthSum;
+								(huffmanTableSpec >> 4 === 0 ? huffmanTablesDC : huffmanTablesAC)[huffmanTableSpec & 15] = buildHuffmanTable(codeLengths, huffmanValues)
+							}
+							break;
+						case 65501:
+							readUint16();
+							resetInterval = readUint16();
+							break;
+						case 65498:
+							var scanLength = readUint16();
+							var selectorsCount = data[offset++];
+							var components = [], component;
+							for (i = 0; i < selectorsCount; i++) {
+								component = frame.components[data[offset++]];
+								var tableSpec = data[offset++];
+								component.huffmanTableDC = huffmanTablesDC[tableSpec >> 4];
+								component.huffmanTableAC = huffmanTablesAC[tableSpec & 15];
+								components.push(component)
+							}
+							var spectralStart = data[offset++];
+							var spectralEnd = data[offset++];
+							var successiveApproximation = data[offset++];
+							var processed = decodeScan(data, offset, frame, components, resetInterval, spectralStart, spectralEnd, successiveApproximation >> 4, successiveApproximation & 15);
+							offset += processed;
+							break;
+						default:
+							if (data[offset - 3] == 255 && data[offset - 2] >= 192 && data[offset - 2] <= 254) {
+								offset -= 3;
+								break
+							}
+							throw new Error("unknown JPEG marker " + fileMarker.toString(16))
+						}
+						fileMarker = readUint16()
+					}
+					if (frames.length != 1)
+						throw new Error("only single frame JPEGs supported");
+					for (var i = 0; i < frames.length; i++) {
+						var cp = frames[i].components;
+						for (var j in cp) {
+							cp[j].quantizationTable = quantizationTables[cp[j].quantizationIdx];
+							delete cp[j].quantizationIdx
+						}
+					}
+					this.width = frame.samplesPerLine;
+					this.height = frame.scanLines;
+					this.jfif = jfif;
+					this.adobe = adobe;
+					this.components = [];
+					for (var i = 0; i < frame.componentsOrder.length; i++) {
+						var component = frame.components[frame.componentsOrder[i]];
+						this.components.push({
+							lines: buildComponentData(frame, component),
+							scaleX: component.h / frame.maxH,
+							scaleY: component.v / frame.maxV
+						})
+					}
+				},
+				getData: function getData(width, height) {
+					var scaleX = this.width / width
+					  , scaleY = this.height / height;
+					var component1, component2, component3, component4;
+					var component1Line, component2Line, component3Line, component4Line;
+					var x, y;
+					var offset = 0;
+					var Y, Cb, Cr, K, C, M, Ye, R, G, B;
+					var colorTransform;
+					var dataLength = width * height * this.components.length;
+					var data = new Uint8Array(dataLength);
+					switch (this.components.length) {
+					case 1:
+						component1 = this.components[0];
+						for (y = 0; y < height; y++) {
+							component1Line = component1.lines[0 | y * component1.scaleY * scaleY];
+							for (x = 0; x < width; x++) {
+								Y = component1Line[0 | x * component1.scaleX * scaleX];
+								data[offset++] = Y
+							}
+						}
+						break;
+					case 2:
+						component1 = this.components[0];
+						component2 = this.components[1];
+						for (y = 0; y < height; y++) {
+							component1Line = component1.lines[0 | y * component1.scaleY * scaleY];
+							component2Line = component2.lines[0 | y * component2.scaleY * scaleY];
+							for (x = 0; x < width; x++) {
+								Y = component1Line[0 | x * component1.scaleX * scaleX];
+								data[offset++] = Y;
+								Y = component2Line[0 | x * component2.scaleX * scaleX];
+								data[offset++] = Y
+							}
+						}
+						break;
+					case 3:
+						colorTransform = true;
+						if (this.adobe && this.adobe.transformCode)
+							colorTransform = true;
+						else if (typeof this.colorTransform !== "undefined")
+							colorTransform = !!this.colorTransform;
+						component1 = this.components[0];
+						component2 = this.components[1];
+						component3 = this.components[2];
+						for (y = 0; y < height; y++) {
+							component1Line = component1.lines[0 | y * component1.scaleY * scaleY];
+							component2Line = component2.lines[0 | y * component2.scaleY * scaleY];
+							component3Line = component3.lines[0 | y * component3.scaleY * scaleY];
+							for (x = 0; x < width; x++) {
+								if (!colorTransform) {
+									R = component1Line[0 | x * component1.scaleX * scaleX];
+									G = component2Line[0 | x * component2.scaleX * scaleX];
+									B = component3Line[0 | x * component3.scaleX * scaleX]
+								} else {
+									Y = component1Line[0 | x * component1.scaleX * scaleX];
+									Cb = component2Line[0 | x * component2.scaleX * scaleX];
+									Cr = component3Line[0 | x * component3.scaleX * scaleX];
+									R = clampTo8bit(Y + 1.402 * (Cr - 128));
+									G = clampTo8bit(Y - .3441363 * (Cb - 128) - .71413636 * (Cr - 128));
+									B = clampTo8bit(Y + 1.772 * (Cb - 128))
+								}
+								data[offset++] = R;
+								data[offset++] = G;
+								data[offset++] = B
+							}
+						}
+						break;
+					case 4:
+						if (!this.adobe)
+							throw "Unsupported color mode (4 components)";
+						colorTransform = false;
+						if (this.adobe && this.adobe.transformCode)
+							colorTransform = true;
+						else if (typeof this.colorTransform !== "undefined")
+							colorTransform = !!this.colorTransform;
+						component1 = this.components[0];
+						component2 = this.components[1];
+						component3 = this.components[2];
+						component4 = this.components[3];
+						for (y = 0; y < height; y++) {
+							component1Line = component1.lines[0 | y * component1.scaleY * scaleY];
+							component2Line = component2.lines[0 | y * component2.scaleY * scaleY];
+							component3Line = component3.lines[0 | y * component3.scaleY * scaleY];
+							component4Line = component4.lines[0 | y * component4.scaleY * scaleY];
+							for (x = 0; x < width; x++) {
+								if (!colorTransform) {
+									C = component1Line[0 | x * component1.scaleX * scaleX];
+									M = component2Line[0 | x * component2.scaleX * scaleX];
+									Ye = component3Line[0 | x * component3.scaleX * scaleX];
+									K = component4Line[0 | x * component4.scaleX * scaleX]
+								} else {
+									Y = component1Line[0 | x * component1.scaleX * scaleX];
+									Cb = component2Line[0 | x * component2.scaleX * scaleX];
+									Cr = component3Line[0 | x * component3.scaleX * scaleX];
+									K = component4Line[0 | x * component4.scaleX * scaleX];
+									C = 255 - clampTo8bit(Y + 1.402 * (Cr - 128));
+									M = 255 - clampTo8bit(Y - .3441363 * (Cb - 128) - .71413636 * (Cr - 128));
+									Ye = 255 - clampTo8bit(Y + 1.772 * (Cb - 128))
+								}
+								data[offset++] = 255 - C;
+								data[offset++] = 255 - M;
+								data[offset++] = 255 - Ye;
+								data[offset++] = 255 - K
+							}
+						}
+						break;
+					default:
+						throw "Unsupported color mode"
+					}
+					return data
+				},
+				copyToImageData: function copyToImageData(imageData) {
+					var width = imageData.width
+					  , height = imageData.height;
+					var imageDataArray = imageData.data;
+					var data = this.getData(width, height);
+					var i = 0, j = 0, x, y;
+					var Y, K, C, M, R, G, B;
+					switch (this.components.length) {
+					case 1:
+						for (y = 0; y < height; y++) {
+							for (x = 0; x < width; x++) {
+								Y = data[i++];
+								imageDataArray[j++] = Y;
+								imageDataArray[j++] = Y;
+								imageDataArray[j++] = Y;
+								imageDataArray[j++] = 255
+							}
+						}
+						break;
+					case 3:
+						for (y = 0; y < height; y++) {
+							for (x = 0; x < width; x++) {
+								R = data[i++];
+								G = data[i++];
+								B = data[i++];
+								imageDataArray[j++] = R;
+								imageDataArray[j++] = G;
+								imageDataArray[j++] = B;
+								imageDataArray[j++] = 255
+							}
+						}
+						break;
+					case 4:
+						for (y = 0; y < height; y++) {
+							for (x = 0; x < width; x++) {
+								C = data[i++];
+								M = data[i++];
+								Y = data[i++];
+								K = data[i++];
+								R = 255 - clampTo8bit(C * (1 - K / 255) + K);
+								G = 255 - clampTo8bit(M * (1 - K / 255) + K);
+								B = 255 - clampTo8bit(Y * (1 - K / 255) + K);
+								imageDataArray[j++] = R;
+								imageDataArray[j++] = G;
+								imageDataArray[j++] = B;
+								imageDataArray[j++] = 255
+							}
+						}
+						break;
+					default:
+						throw "Unsupported color mode"
+					}
+				}
+			};
+			function jpeg_decode(jpegData) {
+				var decoder = new constructor;
+				decoder.parse(jpegData);
+				var image = {
+					width: decoder.width,
+					height: decoder.height,
+					data: new Uint8Array(decoder.width * decoder.height * 4)
+				};
+				decoder.copyToImageData(image);
+				return image
+			};
+			return {
+				decode: jpeg_decode
+			}
+		}();
+		wpjsm.exportJS = AT_JPG_Decoder;
+	},
+	"./src/utils/at-mp3-decoder.js": function(wpjsm) {
 		const BitStream = function() {
 			this._end = 0;
 			this.viewUint8 = null;
@@ -8914,7 +10178,12 @@ var PinkFie = (function(moduleResults) {
 			y[0] = 0;
 			v[0] = 0;
 			w[0] = 0;
-			var part2_3_end = this.part2_start + si.ch[ch].gr[gr].part2_3_length;
+			var part2_3_length = si.ch[ch].gr[gr].part2_3_length;
+			if (part2_3_length == 0) {
+				is_1d.fill(0);
+				return;
+			}
+			var part2_3_end = this.part2_start + part2_3_length;
 			var num_bits = 0;
 			var region1Start = 0;
 			var region2Start = 0;
@@ -9073,7 +10342,10 @@ var PinkFie = (function(moduleResults) {
 		];
 		var is_pos = new Int32Array(576);
 		var is_ratio = new Float32Array(576);
-		MP3Layer3.io = [[1.0000000000E+00, 8.4089641526E-01, 7.0710678119E-01, 5.9460355751E-01, 5.0000000001E-01, 4.2044820763E-01, 3.5355339060E-01, 2.9730177876E-01, 2.5000000001E-01, 2.1022410382E-01, 1.7677669530E-01, 1.4865088938E-01, 1.2500000000E-01, 1.0511205191E-01, 8.8388347652E-02, 7.4325444691E-02, 6.2500000003E-02, 5.2556025956E-02, 4.4194173826E-02, 3.7162722346E-02, 3.1250000002E-02, 2.6278012978E-02, 2.2097086913E-02, 1.8581361173E-02, 1.5625000001E-02, 1.3139006489E-02, 1.1048543457E-02, 9.2906805866E-03, 7.8125000006E-03, 6.5695032447E-03, 5.5242717285E-03, 4.6453402934E-03], [1.0000000000E+00, 7.0710678119E-01, 5.0000000000E-01, 3.5355339060E-01, 2.5000000000E-01, 1.7677669530E-01, 1.2500000000E-01, 8.8388347650E-02, 6.2500000001E-02, 4.4194173825E-02, 3.1250000001E-02, 2.2097086913E-02, 1.5625000000E-02, 1.1048543456E-02, 7.8125000002E-03, 5.5242717282E-03, 3.9062500001E-03, 2.7621358641E-03, 1.9531250001E-03, 1.3810679321E-03, 9.7656250004E-04, 6.9053396603E-04, 4.8828125002E-04, 3.4526698302E-04, 2.4414062501E-04, 1.7263349151E-04, 1.2207031251E-04, 8.6316745755E-05, 6.1035156254E-05, 4.3158372878E-05, 3.0517578127E-05, 2.1579186439E-05]]
+		MP3Layer3.io = [
+			new Float32Array([1.0000000000E+00, 8.4089641526E-01, 7.0710678119E-01, 5.9460355751E-01, 5.0000000001E-01, 4.2044820763E-01, 3.5355339060E-01, 2.9730177876E-01, 2.5000000001E-01, 2.1022410382E-01, 1.7677669530E-01, 1.4865088938E-01, 1.2500000000E-01, 1.0511205191E-01, 8.8388347652E-02, 7.4325444691E-02, 6.2500000003E-02, 5.2556025956E-02, 4.4194173826E-02, 3.7162722346E-02, 3.1250000002E-02, 2.6278012978E-02, 2.2097086913E-02, 1.8581361173E-02, 1.5625000001E-02, 1.3139006489E-02, 1.1048543457E-02, 9.2906805866E-03, 7.8125000006E-03, 6.5695032447E-03, 5.5242717285E-03, 4.6453402934E-03]),
+			new Float32Array([1.0000000000E+00, 7.0710678119E-01, 5.0000000000E-01, 3.5355339060E-01, 2.5000000000E-01, 1.7677669530E-01, 1.2500000000E-01, 8.8388347650E-02, 6.2500000001E-02, 4.4194173825E-02, 3.1250000001E-02, 2.2097086913E-02, 1.5625000000E-02, 1.1048543456E-02, 7.8125000002E-03, 5.5242717282E-03, 3.9062500001E-03, 2.7621358641E-03, 1.9531250001E-03, 1.3810679321E-03, 9.7656250004E-04, 6.9053396603E-04, 4.8828125002E-04, 3.4526698302E-04, 2.4414062501E-04, 1.7263349151E-04, 1.2207031251E-04, 8.6316745755E-05, 6.1035156254E-05, 4.3158372878E-05, 3.0517578127E-05, 2.1579186439E-05])
+		]
 		MP3Layer3.TAN12 = new Float32Array([0.0, 0.26794919, 0.57735027, 1.0, 1.73205081, 3.73205081, 9.9999999e10, -3.73205081, -1.73205081, -1.0, -0.57735027, -0.26794919, 0.0, 0.26794919, 0.57735027, 1.0]);
 		MP3Layer3.cs = new Float32Array([0.857492925712, 0.881741997318, 0.949628649103, 0.983314592492, 0.995517816065, 0.999160558175, 0.999899195243, 0.999993155067]);
 		MP3Layer3.ca = new Float32Array([-0.5144957554270, -0.4717319685650, -0.3133774542040, -0.1819131996110, -0.0945741925262, -0.0409655828852, -0.0141985685725, -0.00369997467375]);
@@ -9492,42 +10764,7 @@ var PinkFie = (function(moduleResults) {
 			var tmpf_10, tmpf_11, tmpf_12, tmpf_13, tmpf_14, tmpf_15, tmpf_16, tmpf_17;
 			tmpf_0 = tmpf_1 = tmpf_2 = tmpf_3 = tmpf_4 = tmpf_5 = tmpf_6 = tmpf_7 = tmpf_8 = tmpf_9 = tmpf_10 = tmpf_11 = tmpf_12 = tmpf_13 = tmpf_14 = tmpf_15 = tmpf_16 = tmpf_17 = 0.0;
 			if (block_type == 2) {
-				out[0] = 0.0;
-				out[1] = 0.0;
-				out[2] = 0.0;
-				out[3] = 0.0;
-				out[4] = 0.0;
-				out[5] = 0.0;
-				out[6] = 0.0;
-				out[7] = 0.0;
-				out[8] = 0.0;
-				out[9] = 0.0;
-				out[10] = 0.0;
-				out[11] = 0.0;
-				out[12] = 0.0;
-				out[13] = 0.0;
-				out[14] = 0.0;
-				out[15] = 0.0;
-				out[16] = 0.0;
-				out[17] = 0.0;
-				out[18] = 0.0;
-				out[19] = 0.0;
-				out[20] = 0.0;
-				out[21] = 0.0;
-				out[22] = 0.0;
-				out[23] = 0.0;
-				out[24] = 0.0;
-				out[25] = 0.0;
-				out[26] = 0.0;
-				out[27] = 0.0;
-				out[28] = 0.0;
-				out[29] = 0.0;
-				out[30] = 0.0;
-				out[31] = 0.0;
-				out[32] = 0.0;
-				out[33] = 0.0;
-				out[34] = 0.0;
-				out[35] = 0.0;
+				out.fill(0.0);
 				var six_i = 0;
 				for (i = 0; i < 3; i++) {
 					_in[15 + i] += _in[12 + i];
@@ -9722,7 +10959,7 @@ var PinkFie = (function(moduleResults) {
 			}
 		}
 		const SampleBuffer = function(sample_frequency, number_of_channels) {
-			this.buffer = new Int16Array(SampleBuffer.OBUFFERSIZE);
+			this.buffer = new Float32Array(SampleBuffer.OBUFFERSIZE);
 			this.bufferp = new Int32Array(SampleBuffer.MAXCHANNELS);
 			this.channels = number_of_channels;
 			this.frequency = sample_frequency;
@@ -9751,13 +10988,10 @@ var PinkFie = (function(moduleResults) {
 		}
 		SampleBuffer.prototype.appendSamples = function(channel, f) {
 			var pos = this.bufferp[channel];
-			var s;
 			var fs;
 			for (var i = 0; i < 32; ) {
 				fs = f[i++];
-				fs = (fs > 32767.0 ? 32767.0 : (Math.max(fs, -32767.0)));
-				s = fs << 16 >> 16;
-				this.buffer[pos] = s;
+				this.buffer[pos] = fs;
 				pos += this.channels;
 			}
 			this.bufferp[channel] = pos;
@@ -9770,7 +11004,7 @@ var PinkFie = (function(moduleResults) {
 			this.output = out;
 		}
 		MP3Decoder.prototype.initialize = function(header) {
-			var scalefactor = 32700;
+			var scalefactor = 1;
 			var mode = header.mode();
 			var channels = mode == MP3Header.SINGLE_CHANNEL ? 1 : 2;
 			if (this.output == null) this.output = new SampleBuffer(header.frequency(), channels);
@@ -9802,7 +11036,7 @@ var PinkFie = (function(moduleResults) {
 			BitStream
 		}
 	},
-	"src/utils/at-nihav-vp6-decoder.js": function(wpjsm){
+	"./src/utils/at-nihav-vp6-decoder.js": function(wpjsm) {
 		function validate(isH) {
 			if (!isH) throw new Error("ValidationError");
 		}
@@ -10417,49 +11651,50 @@ var PinkFie = (function(moduleResults) {
 			return (a * b) >> 16;
 		}
 		function vp_idct(coeffs) {
+			let t_a = 0, t_b = 0, t_c = 0, t_d = 0, t_a1 = 0, t_b1 = 0, t_e = 0, t_f = 0, t_g = 0, t_h = 0, t_e1 = 0;
 			let tmp = new Int32Array(64);
 			for (var i = 0; i < 64; i += 8) {
-				let t_a = mul16(C1S7, (coeffs[i + 1])) + mul16(C7S1, coeffs[i + 7]);
-				let t_b = mul16(C7S1, (coeffs[i + 1])) - mul16(C1S7, coeffs[i + 7]);
-				let t_c = mul16(C3S5, (coeffs[i + 3])) + mul16(C5S3, coeffs[i + 5]);
-				let t_d = mul16(C3S5, (coeffs[i + 5])) - mul16(C5S3, coeffs[i + 3]);
-				let t_a1 = mul16(C4S4, t_a - t_c);
-				let t_b1 = mul16(C4S4, t_b - t_d);
+				t_a = mul16(C1S7, (coeffs[i + 1])) + mul16(C7S1, coeffs[i + 7]);
+				t_b = mul16(C7S1, (coeffs[i + 1])) - mul16(C1S7, coeffs[i + 7]);
+				t_c = mul16(C3S5, (coeffs[i + 3])) + mul16(C5S3, coeffs[i + 5]);
+				t_d = mul16(C3S5, (coeffs[i + 5])) - mul16(C5S3, coeffs[i + 3]);
+				t_a1 = mul16(C4S4, t_a - t_c);
+				t_b1 = mul16(C4S4, t_b - t_d);
 				t_c = t_a + t_c;
 				t_d = t_b + t_d;
-				let t_e = mul16(C4S4, (coeffs[i] + coeffs[i + 4]));
-				let t_f = mul16(C4S4, (coeffs[i] - coeffs[i + 4]));
-				let t_g = mul16(C2S6, (coeffs[i + 2])) + mul16(C6S2, (coeffs[i + 6]));
-				let t_h = mul16(C6S2, (coeffs[i + 2])) - mul16(C2S6, (coeffs[i + 6]));
-				let t_e1 = t_e - t_g;
+				t_e = mul16(C4S4, (coeffs[i] + coeffs[i + 4]));
+				t_f = mul16(C4S4, (coeffs[i] - coeffs[i + 4]));
+				t_g = mul16(C2S6, (coeffs[i + 2])) + mul16(C6S2, (coeffs[i + 6]));
+				t_h = mul16(C6S2, (coeffs[i + 2])) - mul16(C2S6, (coeffs[i + 6]));
+				t_e1 = t_e - t_g;
 				t_g = t_e + t_g;
 				t_a = t_f + t_a1;
 				t_f = t_f - t_a1;
 				t_b = t_b1 - t_h;
 				t_h = t_b1 + t_h;
-				tmp[i] = (t_g + t_c) | 0;
-				tmp[i + 1] = (t_a + t_h) | 0;
-				tmp[i + 2] = (t_a - t_h) | 0;
-				tmp[i + 3] = (t_e1 + t_d) | 0;
-				tmp[i + 4] = (t_e1 - t_d) | 0;
-				tmp[i + 5] = (t_f + t_b) | 0;
-				tmp[i + 6] = (t_f - t_b) | 0;
-				tmp[i + 7] = (t_g - t_c) | 0;
+				tmp[i] = t_g + t_c;
+				tmp[i + 1] = t_a + t_h;
+				tmp[i + 2] = t_a - t_h;
+				tmp[i + 3] = t_e1 + t_d;
+				tmp[i + 4] = t_e1 - t_d;
+				tmp[i + 5] = t_f + t_b;
+				tmp[i + 6] = t_f - t_b;
+				tmp[i + 7] = t_g - t_c;
 			}
 			for (var i = 0; i < 8; i++) {
-				let t_a = mul16(C1S7, (tmp[8 + i])) + mul16(C7S1, tmp[56 + i]);
-				let t_b = mul16(C7S1, (tmp[8 + i])) - mul16(C1S7, tmp[56 + i]);
-				let t_c = mul16(C3S5, (tmp[24 + i])) + mul16(C5S3, tmp[40 + i]);
-				let t_d = mul16(C3S5, (tmp[40 + i])) - mul16(C5S3, tmp[24 + i]);
-				let t_a1 = mul16(C4S4, t_a - t_c);
-				let t_b1 = mul16(C4S4, t_b - t_d);
+				t_a = mul16(C1S7, (tmp[8 + i])) + mul16(C7S1, tmp[56 + i]);
+				t_b = mul16(C7S1, (tmp[8 + i])) - mul16(C1S7, tmp[56 + i]);
+				t_c = mul16(C3S5, (tmp[24 + i])) + mul16(C5S3, tmp[40 + i]);
+				t_d = mul16(C3S5, (tmp[40 + i])) - mul16(C5S3, tmp[24 + i]);
+				t_a1 = mul16(C4S4, t_a - t_c);
+				t_b1 = mul16(C4S4, t_b - t_d);
 				t_c = t_a + t_c;
 				t_d = t_b + t_d;
-				let t_e = mul16(C4S4, (tmp[i] + tmp[32 + i])) + 8;
-				let t_f = mul16(C4S4, (tmp[i] - tmp[32 + i])) + 8;
-				let t_g = mul16(C2S6, (tmp[16 + i])) + mul16(C6S2, (tmp[48 + i]));
-				let t_h = mul16(C6S2, (tmp[16 + i])) - mul16(C2S6, (tmp[48 + i]));
-				let t_e1 = t_e - t_g;
+				t_e = mul16(C4S4, (tmp[i] + tmp[32 + i])) + 8;
+				t_f = mul16(C4S4, (tmp[i] - tmp[32 + i])) + 8;
+				t_g = mul16(C2S6, (tmp[16 + i])) + mul16(C6S2, (tmp[48 + i]));
+				t_h = mul16(C6S2, (tmp[16 + i])) - mul16(C2S6, (tmp[48 + i]));
+				t_e1 = t_e - t_g;
 				t_g = t_e + t_g;
 				t_a = t_f + t_a1;
 				t_f = t_f - t_a1;
@@ -11837,7 +13072,7 @@ var PinkFie = (function(moduleResults) {
 			VP_YUVA420_FORMAT
 		};
 	},
-	"src/utils/at-tess.js": function(wpjsm){
+	"./src/utils/at-tess.js": function(wpjsm) {
 		// TODO: Unsupported at-lyon-js.
 
 		var libtess = (function(){var n;function t(a,b){return a.b===b.b&&a.a===b.a}function u(a,b){return a.b<b.b||a.b===b.b&&a.a<=b.a}function v(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?d<e?b.a-a.a+d/(d+e)*(a.a-c.a):b.a-c.a+e/(d+e)*(c.a-a.a):0}function x(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?(b.a-c.a)*d+(b.a-a.a)*e:0}function z(a,b){return a.a<b.a||a.a===b.a&&a.b<=b.b}function aa(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?d<e?b.b-a.b+d/(d+e)*(a.b-c.b):b.b-c.b+e/(d+e)*(c.b-a.b):0}function ba(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?(b.b-c.b)*d+(b.b-a.b)*e:0}function ca(a){return u(a.b.a,a.a)}function da(a){return u(a.a,a.b.a)}function A(a,b,c,d){a=0>a?0:a;c=0>c?0:c;return a<=c?0===c?(b+d)/2:b+a/(a+c)*(d-b):d+c/(a+c)*(b-d)};function ea(a){var b=B(a.b);C(b,a.c);C(b.b,a.c);D(b,a.a);return b}function E(a,b){var c=!1,d=!1;a!==b&&(b.a!==a.a&&(d=!0,F(b.a,a.a)),b.d!==a.d&&(c=!0,G(b.d,a.d)),H(b,a),d||(C(b,a.a),a.a.c=a),c||(D(b,a.d),a.d.a=a))}function I(a){var b=a.b,c=!1;a.d!==a.b.d&&(c=!0,G(a.d,a.b.d));a.c===a?F(a.a,null):(a.b.d.a=J(a),a.a.c=a.c,H(a,J(a)),c||D(a,a.d));b.c===b?(F(b.a,null),G(b.d,null)):(a.d.a=J(b),b.a.c=b.c,H(b,J(b)));fa(a)}function K(a){var b=B(a),c=b.b;H(b,a.e);b.a=a.b.a;C(c,b.a);b.d=c.d=a.d;b=b.b;H(a.b,J(a.b));H(a.b,b);a.b.a=b.a;b.b.a.c=b.b;b.b.d=a.b.d;b.f=a.f;b.b.f=a.b.f;return b}function L(a,b){var c=!1,d=B(a),e=d.b;b.d!==a.d&&(c=!0,G(b.d,a.d));H(d,a.e);H(e,b);d.a=a.b.a;e.a=b.a;d.d=e.d=a.d;a.d.a=e;c||D(d,a.d);return d}function B(a){var b=new M,c=new M,d=a.b.h;c.h=d;d.b.h=b;b.h=a;a.b.h=c;b.b=c;b.c=b;b.e=c;c.b=b;c.c=c;return c.e=b}function H(a,b){var c=a.c,d=b.c;c.b.e=b;d.b.e=a;a.c=d;b.c=c}function C(a,b){var c=b.f,d=new N(b,c);c.e=d;b.f=d;c=d.c=a;do c.a=d,c=c.c;while(c!==a)}function D(a,b){var c=b.d,d=new ga(b,c);c.b=d;b.d=d;d.a=a;d.c=b.c;c=a;do c.d=d,c=c.e;while(c!==a)}function fa(a){var b=a.h;a=a.b.h;b.b.h=a;a.b.h=b}function F(a,b){var c=a.c,d=c;do d.a=b,d=d.c;while(d!==c);c=a.f;d=a.e;d.f=c;c.e=d}function G(a,b){var c=a.a,d=c;do d.d=b,d=d.e;while(d!==c);c=a.d;d=a.b;d.d=c;c.b=d};function ha(a){var b=0;Math.abs(a[1])>Math.abs(a[0])&&(b=1);Math.abs(a[2])>Math.abs(a[b])&&(b=2);return b};var O=4*1E150;function P(a,b){a.f+=b.f;a.b.f+=b.b.f}function ia(a,b,c){a=a.a;b=b.a;c=c.a;if(b.b.a===a)return c.b.a===a?u(b.a,c.a)?0>=x(c.b.a,b.a,c.a):0<=x(b.b.a,c.a,b.a):0>=x(c.b.a,a,c.a);if(c.b.a===a)return 0<=x(b.b.a,a,b.a);b=v(b.b.a,a,b.a);a=v(c.b.a,a,c.a);return b>=a}function Q(a){a.a.i=null;var b=a.e;b.a.c=b.c;b.c.a=b.a;a.e=null}function ja(a,b){I(a.a);a.c=!1;a.a=b;b.i=a}function ka(a){var b=a.a.a;do a=R(a);while(a.a.a===b);a.c&&(b=L(S(a).a.b,a.a.e),ja(a,b),a=R(a));return a}function la(a,b,c){var d=new ma;d.a=c;d.e=na(a.f,b.e,d);return c.i=d}function oa(a,b){switch(a.s){case 100130:return 0!==(b&1);case 100131:return 0!==b;case 100132:return 0<b;case 100133:return 0>b;case 100134:return 2<=b||-2>=b}return!1}function pa(a){var b=a.a,c=b.d;c.c=a.d;c.a=b;Q(a)}function T(a,b,c){a=b;for(b=b.a;a!==c;){a.c=!1;var d=S(a),e=d.a;if(e.a!==b.a){if(!d.c){pa(a);break}e=L(b.c.b,e.b);ja(d,e)}b.c!==e&&(E(J(e),e),E(b,e));pa(a);b=d.a;a=d}return b}function U(a,b,c,d,e,f){var g=!0;do la(a,b,c.b),c=c.c;while(c!==d);for(null===e&&(e=S(b).a.b.c);;){d=S(b);c=d.a.b;if(c.a!==e.a)break;c.c!==e&&(E(J(c),c),E(J(e),c));d.f=b.f-c.f;d.d=oa(a,d.f);b.b=!0;!g&&qa(a,b)&&(P(c,e),Q(b),I(e));g=!1;b=d;e=c}b.b=!0;f&&ra(a,b)}function sa(a,b,c,d,e){var f=[b.g[0],b.g[1],b.g[2]];b.d=null;b.d=a.o?a.o(f,c,d,a.c)||null:null;null===b.d&&(e?a.n||(V(a,100156),a.n=!0):b.d=c[0])}function ta(a,b,c){var d=[null,null,null,null];d[0]=b.a.d;d[1]=c.a.d;sa(a,b.a,d,[.5,.5,0,0],!1);E(b,c)}function ua(a,b,c,d,e){var f=Math.abs(b.b-a.b)+Math.abs(b.a-a.a),g=Math.abs(c.b-a.b)+Math.abs(c.a-a.a),h=e+1;d[e]=.5*g/(f+g);d[h]=.5*f/(f+g);a.g[0]+=d[e]*b.g[0]+d[h]*c.g[0];a.g[1]+=d[e]*b.g[1]+d[h]*c.g[1];a.g[2]+=d[e]*b.g[2]+d[h]*c.g[2]}function qa(a,b){var c=S(b),d=b.a,e=c.a;if(u(d.a,e.a)){if(0<x(e.b.a,d.a,e.a))return!1;if(!t(d.a,e.a))K(e.b),E(d,J(e)),b.b=c.b=!0;else if(d.a!==e.a){var c=a.e,f=d.a.h;if(0<=f){var c=c.b,g=c.d,h=c.e,k=c.c,l=k[f];g[l]=g[c.a];k[g[l]]=l;l<=--c.a&&(1>=l?W(c,l):u(h[g[l>>1]],h[g[l]])?W(c,l):va(c,l));h[f]=null;k[f]=c.b;c.b=f}else for(c.c[-(f+1)]=null;0<c.a&&null===c.c[c.d[c.a-1]];)--c.a;ta(a,J(e),d)}}else{if(0>x(d.b.a,e.a,d.a))return!1;R(b).b=b.b=!0;K(d.b);E(J(e),d)}return!0}function wa(a,b){var c=S(b),d=b.a,e=c.a,f=d.a,g=e.a,h=d.b.a,k=e.b.a,l=new N;x(h,a.a,f);x(k,a.a,g);if(f===g||Math.min(f.a,h.a)>Math.max(g.a,k.a))return!1;if(u(f,g)){if(0<x(k,f,g))return!1}else if(0>x(h,g,f))return!1;var r=h,p=f,q=k,y=g,m,w;u(r,p)||(m=r,r=p,p=m);u(q,y)||(m=q,q=y,y=m);u(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);u(q,p)?u(p,y)?(m=v(r,q,p),w=v(q,p,y),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,p.b)):(m=x(r,q,p),w=-x(r,y,p),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,y.b)):l.b=(q.b+p.b)/2;z(r,p)||(m=r,r=p,p=m);z(q,y)||(m=q,q=y,y=m);z(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);z(q,p)?z(p,y)?(m=aa(r,q,p),w=aa(q,p,y),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,p.a)):(m=ba(r,q,p),w=-ba(r,y,p),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,y.a)):l.a=(q.a+p.a)/2;u(l,a.a)&&(l.b=a.a.b,l.a=a.a.a);r=u(f,g)?f:g;u(r,l)&&(l.b=r.b,l.a=r.a);if(t(l,f)||t(l,g))return qa(a,b),!1;if(!t(h,a.a)&&0<=x(h,a.a,l)||!t(k,a.a)&&0>=x(k,a.a,l)){if(k===a.a)return K(d.b),E(e.b,d),b=ka(b),d=S(b).a,T(a,S(b),c),U(a,b,J(d),d,d,!0),!0;if(h===a.a){K(e.b);E(d.e,J(e));f=c=b;g=f.a.b.a;do f=R(f);while(f.a.b.a===g);b=f;f=S(b).a.b.c;c.a=J(e);e=T(a,c,null);U(a,b,e.c,d.b.c,f,!0);return!0}0<=x(h,a.a,l)&&(R(b).b=b.b=!0,K(d.b),d.a.b=a.a.b,d.a.a=a.a.a);0>=x(k,a.a,l)&&(b.b=c.b=!0,K(e.b),e.a.b=a.a.b,e.a.a=a.a.a);return!1}K(d.b);K(e.b);E(J(e),d);d.a.b=l.b;d.a.a=l.a;d.a.h=xa(a.e,d.a);d=d.a;e=[0,0,0,0];l=[f.d,h.d,g.d,k.d];d.g[0]=d.g[1]=d.g[2]=0;ua(d,f,h,e,0);ua(d,g,k,e,2);sa(a,d,l,e,!0);R(b).b=b.b=c.b=!0;return!1}function ra(a,b){for(var c=S(b);;){for(;c.b;)b=c,c=S(c);if(!b.b&&(c=b,b=R(b),null===b||!b.b))break;b.b=!1;var d=b.a,e=c.a,f;if(f=d.b.a!==e.b.a)a:{f=b;var g=S(f),h=f.a,k=g.a,l=void 0;if(u(h.b.a,k.b.a)){if(0>x(h.b.a,k.b.a,h.a)){f=!1;break a}R(f).b=f.b=!0;l=K(h);E(k.b,l);l.d.c=f.d}else{if(0<x(k.b.a,h.b.a,k.a)){f=!1;break a}f.b=g.b=!0;l=K(k);E(h.e,k.b);l.b.d.c=f.d}f=!0}f&&(c.c?(Q(c),I(e),c=S(b),e=c.a):b.c&&(Q(b),I(d),b=R(c),d=b.a));if(d.a!==e.a)if(d.b.a===e.b.a||b.c||c.c||d.b.a!==a.a&&e.b.a!==a.a)qa(a,b);else if(wa(a,b))break;d.a===e.a&&d.b.a===e.b.a&&(P(e,d),Q(b),I(d),b=R(c))}}function ya(a,b){a.a=b;for(var c=b.c;null===c.i;)if(c=c.c,c===b.c){var c=a,d=b,e=new ma;e.a=d.c.b;var f=c.f,g=f.a;do g=g.a;while(null!==g.b&&!f.c(f.b,e,g.b));var f=g.b,h=S(f),e=f.a,g=h.a;if(0===x(e.b.a,d,e.a))e=f.a,t(e.a,d)||t(e.b.a,d)||(K(e.b),f.c&&(I(e.c),f.c=!1),E(d.c,e),ya(c,d));else{var k=u(g.b.a,e.b.a)?f:h,h=void 0;f.d||k.c?(k===f?h=L(d.c.b,e.e):h=L(g.b.c.b,d.c).b,k.c?ja(k,h):(e=c,f=la(c,f,h),f.f=R(f).f+f.a.f,f.d=oa(e,f.f)),ya(c,d)):U(c,f,d.c,d.c,null,!0)}return}c=ka(c.i);e=S(c);f=e.a;e=T(a,e,null);if(e.c===f){var f=e,e=f.c,g=S(c),h=c.a,k=g.a,l=!1;h.b.a!==k.b.a&&wa(a,c);t(h.a,a.a)&&(E(J(e),h),c=ka(c),e=S(c).a,T(a,S(c),g),l=!0);t(k.a,a.a)&&(E(f,J(k)),f=T(a,g,null),l=!0);l?U(a,c,f.c,e,e,!0):(u(k.a,h.a)?d=J(k):d=h,d=L(f.c.b,d),U(a,c,d,d.c,d.c,!1),d.b.i.c=!0,ra(a,c))}else U(a,c,e.c,f,f,!0)}function za(a,b){var c=new ma,d=ea(a.b);d.a.b=O;d.a.a=b;d.b.a.b=-O;d.b.a.a=b;a.a=d.b.a;c.a=d;c.f=0;c.d=!1;c.c=!1;c.h=!0;c.b=!1;d=a.f;d=na(d,d.a,c);c.e=d};function Aa(a){this.a=new Ba;this.b=a;this.c=ia}function na(a,b,c){do b=b.c;while(null!==b.b&&!a.c(a.b,b.b,c));a=new Ba(c,b.a,b);b.a.c=a;return b.a=a};function Ba(a,b,c){this.b=a||null;this.a=b||this;this.c=c||this};function X(){this.d=Y;this.p=this.b=this.q=null;this.j=[0,0,0];this.s=100130;this.n=!1;this.o=this.a=this.e=this.f=null;this.m=!1;this.c=this.r=this.i=this.k=this.l=this.h=null}var Y=0;n=X.prototype;n.x=function(){Z(this,Y)};n.B=function(a,b){switch(a){case 100142:return;case 100140:switch(b){case 100130:case 100131:case 100132:case 100133:case 100134:this.s=b;return}break;case 100141:this.m=!!b;return;default:V(this,100900);return}V(this,100901)};n.y=function(a){switch(a){case 100142:return 0;case 100140:return this.s;case 100141:return this.m;default:V(this,100900)}return!1};n.A=function(a,b,c){this.j[0]=a;this.j[1]=b;this.j[2]=c};n.z=function(a,b){var c=b?b:null;switch(a){case 100100:case 100106:this.h=c;break;case 100104:case 100110:this.l=c;break;case 100101:case 100107:this.k=c;break;case 100102:case 100108:this.i=c;break;case 100103:case 100109:this.p=c;break;case 100105:case 100111:this.o=c;break;case 100112:this.r=c;break;default:V(this,100900)}};n.C=function(a,b){var c=!1,d=[0,0,0];Z(this,2);for(var e=0;3>e;++e){var f=a[e];-1E150>f&&(f=-1E150,c=!0);1E150<f&&(f=1E150,c=!0);d[e]=f}c&&V(this,100155);c=this.q;null===c?(c=ea(this.b),E(c,c.b)):(K(c),c=c.e);c.a.d=b;c.a.g[0]=d[0];c.a.g[1]=d[1];c.a.g[2]=d[2];c.f=1;c.b.f=-1;this.q=c};n.u=function(a){Z(this,Y);this.d=1;this.b=new Ca;this.c=a};n.t=function(){Z(this,1);this.d=2;this.q=null};n.v=function(){Z(this,2);this.d=1};n.w=function(){Z(this,1);this.d=Y;var a=this.j[0],b=this.j[1],c=this.j[2],d=!1,e=[a,b,c];if(0===a&&0===b&&0===c){for(var b=[-2*1E150,-2*1E150,-2*1E150],f=[2*1E150,2*1E150,2*1E150],c=[],g=[],d=this.b.c,a=d.e;a!==d;a=a.e)for(var h=0;3>h;++h){var k=a.g[h];k<f[h]&&(f[h]=k,g[h]=a);k>b[h]&&(b[h]=k,c[h]=a)}a=0;b[1]-f[1]>b[0]-f[0]&&(a=1);b[2]-f[2]>b[a]-f[a]&&(a=2);if(f[a]>=b[a])e[0]=0,e[1]=0,e[2]=1;else{b=0;f=g[a];c=c[a];g=[0,0,0];f=[f.g[0]-c.g[0],f.g[1]-c.g[1],f.g[2]-c.g[2]];h=[0,0,0];for(a=d.e;a!==d;a=a.e)h[0]=a.g[0]-c.g[0],h[1]=a.g[1]-c.g[1],h[2]=a.g[2]-c.g[2],g[0]=f[1]*h[2]-f[2]*h[1],g[1]=f[2]*h[0]-f[0]*h[2],g[2]=f[0]*h[1]-f[1]*h[0],k=g[0]*g[0]+g[1]*g[1]+g[2]*g[2],k>b&&(b=k,e[0]=g[0],e[1]=g[1],e[2]=g[2]);0>=b&&(e[0]=e[1]=e[2]=0,e[ha(f)]=1)}d=!0}g=ha(e);a=this.b.c;b=(g+1)%3;c=(g+2)%3;g=0<e[g]?1:-1;for(e=a.e;e!==a;e=e.e)e.b=e.g[b],e.a=g*e.g[c];if(d){e=0;d=this.b.a;for(a=d.b;a!==d;a=a.b)if(b=a.a,!(0>=b.f)){do e+=(b.a.b-b.b.a.b)*(b.a.a+b.b.a.a),b=b.e;while(b!==a.a)}if(0>e)for(e=this.b.c,d=e.e;d!==e;d=d.e)d.a=-d.a}this.n=!1;e=this.b.b;for(a=e.h;a!==e;a=d)if(d=a.h,b=a.e,t(a.a,a.b.a)&&a.e.e!==a&&(ta(this,b,a),I(a),a=b,b=a.e),b.e===a){if(b!==a){if(b===d||b===d.b)d=d.h;I(b)}if(a===d||a===d.b)d=d.h;I(a)}this.e=e=new Da;d=this.b.c;for(a=d.e;a!==d;a=a.e)a.h=xa(e,a);Ea(e);this.f=new Aa(this);za(this,-O);for(za(this,O);null!==(e=Fa(this.e));){for(;;){a:if(a=this.e,0===a.a)d=Ga(a.b);else if(d=a.c[a.d[a.a-1]],0!==a.b.a&&(a=Ga(a.b),u(a,d))){d=a;break a}if(null===d||!t(d,e))break;d=Fa(this.e);ta(this,e.c,d.c)}ya(this,e)}this.a=this.f.a.a.b.a.a;for(e=0;null!==(d=this.f.a.a.b);)d.h||++e,Q(d);this.f=null;e=this.e;e.b=null;e.d=null;this.e=e.c=null;e=this.b;for(a=e.a.b;a!==e.a;a=d)d=a.b,a=a.a,a.e.e===a&&(P(a.c,a),I(a));if(!this.n){e=this.b;if(this.m)for(a=e.b.h;a!==e.b;a=d)d=a.h,a.b.d.c!==a.d.c?a.f=a.d.c?1:-1:I(a);else for(a=e.a.b;a!==e.a;a=d)if(d=a.b,a.c){for(a=a.a;u(a.b.a,a.a);a=a.c.b);for(;u(a.a,a.b.a);a=a.e);b=a.c.b;for(c=void 0;a.e!==b;)if(u(a.b.a,b.a)){for(;b.e!==a&&(ca(b.e)||0>=x(b.a,b.b.a,b.e.b.a));)c=L(b.e,b),b=c.b;b=b.c.b}else{for(;b.e!==a&&(da(a.c.b)||0<=x(a.b.a,a.a,a.c.b.a));)c=L(a,a.c.b),a=c.b;a=a.e}for(;b.e.e!==a;)c=L(b.e,b),b=c.b}if(this.h||this.i||this.k||this.l)if(this.m)for(e=this.b,d=e.a.b;d!==e.a;d=d.b){if(d.c){this.h&&this.h(2,this.c);a=d.a;do this.k&&this.k(a.a.d,this.c),a=a.e;while(a!==d.a);this.i&&this.i(this.c)}}else{e=this.b;d=!!this.l;a=!1;b=-1;for(c=e.a.d;c!==e.a;c=c.d)if(c.c){a||(this.h&&this.h(4,this.c),a=!0);g=c.a;do d&&(f=g.b.d.c?0:1,b!==f&&(b=f,this.l&&this.l(!!b,this.c))),this.k&&this.k(g.a.d,this.c),g=g.e;while(g!==c.a)}a&&this.i&&this.i(this.c)}if(this.r){e=this.b;for(a=e.a.b;a!==e.a;a=d)if(d=a.b,!a.c){b=a.a;c=b.e;g=void 0;do g=c,c=g.e,g.d=null,null===g.b.d&&(g.c===g?F(g.a,null):(g.a.c=g.c,H(g,J(g))),f=g.b,f.c===f?F(f.a,null):(f.a.c=f.c,H(f,J(f))),fa(g));while(g!==b);b=a.d;a=a.b;a.d=b;b.b=a}this.r(this.b);this.c=this.b=null;return}}this.b=this.c=null};function Z(a,b){if(a.d!==b)for(;a.d!==b;)if(a.d<b)switch(a.d){case Y:V(a,100151);a.u(null);break;case 1:V(a,100152),a.t()}else switch(a.d){case 2:V(a,100154);a.v();break;case 1:V(a,100153),a.w()}}function V(a,b){a.p&&a.p(b,a.c)};function ga(a,b){this.b=a||this;this.d=b||this;this.a=null;this.c=!1};function M(){this.h=this;this.i=this.d=this.a=this.e=this.c=this.b=null;this.f=0}function J(a){return a.b.e};function Ca(){this.c=new N;this.a=new ga;this.b=new M;this.d=new M;this.b.b=this.d;this.d.b=this.b};function N(a,b){this.e=a||this;this.f=b||this;this.d=this.c=null;this.g=[0,0,0];this.h=this.a=this.b=0};function Da(){this.c=[];this.d=null;this.a=0;this.e=!1;this.b=new Ha}function Ea(a){a.d=[];for(var b=0;b<a.a;b++)a.d[b]=b;a.d.sort(function(a){return function(b,e){return u(a[b],a[e])?1:-1}}(a.c));a.e=!0;Ia(a.b)}function xa(a,b){if(a.e){var c=a.b,d=++c.a;2*d>c.f&&(c.f*=2,c.c=Ja(c.c,c.f+1));var e;0===c.b?e=d:(e=c.b,c.b=c.c[c.b]);c.e[e]=b;c.c[e]=d;c.d[d]=e;c.h&&va(c,d);return e}c=a.a++;a.c[c]=b;return-(c+1)}function Fa(a){if(0===a.a)return Ka(a.b);var b=a.c[a.d[a.a-1]];if(0!==a.b.a&&u(Ga(a.b),b))return Ka(a.b);do--a.a;while(0<a.a&&null===a.c[a.d[a.a-1]]);return b};function Ha(){this.d=Ja([0],33);this.e=[null,null];this.c=[0,0];this.a=0;this.f=32;this.b=0;this.h=!1;this.d[1]=1}function Ja(a,b){for(var c=Array(b),d=0;d<a.length;d++)c[d]=a[d];for(;d<b;d++)c[d]=0;return c}function Ia(a){for(var b=a.a;1<=b;--b)W(a,b);a.h=!0}function Ga(a){return a.e[a.d[1]]}function Ka(a){var b=a.d,c=a.e,d=a.c,e=b[1],f=c[e];0<a.a&&(b[1]=b[a.a],d[b[1]]=1,c[e]=null,d[e]=a.b,a.b=e,0<--a.a&&W(a,1));return f}function W(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f<<1;h<a.a&&u(d[c[h+1]],d[c[h]])&&(h+=1);var k=c[h];if(h>a.a||u(d[g],d[k])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}}function va(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f>>1,k=c[h];if(0===h||u(d[k],d[g])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}};function ma(){this.e=this.a=null;this.f=0;this.c=this.b=this.h=this.d=!1}function S(a){return a.e.c.b}function R(a){return a.e.a.b};var _={GluTesselator:X,windingRule:{GLU_TESS_WINDING_ODD:100130,GLU_TESS_WINDING_NONZERO:100131,GLU_TESS_WINDING_POSITIVE:100132,GLU_TESS_WINDING_NEGATIVE:100133,GLU_TESS_WINDING_ABS_GEQ_TWO:100134},primitiveType:{GL_LINE_LOOP:2,GL_TRIANGLES:4,GL_TRIANGLE_STRIP:5,GL_TRIANGLE_FAN:6},errorType:{GLU_TESS_MISSING_BEGIN_POLYGON:100151,GLU_TESS_MISSING_END_POLYGON:100153,GLU_TESS_MISSING_BEGIN_CONTOUR:100152,GLU_TESS_MISSING_END_CONTOUR:100154,GLU_TESS_COORD_TOO_LARGE:100155,GLU_TESS_NEED_COMBINE_CALLBACK:100156},gluEnum:{GLU_TESS_MESH:100112,GLU_TESS_TOLERANCE:100142,GLU_TESS_WINDING_RULE:100140,GLU_TESS_BOUNDARY_ONLY:100141,GLU_INVALID_ENUM:100900,GLU_INVALID_VALUE:100901,GLU_TESS_BEGIN:100100,GLU_TESS_VERTEX:100101,GLU_TESS_END:100102,GLU_TESS_ERROR:100103,GLU_TESS_EDGE_FLAG:100104,GLU_TESS_COMBINE:100105,GLU_TESS_BEGIN_DATA:100106,GLU_TESS_VERTEX_DATA:100107,GLU_TESS_END_DATA:100108,GLU_TESS_ERROR_DATA:100109,GLU_TESS_EDGE_FLAG_DATA:100110,GLU_TESS_COMBINE_DATA:100111}};X.prototype.gluDeleteTess=X.prototype.x;X.prototype.gluTessProperty=X.prototype.B;X.prototype.gluGetTessProperty=X.prototype.y;X.prototype.gluTessNormal=X.prototype.A;X.prototype.gluTessCallback=X.prototype.z;X.prototype.gluTessVertex=X.prototype.C;X.prototype.gluTessBeginPolygon=X.prototype.u;X.prototype.gluTessBeginContour=X.prototype.t;X.prototype.gluTessEndContour=X.prototype.v;X.prototype.gluTessEndPolygon=X.prototype.w;return _}());
@@ -12237,16 +13472,25 @@ var PinkFie = (function(moduleResults) {
 						}
 						id++;
 					}
-					graphDraw({vertices, edges}, width, function(fhfg) {
-						var r = [];
-						for (let j = 0; j < fhfg.length; j++) {
-							const s = fhfg[j];
-							if (!(isNaN(s[0]) || isNaN(s[1]))) {
-								r.push(s[0]);
-								r.push(s[1]);
+					graphDraw({vertices, edges}, width, function(res) {
+						if (res.length == 4) { // TODO
+							var x1 = res[0][0];
+							var y1 = res[0][1];
+							var x2 = res[1][0];
+							var y2 = res[1][1];
+							var x3 = res[2][0];
+							var y3 = res[2][1];
+							var x4 = res[3][0];
+							var y4 = res[3][1];
+							if (isFinite(x1) && isFinite(y1) && isFinite(x2) && isFinite(y2) && isFinite(x3) && isFinite(y3) && isFinite(x4) && isFinite(y4)) {
+								vex.push(x1, y1);
+								vex.push(x2, y2);
+								vex.push(x3, y3);
+								vex.push(x1, y1);
+								vex.push(x3, y3);
+								vex.push(x4, y4);	
 							}
 						}
-						vex.push(...triangulate([r]));
 					});
 				}
 				return vex;
@@ -12256,239 +13500,249 @@ var PinkFie = (function(moduleResults) {
 			}
 		}
 	},
-	"src/utils/ByteStream.js": function(wpjsm){
-		const ByteStream = function(arrayBuffer, start = 0, end = arrayBuffer.byteLength) {
-			this.arrayBuffer = arrayBuffer;
-			this.dataView = new DataView(arrayBuffer);
-			this.start = start;
-			this.end = end;
-			this.bit_offset = 0;
-			this._position = 0;
-			this.littleEndian = true;
-		}
-		Object.defineProperties(ByteStream.prototype, {
-			"position": {
-				get: function() {
-					return this._position - this.start;
-				},
-				set: function(value) {
-					this._position = (value + this.start);
-				}
-			}
-		});
-		ByteStream.prototype.readString = function(length) {
-			var str = "";
-			var count = length;
-			while (count) {
-				var code = this.dataView.getUint8(this._position++);
-				str += String.fromCharCode(code);
-				count--;
-			}
-			return str;
-		}
-		ByteStream.prototype.readBytes = function(length) {
-			this.byteAlign();
-			var bytes = this.arrayBuffer.slice(this._position, this._position + length);
-			this._position += length;
-			return bytes;
-		}
-		ByteStream.prototype.readStringWithUntil = function() {
-			this.byteAlign();
-			var bo = this._position;
-			var offset = 0;
-			var length = this.end;
-			var ret = '';
-			var uint8 = [];
-			while (true) {
-				var val = this.dataView.getUint8(bo + offset);
-				offset++;
-				if (val === 0 || (bo + offset) >= length) {
-					break;
-				}
-				uint8.push(val);
-				ret += String.fromCharCode(val);
-			}
-			this._position = bo + offset;
-			return new TextDecoder().decode(new Uint8Array(uint8));
-		}
-		ByteStream.prototype.readStringWithLength = function() {
-			var count = this.readUint8();
-			var val = '';
-			while (count--) {
-				var dat = this.dataView.getUint8(this._position++);;
-				if (dat == 0) {
-					continue;
-				}
-				val += String.fromCharCode(dat);
-			}
-			return val;
-		}
-		ByteStream.prototype.incrementOffset = function(byteInt, bitInt) {
-			this._position += byteInt;
-			this.bit_offset += bitInt;
-			this.byteCarry();
-		}
-		ByteStream.prototype.setOffset = function(byteInt, bitInt) {
-			this._position = byteInt + this.start;
-			this.bit_offset = bitInt;
-		}
-		ByteStream.prototype.getLength = function() {
-			return this.end - this.start;
-		};
-		ByteStream.prototype.getBytesAvailable = function() {
-			return this.end - this._position;
-		};
-		//////// ByteReader ////////
-		ByteStream.prototype.byteAlign = function() {
-			if (!this.bit_offset) return;
-			this._position += ((this.bit_offset + 7) / 8) | 0;
-			this.bit_offset = 0;
-		}
-		ByteStream.prototype.readUint8 = function() {
-			this.byteAlign();
-			return this.dataView.getUint8(this._position++);
-		}
-		ByteStream.prototype.readUint16 = function() {
-			this.byteAlign();
-			var value = this.dataView.getUint16(this._position, this.littleEndian);
-			this._position += 2;
-			return value;
-		}
-		ByteStream.prototype.readUint24 = function() {
-			this.byteAlign();
-			var value = this.dataView.getUint8(this._position++);
-			value += (0x100 * this.dataView.getUint8(this._position++));
-			value += (0x10000 * this.dataView.getUint8(this._position++));
-			return value;
-		}
-		ByteStream.prototype.readUint32 = function() {
-			this.byteAlign();
-			var value = this.dataView.getUint32(this._position, this.littleEndian);
-			this._position += 4;
-			return value;
-		}
-		ByteStream.prototype.readUint64 = function() {
-			this.byteAlign();
-			var value = this.dataView.getUint8(this._position++);
-			value += (0x100 * this.dataView.getUint8(this._position++));
-			value += (0x10000 * this.dataView.getUint8(this._position++));
-			value += (0x1000000 * this.dataView.getUint8(this._position++));
-			value += (0x100000000 * this.dataView.getUint8(this._position++));
-			value += (0x10000000000 * this.dataView.getUint8(this._position++));
-			value += (0x1000000000000 * this.dataView.getUint8(this._position++));
-			value += ((0x100000000 * 0x1000000) * this.dataView.getUint8(this._position++));
-			return value;
-		}
-		ByteStream.prototype.readInt8 = function() {
-			this.byteAlign();
-			return this.dataView.getInt8(this._position++);
-		}
-		ByteStream.prototype.readInt16 = function() {
-			this.byteAlign();
-			var value = this.dataView.getInt16(this._position, this.littleEndian);
-			this._position += 2;
-			return value;
-		}
-		ByteStream.prototype.readInt24 = function() {
-			let t = this.readUint24();
-			return t >> 23 && (t -= 16777216),t
-		}
-		ByteStream.prototype.readInt32 = function() {
-			this.byteAlign();
-			var value = this.dataView.getInt32(this._position, this.littleEndian);
-			this._position += 4;
-			return value;
-		}
-		ByteStream.prototype.readFixed8 = function() {
-			return +(this.readInt16() / 0x100).toFixed(1);
-		}
-		ByteStream.prototype.readFixed16 = function() {
-			return +(this.readInt32() / 0x10000).toFixed(2);
-		}
-		ByteStream.prototype.readFloat16 = function() {
-			const t = this.dataView.getUint8(this._position++);
-			let e = 0;
-			return e |= this.dataView.getUint8(this._position++) << 8,e |= t << 0,e
-		}
-		ByteStream.prototype.readFloat32 = function() {
-			var t = this.dataView.getUint8(this._position++);
-			var e = this.dataView.getUint8(this._position++)
-			var s = this.dataView.getUint8(this._position++);
-			var a = 0;
-			a |= this.dataView.getUint8(this._position++) << 24,a |= s << 16,a |= e << 8,a |= t << 0;
-			const i = a >> 23 & 255;
-			return a && 2147483648 !== a ? (2147483648 & a ? -1 : 1) * (8388608 | 8388607 & a) * Math.pow(2, i - 127 - 23) : 0
-		}
-		ByteStream.prototype.readFloat64 = function() {
-			var upperBits = this.readUint32();
-			var lowerBits = this.readUint32();
-			var sign = upperBits >>> 31 & 0x1;
-			var exp = upperBits >>> 20 & 0x7FF;
-			var upperFraction = upperBits & 0xFFFFF;
-			return (!upperBits && !lowerBits) ? 0 : ((sign === 0) ? 1 : -1) * (upperFraction / 1048576 + lowerBits / 4503599627370496 + 1) * Math.pow(2, exp - 1023);
-		}
-		ByteStream.prototype.readDouble = function() {
-			var v = this.dataView.getFloat64(this._position, this.littleEndian);
-			this._position += 8;
-			return v;
-		}
-		ByteStream.prototype.getU30 = function() {
-			this.byteAlign();
-			let t = 0;
-			for (let e = 0; 5 > e; ++e) {
-				const s = this.dataView.getUint8(this._position++);
-				if (t |= (127 & s) << 7 * e, !(128 & s)) break
-			}
-			return t
-		}
-		ByteStream.prototype.getS30 = function() {
-			const t = this._position;
-			let e = this.getU30();
-			const s = 8 * (this._position - t) | 0;
-			return e >> s - 1 && (e -= Math.pow(2, s)),e
-		}
-		//////// BitReader ////////
-		ByteStream.prototype.byteCarry = function() {
-			if (this.bit_offset > 7) {
-				this._position += ((this.bit_offset + 7) / 8) | 0;
-				this.bit_offset &= 0x07;
+	"./src/utils/ByteStream.js": function(wpjsm) {
+		function ieee754_read(buffer, offset, isLE, mLen, nBytes) {
+			var e, m;
+			var eLen = nBytes * 8 - mLen - 1;
+			var eMax = (1 << eLen) - 1;
+			var eBias = eMax >> 1;
+			var nBits = -7;
+			var i = isLE ? nBytes - 1 : 0;
+			var d = isLE ? -1 : 1;
+			var s = buffer[offset + i];
+			i += d;
+			e = s & (1 << -nBits) - 1;
+			s >>= -nBits;
+			nBits += eLen;
+			for (; nBits > 0; e = e * 256 + buffer[offset + i],
+			i += d,
+			nBits -= 8) {}
+			m = e & (1 << -nBits) - 1;
+			e >>= -nBits;
+			nBits += mLen;
+			for (; nBits > 0; m = m * 256 + buffer[offset + i],
+			i += d,
+			nBits -= 8) {}
+			if (e === 0) {
+				e = 1 - eBias
+			} else if (e === eMax) {
+				return m ? NaN : (s ? -1 : 1) * Infinity
 			} else {
-				while (this.bit_offset < 0) {
-					this._position--;
-					this.bit_offset += 8;
+				m = m + Math.pow(2, mLen);
+				e = e - eBias
+			}
+			return (s ? -1 : 1) * m * Math.pow(2, e - mLen)
+		}
+
+		class ByteStream {
+			constructor(data, start = 0, end = data.length) {
+				this.data = data;
+				this.start = start;
+				this.end = end;
+				this.bit_offset = 0;
+				this._position = 0;
+			}
+			get position() {
+				return this._position - this.start;
+			}
+			set position(value) {
+				this._position = (value + this.start);
+			}
+			readString(length) {
+				var str = "";
+				var count = length;
+				while (count) {
+					var code = this.data[this._position++];
+					str += String.fromCharCode(code);
+					count--;
+				}
+				return str;
+			}
+			readBytes(length) {
+				this.byteAlign();
+				var bytes = this.data.subarray(this._position, this._position + length);
+				this._position += length;
+				return bytes;
+			}
+			readStringWithUntil() {
+				this.byteAlign();
+				var bo = this._position;
+				var offset = 0;
+				var length = this.end;
+				while (true) {
+					var val = this.data[bo + offset];
+					offset++;
+					if (val === 0 || (bo + offset) >= length) {
+						break;
+					}
+				}
+				this._position = bo + offset;
+				return new TextDecoder().decode(this.data.slice(bo, bo + offset - 1));
+			}
+			readStringWithLength() {
+				var count = this.readUint8();
+				var val = '';
+				while (count--) {
+					var dat = this.data[this._position++];
+					if (dat == 0) {
+						continue;
+					}
+					val += String.fromCharCode(dat);
+				}
+				return val;
+			}
+			incrementOffset(byteInt, bitInt) {
+				this._position += byteInt;
+				this.bit_offset += bitInt;
+				this.byteCarry();
+			}
+			setOffset(byteInt, bitInt) {
+				this._position = byteInt + this.start;
+				this.bit_offset = bitInt;
+			}
+			getLength() {
+				return this.end - this.start;
+			}
+			getBytesAvailable() {
+				return this.end - this._position;
+			}
+			//////// ByteReader ////////
+			byteAlign() {
+				if (!this.bit_offset) return;
+				this._position += ((this.bit_offset + 7) / 8) | 0;
+				this.bit_offset = 0;
+			}
+			readUint8() {
+				this.byteAlign();
+				return this.data[this._position++];
+			}
+			readUint16() {
+				this.byteAlign();
+				return this.data[this._position++] + (this.data[this._position++] << 8);
+			}
+			readUint24() {
+				this.byteAlign();
+				return this.data[this._position++] + (this.data[this._position++] << 8) + (this.data[this._position++] << 16);
+			}
+			readUint32() {
+				this.byteAlign();
+				return this.readInt32() >>> 0;
+			}
+			readUint64() {
+				this.byteAlign();
+				var n1 = this.readUint32();
+				var n2 = this.readUint32();
+				return n1 + (Math.pow(2, 32) * n2);
+			}
+			readInt8() {
+				return this.readUint8() << 24 >> 24;
+			}
+			readInt16() {
+				return this.readUint16() << 16 >> 16;
+			}
+			readInt24() {
+				let t = this.readUint24();
+				return t >> 23 && (t -= 16777216), t;
+			}
+			readInt32() {
+				return (this.data[this._position++] + (this.data[this._position++] << 8) + (this.data[this._position++] << 16) + (this.data[this._position++] << 24));
+			}
+			readFixed8() {
+				return +(this.readInt16() / 0x100).toFixed(1);
+			}
+			readFixed16() {
+				return +(this.readInt32() / 0x10000).toFixed(2);
+			}
+			readFloat16() {
+				const t = this.data[this._position++];
+				let e = 0;
+				return e |= this.data[this._position++] << 8, e |= t << 0, e;
+			}
+			readFloat32() {
+				var t = this.data[this._position++];
+				var e = this.data[this._position++];
+				var s = this.data[this._position++];
+				var a = 0;
+				a |= this.data[this._position++] << 24, a |= s << 16, a |= e << 8, a |= t << 0;
+				const i = a >> 23 & 255;
+				return a && 2147483648 !== a ? (2147483648 & a ? -1 : 1) * (8388608 | 8388607 & a) * Math.pow(2, i - 127 - 23) : 0;
+			}
+			readFloat64() {
+				var upperBits = this.readUint32();
+				var lowerBits = this.readUint32();
+				var sign = upperBits >>> 31 & 0x1;
+				var exp = upperBits >>> 20 & 0x7FF;
+				var upperFraction = upperBits & 0xFFFFF;
+				return (!upperBits && !lowerBits) ? 0 : ((sign === 0) ? 1 : -1) * (upperFraction / 1048576 + lowerBits / 4503599627370496 + 1) * Math.pow(2, exp - 1023);
+			}
+			readDouble() {
+				var r = ieee754_read(this.data, this._position, true, 52, 8);
+				this._position += 8;
+				return r;
+			}
+			readEncodedU32() {
+				this.byteAlign();
+				var val = 0;
+				var i = 0;
+				while (i < 35) {
+					var byte = this.readUint8();
+					val |= (byte & 0b01111111) << i;
+					if ((byte & 0b10000000) == 0) {
+						break;
+					}
+					i += 7;
+				}
+				return val >>> 0;
+			}
+			getU30() {
+				return this.readEncodedU32();
+			}
+			getS30() {
+				const t = this._position;
+				let e = this.getU30();
+				const s = 8 * (this._position - t) | 0;
+				return e >> s - 1 && (e -= Math.pow(2, s)), e;
+			}
+			//////// BitReader ////////
+			byteCarry() {
+				if (this.bit_offset > 7) {
+					this._position += ((this.bit_offset + 7) / 8) | 0;
+					this.bit_offset &= 0x07;
+				} else {
+					while (this.bit_offset < 0) {
+						this._position--;
+						this.bit_offset += 8;
+					}
 				}
 			}
-		}
-		ByteStream.prototype.getUIBits = function(n) {
-			var value = 0;
-			while (n--) {
-				value <<= 1;
-				value |= this.getUIBit();
+			readUB(n) {
+				var value = 0;
+				while (n--) {
+					value <<= 1;
+					value |= this.readBit();
+				}
+				return value >>> 0;
 			}
-			return value;
-		}
-		ByteStream.prototype.getUIBit = function() {
-			this.byteCarry();
-			return (this.dataView.getUint8(this._position) >> (7 - this.bit_offset++)) & 0x1;	
-		}
-		ByteStream.prototype.getSIBits = function(n) {
-			var value = this.getUIBits(n);
-			var msb = value & (0x1 << (n - 1));
-			if (msb) {
-				var bitMask = (2 * msb) - 1;
-				return -(value ^ bitMask) - 1;
+			readBit() {
+				var val = (this.data[this._position] >> (7 - this.bit_offset++)) & 0x1;
+				this.byteCarry();
+				return val;
 			}
-			return value;
-		}
-		ByteStream.prototype.getSIBitsFixed8 = function(n) {
-			return +(this.getSIBits(n) / 0x100).toFixed(2);
-		}
-		ByteStream.prototype.getSIBitsFixed16 = function(n) {
-			return +(this.getSIBits(n) / 0x10000).toFixed(4);
+			readSB(n) {
+				var uval = this.readUB(n);
+				var shift = 32 - n;
+				return (uval << shift) >> shift;
+			}
+			readSBFixed8(n) {
+				return +(this.readSB(n) / 0x100).toFixed(2);
+			}
+			readSBFixed16(n) {
+				return +(this.readSB(n) / 0x10000).toFixed(4);
+			}
 		}
 		wpjsm.exportJS = ByteStream;
 	},
-	"src/utils/LZMA.js": function(wpjsm){
+	"./src/utils/LZMA.js": function(wpjsm) {
 		function __init(e) {
 			const t = [];
 			t.push(e[12], e[13], e[14], e[15], e[16], e[4], e[5], e[6], e[7]);
@@ -12730,516 +13984,211 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = {
 			parse: function (data, fileLength) {
-				const t = fileLength,s = data,i = new Uint8Array(t + 8);
+				const t = fileLength,s = data,i = new Uint8Array(t);
 				i.set(s.slice(0, 8), 0);
 				__decompress(new InStream(__init(s)), new OutStream(i));
 				return i
 			}
 		};
 	},
-	"src/utils/nellymoser.js": function(wpjsm){
-		/*
-		 * Nellymoser Decoder JS
-		 * 
-		 * A pure Javascript decoder for the Nellymoser audio codec.
-		 * 
-		 * (c) 2024 ATFSMedia Productions.
-		 * 
-		 * Made in Peru
-		 */
-		
-		const Bits = function() {
-			this.bytePos = 0;
-			this.bitPos = 0;
+	"./src/utils/matrixUtils.js": function(wpjsm) {
+		function multiplicationMatrix(a, b) {
+			return [
+				a[0] * b[0] + a[2] * b[1], // ScaleX
+				a[1] * b[0] + a[3] * b[1], // RotateSkew0
+				a[0] * b[2] + a[2] * b[3], // RotateSkew1
+				a[1] * b[2] + a[3] * b[3], // ScaleY
+				a[0] * b[4] + a[2] * b[5] + a[4], // TranslateX
+				a[1] * b[4] + a[3] * b[5] + a[5] // TranslateY
+			];
 		}
-		Bits.prototype.pop = function(len, buf) {
-			let val = (buf[this.bytePos] & 0xff) >> this.bitPos;
-			let bits_read = 8 - this.bitPos;
-			if (len >= bits_read) {
-				this.bytePos++;
-				if (len > bits_read) {
-					val |= buf[this.bytePos] << bits_read;
-				}
-			}
-			this.bitPos = (this.bitPos + len) & 7;
-			return val & ((1 << len) - 1);
+		function invertMatrix(mat) {
+			var det = mat[0] * mat[3] - mat[2] * mat[1];
+			var tx = (mat[3] * mat[4] - mat[2] * mat[5]) / -det;
+			var ty = (mat[1] * mat[4] - mat[0] * mat[5]) / det;
+			var a = mat[3] / det;
+			var b = mat[1] / -det;
+			var c = mat[2] / -det;
+			var d = mat[0] / det;
+			return [a, b, c, d, tx, ty];
 		}
-		const NormalizedInt32 = function(val) {
-			this.value = 0;
-			this.scale = 0;
-			if (val == 0) {
-				this.value = val;
-				this.scale = 31;
-				return;
-			} else if (val >= (1 << 30)) {
-				this.value = 0;
-				this.scale = 0;
-				return;
-			}
-			let v = val;
-			let s = 0;
-			if (v > 0) {
-				do {
-					v <<= 1;
-					++s;
-				} while (v < (1 << 30));
-			} else {
-				let floor = 1 << 31; // lowest possible 32bit value
-				do {
-					v <<= 1;
-					++s;
-				} while (v > floor + (1 << 30));
-			}
-			this.value = v;
-			this.scale = s;
+		function generateMatrix(point, data) {
+			return [(point[0] * data[0] + point[1] * data[2] + data[4]), point[0] * data[1] + point[1] * data[3] + data[5]];
 		}
-		
-		const bandBound = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 37, 43, 49, 56, 64, 73, 83, 95, 109, 124];
-		const gainBit = [6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-		const table1 = [3134, 5342, 6870, 7792, 8569, 9185, 9744, 10191, 10631, 11061, 11434, 11770, 12116, 12513, 12925, 13300, 13674, 14027, 14352, 14716, 15117, 15477, 15824, 16157, 16513, 16804, 17090, 17401, 17679, 17948, 18238, 18520, 18764, 19078, 19381, 19640, 19921, 20205, 20500, 20813, 21162, 21465, 21794, 22137, 22453, 22756, 23067, 23350, 23636, 23926, 24227, 24521, 24819, 25107, 25414, 25730, 26120, 26497, 26895, 27344, 27877, 28463, 29426, 31355];
-		const table2 = [-11725, -9420, -7910, -6801, -5948, -5233, -4599, -4039, -3507, -3030, -2596, -2170, -1774, -1383, -1016, -660, -329, -1, 337, 696, 1085, 1512, 1962, 2433, 2968, 3569, 4314, 5279, 6622, 8154, 10076, 12975];
-		const table3 = [0.0, -0.847256005,    0.722470999,    -1.52474797, -0.453148007,   0.375360996,    1.47178996,     -1.98225796, -1.19293797,   -0.582937002,   -0.0693780035,    0.390956998, 0.906920016,   1.486274,       2.22154093,     -2.38878703, -1.80675399,   -1.41054201,    -1.07736099,     -0.799501002, -0.555810988,  -0.333402008,   -0.132449001,     0.0568020009, 0.254877001,   0.477355003,    0.738685012,     1.04430604, 1.39544594,    1.80987501,     2.39187598,     -2.38938308, -1.98846805,   -1.75140405,    -1.56431198,     -1.39221299, -1.216465,     -1.04694998,    -0.890510023,    -0.764558017, -0.645457983,  -0.52592802,    -0.405954987,    -0.302971989, -0.209690005,  -0.123986997,   -0.0479229987,    0.025773, 0.100134,      0.173718005,    0.258554012,     0.352290004, 0.456988007,   0.576775014,    0.700316012,     0.842552006, 1.00938797,    1.18213499,     1.35345602,      1.53208196, 1.73326194,    1.97223496,     2.39781404,     -2.5756309, -2.05733204,   -1.89849198,    -1.77278101,     -1.66626, -1.57421803,   -1.49933195,    -1.43166399,     -1.36522806, -1.30009902,   -1.22809303,    -1.15885794,     -1.09212506, -1.013574,     -0.920284986,   -0.828705013,    -0.737488985, -0.644775987,  -0.559094012,   -0.485713989,    -0.411031991, -0.345970005,  -0.285115987,   -0.234162003,    -0.187058002, -0.144250005,  -0.110716999,   -0.0739680007,   -0.0365610011, -0.00732900016, 0.0203610007,   0.0479039997,    0.0751969963, 0.0980999991,  0.122038998,    0.145899996,     0.169434994, 0.197045997,   0.225243002,    0.255686998,     0.287010014, 0.319709986,   0.352582991,    0.388906986,     0.433492005, 0.476945996,   0.520482004,    0.564453006,     0.612204015, 0.668592989,   0.734165013,    0.803215981,     0.878404021, 0.956620991,   1.03970695,     1.12937701,      1.22111595, 1.30802798,    1.40248001,     1.50568199,      1.62277305, 1.77249599,    1.94308805,     2.29039311,      0.0];
-		const table4 = [0.999981225,    0.999529421,    0.998475611,     0.996820271, 0.994564593,    0.991709828,    0.988257587,     0.984210074, 0.979569793,    0.974339426,    0.968522072,     0.962121427, 0.955141187,    0.947585583,    0.939459205,     0.930767, 0.921513975,    0.911705971,    0.901348829,     0.890448689, 0.879012227,    0.867046177,    0.854557991,     0.841554999, 0.828045011,    0.81403631,     0.799537301,     0.784556627, 0.769103289,    0.753186822,    0.736816585,     0.720002472, 0.702754676,    0.685083687,    0.666999876,     0.64851439, 0.629638195,    0.610382795,    0.590759695,     0.570780694, 0.550458014,    0.529803574,    0.50883007,      0.487550199, 0.465976506,    0.444122106,    0.422000289,     0.399624199, 0.377007395,    0.354163498,    0.331106305,     0.307849586, 0.284407496,    0.260794103,    0.237023607,     0.213110298, 0.189068705,    0.164913103,    0.1406582,       0.116318598, 0.0919089988,   0.0674438998,   0.0429382995,    0.0184067003];
-		const table5 = [0.125, 0.124962397,    0.124849401,     0.124661297,0.124398097,    0.124059901,    0.123647101,     0.123159699, 0.122598201,    0.121962801,    0.1212539,       0.120471999, 0.119617499,    0.118690997,    0.117693,        0.116624102, 0.115484901,    0.114276201,    0.112998702,     0.111653, 0.110240199,    0.108760901,    0.107216097,     0.105606697, 0.103933699,    0.102198102,    0.100400902,     0.0985433012, 0.0966262966,   0.094651103,    0.0926188976,    0.0905309021, 0.0883883014,   0.0861926004,   0.0839449018,    0.0816465989, 0.0792991966,   0.076903902,    0.0744623989,    0.0719759986, 0.069446303,    0.0668746978,   0.0642627999,    0.0616123006, 0.0589246005,   0.0562013984,   0.0534444004,    0.0506552011, 0.0478353985,   0.0449868999,   0.0421111993,    0.0392102003, 0.0362856016,   0.0333391018,   0.0303725004,    0.0273876991, 0.0243862998,   0.0213702004,   0.0183412991,    0.0153013002, 0.0122520998,   0.0091955997,   0.00613350002,   0.00306769996];
-		const table6 = [-0.00613590004,-0.0306748003,  -0.0551952012,   -0.0796824023,-0.104121603,  -0.128498107,   -0.152797207,    -0.177004203,-0.201104596,  -0.225083902,   -0.248927593,    -0.272621393,-0.296150893,  -0.319501996,   -0.342660695,    -0.365613014,-0.388345003,  -0.410843194,   -0.433093786,    -0.455083609,-0.47679919,   -0.498227686,   -0.519356012,    -0.540171504,-0.560661614,  -0.580814004,   -0.600616515,    -0.620057225,-0.639124393,  -0.657806695,   -0.676092684,    -0.693971515,-0.711432219,  -0.728464425,   -0.745057821,    -0.761202395,-0.77688849,   -0.792106628,   -0.806847572,    -0.8211025,-0.834862888,  -0.848120272,   -0.860866904,    -0.873094976,-0.884797096,  -0.895966172,   -0.906595707,    -0.916679084,-0.926210225,  -0.935183525,   -0.943593502,    -0.95143503,-0.958703518,  -0.965394378,   -0.971503913,    -0.977028072,-0.981963873,  -0.986308098,   -0.990058184,    -0.993211925,-0.995767415,  -0.997723103,   -0.999077678,    -0.999830604];
-		const table7 = [0.00613590004,  0.0184067003,   0.0306748003,    0.0429382995,0.0551952012,   0.0674438998,   0.0796824023,    0.0919089988,0.104121603,    0.116318598,    0.128498107,     0.1406582,0.152797207,    0.164913103,    0.177004203,     0.189068705,0.201104596,    0.213110298,    0.225083902,     0.237023607,0.248927593,    0.260794103,    0.272621393,     0.284407496,0.296150893,    0.307849586,    0.319501996,     0.331106305,0.342660695,    0.354163498,    0.365613014,     0.377007395,0.388345003,    0.399624199,    0.410843194,     0.422000289,0.433093786,    0.444122106,    0.455083609,     0.465976506,0.47679919,     0.487550199,    0.498227686,     0.50883007,0.519356012,    0.529803574,    0.540171504,     0.550458014,0.560661614,    0.570780694,    0.580814004,     0.590759695,0.600616515,    0.610382795,    0.620057225,     0.629638195,0.639124393,    0.64851439,     0.657806695,     0.666999876,0.676092684,    0.685083687,    0.693971515,     0.702754676,0.711432219,    0.720002472,    0.728464425,     0.736816585,0.745057821,    0.753186822,    0.761202395,     0.769103289,0.77688849,     0.784556627,    0.792106628,     0.799537301,0.806847572,    0.81403631,     0.8211025,       0.828045011,0.834862888,    0.841554999,    0.848120272,     0.854557991,0.860866904,    0.867046177,    0.873094976,     0.879012227,0.884797096,    0.890448689,    0.895966172,     0.901348829,0.906595707,    0.911705971,    0.916679084,     0.921513975,0.926210225,    0.930767,       0.935183525,     0.939459205,0.943593502,    0.947585583,    0.95143503,      0.955141187,0.958703518,    0.962121427,    0.965394378,     0.968522072,0.971503913,    0.974339426,    0.977028072,     0.979569793,0.981963873,    0.984210074,    0.986308098,     0.988257587,0.990058184,    0.991709828,    0.993211925,     0.994564593,0.995767415,    0.996820271,    0.997723103,     0.998475611,0.999077678,    0.999529421,    0.999830604,     0.999981225];
-		const table9 = [32767, 30840, 29127, 27594, 26214, 24966, 23831, 22795,21845, 20972, 20165, 19418, 18725, 18079, 17476, 16913,16384, 0,     0,     0,     0,     0,     0,     0,0,     0,     0,     0,     0,     0,     0,     0];
-		const table10 = [0.0,      0.0122715384,   0.024541229,     0.0368072242,0.0490676723,   0.061320737,    0.0735645667,    0.0857973099,0.0980171412,   0.110222213,    0.122410677,     0.134580716,0.146730468,    0.158858135,    0.170961887,     0.183039889,0.195090324,    0.207111374,    0.219101235,     0.231058106,0.242980182,    0.254865646,    0.266712755,     0.27851969,0.290284693,    0.302005947,    0.313681751,     0.32531029,0.336889863,    0.348418683,    0.359895051,     0.371317178,0.382683426,    0.393992037,    0.405241311,     0.416429549,0.427555084,    0.438616246,    0.449611336,     0.460538715,0.471396744,    0.482183784,    0.492898196,     0.50353837,0.514102757,    0.524589658,    0.534997642,     0.545324981,0.555570245,    0.565731823,    0.575808167,     0.585797846,0.59569931,     0.605511069,    0.615231574,     0.624859512,0.634393275,    0.643831551,    0.653172851,     0.662415802,0.671558976,    0.680601001,    0.689540565,     0.698376238,0.707106769,    0.715730846,    0.724247098,     0.732654274,0.740951121,    0.749136388,    0.757208824,     0.765167296,0.773010433,    0.780737221,    0.78834641,      0.795836926,0.803207517,    0.81045723,     0.817584813,     0.824589312,0.831469595,    0.838224709,    0.84485358,      0.851355195,0.857728601,    0.863972843,    0.870086968,     0.876070082,0.881921232,    0.887639642,    0.893224299,     0.898674488,0.903989315,    0.909168005,    0.914209783,     0.919113874,0.923879504,    0.928506076,    0.932992816,     0.937339008,0.941544056,    0.945607305,    0.949528158,     0.953306019,0.956940353,    0.960430503,    0.963776052,     0.966976464,0.970031261,    0.972939968,    0.975702107,     0.97831738,0.980785251,    0.983105481,    0.985277653,     0.987301409,0.989176512,    0.990902662,    0.992479503,     0.993906975,0.99518472,     0.996312618,    0.997290432,     0.998118103,0.99879545,     0.999322355,    0.999698818,     0.999924719,1.0];
-		
-		const NELLY_BLOCK_LEN = 64; // usize
-		const NELLY_HEADER_BITS = 116; // usize
-		const NELLY_DETAIL_BITS = 198; // i32
-		const NELLY_BUF_LEN = 128; // usize
-		const NELLY_FILL_LEN = 124; // usize
-		const NELLY_BIT_CAP = 6; // i16
-		const NELLY_BASE_OFF = 4228; // i32
-		const NELLY_BASE_SHIFT = 19; // i16
-		const NELLY_SAMPLES = NELLY_BUF_LEN * 2; // usize
-		
-		const Factor = function(val) {
-			this.value = 0;
-			this.shift = 0;
-			if (val == NELLY_FILL_LEN) {
-				// Common case optimization.
-				this.value = NELLY_BASE_OFF;
-				this.shift = NELLY_BASE_SHIFT;
-				return;
-			} else if (val == 0) {
-				this.value = 0;
-				this.shift = 0;
-				return;
-			}
-			var sign = ((~val >>> 31) << 1) - 1;
-			var abs = val * sign;
-			var scale = -1;
-			while ((abs & (1 << 15)) == 0) {
-				abs <<= 1;
-				scale++;
-			}
-			abs >>= 1;
-			this.shift = 27 - scale;
-			var table_val = table9[(abs - 0x3e00) >> 10];
-			var tmp = abs * table_val;
-			tmp = (1 << 30) - tmp;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			tmp *= table_val;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			var tmp2 = tmp;
-			tmp *= abs;
-			tmp = (1 << 29) - tmp;
-			tmp += (1 << 14);
-			tmp >>= 15;
-			tmp *= tmp2;
-			tmp += (1 << 13);
-			tmp >>= 14;
-			tmp *= sign;
-			if (tmp > 32767 && sign == 1) {
-				tmp = 32767;
-			} else if (tmp < -32768 && sign == -1) {
-				tmp = -32768;
-			}
-			this.value = tmp;
-		}
-		const getD = function(_in, scale, len, upper_bound, base) {
-			var d = 0;
-			if (len <= 0) {
-				return (d | 0);
-			}
-			var var_1 = 1 << (scale - 1);
-			for (var i = 0; i < len; ++i) {
-				var var_2 = _in[i] - base;
-				if (var_2 < 0) {
-					var_2 = 0;
-				} else {
-					var_2 = (var_2 + var_1) >> scale;
-				}
-				d += Math.min(var_2, upper_bound);
-			}
-			return (d | 0);
-		}
-		const wc = function(_in, len, total_bits, packed_sizes) {
-			var max_input = 0;
-			for (var i = 0; i < len; ++i) {
-				if (_in[i] > max_input) {
-					max_input = _in[i];
-				}
-			}
-			var max_input_scale = 0;
-			var normalized = new NormalizedInt32(max_input);
-			max_input_scale = normalized.scale - 16;
-			var scaled_input = new Int16Array(NELLY_FILL_LEN);
-			if (max_input_scale < 0) {
-				for (var i = 0; i < len; ++i) {
-					scaled_input[i] = (_in[i] >> -max_input_scale);
-				}
-			} else {
-				for (var i = 0; i < len; ++i) {
-					scaled_input[i] = (_in[i] << max_input_scale);
-				}
-			}
-			var factor = new Factor(len);
-			for (var i = 0; i < len; ++i) {
-				scaled_input[i] = ((scaled_input[i] * 3) >> 2); // *= 0.75
-			}
-			var scaled_input_sum = 0;
-			for (var i = 0; i < len; ++i) {
-				scaled_input_sum += scaled_input[i];
-			}
-			max_input_scale += 11;
-			scaled_input_sum -= total_bits << max_input_scale;
-			var scaled_input_base = 0;
-			var val = scaled_input_sum - (total_bits << max_input_scale);
-			var normalized = new NormalizedInt32(val);
-			scaled_input_base = ((val >> 16) * factor.value) >> 15;
-			var shift = 31 - factor.shift - normalized.scale;
-			if (shift >= 0) {
-				scaled_input_base <<= shift;
-			} else {
-				scaled_input_base >>= -shift;
-			}
-			var bits_used = getD(scaled_input, max_input_scale, len, 6, scaled_input_base);
-			if (bits_used != total_bits) {
-				var diff = (bits_used - total_bits);
-				var diff_scale = 0;
-				if (diff <= 0) {
-					for (; diff >= -16384; diff <<= 1) {
-						diff_scale++;
-					}
-				} else {
-					for (; diff < 16384; diff <<= 1) {
-						diff_scale++;
-					}
-				}
-				var base_delta = (diff * factor.value) >> 15;
-				diff_scale = max_input_scale - (factor.shift + diff_scale - 15);
-				if (diff_scale >= 0) {
-					base_delta <<= diff_scale;
-				} else {
-					base_delta >>= -diff_scale;
-				}
-				var num_revisions = 1;
-				var last_bits_used = 0;
-				var last_scaled_input_base = 0;
-				for (;;) {
-					last_bits_used = bits_used;
-					last_scaled_input_base = scaled_input_base;
-					scaled_input_base += base_delta;
-					bits_used = getD(scaled_input, max_input_scale, len, 6, scaled_input_base);
-					if (++num_revisions > 19) {
-						break;
-					}
-					if ((bits_used - total_bits) * (last_bits_used - total_bits) <= 0) {
-						break;
-					}
-				}
-				if (bits_used != total_bits) {
-					var scaled_input_base_1 = 0;
-					var bits_used_1 = 0;
-					var bits_used_2 = 0;
-					if (bits_used > total_bits) {
-						scaled_input_base_1 = scaled_input_base;
-						scaled_input_base = last_scaled_input_base;
-						bits_used_1 = bits_used;
-						bits_used_2 = last_bits_used;
-					} else {
-						scaled_input_base_1 = last_scaled_input_base;
-						bits_used_1 = last_bits_used;
-						bits_used_2 = bits_used;
-					}
-					while (bits_used != total_bits && num_revisions < 20) {
-						var avg = (scaled_input_base + scaled_input_base_1) >> 1;
-						bits_used = getD(scaled_input, max_input_scale, len, 6, avg);
-						++num_revisions;
-						if (bits_used > total_bits) {
-							scaled_input_base_1 = avg;
-							bits_used_1 = bits_used;
-						} else {
-							scaled_input_base = avg;
-							bits_used_2 = bits_used;
-						}
-					}
-					var dev_1 = Math.abs((bits_used_1 - total_bits) | 0);
-					var dev_2 = Math.abs((bits_used_2 - total_bits) | 0);
-					if (dev_1 < dev_2) {
-						scaled_input_base = scaled_input_base_1;
-						bits_used = bits_used_1;
-					} else {
-						bits_used = bits_used_2;
-					}
-				}
-			}
-			for (var i = 0; i < len; ++i) {
-				var tmp = scaled_input[i] - scaled_input_base;
-				if (tmp >= 0) {
-					tmp = (tmp + (1 << (max_input_scale - 1))) >> max_input_scale;
-				} else {
-					tmp = 0;
-				}
-				packed_sizes[i] = Math.min(tmp, 6);
-			}
-			if (bits_used > total_bits) {
-				var i = 0;
-				var bit_count = 0;
-				for (; bit_count < total_bits; ++i) {
-					bit_count += packed_sizes[i];
-				}
-				bit_count -= packed_sizes[i - 1];
-				packed_sizes[i - 1] = total_bits - bit_count;
-				bits_used = total_bits;
-				for (; i < len; ++i) {
-					packed_sizes[i] = 0;
-				}
-			}
-			return (total_bits - bits_used) | 0;
-		}
-		const HarXfmHelper = function(data, data_off, half_len) {
-			var len = half_len << 1;
-			var j = 1;
-			for (var i = 1; i < len; i += 2) {
-				if (i < j) {
-					var tmp1 = data[data_off + i];
-					data[data_off + i] = data[data_off + j];
-					data[data_off + j] = tmp1;
-					
-					var tmp2 = data[data_off + i - 1];
-					data[data_off + i - 1] = data[data_off + j - 1];
-					data[data_off + j - 1] = tmp2;
-				}
-				var x = half_len;
-				while (x > 1 && x < j) {
-					j -= x;
-					x >>= 1;
-				}
-				j += x;
-			}
-		}
-		const HarXfm = function(data, data_off, half_len_log2) {
-			var half_len = 1 << half_len_log2;
-			HarXfmHelper(data, data_off, half_len);
-			var j = 0;
-			for (var i = (half_len >> 1); i > 0; --i, j += 4) {
-				var j0 = data[data_off + j];
-				var j1 = data[data_off + j + 1];
-				var j2 = data[data_off + j + 2];
-				var j3 = data[data_off + j + 3];
-				data[data_off + j] = j0 + j2;
-				data[data_off + j + 1] = j1 + j3;
-				data[data_off + j + 2] = j0 - j2;
-				data[data_off + j + 3] = j1 - j3;
-			}
-			j = 0;
-			for (var i = (half_len >> 2); i > 0; --i, j += 8) {
-				var j0 = data[data_off + j];
-				var j1 = data[data_off + j + 1];
-				var j2 = data[data_off + j + 2];
-				var j3 = data[data_off + j + 3];
-				var j4 = data[data_off + j + 4];
-				var j5 = data[data_off + j + 5];
-				var j6 = data[data_off + j + 6];
-				var j7 = data[data_off + j + 7];
-				data[data_off + j] = j0 + j4;
-				data[data_off + j + 1] = j1 + j5;
-				data[data_off + j + 2] = j2 + j7;
-				data[data_off + j + 3] = j3 - j6;
-				data[data_off + j + 4] = j0 - j4;
-				data[data_off + j + 5] = j1 - j5;
-				data[data_off + j + 6] = j2 - j7;
-				data[data_off + j + 7] = j3 + j6;
-			}
-			var i = 0;
-			var x = (half_len >> 3);
-			var y = 64;
-			var z = 4;
-			for (var idx1 = half_len_log2 - 2; idx1 > 0; --idx1, z <<= 1, y >>= 1, x >>= 1) {
-				j = 0;
-				for (var idx2 = x; idx2 != 0; --idx2, j += z << 1) {
-					for (var idx3 = z >> 1; idx3 > 0; --idx3, j += 2, i += y) {
-						var k = j + (z << 1);
-						var j0 = data[data_off + j];
-						var j1 = data[data_off + j + 1];
-						var k0 = data[data_off + k];
-						var k1 = data[data_off + k + 1];
-						data[data_off + k] = (j0 - (k0 * table10[NELLY_BUF_LEN - i] + k1 * table10[i]));
-						data[data_off + j] = (j0 + (k0 * table10[NELLY_BUF_LEN - i] + k1 * table10[i]));
-						data[data_off + k + 1] = (j1 + (k0 * table10[i] - k1 * table10[NELLY_BUF_LEN - i]));
-						data[data_off + j + 1] = (j1 - (k0 * table10[i] - k1 * table10[NELLY_BUF_LEN - i]));
-					}
-					for (var idx4 = z >> 1; idx4 > 0; --idx4, j += 2, i -= y) {
-						var k = j + (z << 1);
-						var j0 = data[data_off + j];
-						var j1 = data[data_off + j + 1];
-						var k0 = data[data_off + k];
-						var k1 = data[data_off + k + 1];
-						data[data_off + k] = (j0 + (k0 * table10[NELLY_BUF_LEN - i] - k1 * table10[i]));
-						data[data_off + j] = (j0 - (k0 * table10[NELLY_BUF_LEN - i] - k1 * table10[i]));
-						data[data_off + k + 1] = (j1 + (k1 * table10[NELLY_BUF_LEN - i] + k0 * table10[i]));
-						data[data_off + j + 1] = (j1 - (k1 * table10[NELLY_BUF_LEN - i] + k0 * table10[i]));
-					}
-				}
-			}
-		}
-		const auxceps = function(_in, in_off, len_log2, out, out_off) {
-			var len = 1 << len_log2;
-			var half_len_m1 = (len >> 1) - 1;
-			var quarter_len = len >> 2;
-			for (var i = 0; i < quarter_len; ++i) {
-				var i2 = i << 1;
-				var j = len - 1 - i2;
-				var k = j - 1;
-				var in_i2 = _in[in_off + i2];
-				var in_i2_1 = _in[in_off + i2 + 1];
-				var in_j = _in[in_off + j];
-				var in_k = _in[in_off + k];
-				out[out_off + i2] = (table4[i] * in_i2 - table6[i] * in_j);
-				out[out_off + i2 + 1] = (in_j * table4[i] + in_i2 * table6[i]);
-				out[out_off + k] = (table4[half_len_m1 - i] * in_k - table6[half_len_m1 - i] * in_i2_1);
-				out[out_off + j] = (in_i2_1 * table4[half_len_m1 - i] + in_k * table6[half_len_m1 - i]);
-			}
-			HarXfm(out, out_off, len_log2 - 1);
-			var last_out = out[out_off + len - 1];
-			var pre_last_out = out[out_off + len - 2];
-			out[out_off] = table5[0] * out[out_off];
-			out[out_off + len - 1] = out[out_off + 1] * -table5[0];
-			out[out_off + len - 2] = table5[half_len_m1] * out[out_off + len - 2] + table5[1] * last_out;
-			out[out_off + 1] = pre_last_out * table5[1] - last_out * table5[half_len_m1];
-			var i_out = len - 3;
-			var i_tbl = half_len_m1;
-			var j = 3;
-			for (var i = 1; i < quarter_len; ++i, --i_tbl, i_out -= 2, j += 2) {
-				var old_out_a = out[out_off + i_out];
-				var old_out_b = out[out_off + i_out - 1];
-				var old_out_c = out[out_off + j];
-				var old_out_d = out[out_off + j - 1];
-				out[out_off + j - 1] = (table5[i_tbl] * old_out_c + table5[(j - 1) >> 1] * old_out_d);
-				out[out_off + j] = (old_out_b * table5[(j + 1) >> 1] - old_out_a * table5[i_tbl - 1]);
-				out[out_off + i_out] = (old_out_d * table5[i_tbl] - old_out_c * table5[(j - 1) >> 1]);
-				out[out_off + i_out - 1] = (table5[(j + 1) >> 1] * old_out_a + table5[i_tbl - 1] * old_out_b);
-			}
-		}
-		const iTransfm = function(state, _in, len_log2, out, out_off) {
-			var len = 1 << len_log2;
-			var quarter_len = len >> 2;
-			var y = len - 1;
-			var x = len >> 1;
-			var j = x - 1;
-			var i = 0;
-			auxceps(_in, 0, len_log2, out, out_off);
-			for (; i < quarter_len; ++i, --j, ++x, --y) {
-				var state_i = state[i];
-				var state_j = state[j];
-				var out_x = out[out_off + x];
-				var out_y = out[out_off + y];
-				state[i] = -out[out_off + j];
-				state[j] = -out[out_off + i];
-				out[out_off + i] = (state_i * table7[y] + out_x * table7[i]);
-				out[out_off + j] = (state_j * table7[x] + out_y * table7[j]);
-				out[out_off + x] = (table7[x] * -out_y + table7[j] * state_j);
-				out[out_off + y] = (table7[y] * -out_x + table7[i] * state_i);
-			}
-		}
-		const decodeBlock = function(state, _in, out) {
-			// state --> float[]
-			// _in --> byte[]
-			// out --> float[]
-			var unpacked_input = new Uint8Array(NELLY_FILL_LEN);
-			var var_808 = new Float32Array(NELLY_BUF_LEN);
-			var var_608 = new Float32Array(NELLY_FILL_LEN);
-			var var_418 = new Float32Array(NELLY_FILL_LEN);
-			var bs = new Bits();
-			var unpacked_byte = bs.pop(gainBit[0], _in);
-			unpacked_input[0] = unpacked_byte;
-			var_808[0] = table1[unpacked_byte];
-			for (var i = 1; i < 23; i++) {
-				unpacked_byte = bs.pop(gainBit[i], _in);
-				unpacked_input[i] = unpacked_byte;
-				var_808[i] = var_808[i - 1] + table2[unpacked_byte];
-			}
-			for (var i = 0; i < 23; i++) {
-				var pow = Math.pow(2.0, var_808[i] * (0.5 * 0.0009765625));
-				var bound = bandBound[i];
-				var next_bound = bandBound[i + 1];
-				for (; bound < next_bound; ++bound) {
-					var_418[bound] = var_808[i];
-					var_608[bound] = pow;
-				}
-			}
-			var packed_byte_sizes = new Int32Array(NELLY_FILL_LEN);
-			var leftover = wc(var_418, NELLY_FILL_LEN, NELLY_DETAIL_BITS, packed_byte_sizes);
-			for (var out_off = 0; out_off < NELLY_SAMPLES; out_off += NELLY_BUF_LEN) {
-				for (var i = 0; i < NELLY_FILL_LEN; ++i) {
-					var packed_size = packed_byte_sizes[i];
-					var val = var_608[i];
-					if (packed_size > 0) {
-						var pow2 = 1 << packed_size;
-						unpacked_byte = bs.pop(packed_size, _in);
-						unpacked_input[i] = unpacked_byte;
-						val *= table3[pow2 - 1 + unpacked_byte];
-					} else {
-						var rnd_u32 = Math.random() * 4294967296.0;
-						if (rnd_u32 < (1<<30) + (1<<14)) {
-							val *= -0.707099974;
-						} else {
-							val *= 0.707099974;
-						}
-					}
-					var_808[i] = val;
-				}
-				for (var i = NELLY_FILL_LEN; i < NELLY_BUF_LEN; ++i) {
-					var_808[i] = 0;
-				}
-				for (var i = leftover; i > 0; i -= 8) {
-					if (i > 8) {
-						bs.pop(8, _in);
-					} else {
-						bs.pop(i, _in);
-						break;
-					}
-				}
-				iTransfm(state, var_808, 7, out, out_off);
-			}
-		}
-		wpjsm.exportJS = function(out, data) {
-			var _pos_buffer = 0;
-			var state = new Float32Array(NELLY_BUF_LEN);
-			var r = 0;
-			var audioD = new Float32Array(NELLY_SAMPLES);
-			while (true) {
-				var block = new Uint8Array(data.slice(r, r + NELLY_BLOCK_LEN));
-				decodeBlock(state, block, audioD);
-				for (let i = 0; i < NELLY_SAMPLES; i++) {
-					out[_pos_buffer] = (audioD[i] / 32768);
-					_pos_buffer++;
-				};
-				r += NELLY_BLOCK_LEN;
-				if (r >= data.byteLength) {
-					break;
-				}
-			}
+		wpjsm.exportJS = {
+			generateMatrix,
+			multiplicationMatrix,
+			invertMatrix
 		}
 	},
-	"src/utils/shapeUtils.js": function(wpjsm){
+	"./src/utils/nellymoser.js": function(wpjsm) {
+		// ANIM TRED NELLYMOSER ASAO IN JAVASCRIPT
+
+		wpjsm.exportJS=(function(){const _1=function(){this.bytePos=0,this.bitPos=0};_1.prototype.push=function(val,len,buf){if(this.bitPos==0)buf[this.bytePos]=val;else buf[this.bytePos]|=val<<this.bitPos;this.bitPos+=len;if(this.bitPos>=8){this.bytePos++,this.bitPos-=8;if(this.bitPos>0)buf[this.bytePos]=(val>>(len-this.bitPos))}},_1.prototype.pop=function(a,b){let c=(b[this.bytePos]&0xff)>>this.bitPos,d=8-this.bitPos;if(a>=d){this.bytePos++;if(a>d)c|=b[this.bytePos]<<d}this.bitPos=(this.bitPos+a)&7;return c&((1<<a)-1)};const _2=function(a){this.value=0,this.scale=0;if(a==0){this.value=a,this.scale=31;return}else if(a >=(1<<30)){this.value=0,this.scale=0;return}let v=a,s=0;if(v>0){do v<<=1,++s;while(v<(1<<30))}else{let b=1<<31;do v<<=1,++s;while(v>b+(1<<30))}this.value=v,this.scale=s},_o1=[0,2,4,6,8,10,12,14,16,18,21,24,28,32,37,43,49,56,64,73,83,95,109,124],_o2=[6,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,0,0,0,0,0,0,0,0,0],_t0=[2,2,2,2,2,2,2,2,2,3,3,4,4,5,6,6,7,8,9,10,12,14,15,0],_t1=[3134,5342,6870,7792,8569,9185,9744,10191,10631,11061,11434,11770,12116,12513,12925,13300,13674,14027,14352,14716,15117,15477,15824,16157,16513,16804,17090,17401,17679,17948,18238,18520,18764,19078,19381,19640,19921,20205,20500,20813,21162,21465,21794,22137,22453,22756,23067,23350,23636,23926,24227,24521,24819,25107,25414,25730,26120,26497,26895,27344,27877,28463,29426,31355],_t2=[-11725,-9420,-7910,-6801,-5948,-5233,-4599,-4039,-3507,-3030,-2596,-2170,-1774,-1383,-1016,-660,-329,-1,337,696,1085,1512,1962,2433,2968,3569,4314,5279,6622,8154,10076,12975],_t3=[0,-0.847256005,0.722470999,-1.52474797,-0.453148007,0.375360996,1.47178996,-1.98225796,-1.19293797,-0.582937002,-0.0693780035,0.390956998,0.906920016,1.486274,2.22154093,-2.38878703,-1.80675399,-1.41054201,-1.07736099,-0.799501002,-0.555810988,-0.333402008,-0.132449001,0.0568020009,0.254877001,0.477355003,0.738685012,1.04430604,1.39544594,1.80987501,2.39187598,-2.38938308,-1.98846805,-1.75140405,-1.56431198,-1.39221299,-1.216465,-1.04694998,-0.890510023,-0.764558017,-0.645457983,-0.52592802,-0.405954987,-0.302971989,-0.209690005,-0.123986997,-0.0479229987,0.025773,0.100134,0.173718005,0.258554012,0.352290004,0.456988007,0.576775014,0.700316012,0.842552006,1.00938797,1.18213499,1.35345602,1.53208196,1.73326194,1.97223496,2.39781404,-2.5756309,-2.05733204,-1.89849198,-1.77278101,-1.66626,-1.57421803,-1.49933195,-1.43166399,-1.36522806,-1.30009902,-1.22809303,-1.15885794,-1.09212506,-1.013574,-0.920284986,-0.828705013,-0.737488985,-0.644775987,-0.559094012,-0.485713989,-0.411031991,-0.345970005,-0.285115987,-0.234162003,-0.187058002,-0.144250005,-0.110716999,-0.0739680007,-0.0365610011,-0.00732900016,0.0203610007,0.0479039997,0.0751969963,0.0980999991,0.122038998,0.145899996,0.169434994,0.197045997,0.225243002,0.255686998,0.287010014,0.319709986,0.352582991,0.388906986,0.433492005,0.476945996,0.520482004,0.564453006,0.612204015,0.668592989,0.734165013,0.803215981,0.878404021,0.956620991,1.03970695,1.12937701,1.22111595,1.30802798,1.40248001,1.50568199,1.62277305,1.77249599,1.94308805,2.29039311,0],_t4=[0.999981225,0.999529421,0.998475611,0.996820271,0.994564593,0.991709828,0.988257587,0.984210074,0.979569793,0.974339426,0.968522072,0.962121427,0.955141187,0.947585583,0.939459205,0.930767,0.921513975,0.911705971,0.901348829,0.890448689,0.879012227,0.867046177,0.854557991,0.841554999,0.828045011,0.81403631,0.799537301,0.784556627,0.769103289,0.753186822,0.736816585,0.720002472,0.702754676,0.685083687,0.666999876,0.64851439,0.629638195,0.610382795,0.590759695,0.570780694,0.550458014,0.529803574,0.50883007,0.487550199,0.465976506,0.444122106,0.422000289,0.399624199,0.377007395,0.354163498,0.331106305,0.307849586,0.284407496,0.260794103,0.237023607,0.213110298,0.189068705,0.164913103,0.1406582,0.116318598,0.0919089988,0.0674438998,0.0429382995,0.0184067003],_t5=[0.125,0.124962397,0.124849401,0.124661297,0.124398097,0.124059901,0.123647101,0.123159699,0.122598201,0.121962801,0.1212539,0.120471999,0.119617499,0.118690997,0.117693,0.116624102,0.115484901,0.114276201,0.112998702,0.111653,0.110240199,0.108760901,0.107216097,0.105606697,0.103933699,0.102198102,0.100400902,0.0985433012,0.0966262966,0.094651103,0.0926188976,0.0905309021,0.0883883014,0.0861926004,0.0839449018,0.0816465989,0.0792991966,0.076903902,0.0744623989,0.0719759986,0.069446303,0.0668746978,0.0642627999,0.0616123006,0.0589246005,0.0562013984,0.0534444004,0.0506552011,0.0478353985,0.0449868999,0.0421111993,0.0392102003,0.0362856016,0.0333391018,0.0303725004,0.0273876991,0.0243862998,0.0213702004,0.0183412991,0.0153013002,0.0122520998,0.0091955997,0.00613350002,0.00306769996],_t6=[-0.00613590004,-0.0306748003,-0.0551952012,-0.0796824023,-0.104121603,-0.128498107,-0.152797207,-0.177004203,-0.201104596,-0.225083902,-0.248927593,-0.272621393,-0.296150893,-0.319501996,-0.342660695,-0.365613014,-0.388345003,-0.410843194,-0.433093786,-0.455083609,-0.47679919,-0.498227686,-0.519356012,-0.540171504,-0.560661614,-0.580814004,-0.600616515,-0.620057225,-0.639124393,-0.657806695,-0.676092684,-0.693971515,-0.711432219,-0.728464425,-0.745057821,-0.761202395,-0.77688849,-0.792106628,-0.806847572,-0.8211025,-0.834862888,-0.848120272,-0.860866904,-0.873094976,-0.884797096,-0.895966172,-0.906595707,-0.916679084,-0.926210225,-0.935183525,-0.943593502,-0.95143503,-0.958703518,-0.965394378,-0.971503913,-0.977028072,-0.981963873,-0.986308098,-0.990058184,-0.993211925,-0.995767415,-0.997723103,-0.999077678,-0.999830604],_t7=[0.00613590004,0.0184067003,0.0306748003,0.0429382995,0.0551952012,0.0674438998,0.0796824023,0.0919089988,0.104121603,0.116318598,0.128498107,0.1406582,0.152797207,0.164913103,0.177004203,0.189068705,0.201104596,0.213110298,0.225083902,0.237023607,0.248927593,0.260794103,0.272621393,0.284407496,0.296150893,0.307849586,0.319501996,0.331106305,0.342660695,0.354163498,0.365613014,0.377007395,0.388345003,0.399624199,0.410843194,0.422000289,0.433093786,0.444122106,0.455083609,0.465976506,0.47679919,0.487550199,0.498227686,0.50883007,0.519356012,0.529803574,0.540171504,0.550458014,0.560661614,0.570780694,0.580814004,0.590759695,0.600616515,0.610382795,0.620057225,0.629638195,0.639124393,0.64851439,0.657806695,0.666999876,0.676092684,0.685083687,0.693971515,0.702754676,0.711432219,0.720002472,0.728464425,0.736816585,0.745057821,0.753186822,0.761202395,0.769103289,0.77688849,0.784556627,0.792106628,0.799537301,0.806847572,0.81403631,0.8211025,0.828045011,0.834862888,0.841554999,0.848120272,0.854557991,0.860866904,0.867046177,0.873094976,0.879012227,0.884797096,0.890448689,0.895966172,0.901348829,0.906595707,0.911705971,0.916679084,0.921513975,0.926210225,0.930767,0.935183525,0.939459205,0.943593502,0.947585583,0.95143503,0.955141187,0.958703518,0.962121427,0.965394378,0.968522072,0.971503913,0.974339426,0.977028072,0.979569793,0.981963873,0.984210074,0.986308098,0.988257587,0.990058184,0.991709828,0.993211925,0.994564593,0.995767415,0.996820271,0.997723103,0.998475611,0.999077678,0.999529421,0.999830604,0.999981225],_t8=[32767,30840,29127,27594,26214,24966,23831,22795,21845,20972,20165,19418,18725,18079,17476,16913,16384,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],_t9=[0,0.0122715384,0.024541229,0.0368072242,0.0490676723,0.061320737,0.0735645667,0.0857973099,0.0980171412,0.110222213,0.122410677,0.134580716,0.146730468,0.158858135,0.170961887,0.183039889,0.195090324,0.207111374,0.219101235,0.231058106,0.242980182,0.254865646,0.266712755,0.27851969,0.290284693,0.302005947,0.313681751,0.32531029,0.336889863,0.348418683,0.359895051,0.371317178,0.382683426,0.393992037,0.405241311,0.416429549,0.427555084,0.438616246,0.449611336,0.460538715,0.471396744,0.482183784,0.492898196,0.50353837,0.514102757,0.524589658,0.534997642,0.545324981,0.555570245,0.565731823,0.575808167,0.585797846,0.59569931,0.605511069,0.615231574,0.624859512,0.634393275,0.643831551,0.653172851,0.662415802,0.671558976,0.680601001,0.689540565,0.698376238,0.707106769,0.715730846,0.724247098,0.732654274,0.740951121,0.749136388,0.757208824,0.765167296,0.773010433,0.780737221,0.78834641,0.795836926,0.803207517,0.81045723,0.817584813,0.824589312,0.831469595,0.838224709,0.84485358,0.851355195,0.857728601,0.863972843,0.870086968,0.876070082,0.881921232,0.887639642,0.893224299,0.898674488,0.903989315,0.909168005,0.914209783,0.919113874,0.923879504,0.928506076,0.932992816,0.937339008,0.941544056,0.945607305,0.949528158,0.953306019,0.956940353,0.960430503,0.963776052,0.966976464,0.970031261,0.972939968,0.975702107,0.97831738,0.980785251,0.983105481,0.985277653,0.987301409,0.989176512,0.990902662,0.992479503,0.993906975,0.99518472,0.996312618,0.997290432,0.998118103,0.99879545,0.999322355,0.999698818,0.999924719,1],_3=function(a){this.value=0,this.shift=0;if(a==124){this.value=4228,this.shift=19;return}else if(a==0){this.value=0,this.shift=0;return}let b=((~a>>>31)<<1)-1,c=a*b,d=-1;while((c&(1<<15))==0)c<<=1,d++;c>>=1;this.shift=27-d;let e=_t8[(c-0x3e00)>>10],f=c*e;f=(1<<30)-f,f+=(1<<14),f>>=15,f*=e,f+=(1<<14),f>>=15;let g=f;f*=c,f=(1<<29)-f,f+=(1<<14),f>>=15,f*=g,f+=(1<<13),f>>=14,f*=b;if(f>32767&&b==1)f=32767;else if(f<-32768&&b==-1)f=-32768;this.value=f},_f1=function(a,b,c,e,f){var d=0;if(c<=0)return d|0;var g=1<<(b-1);for(var i=0;i<c;++i){var h=a[i]-f;if(h<0)h=0;else h=(h+g)>>b;d+=Math.min(h,e)}return d|0},_f2=function(a,b,c,d){var e=0;for(var i=0;i<b;++i)if(a[i]>e)e=a[i];var f=0,g=new _2(e);f=g.scale-16;var h=new Int16Array(124);if(f<0)for(var i=0;i<b;++i)h[i]=(a[i]>>-f);else for(var i=0;i<b;++i)h[i]=(a[i]<<f);var k=new _3(b);for(var i=0;i<b;++i)h[i]=((h[i]*3)>>2);var l=0;for(var i=0;i<b;++i)l+=h[i];f+=11,l-=c<<f;var m=0,n=l-(c<<f);g=new _2(n),m=((n>>16)*k.value)>>15;var o=31-k.shift-g.scale;if(o>=0)m<<=o;else m>>=-o;var p=_f1(h,f,b,6,m);if(p!=c){var a1=(p-c),a2=0;if(a1<=0)for(;a1>=-16384;a1<<=1)a2++;else for(;a1<16384;a1<<=1)a2++;var a3=(a1*k.value)>>15;a2=f-(k.shift+a2-15);if(a2>=0)a3<<=a2;else a3>>=-a2;var a4=1,b1=0,b2=0;for(;;){b1=p,b2=m,m+=a3,p=_f1(h,f,b,6,m);if(++a4>19)break;if((p-c)*(b1-c)<=0)break};if(p!=c){var b3=0,b4=0,b5=0;if(p>c)b3=m,m=b2,b4=p,b5=b1;else b3=b2,b4=b1,b5=p;while(p!=c&&a4<20){var c1=(m+b3)>>1;p=_f1(h,f,b,6,c1);++a4;if(p>c)b3=c1,b4=p;else m=c1,b5=p}var c2=Math.abs((b4-c)|0),c3=Math.abs((b5-c)|0);if(c2<c3)m=b3,p=b4;else p=b5}}for(var i=0;i<b;++i){var d1=h[i]-m;if(d1>=0)d1=(d1+(1<<(f-1)))>>f;else d1=0;d[i]=Math.min(d1,6)}if(p>c){var i=0,d2=0;for(;d2<c;++i)d2+=d[i];d2-=d[i-1];d[i-1]=c-d2;p=c;for(;i<b;++i)d[i]=0}return(c-p)|0},_f3=function(a,b,c){var f=c<<1,j=1;for(var i=1;i<f;i+=2){if(i<j){var d=a[b+i];a[b+i]=a[b+j],a[b+j]=d;var e=a[b+i-1];a[b+i-1]=a[b+j-1],a[b+j-1]=e}var x=c;while(x>1&&x<j)j-=x,x>>=1;j+=x}},_f4=function(a,b,c){var d=1<<c,j=0;_f3(a,b,d);for(var i=(d>>1);i>0;--i,j+=4){var j0=a[b+j],j1=a[b+j+1],j2=a[b+j+2],j3=a[b+j+3];a[b+j]=j0+j2,a[b+j+1]=j1+j3,a[b+j+2]=j0-j2,a[b+j+3]=j1-j3};j=0;for(var i=(d>>2);i>0;--i,j+=8){var j0=a[b+j],j1=a[b+j+1],j2=a[b+j+2],j3=a[b+j+3],j4=a[b+j+4],j5=a[b+j+5],j6=a[b+j+6],j7=a[b+j+7];a[b+j]=j0+j4,a[b+j+1]=j1+j5,a[b+j+2]=j2+j7,a[b+j+3]=j3-j6,a[b+j+4]=j0-j4,a[b+j+5]=j1-j5,a[b+j+6]=j2-j7,a[b+j+7]=j3+j6}var i=0,x=(d>>3),y=64,z=4;for(var idx1=c-2;idx1>0;--idx1,z<<=1,y>>=1,x>>=1){j=0;for(var idx2=x;idx2!=0;--idx2,j+=z<<1){for(var idx3=z>>1;idx3>0;--idx3,j+=2,i+=y){var k=j+(z<<1),j0=a[b+j],j1=a[b+j+1],k0=a[b+k],k1=a[b+k+1];a[b+k]=(j0-(k0*_t9[128-i]+k1*_t9[i])),a[b+j]=(j0+(k0*_t9[128-i]+k1*_t9[i])),a[b+k+1]=(j1+(k0*_t9[i]-k1*_t9[128-i])),a[b+j+1]=(j1-(k0*_t9[i]-k1*_t9[128-i]))};for(var idx4=z>>1;idx4>0;--idx4,j+=2,i-=y){var k=j+(z<<1),j0=a[b+j],j1=a[b+j+1],k0=a[b+k],k1=a[b+k+1];a[b+k]=(j0+(k0*_t9[128-i]-k1*_t9[i])),a[b+j]=(j0-(k0*_t9[128-i]-k1*_t9[i])),a[b+k+1]=(j1+(k1*_t9[128-i]+k0*_t9[i])),a[b+j+1]=(j1-(k1*_t9[128-i]+k0*_t9[i]))}}}},_f5=function(a,b,c,d,e){var f=1<<c,g=(f>>1)-1,h=f>>2;for(var i=0;i<h;++i){var i2=i<<1,j=f-1-i2,k=j-1,in_i2=a[b+i2],in_i2_1=a[b+i2+1],in_j=a[b+j],in_k=a[b+k];d[e+i2]=(_t4[i]*in_i2-_t6[i]*in_j),d[e+i2+1]=(in_j*_t4[i]+in_i2*_t6[i]),d[e+k]=(_t4[g-i]*in_k-_t6[g-i]*in_i2_1),d[e+j]=(in_i2_1*_t4[g-i]+in_k*_t6[g-i])};_f4(d,e,c-1);var l=d[e+f-1],m=d[e+f-2];d[e]=_t5[0]*d[e],d[e+f-1]=d[e+1]*-_t5[0],d[e+f-2]=_t5[g]*d[e+f-2]+_t5[1]*l,d[e+1]=m*_t5[1]-l*_t5[g];var o=f-3,p=g,j=3;for(var i=1;i<h;++i,--p,o-=2,j+=2){var q=d[e+o],r=d[e+o-1],s=d[e+j],t=d[e+j-1];d[e+j-1]=(_t5[p]*s+_t5[(j-1)>>1]*t),d[e+j]=(r*_t5[(j+1)>>1]-q*_t5[p-1]),d[e+o]=(t*_t5[p]-s*_t5[(j-1)>>1]),d[e+o-1]=(_t5[(j+1)>>1]*q+_t5[p-1]*r)}},_f6=function(a,b,c,d,e){var f=1<<c,g=f>>2,y=f-1,x=f>>1,j=x-1,i=0;_f5(b,0,c,d,e);for(;i<g;++i,--j,++x,--y){var h=a[i],k=a[j],l=d[e+x],m=d[e+y];a[i]=-d[e+j],a[j]=-d[e+i],d[e+i]=(h*_t7[y]+l*_t7[i]),d[e+j]=(k*_t7[x]+m*_t7[j]),d[e+x]=(_t7[x]*-m+_t7[j]*k),d[e+y]=(_t7[y]*-l+_t7[i]*h)}},_f7=function(a,b,c){const d=new Uint8Array(124),e1=new Float32Array(128),e2=new Float32Array(124),e3=new Float32Array(124),f=new Int32Array(124),o=new _1;var g=o.pop(_o2[0],b);d[0]=g,e1[0]=_t1[g];for(var i=1;i<23;i++)g=o.pop(_o2[i],b),d[i]=g,e1[i]=e1[i-1]+_t2[g];for(var i=0;i<23;i++){var h=Math.pow(2.0,e1[i]*(0.5*0.0009765625)),k=_o1[i],l=_o1[i+1];for(;k<l;++k)e3[k]=e1[i],e2[k]=h}var m=_f2(e3,124,198,f);for(var n=0;n<256;n+=128){for(var i=0;i<124;++i){let h=f[i],k=e2[i];if(h>0){let l=1<<h;g=o.pop(h,b),d[i]=g,k*=_t3[l-1+g]}else{var p=Math.random()*4294967296.0;if(p<(1<<30)+(1<<14))k*=-0.707099974;else k*=0.707099974}e1[i]=k;};for(var i=124;i<128;++i)e1[i]=0;for(var i=m;i>0;i-=8){if(i>8)o.pop(8,b);else{o.pop(i,b);break}};_f6(a,e1,7,c,n)}},_f8=function(a,b,c,d){var e=0;var f=Math.abs(a-b[c]);for(var i=c;i<d;++i){var g=Math.abs(a-b[i]);if(g<f)f=g,e=i-c}return e},_f9=function(a,b,c,d){var e=c,f=d;do{var g=(e+f)>>1;if(a>b[g])e=g;else f=g} while(f-e>1);if(f!=d)if(a-b[e]>b[f]-a)e=f;return e-c},_f10=function(a,b,c,d,e,f){var g=1<<d,h=g>>2,y=g-1,x=g>>1,j=x-1,i=0;for(;i<h;++i,++x,--y,--j)e[f+x]=a[i],e[f+y]=a[j],e[f+i]=-b[c+j]*_t7[x]-b[c+x]*_t7[j],e[f+j]=-b[c+y]*_t7[i]-b[c+i]*_t7[y],a[i]=b[c+i]*_t7[i]-b[c+y]*_t7[y],a[j]=b[c+j]*_t7[j]-b[c+x]*_t7[x];_f5(e,f,d,e,f)},_f11=function(q,w,e){const c=new Float32Array(256),d=new Float32Array(23),f=new Float32Array(23),g=new Float32Array(124),h=new Float32Array(124),j=new Int32Array(124),k=new _1;_f10(q,w,0,7,c,0);_f10(q,w,128,7,c,128);for(var i=0;i<23;++i){var l=_o1[i],m=_o1[i+1],n=0.0;for(;l<m;++l){var a=c[l],b=c[l+128];n+=a*a+b*b};var o=Math.max(1.0,n/(_t0[i]<<1));d[i]=Math.round(Math.log(o)*(1.44269502*1024.0))};var r=_f8(d[0],_t1,0,64);f[0]=_t1[r];k.push(r,_o2[0],e);for(var i=1;i<23;++i){r=_f8(d[i]-f[i-1],_t2,0,32);f[i]=f[i-1]+_t2[r];k.push(r,_o2[i],e)};for(var i=0;i<23;++i)d[i]=(1.0/Math.pow(2.0,f[i]*(0.5*0.0009765625)));for(var i=0;i<23;++i){var l=_o1[i],m=_o1[i+1];for(;l<m;++l)g[l]=f[i],h[l]=d[i]}var s=_f2(g,124,198,j);for(var u=0;u<256;u+=128){for(var i=0;i<124;++i){var p=j[i];if(p>0){var t=1<<p;r=_f9(h[i]*c[u+i],_t3,t-1,(t<<1)-1);k.push(r,p,e)}}for(var i=s;i>0;i-=8){if(i>8)k.push(0,8,e);else{k.push(0,i,e);break}}}};return{decode:_f7,encode:_f11}}());
+	},
+	"./src/utils/shapeUtils.js": function(wpjsm) {
+		var gradientSpread = function(code) {
+			switch (code) {
+				case 0: // Pad
+				// Per SWF19 p. 136, SpreadMode 3 is reserved.
+				// Flash treats it as pad mode.
+				case 3:
+					return "pad";
+				case 1: // Reflect
+					return "reflect";
+				case 2: // Repeat
+					return "repeat";
+				default:
+					return null;
+			}
+		}
+		var gradientInterpolation = function(code) {
+			switch (code) {
+				case 0: // Rgb
+				// Per SWF19 p. 136, InterpolationMode 2 and 3 are reserved.
+				// Flash treats them as normal RGB mode interpolation.
+				case 2:
+				case 3:
+					return "rgb";
+				case 1: // LinearRgb
+					return "linearRgb";
+				default:
+					return null;
+			}
+		}
+		function shapeToRendererInfo(shapes) {
+			if (Array.isArray(shapes[0])) {
+				return [{
+					type: 0,
+					path2d: shapes,
+					fill: {
+						type: 0,
+						color: [255, 255, 255, 1]
+					}
+				}];
+			}
+			var result = [];
+			for (let i = 0; i < shapes.length; i++) {
+				const s = shapes[i];
+				var obj = s.obj;
+				var cmd = s.cmd;
+				result.push(lagObjToInfo(obj, cmd));
+			}
+			return result;
+		}
+		function fixedStrokeCMD(cmds) {
+			var result = [];
+			var posX = 0, posY = 0;
+			var isM = true;
+			for (var i = 0; i < cmds.length; i++) {
+				var cmd = cmds[i];
+				if (cmd[0] == 0) {
+					if (isM || !((posX == cmd[1]) && (posY == cmd[2]))) {
+						posX = cmd[1], posY = cmd[2];
+						result.push([0, posX, posY]);	
+						isM = false;
+					}
+				} else if (cmd[0] == 1) {
+					result.push([1, cmd[1], cmd[2], cmd[3], cmd[4]]);
+					posX = cmd[3], posY = cmd[4];
+				} else if (cmd[0] == 2) {
+					result.push([2, cmd[1], cmd[2]]);
+					posX = cmd[1], posY = cmd[2];
+				}
+			}
+			return {
+				isClosed: false,
+				result
+			};
+		}
+		function lagObjToInfo(obj, cmd) {
+			var isLine = ("width" in obj);
+			if (isLine) {
+				return {
+					type: 1,
+					width: obj.width,
+					path2d: cmd,
+					fill: lineToInfo(obj),
+				};
+			} else {
+				return {
+					type: 0,
+					path2d: cmd,
+					fill: fillToInfo(obj),
+				};
+			}
+		}
+		function fillToInfo(fill) {
+			var type = fill.type;
+			switch (type) {
+				case 0:
+					var color = fill.color;
+					return {
+						type: 0,
+						color: color
+					};
+				case 0x10:
+				case 0x12:
+				case 0x13:
+					var gradient = fill.gradient;
+					var gradientMatrix = gradient.matrix;
+					var isRadial = (type !== 16);
+					var focal = 0;
+					if (type == 19) {
+						focal = fill.focalPoint;
+					}
+					var records = gradient.records;
+					var css = [];
+					for (var rIdx = 0; rIdx < records.length; rIdx++) {
+						var record = records[rIdx];
+						var color = record.color;
+						var ratio = record.ratio;
+						css.push([color, ratio]);
+					}
+					var spreadMode = gradientSpread(gradient.spreadMode);
+					var repeatMode = 0;
+					if (spreadMode == "repeat") {
+						repeatMode = 1;
+					}
+					if (spreadMode == "reflect") {
+						repeatMode = 2;
+					}
+					return {
+						type: 1,
+						matrix: gradientMatrix,
+						focal: focal,
+						isRadial,
+						repeat: repeatMode,
+						records: css
+					};
+				case 0x40:
+				case 0x41:
+				case 0x42:
+				case 0x43:
+					var bitmapId = fill.bitmapId;
+					var bMatrix = fill.bitmapMatrix;
+					return {
+						type: 2,
+						matrix: bMatrix,
+						id: bitmapId,
+						isSmoothed: fill.isSmoothed,
+						isRepeating: fill.isRepeating,
+					};
+				default:
+					return null;
+			}
+		}
+		function lineToInfo(line) {
+			if ("fillType" in line) {
+				return fillToInfo(line.fillType);
+			} else {
+				return {
+					type: 0,
+					color: line.color
+				};
+			}
+		}
+
 		function cloneObject(src) {
 			return JSON.parse(JSON.stringify(src));
 		}
@@ -13250,18 +14199,10 @@ var PinkFie = (function(moduleResults) {
 				var xMax = -Infinity;
 				var yMax = -Infinity;
 				function dfgfd(x, y) {
-					if (x < xMin) {
-						xMin = x;
-					}
-					if (y < yMin) {
-						yMin = y;
-					}
-					if (x > xMax) {
-						xMax = x;
-					}
-					if (y > yMax) {
-						yMax = y;
-					}
+					if (x < xMin) xMin = x;
+					if (y < yMin) yMin = y;
+					if (x > xMax) xMax = x;
+					if (y > yMax) yMax = y;
 				}
 				var currentPosition = {x: 0, y: 0};
 				var hasShapeRecord = false;
@@ -13667,19 +14608,337 @@ var PinkFie = (function(moduleResults) {
 				}
 			},
 		}
+		function stroke_minimum_width(matrix) {
+			var sx = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b);
+			   var sy = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d);
+			var scale = Math.max(sx, sy);
+			return scale;
+		}
+		function winding_number_line(test_point, begin, end) {
+			var d0 = { x: test_point[0] - begin.x, y: test_point[1] - begin.y };
+			var d1 = { x: end.x - begin.x, y: end.y - begin.y };
+			if (begin.y < test_point[1]) {
+				if (end.y >= test_point[1] && ((d1.x * d0.y) > (d1.y * d0.x))) {
+					return 1;
+				}
+			} else if ((end.y < test_point[1]) && ((d1.x * d0.y) < (d1.y * d0.x))) {
+				return -1;
+			}
+			return 0;
+		}
+		const COEFFICIENT_EPSILON = 0.0000001;
+		function solve_quadratic(a, b, c) {
+			if (Math.abs(a) <= COEFFICIENT_EPSILON) {
+				if (b >= 0.0) {
+					return [NaN, -c / b];
+				} else {
+					return [-c / b, NaN];
+				}
+			}
+			var disc = b * b - 4.0 * a * c;
+			if (disc < 0.0) {
+				return [NaN, NaN];
+			}
+			disc = Math.sqrt(disc);
+			if (b >= 0.0) {
+				var root0 = (-b - disc) / (2.0 * a);
+				   var root1 = c / (a * root0);
+				return [root0, root1];
+			} else {
+				var root0 = (-b + disc) / (2.0 * a);
+				var root1 = c / (a * root0);
+				return [root1, root0];
+			}
+		}
+		function solve_cubic(a, b, c, d) {
+			var roots = [];
+			if (Math.abs(a) <= COEFFICIENT_EPSILON) {
+				var [t0, t1] = solve_quadratic(b, c, d);
+				roots.push(t0, t1);
+				return roots;
+			}
+			var p = (b * b - 3.0 * a * c) / (9.0 * a * a);
+			var q = (9.0 * a * b * c - 27.0 * a * a * d - 2.0 * b * b * b) / (54.0 * a * a * a);
+			var offset = b / (3.0 * a);
+			var disc = p * p * p - q * q;
+			if (disc > 0.0) {
+				var theta = Math.acos(q / (p * Math.sqrt(p)));
+				var r = 2.0 * Math.sqrt(p);
+				var t0 = r * Math.cos(theta / 3.0) - offset;
+				var t1 = r * Math.cos((theta + 2.0 * Math.PI) / 3.0) - offset;
+				var t2 = r * Math.cos((theta + 4.0 * Math.PI) / 3.0) - offset;
+				roots.push(t0, t1, t2);
+			} else {
+				let gamma1 = Math.cbrt(q + Math.sqrt(-disc));
+				let gamma2 = Math.cbrt(q - Math.sqrt(-disc));
+				let t0 = gamma1 + gamma2 - offset;
+				let t1 = -0.5 * (gamma1 + gamma2) - offset;
+				roots.push(t0);
+				if (disc == 0.0) {
+					roots.push(t1);
+				}
+			}
+			return roots;
+		}
+		function winding_number_curve(test_point, begin, control, anchor) {
+			var d0 = { dx: begin.x - test_point[0], dy: begin.y - test_point[1] };
+			var d1 = { dx: control.x - test_point[0], dy: control.y - test_point[1] };
+			var d2 = { dx: anchor.x - test_point[0], dy: anchor.y - test_point[1] };
+			if ((d0.dy < 0 && d1.dy < 0 && d2.dy < 0) || (d0.dy > 0 && d1.dy > 0 && d2.dy > 0) || (d0.dx <= 0 && d1.dx <= 0 && d2.dx <= 0)) {
+				return 0;
+			}
+			var x0 = d0.dx;
+			var y0 = d0.dy;
+			var x1 = d1.dx;
+			var y1 = d1.dy;
+			var x2 = d2.dx;
+			var y2 = d2.dy;
+			var a = y0 - 2.0 * y1 + y2;
+			var b = 2.0 * (y1 - y0);
+			var c = y0;
+			let [t0, t1] = solve_quadratic(a, b, c);
+			let is_t0_valid = Number.isFinite(t0);
+			let is_t1_valid = Number.isFinite(t1);
+			if (!is_t0_valid && !is_t1_valid) {
+				return 0;
+			}
+			var winding = 0;
+			var ax = x0 - 2.0 * x1 + x2;
+			var bx = 2.0 * (x1 - x0);
+			var t_extrema = -0.5 * b / a;
+			var is_monotonic = t_extrema <= 0.0 || t_extrema >= 1.0;
+			if (a >= 0.0) {
+				var y_min = is_monotonic ? Math.min(y0, y2) : (a * t_extrema * t_extrema + b * t_extrema + c);
+				if (is_t0_valid && y0 >= 0.0 && y_min < 0.0) {
+					let x = x0 + bx * t0 + ax * t0 * t0;
+					if (x > 0.0) {
+						winding += 1;
+					}
+				}
+				if (is_t1_valid && y_min < 0.0 && y2 >= 0.0) {
+					let x = x0 + bx * t1 + ax * t1 * t1;
+					if (x > 0.0) {
+						winding -= 1;
+					}
+				}
+			} else {
+				var y_max = is_monotonic ? Math.max(y0, y2) : (a * t_extrema * t_extrema + b * t_extrema + c);
+				if (is_t1_valid && y0 < 0.0 && y_max >= 0.0) {
+					let x = x0 + bx * t1 + ax * t1 * t1;
+					if (x > 0.0) {
+						winding -= 1;
+					}
+				}
+				if (is_t0_valid && y_max >= 0.0 && y2 < 0.0) {
+					let x = x0 + bx * t0 + ax * t0 * t0;
+					if (x > 0.0) {
+						winding += 1;
+					}
+				}
+			}
+			return winding;
+		}
+		function hit_test_stroke(test_point, begin, end, _stroke_width) {
+			var [stroke_width, stroke_width_sq] = _stroke_width;
+			var px = test_point[0];
+			var py = test_point[1];
+			var x0 = begin.x;
+			var y0 = begin.y;
+			var x1 = end.x;
+			var y1 = end.y;
+			var x_min = Math.min(x0, x1);
+			var x_max = Math.max(x0, x1);
+			if (px < x_min - stroke_width || px > x_max + stroke_width) {
+				return false;
+			}
+			var y_min = Math.min(y0, y1);
+			var y_max = Math.max(y0, y1);
+			if (py < y_min - stroke_width || py > y_max + stroke_width) {
+				return false;
+			}
+			var abx = x1 - x0;
+			var aby = y1 - y0;
+			var apx = px - x0;
+			var apy = py - y0;
+			var dot_a = abx * apx + aby * apy;
+			var dist;
+			if (dot_a <= 0.0) {
+				dist = apx * apx + apy * apy;
+			} else {
+				var bpx = px - x1;
+				var bpy = py - y1;
+				var dot_b = abx * bpx + aby * bpy;
+				if (dot_b >= 0.0) {
+					dist = bpx * bpx + bpy * bpy;
+				} else {
+					var len = abx * abx + aby * aby;
+					var ex = apx - dot_a * abx / len;
+					var ey = apy - dot_a * aby / len;
+					dist = ex * ex + ey * ey;
+				}
+			}
+			return dist <= stroke_width_sq;
+		}
+		function hit_test_stroke_curve(test_point, begin, control, anchor, _stroke_width) {
+			var [stroke_width, stroke_width_sq] = _stroke_width;
+			var px = test_point[0];
+			var py = test_point[1];
+			var x0 = begin.x;
+			var y0 = begin.y;
+			var x1 = control.x;
+			var y1 = control.y;
+			var x2 = anchor.x;
+			var y2 = anchor.y;
+			var x_min = Math.min(Math.min(x0, x1), x2);
+			var x_max = Math.max(Math.max(x0, x1), x2);
+			if (px < x_min - stroke_width || px > x_max + stroke_width) {
+				return false;
+			}
+			var y_min = Math.min(Math.min(y0, y1), y2);
+			var y_max = Math.max(Math.max(y0, y1), y2);
+			if (py < y_min - stroke_width || py > y_max + stroke_width) {
+				return false;
+			}
+			var ax = x1 - x0;
+			var ay = y1 - y0;
+			var bx = x2 - x1 - ax;
+			var by = y2 - y1 - ay;
+			var mx = x0 - px;
+			var my = y0 - py;
+			var a = bx * bx + by * by;
+			var b = 3.0 * (ax * bx + ay * by);
+			var c = 2.0 * (ax * ax + ay * ay) + (mx * bx + my * by);
+			var d = mx * ax + my * ay;
+			var distance_to_curve = function(t) {
+				let comp_t = 1.0 - t;
+				let cx = comp_t * comp_t * x0 + 2.0 * comp_t * t * x1 + t * t * x2;
+				let cy = comp_t * comp_t * y0 + 2.0 * comp_t * t * y1 + t * t * y2;
+				let dx = cx - px;
+				let dy = cy - py;
+				return dx * dx + dy * dy;
+			}
+			var dist = distance_to_curve(0.0);
+			dist = Math.min(dist, distance_to_curve(1.0));
+			var _r = solve_cubic(a, b, c, d);
+			for (let i = 0; i < _r.length; i++) {
+				var t = _r[i];
+				if (t >= 0.0 && t <= 1.0) {
+					dist = Math.min(dist, distance_to_curve(t));
+				}
+			}
+			return dist <= stroke_width_sq;
+		}
+		function shapeHitTest(shape, test_point, local_matrix) {
+			var cursor = { x: 0, y: 0 };
+			var winding = 0;
+			var has_fill_style0 = false;
+			var has_fill_style1 = false;
+			let min_width = stroke_minimum_width(local_matrix);
+			var stroke_width = null;
+			var line_styles = shape.lineStyles;
+			for (let i = 0; i < shape.shapeRecords.length; i++) {
+				const record = shape.shapeRecords[i];
+				if (record.isChange) {
+					if (record.stateNewStyles) {
+						if ((winding & 0b1) != 0) {
+							return true;
+						}
+						line_styles = record.lineStyles;
+						winding = 0;
+					}
+					if (record.stateMoveTo) {
+						cursor.x = record.moveX;
+						cursor.y = record.moveY;
+					}
+					if (record.stateFillStyle0) {
+						has_fill_style0 = record.fillStyle0 > 0;
+					}
+					if (record.stateFillStyle1) {
+						has_fill_style1 = record.fillStyle1 > 0;
+					}
+					if (record.stateLineStyle) {
+						if (record.lineStyle > 0) {
+							var line_style = line_styles[record.lineStyle - 1];
+							if (line_style) {
+								var width = line_style.width;
+								var scaled_width = 0.5 * width;
+								stroke_width = [scaled_width, scaled_width * scaled_width];
+							} else {
+								stroke_width = null;
+							}
+						} else {
+							stroke_width = null;
+						}
+					}
+				} else {
+					if (record.isCurved) {
+						var control = { x: cursor.x + record.controlDeltaX, y: cursor.y + record.controlDeltaY };
+						var anchor = { x: control.x + record.anchorDeltaX, y: control.y + record.anchorDeltaY };
+						if (has_fill_style1) {
+							if (!has_fill_style0) {
+								winding += winding_number_curve(test_point, cursor, control, anchor);
+							}
+						} else if (has_fill_style0) {
+							winding += winding_number_curve(test_point, anchor, control, cursor);
+						}
+						if (stroke_width) {
+							if (hit_test_stroke_curve(test_point, cursor, control, anchor, stroke_width)) return true;
+						}
+						cursor.x = anchor.x;
+						cursor.y = anchor.y;
+					} else {
+						var end = { x: cursor.x + record.deltaX, y: cursor.y + record.deltaY };
+						if (has_fill_style1) {
+							if (!has_fill_style0) {
+								winding += winding_number_line(test_point, cursor, end);
+							}
+						} else if (has_fill_style0) {
+							winding += winding_number_line(test_point, end, cursor);
+						}
+						if (stroke_width) {
+							if (hit_test_stroke(test_point, cursor, end, stroke_width)) return true;
+						}
+						cursor.x = end.x;
+						cursor.y = end.y;
+					}
+				}
+			}
+			return (winding & 0b1) != 0;
+		}
+		function drawCommandFillHitTest(commands, test_point) {
+			var cursor = { x: 0, y: 0 };
+			var fillStart = { x: 0, y: 0 };
+			var winding = 0;
+			for (let i = 0; i < commands.length; i++) {
+				const c = commands[i];
+				if (c[0] == 0) {
+					cursor.x = c[1];
+					cursor.y = c[2];
+					fillStart.x = c[1];
+					fillStart.y = c[2];
+				} else if (c[0] == 1) {
+					winding += winding_number_curve(test_point, cursor, { x: c[1], y: c[2] }, { x: c[3], y: c[4] });
+					cursor.x = c[3];
+					cursor.y = c[4];
+				} else if (c[0] == 2) {
+					winding += winding_number_line(test_point, cursor, { x: c[1], y: c[2] });
+					cursor.x = c[1];
+					cursor.y = c[2];
+				}
+			}
+			if (!((cursor.x == fillStart.x) && (cursor.y == fillStart.y))) {
+				winding += winding_number_line(test_point, cursor, fillStart);
+			}
+			return (winding & 0b1) != 0;
+		}
+		shapeUtils.shapeHitTest = shapeHitTest;
+		shapeUtils.drawCommandFillHitTest = drawCommandFillHitTest;
+		shapeUtils.shapeToRendererInfo = shapeToRendererInfo;
 		wpjsm.exportJS = shapeUtils;
 	},
-	"src/utils/TransformStack.js": function(wpjsm){
-		function multiplicationMatrix(a, b) {
-			return [
-				a[0] * b[0] + a[2] * b[1], // ScaleX
-				a[1] * b[0] + a[3] * b[1], // RotateSkew0
-				a[0] * b[2] + a[2] * b[3], // RotateSkew1
-				a[1] * b[2] + a[3] * b[3], // ScaleY
-				a[0] * b[4] + a[2] * b[5] + a[4], // TranslateX
-				a[1] * b[4] + a[3] * b[5] + a[5] // TranslateY
-			];
-		}
+	"./src/utils/TransformStack.js": function(wpjsm) {
+		const matrixUtils = wpjsm.importJS("./src/utils/matrixUtils.js");
+
 		function multiplicationColor(a, b) {
 			return [
 				a[0] * b[0], // Red Multiply
@@ -13703,7 +14962,7 @@ var PinkFie = (function(moduleResults) {
 			this.pushTotal = 1;
 		}
 		TransformStack.prototype.stackPush = function(matrix, colorTransform) {
-			this.stackMt.push(multiplicationMatrix(this.getMatrix(), matrix));
+			this.stackMt.push(matrixUtils.multiplicationMatrix(this.getMatrix(), matrix));
 			this.stackCT.push(multiplicationColor(this.getColorTransform(), colorTransform));
 			if (this.stackCT.length > this.pushTotal) {
 				this.pushTotal = this.stackCT.length;
@@ -13727,7 +14986,7 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = TransformStack;
 	},
-	"src/utils/ZLib.js": function(wpjsm){
+	"./src/utils/ZLib.js": function(wpjsm) {
 		const fixedDistTable = {
 			key: new Uint16Array([5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]),
 			value: new Uint16Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])
@@ -13743,9 +15002,53 @@ var PinkFie = (function(moduleResults) {
 		const DEXT = new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]);
 		const DISTS = new Uint16Array([ 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]);
 		
+		function buildHuffTable(data) {
+			const length = data.length;
+			let maxBits = Math.max.apply(null, data);
+			const blCount = new Uint8Array(maxBits);
+			let i = length;
+			let len = 0;
+			while (i--) 
+				len = data[i],
+				blCount[len] += (len > 0);
+			let code = 0;
+			const nextCode = new Uint16Array(maxBits + 1);
+			let o = 0;
+			for (i = 0; i < maxBits; ) {
+				code = (code + blCount[i++]) << 1;
+				nextCode[i] = code | 0;
+				o = Math.max(o, code);
+			}
+			const n = o + length;
+			const key = new Uint16Array(n);
+			const value = new Uint16Array(n);
+			for (i = 0; i < length; i++) {
+				len = data[i];
+				if (len) {
+					const tt = nextCode[len];
+					key[tt] = len;
+					value[tt] = i;
+					nextCode[len] = (tt + 1) | 0;
+				}
+			}
+			return { key, value };
+		}
+
+		function decodeSymbol(b, key, value) {
+			var len = 0;
+			var code = 0;
+			while (true) {
+				code = (code << 1) | b.readUB(1);
+				len++;
+				if (key[code] === len) {
+					return value[code];
+				}
+			}
+		}
+
 		class ZLib {
 			constructor(data, size, startOffset) {
-				this.stream = new Uint8Array(data);
+				this.stream = data;
 				this.isEnd = false;
 				this.result = null;
 				this.size = size + startOffset;
@@ -13787,8 +15090,6 @@ var PinkFie = (function(moduleResults) {
 			}
 			tick(tsTurbo) {
 				if (this.isEnd) return;
-				var _buildHuffTable = this.buildHuffTable.bind(this);
-				var _decodeSymbol = this.decodeSymbol.bind(this);
 				var sym = 0;
 				var i = 0;
 				var length = 0;
@@ -13826,14 +15127,14 @@ var PinkFie = (function(moduleResults) {
 									for (i = 0; i < numCodeLengths; i++) {
 										codeLengths[ORDER[i]] = _this.readUB(3);
 									}
-									const codeTable = _buildHuffTable(codeLengths);
+									const codeTable = buildHuffTable(codeLengths);
 									codeLengths.fill(0);
 									var prevCodeLen = 0;
 									const maxLengths = numLitLengths + numDistLengths;
 									const litLengths = new Uint8Array(maxLengths);
 									let litLengthSize = 0;
 									while (litLengthSize < maxLengths) {
-										sym = _decodeSymbol(_this, codeTable.key, codeTable.value);
+										sym = decodeSymbol(_this, codeTable.key, codeTable.value);
 										switch (sym) {
 											case 0:
 											case 1:
@@ -13869,19 +15170,19 @@ var PinkFie = (function(moduleResults) {
 												break;
 										}
 									}
-									distTable = _buildHuffTable(litLengths.subarray(numLitLengths));
-									litTable = _buildHuffTable(litLengths.subarray(0, numLitLengths));
+									distTable = buildHuffTable(litLengths.subarray(numLitLengths));
+									litTable = buildHuffTable(litLengths.subarray(0, numLitLengths));
 							}
 							sym = 0;
 							while (true) {
-								sym = (0 | _decodeSymbol(_this, litTable.key, litTable.value));
+								sym = (0 | decodeSymbol(_this, litTable.key, litTable.value));
 								if (256 === sym) break;
 								if (sym < 256) {
 									data[_size++] = sym;
 								} else {
 									const mapIdx = sym - 257 | 0;
 									length = LENS[mapIdx] + _this.readUB(LEXT[mapIdx]) | 0;
-									const distMap = _decodeSymbol(_this, distTable.key, distTable.value);
+									const distMap = decodeSymbol(_this, distTable.key, distTable.value);
 									i = _size - (DISTS[distMap] + _this.readUB(DEXT[distMap]) | 0) | 0;
 									while (length--) {
 										data[_size++] = data[i++];
@@ -13892,7 +15193,7 @@ var PinkFie = (function(moduleResults) {
 					if (flag) {
 						this.isEnd = true;
 						this.isLoad = true;
-						this.result = data.buffer;
+						this.result = data;
 						break;
 					}
 					if (!tsTurbo && ((Date.now() - startTime) > 20)) {
@@ -13908,56 +15209,14 @@ var PinkFie = (function(moduleResults) {
 			getProgress() {
 				return [this.byte_offset, this.stream.length];
 			}
-			buildHuffTable(data) {
-				const length = data.length;
-				let maxBits = Math.max.apply(null, data);
-				const blCount = new Uint8Array(maxBits);
-				let i = length;
-				let len = 0;
-				while (i--) 
-					len = data[i],
-					blCount[len] += (len > 0);
-				let code = 0;
-				const nextCode = new Uint16Array(maxBits + 1);
-				let o = 0;
-				for (i = 0; i < maxBits; ) {
-					code = (code + blCount[i++]) << 1;
-					nextCode[i] = code | 0;
-					o = Math.max(o, code);
-				}
-				const n = o + length;
-				const key = new Uint16Array(n);
-				const value = new Uint16Array(n);
-				for (i = 0; i < length; i++) {
-					len = data[i];
-					if (len) {
-						const tt = nextCode[len];
-						key[tt] = len;
-						value[tt] = i;
-						nextCode[len] = (tt + 1) | 0;
-					}
-				}
-				return { key, value };
-			}
-			decodeSymbol(b, key, value) {
-				var len = 0;
-				var code = 0;
-				while (true) {
-					code = (code << 1) | b.readUB(1);
-					len++;
-					if (key[code] === len) {
-						return value[code];
-					}
-				}
-			}
 		}
 		wpjsm.exportJS = ZLib;
 	},
-	"src/Avm1.js": function(wpjsm){
-		const Avm1Activation = wpjsm.importJS("src/avm1/Activation.js");
-		const Avm1Object = wpjsm.importJS("src/avm1/Object.js");
-		const Avm1ScriptObject = wpjsm.importJS("src/avm1/objects/ScriptObject.js");
-		const Types = wpjsm.importJS("src/avm1/ValueTypes.js");
+	"./src/Avm1.js": function(wpjsm) {
+		const Avm1Activation = wpjsm.importJS("./src/avm1/Activation.js");
+		const Avm1Object = wpjsm.importJS("./src/avm1/Object.js");
+		const Avm1ScriptObject = wpjsm.importJS("./src/avm1/objects/ScriptObject.js");
+		const Types = wpjsm.importJS("./src/avm1/ValueTypes.js");
 		
 		/*
 			Object
@@ -13998,13 +15257,12 @@ var PinkFie = (function(moduleResults) {
 		}
 		
 		class Avm1 {
-			constructor(movieplayer) {
+			constructor() {
 				this.version = 6;
 				this.clipExecList = null;
-				this.movieplayer = movieplayer;
 			}
-			createActivation(caches, clip) {
-				return new Avm1Activation(this, caches, clip);
+			createActivation(context, caches, clip) {
+				return new Avm1Activation(context, caches, clip);
 			}
 			findDisplayObjectsPendingRemoval(obj, out) {
 				var parent = obj;
@@ -14019,9 +15277,9 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 			}
-			removePending() {
+			removePending(context) {
 				var vec = [];
-				var rootClip = this.movieplayer.clip;
+				var rootClip = context.player.clip;
 				if (rootClip) {
 					this.findDisplayObjectsPendingRemoval(rootClip, vec);
 				}
@@ -14029,19 +15287,18 @@ var PinkFie = (function(moduleResults) {
 					const child = vec[i];
 					let parent = child.getParent();
 					if (parent && (parent.isContainer())) {
-						parent.removeChildDirectly(child);
+						parent.removeChildDirectly(context, child);
 						parent.updatePendingRemovals();
 					}
 				}
 			}
-			runFrame() {
+			runFrame(context) {
 				// Remove pending objects
-				this.removePending();
+				this.removePending(context);
 		
 				// In AVM1, we only ever execute the idle phase, and all the work that
 				// would ordinarily be phased is instead run all at once in whatever order
 				// the SWF requests it.
-				this.movieplayer.framePhase = "idle";
 				var prev = null;
 				var next = this.clipExecList;
 				while (true) {
@@ -14059,11 +15316,10 @@ var PinkFie = (function(moduleResults) {
 						}
 						clip.nextAvm1Clip = null;
 					} else {
-						clip.runFrameAvm1();
+						clip.runFrameAvm1(context);
 						prev = clip;
 					}
 				}
-				this.movieplayer.framePhase = "idle";
 			}
 			addExecuteList(clip) {
 				// Adding while iterating is safe, as this does not modify any active nodes.
@@ -14143,29 +15399,20 @@ var PinkFie = (function(moduleResults) {
 			}
 			createFunction() {
 			}
-			runStackFrameForAction(clip, name, caches) {
-				if (!this.movieplayer.allowAvm) return;
-				var activation = this.createActivation(caches, clip);
+			runStackFrameForAction(clip, name, caches, context) {
+				if (!context.player.allowAvm) return;
+				var activation = this.createActivation(context, caches, clip);
 				activation.runActions();
 			}
 			fromSwfFunction(activation, actions) {
-				var _constantPool = activation.constantPool.slice(0);
-				var _registers = activation.registers.slice(0);
-				var func = function (act, ___this, args) {
-					var a = activation.avm1.createActivation(actions, activation.clip);
-					a.parent = activation;
-					a.setConstantPool(_constantPool);
-					a.registers = _registers;
-					return a.runActions();
-				};
-				return func;
 			}
 		}
 		wpjsm.exportJS = Avm1;
 	},
-	"src/binarydata.js": function(wpjsm){
+	"./src/binarydata.js": function(wpjsm) {
 		class BinaryData {
 			constructor(data) {
+				this.displayType = "binary";
 				this.data = data.data;
 				this.characterId = data.id;
 			}
@@ -14175,8 +15422,50 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = BinaryData;
 	},
-	"src/DisplayObject.js": function(wpjsm){
-		const Avm1ValueTypes = wpjsm.importJS("src/avm1/ValueTypes.js");
+	"./src/config.js": function(wpjsm) {
+		wpjsm.exportJS = {
+			useWebGL: false
+		}
+	},
+	"./src/context.js": function(wpjsm) {
+		class UpdateContext {
+			constructor(data) {
+				this.player = data.player;
+				this.renderer = data.renderer;
+				this.library = data.library;
+				this.audio = data.audio;
+				this.swf = data.swf;
+				this.avm1 = data.avm1;
+			}
+			isSoundPlaying(sound) {
+				return this.audio.isSoundPlaying(sound);
+			}
+			stopAllSounds() {
+				this.audio.stopAllSounds(false);
+			}
+			addInstanceCounter() {
+				return this.player.addInstanceCounter();
+			}
+			queueAction(clip, action, isUnload) {
+				this.player.queueAction(clip, action, isUnload);
+			}
+		}
+		class RenderContext {
+			constructor(data) {
+				this.library = data.library;
+				this.renderer = data.renderer;
+				this.transformStack = data.transformStack;
+				this.useLastBound = data.useLastBound;
+			}
+		}
+		wpjsm.exportJS = {
+			UpdateContext,
+			RenderContext
+		}
+	},
+	"./src/DisplayObject.js": function(wpjsm) {
+		const Avm1ValueTypes = wpjsm.importJS("./src/avm1/ValueTypes.js");
+		const matrixUtils = wpjsm.importJS("./src/utils/matrixUtils.js");
 		
 		// Red: MovieClip
 		// Orange: Bitmap
@@ -14198,16 +15487,49 @@ var PinkFie = (function(moduleResults) {
 		
 		const SoundTransform = function() {
 		}
+		
+		function getBlendMode(blendMode) {
+			switch (blendMode) {
+				case 0:
+				case 1:
+					return "normal";
+				case 2:
+					return "layer";
+				case 3:
+					return "multiply";
+				case 4:
+					return "screen";
+				case 5:
+					return "lighten";
+				case 6:
+					return "darken";
+				case 7:
+					return "difference";
+				case 8:
+					return "add";
+				case 9:
+					return "subtract";
+				case 10:
+					return "invert";
+				case 11:
+					return "alpha";
+				case 12:
+					return "erase";
+				case 13:
+					return "overlay";
+				case 14:
+					return "hardlight";
+				default:
+					return "normal";
+			}
+		}
+
 		class DisplayObject {
 			constructor() {
-				this.movieplayer = null;
-		
 				this.matrix = [1, 0, 0, 1, 0, 0];
 				this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
 				this.blendMode = "normal";
 				this.filters = [];
-		
-				this.id = 0;
 		
 				this.parent = null;
 				this.placeFrame = 0;
@@ -14234,14 +15556,16 @@ var PinkFie = (function(moduleResults) {
 				this.HAS_EXPLICIT_NAME = false;
 				this.SKIP_NEXT_ENTER_FRAME = false;
 				this.CACHE_INVALIDATED = false;
-		
-				this.displayType = "Base";
-				this.coll = [0, 0, 0, 1];
-				this._debug_colorDisplayType = [0, 0, 0, 1];
+				
 				this._debug_boundsLast = { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
 				this._debug_matrix = [0,0,0,0,0,0];
 				this._debug_colorTransform = [0,0,0,1,255,255,255,0];
-
+			}
+			get displayType() {
+				return "Base";
+			}
+			get _debug_colorDisplayType() {
+				return [0, 0, 0, 1];
 			}
 			boundsMatrix(bounds, matrix) {
 				var no = Number.MAX_VALUE;
@@ -14267,6 +15591,19 @@ var PinkFie = (function(moduleResults) {
 					yMin: Math.min(Math.min(Math.min(Math.min(yMin, y0), y1), y2), y3),
 					yMax: Math.max(Math.max(Math.max(Math.max(yMax, y0), y1), y2), y3)
 				};
+			}
+			localToGlobalMatrix() {
+				var matrix = this.getMatrix();
+				var node = this.getParent();
+				while(node) {
+					matrix = matrixUtils.multiplicationMatrix(node.getMatrix(), matrix);
+					node = node.getParent();
+				}
+				return matrix;
+			}
+			globalToLocalMatrix() {
+				var matrix = this.localToGlobalMatrix();
+				return matrixUtils.invertMatrix(matrix);
 			}
 			////////  Transform  ////////
 			getColorTransform() {
@@ -14300,7 +15637,7 @@ var PinkFie = (function(moduleResults) {
 				this.blendMode = mode;
 			}
 
-			getRenderMatrix() {
+			getRenderMatrix(useLastBound) {
 				//return [
 				//	this.matrix[0] + (Math.random() * 0.0015),
 				//	this.matrix[1],
@@ -14309,10 +15646,10 @@ var PinkFie = (function(moduleResults) {
 				//	this.matrix[4] - (Math.random() * 5),
 				//	this.matrix[5] - (Math.random() * 5),
 				//];
-				return this.movieplayer.useLastBound ? this._debug_matrix : this.matrix;
+				return useLastBound ? this._debug_matrix : this.matrix;
 			}
-			getRenderColorTransform() {
-				return this.movieplayer.useLastBound ? this._debug_colorTransform : this.colorTransform;
+			getRenderColorTransform(useLastBound) {
+				return useLastBound ? this._debug_colorTransform : this.colorTransform;
 				//return this.colorTransform;
 			}
 
@@ -14323,10 +15660,7 @@ var PinkFie = (function(moduleResults) {
 				this.depth = depth;
 			}
 			getId() {
-				return this.id;
-			}
-			setId(id) {
-				this.id = id;
+				return 0;
 			}
 			getVisible() {
 				return this.VISIBLE;
@@ -14419,7 +15753,7 @@ var PinkFie = (function(moduleResults) {
 			getParent() {
 				return this.parent;
 			}
-			setParent(parent) {
+			setParent(context, parent) {
 				this.parent = parent;
 			}
 			getBackgroundColor() {
@@ -14440,9 +15774,9 @@ var PinkFie = (function(moduleResults) {
 			setName(name) {
 				this.name = name;
 			}
-			setDefaultInstanceName() {
+			setDefaultInstanceName(context) {
 				if (!this.name.length) {
-					var r = this.movieplayer.addInstanceCounter();
+					var r = context.addInstanceCounter();
 					this.setName("instance" + r);
 				}
 			}
@@ -14455,7 +15789,7 @@ var PinkFie = (function(moduleResults) {
 			shouldSkipNextEnterFrame() {
 				return this.SKIP_NEXT_ENTER_FRAME;
 			}
-			applyPlaceObject(placeObject) {
+			applyPlaceObject(context, placeObject) {
 				if (!this.TRANSFORMED_BY_SCRIPT) {
 					if ("matrix" in placeObject) { // Matrix
 						this.applyMatrix(placeObject.matrix);
@@ -14464,28 +15798,31 @@ var PinkFie = (function(moduleResults) {
 						this.applyColorTransform(placeObject.colorTransform); // ColorTransform
 					}
 					if ("blendMode" in placeObject) {
-						this.setBlendMode(placeObject.blendMode);
+						this.setBlendMode(getBlendMode(placeObject.blendMode));
 					}
 					if ("visible" in placeObject) { // Visible
 						this.setVisible(!!placeObject.visible);
 					}
-					if (this.displayType == "MorphShape" || this.displayType == "Video") {
-						if ("ratio" in placeObject) {
+					if ("ratio" in placeObject) {
+						if (this.displayType == "MorphShape") {
 							this.setRatio(placeObject.ratio);
+						} else if(this.displayType == "Video") {
+							this.seek(context, placeObject.ratio);
 						}
 					}
+					
 					if ("backgroundColor" in placeObject) { // BackgroundColor
 						this.setBackgroundColor(placeObject.backgroundColor);
 					}
 				}
 			}
 			/// Called when this object should be replaced by a PlaceObject tag.
-			replaceWith(characterId) {
+			replaceWith(context, characterId) {
 				// Noop for most symbols; only shapes can replace their innards with another Graphic.
 			}
-			postInstantiation(initObject, instantiatedBy, runFrame) {
+			postInstantiation(context, initObject, instantiatedBy, runFrame) {
 				if (runFrame) {
-					this.runFrameAvm1();
+					this.runFrameAvm1(context);
 				}
 			}
 			getObject() {
@@ -14497,36 +15834,39 @@ var PinkFie = (function(moduleResults) {
 			selfBounds() {
 				return { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
 			}
-			render() {
-				this.renderBase();
+			hitTestShape(_context, point, options) {
+				return false;
 			}
-			renderBase() {
+			render(context) {
+				this.renderBase(context);
+			}
+			renderBase(context) {
 				let blendMode = this.getBlendMode();
 				let blendNotNormal = (blendMode != "normal");
-				if (blendNotNormal) this.movieplayer.renderer.pushBlendMode(blendMode);
-				this.movieplayer.transformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
-				this.renderSelf();
-				if (blendNotNormal) this.movieplayer.renderer.popBlendMode();
-				this.movieplayer.transformStack.stackPop();
+				if (blendNotNormal) context.renderer.pushBlendMode(blendMode);
+				context.transformStack.stackPush(this.getRenderMatrix(context.useLastBound), this.getRenderColorTransform(context.useLastBound));
+				this.renderSelf(context);
+				if (blendNotNormal) context.renderer.popBlendMode();
+				context.transformStack.stackPop();
 			}
-			renderSelf() { }
-			debugSetLastBound(isSet, b) {
+			renderSelf(context) {}
+			debugSetLastBound(player, isSet, b) {
 				if (isSet) {
 					this._debug_boundsLast.xMin = b.xMin;
 					this._debug_boundsLast.yMin = b.yMin;
 					this._debug_boundsLast.xMax = b.xMax;
 					this._debug_boundsLast.yMax = b.yMax;  
 				} else {
-					var val = (this.movieplayer.wth == 1) ? 0.04 : this.movieplayer.getTickForFrameRate();
+					var val = (player.wth == 1) ? 0.04 : player.getTickForFrameRate();
 					this._debug_boundsLast.xMin += (b.xMin - this._debug_boundsLast.xMin) * val;
 					this._debug_boundsLast.yMin += (b.yMin - this._debug_boundsLast.yMin) * val;
 					this._debug_boundsLast.xMax += (b.xMax - this._debug_boundsLast.xMax) * val;
 					this._debug_boundsLast.yMax += (b.yMax - this._debug_boundsLast.yMax) * val;    
 				}
 			}
-			debugSetLastMC(isSet, m, c) {
+			debugSetLastMC(player, isSet, m, c) {
 				if (isSet) {
-					if (this.movieplayer.wth == 1) {
+					if (player.wth == 1) {
 						this._debug_matrix[0] = Math.random();
 						this._debug_matrix[1] = Math.random();
 						this._debug_matrix[2] = Math.random();
@@ -14550,7 +15890,7 @@ var PinkFie = (function(moduleResults) {
 					this._debug_colorTransform[6] = c[6];
 					this._debug_colorTransform[7] = c[7];
 				} else {
-					var val = (this.movieplayer.wth == 1) ? (0.04 * (this.movieplayer.interpolation ? (this.movieplayer.speed / 2) : (45 / this.movieplayer.frameRate))) : this.movieplayer.getTickForFrameRate();
+					var val = (player.wth == 1) ? (0.04 * (player.interpolation ? (player.speed / 2) : (45 / player.frameRate))) : player.getTickForFrameRate();
 					this._debug_colorTransform[0] += ((c[0] - this._debug_colorTransform[0]) * val);
 					this._debug_colorTransform[1] += ((c[1] - this._debug_colorTransform[1]) * val);
 					this._debug_colorTransform[2] += ((c[2] - this._debug_colorTransform[2]) * val);
@@ -14559,7 +15899,7 @@ var PinkFie = (function(moduleResults) {
 					this._debug_colorTransform[5] += ((c[5] - this._debug_colorTransform[5]) * val);
 					this._debug_colorTransform[6] += ((c[6] - this._debug_colorTransform[6]) * val);
 					this._debug_colorTransform[7] += ((c[7] - this._debug_colorTransform[7]) * val);
-					if (this.movieplayer.wth == 2) return;
+					if (player.wth == 2) return;
 					this._debug_matrix[0] += ((m[0] - this._debug_matrix[0]) * val);
 					this._debug_matrix[1] += ((m[1] - this._debug_matrix[1]) * val);
 					this._debug_matrix[2] += ((m[2] - this._debug_matrix[2]) * val);
@@ -14568,33 +15908,30 @@ var PinkFie = (function(moduleResults) {
 					this._debug_matrix[5] += ((m[5] - this._debug_matrix[5]) * val);
 				}
 			}
-			debugRender(ctx) {
-				this.movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(), this.getRenderColorTransform());
+			debugRender(movieplayer) {
+				var renderer = movieplayer.renderer;
+				movieplayer.debugTransformStack.stackPush(this.getRenderMatrix(movieplayer.useLastBound), this.getRenderColorTransform(movieplayer.useLastBound));
 				var b = this.selfBounds();
-				if (this.movieplayer.useLastBound) 
+				if (movieplayer.useLastBound) 
 					b = this._debug_boundsLast;
-				var bm = this.boundsMatrix(b, this.movieplayer.debugTransformStack.getMatrix());
+				var bm = this.boundsMatrix(b, movieplayer.debugTransformStack.getMatrix());
 				var coll = this._debug_colorDisplayType;
 				var collC = [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0];
-				var collM = [((b.xMax - b.xMin) / 100) * 1, 0, 0, ((b.yMax - b.yMin) / 100) * 1, b.xMin, b.yMin];
-				this.movieplayer.transformStack.stackPush(this.movieplayer.debugTransformStack.getMatrix(), this.movieplayer.debugTransformStack.getColorTransform());
-				this.movieplayer.transformStack.stackPush(collM, collC);
-				ctx.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
-				ctx.setTransform(...this.movieplayer.transformStack.getMatrix());
-				ctx.renderShape(this.movieplayer.debugRectLineShapeRender);
-				this.movieplayer.transformStack.stackPop();
-				this.movieplayer.transformStack.stackPop();
-				this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], this.movieplayer.debugTransformStack.getColorTransform());
-				this.movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 100, 0, 0, (bm.yMax - bm.yMin) / 100, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
-				ctx.setColorTransform(...this.movieplayer.transformStack.getColorTransform());
-				ctx.setTransform(...this.movieplayer.transformStack.getMatrix());
-				ctx.renderShape(this.movieplayer.debugRectLineShapeRender);
-				this.movieplayer.transformStack.stackPop();
-				this.movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
-				this.movieplayer.drawTextW(bm.xMin, (bm.yMin - (15 * this.movieplayer.getScaleBoundsText())), 0.25 * this.movieplayer.getScaleBoundsText(), this.getDisplayName());
-				this.movieplayer.transformStack.stackPop();
-				this.movieplayer.transformStack.stackPop();
-				this.movieplayer.debugTransformStack.stackPop();
+				var collM = [((b.xMax - b.xMin) / 2000) * 1, 0, 0, ((b.yMax - b.yMin) / 2000) * 1, b.xMin, b.yMin];
+				movieplayer.transformStack.stackPush(movieplayer.debugTransformStack.getMatrix(), movieplayer.debugTransformStack.getColorTransform());
+				movieplayer.transformStack.stackPush(collM, collC);
+				renderer.renderShape(movieplayer.debugRectLineShapeRender, movieplayer.transformStack.getMatrix(), movieplayer.transformStack.getColorTransform());
+				movieplayer.transformStack.stackPop();
+				movieplayer.transformStack.stackPop();
+				movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], movieplayer.debugTransformStack.getColorTransform());
+				movieplayer.transformStack.stackPush([(bm.xMax - bm.xMin) / 2000, 0, 0, (bm.yMax - bm.yMin) / 2000, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]);
+				renderer.renderShape(movieplayer.debugRectLineShapeRender, movieplayer.transformStack.getMatrix(), movieplayer.transformStack.getColorTransform());
+				movieplayer.transformStack.stackPop();
+				movieplayer.transformStack.stackPush([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]);
+				movieplayer.drawTextW(bm.xMin, (bm.yMin - (75 * movieplayer.getScaleBoundsText())), 0.25 * movieplayer.getScaleBoundsText(), this.getDisplayName());
+				movieplayer.transformStack.stackPop();
+				movieplayer.transformStack.stackPop();
+				movieplayer.debugTransformStack.stackPop();
 			}
 			/// Run any start-of-frame actions for this display object.
 			///
@@ -14608,13 +15945,13 @@ var PinkFie = (function(moduleResults) {
 			isContainer() {
 				return false;
 			}
-			avm1Unload() {
+			avm1Unload(context) {
 				// Unload children.
 				if (this.isContainer()) {
 					var children = this.iterRenderList();
 					for (let i = 0; i < children.length; i++) {
 						const child = children[i];
-						child.avm1Unload();
+						child.avm1Unload(context);
 					}
 				}
 				this.AVM1_REMOVED = true;
@@ -14622,56 +15959,114 @@ var PinkFie = (function(moduleResults) {
 			setState() {
 			}
 			getDisplayName() {
-				return this.displayType + ": " + this.id;
+				return this.displayType + ": " + this.getId();
 			}
-			takeHitButton() {
+			mousePickAvm1() {
 			}
 		}
 		
 		wpjsm.exportJS = DisplayObject;
 	},
-	"src/font.js": function(wpjsm){
-		const shapeUtils = wpjsm.importJS("src/utils/shapeUtils.js");
+	"./src/font.js": function(wpjsm) {
+		const shapeUtils = wpjsm.importJS("./src/utils/shapeUtils.js");
 		
 		class Glyph {
-			constructor(shapeHandle) {
-				this.shapeHandle = shapeHandle;
+			constructor(commands) {
+				this.shapeHandle = null;
+				this.commands = commands;
+				this.advance = 0;
+			}
+			getShapeHandle(renderer) {
+				if (!this.shapeHandle) {
+					this.shapeHandle = renderer.shapeToInterval(shapeUtils.shapeToRendererInfo(this.commands));
+				}
+				return this.shapeHandle;
 			}
 		}
-		class GlyphSource {
-			constructor() {
-				this.glyphs = [];
-				this.codePointToGlyph = [];
-			}
-			addGlyphs(e) {
-				var g = new Glyph(e);
-				this.glyphs.push(g);
+		class GlyphSourceMemory {
+			constructor(glyphs, codePointToGlyph, kerningPairs) {
+				this.glyphs = glyphs;
+				this.codePointToGlyph = codePointToGlyph;
+				this.kerningPairs = kerningPairs;
 			}
 			getByIndex(i) {
 				return this.glyphs[i];
 			}
-		}
-		class FlashFont {
-			constructor(movieplayer) {
-				this.movieplayer = movieplayer;
-				this.glyphs = new GlyphSource();
+			getByCodePoint(codePoint) {
+				var index = this.codePointToGlyph.get(codePoint);
+				if (index != null) return this.glyphs[index];
+				else return null;
 			}
-			static fromSwfTag(movieplayer, tag) {
-				var f = new FlashFont(movieplayer);
-				f.initGlyphs(tag.glyphs);
+		}
+		class FontDescriptor {
+			constructor() {
+				this.name = "";
+				this.lowercaseName = "";
+				this.isBold = false;
+				this.isItalic = false;
+			}
+			static fromSwfTag(val) {
+				var name = val.fontNameData ? val.fontNameData : "";
+				var lowercaseName = name.toLowerCase();
+				var f = new FontDescriptor();
+				f.name = name;
+				f.lowercaseName = lowercaseName;
+				f.isBold = val.isBold;
+				f.isItalic = val.isItalic;
 				return f;
 			}
-			initGlyphs(glyphs) {
+		} 
+		class FlashFont {
+			constructor() {
+				this.glyphs = null;
+				this.scale = 1024;
+				this.ascent = 0;
+				this.descent = 0;
+				this.leading = 0;
+				this.displayType = "font";
+			}
+			static fromSwfTag(tag) {
+				let descriptor = FontDescriptor.fromSwfTag(tag);
+				var glyphs = tag.glyphs;
+				var layout = tag.layout;
+				var codeTables = tag.codeTables;
+				var codePointToGlyph = new Map();
+				var glyphsResult = [];
+				var kerningPairs = [];
+				var ascent = 0;
+				var descent = 0;
+				var leading = 0;
 				if (glyphs) {
 					for (var i = 0; i < glyphs.length; i++) {
-						var result = shapeUtils.convertWithCacheCodes(glyphs[i]);
-						const sh = this.movieplayer.registerShape(result);
-						this.glyphs.addGlyphs(sh);
+						var g = new Glyph(shapeUtils.convertWithCacheCodes(glyphs[i]));
+						glyphsResult.push(g);
+					}
+					if (codeTables) {
+						for (var i = 0; i < codeTables.length; i++) {
+							codePointToGlyph.set(codeTables[i], i)
+						}
+					}
+					if (layout) {
+						ascent = layout.ascent;
+						descent = layout.descent;
+						leading = layout.leading;
+						var advanceTable = layout.advanceTable;
+						for (var i = 0; i < advanceTable.length; i++) {
+							glyphsResult[i].advance = advanceTable[i];
+						}
 					}
 				}
+				var f = new FlashFont();
+				f.descriptor = descriptor;
+				f.scale = tag.version >= 3 ? 20480 : 1024;
+				f.ascent = ascent;
+				f.descent = descent;
+				f.leading = leading;
+				f.glyphs = new GlyphSourceMemory(glyphsResult, codePointToGlyph, kerningPairs);
+				return f;
 			}
-			setAlignZones(alignZones) {
-				this.alignZones = alignZones;
+			getGlyphForChar(c) {
+				return this.glyphs.getByCodePoint(c);
 			}
 			getGlyph(index) {
 				return this.glyphs.getByIndex(index);
@@ -14679,13 +16074,13 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = FlashFont;
 	},
-	"src/index.js": function(wpjsm){
-		const config = wpjsm.importJS("src/config.js");
-		const SwfTag = wpjsm.importJS("src/SwfTag.js");
-		const shapeUtils = wpjsm.importJS("src/utils/shapeUtils.js");
-		const Player = wpjsm.importJS("src/PinkFiePlayer.js");
-		const AT_H263_Decoder = wpjsm.importJS("src/utils/at-h263-decoder.js");
-		const AT_NIHAV_VP6_Decoder = wpjsm.importJS("src/utils/at-nihav-vp6-decoder.js");
+	"./src/index.js": function(wpjsm) {
+		const config = wpjsm.importJS("./src/config.js");
+		const SwfTag = wpjsm.importJS("./src/SwfTag.js");
+		const shapeUtils = wpjsm.importJS("./src/utils/shapeUtils.js");
+		const Player = wpjsm.importJS("./src/PinkFiePlayer.js");
+		const AT_H263_Decoder = wpjsm.importJS("./src/utils/at-h263-decoder.js");
+		const AT_NIHAV_VP6_Decoder = wpjsm.importJS("./src/utils/at-nihav-vp6-decoder.js");
 		
 		wpjsm.exportJS = {
 			SwfTag,
@@ -14696,26 +16091,23 @@ var PinkFie = (function(moduleResults) {
 			config
 		}
 	},
-	"src/config.js": function(wpjsm){
-		wpjsm.exportJS = {
-			useWebGL: false
-		}
-	},
-	"src/IO.js": function(wpjsm){
-		const ZLib = wpjsm.importJS("src/utils/ZLib.js");
-		const MoviePlayer = wpjsm.importJS("src/MoviePlayer.js");
-		const SwfParser = wpjsm.importJS("src/SwfTag.js");
-		const Shape = wpjsm.importJS("src/display_objects/Shape.js");
-		const MorphShape = wpjsm.importJS("src/display_objects/MorphShape.js");
-		const StaticText = wpjsm.importJS("src/display_objects/StaticText.js");
-		const TextField = wpjsm.importJS("src/display_objects/TextField.js");
-		const VideoDisplay = wpjsm.importJS("src/display_objects/VideoDisplay.js");
-		const BitmapGraphic = wpjsm.importJS("src/display_objects/BitmapGraphic.js");
-		const Avm1Buttom = wpjsm.importJS("src/display_objects/Avm1Buttom.js");
-		const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
-		const BinaryData = wpjsm.importJS("src/binarydata.js");
-		const FlashFont = wpjsm.importJS("src/font.js");
-		
+	"./src/IO.js": function(wpjsm) {
+		const ZLib = wpjsm.importJS("./src/utils/ZLib.js");
+		const MoviePlayer = wpjsm.importJS("./src/MoviePlayer.js");
+		const SwfParser = wpjsm.importJS("./src/SwfTag.js");
+		const Shape = wpjsm.importJS("./src/display_objects/Shape.js");
+		const MorphShape = wpjsm.importJS("./src/display_objects/MorphShape.js");
+		const StaticText = wpjsm.importJS("./src/display_objects/StaticText.js");
+		const TextField = wpjsm.importJS("./src/display_objects/TextField.js");
+		const VideoDisplay = wpjsm.importJS("./src/display_objects/VideoDisplay.js");
+		const BitmapGraphic = wpjsm.importJS("./src/display_objects/BitmapGraphic.js");
+		const Avm1Buttom = wpjsm.importJS("./src/display_objects/Avm1Buttom.js");
+		const MovieClip = wpjsm.importJS("./src/display_objects/MovieClip.js");
+		const BinaryData = wpjsm.importJS("./src/binarydata.js");
+		const FlashFont = wpjsm.importJS("./src/font.js");
+		const log = wpjsm.importJS("./src/log.js");
+		const SwfMovie = wpjsm.importJS("./src/SwfMovie.js");
+		const AT_JPG_Decoder = wpjsm.importJS("./src/utils/at-jpg-decoder.js");
 		
 		function getByteText(byte) {
 			if (byte >= 1000000) {
@@ -14739,13 +16131,8 @@ var PinkFie = (function(moduleResults) {
 				colorTableSize = bitmapTag.numColors + 1;
 			}
 			var sizeZLib = 5;
-			var dat = ZLib.decompress(bitmapTag.data, ((width * height) * sizeZLib), 0);
-			var data = new Uint8Array(dat);
-			var canvas = document.createElement("canvas");
-			canvas.width = width;
-			canvas.height = height;
-			var imageContext = canvas.getContext("2d");
-			var imgData = imageContext.createImageData(width, height);
+			var data = ZLib.decompress(bitmapTag.data, ((width * height) * sizeZLib), 0);
+			var imgData = new ImageData(width, height);
 			var pxData = imgData.data;
 			var idx = 0;
 			var pxIdx = 0;
@@ -14793,30 +16180,25 @@ var PinkFie = (function(moduleResults) {
 					cmIdx += pad;
 				}
 			}
-			imageContext.putImageData(imgData, 0, 0);
-			return canvas;
+			return imgData;
 		}
 		
 		/// Glues the JPEG encoding tables from a JPEGTables SWF tag to the JPEG data
 		/// in a DefineBits tag, producing complete JPEG data suitable for a decoder.
 		function glueTablesToJpeg(jpedData, jpedTable) {
-			if (jpedTable && (jpedTable.byteLength > 4)) {
-				var margeData = [];
-				var _jpegTables = new Uint8Array(jpedTable);
-				var len = _jpegTables.length - 2;
-				for (var idx = 0; idx < len; idx++) {
-					margeData[margeData.length] = _jpegTables[idx];
+			if (jpedTable) {
+				if ((jpedTable.length >= 2)) {
+					var len = jpedTable.length - 2;
+					var full_jpeg = new Uint8Array(jpedData.length + jpedTable.length);
+					full_jpeg.set(jpedTable.subarray(0, len), 0);
+					full_jpeg.set(jpedData.subarray(2), len);
+					return full_jpeg;	
 				}
-				len = jpedData.length;
-				for (idx = 2; idx < len; idx++) {
-					margeData[margeData.length] = jpedData[idx];
-				}
-				return margeData;
-			} else {
-		
-				// No JPEG tables or not enough data; return JPEG data as is
-				return jpedData;
 			}
+
+			// No JPEG tables or not enough data; return JPEG data as is
+			return jpedData;
+			
 		}
 		function removeInvalidJpegData(JPEGData) {
 			var i = 0;
@@ -14858,47 +16240,69 @@ var PinkFie = (function(moduleResults) {
 					str += String.fromCharCode(JPEGData[i]);
 				}
 			}
-			return str;
+			var dfa = new Uint8Array(str.length);
+			for (let i = 0; i < str.length; i++) {
+				dfa[i] = str.charCodeAt(i);
+			}
+			return dfa;
 		}
-		function decodeDefineBitsJpeg(jpedData, alphaData, callback) {
-			var image = new Image();
-			image.onload = function() {
-				if (alphaData) {
-					var width = image.width;
-					var height = image.height;
-					var canvas = document.createElement('canvas');
-					canvas.width = width;
-					canvas.height = height;
-					var imageContext = canvas.getContext("2d");
-					imageContext.drawImage(image, 0, 0, width, height);
-					var imgData = imageContext.getImageData(0, 0, width, height);
-					var pxData = imgData.data;
-					var dat = ZLib.decompress(alphaData, (width * height), 0);
-					var adata = new Uint8Array(dat);
-					var pxIdx = 3;
-					var len = width * height;
-					for (var i = 0; i < len; i++) {
-						pxData[pxIdx] = adata[i];
-						pxIdx += 4;
-					}
-					imageContext.putImageData(imgData, 0, 0);
-					callback(canvas);
-				} else {
-					callback(image);
+
+		function determineJpegTagFormat(data) {
+			if ((data[0] == 0xff) && (data[1] == 0xd8)) {
+				return "jpeg";
+			} else if ((data[0] == 0xff) && (data[1] == 0xd9) && (data[2] == 0xff) && (data[3] == 0xd8)) { // erroneous header in SWF
+				return "jpeg";
+			} else if ((data[0] == 0x89) && (data[1] == 0x50) && (data[2] == 0x4e) && (data[3] == 0x47) && (data[4] == 0x0d) && (data[5] == 0x0a) && (data[6] == 0x1a) && (data[7] == 0x0a)) {
+				return "png";
+			} else if ((data[0] == 0x47) && (data[1] == 0x49) && (data[2] == 0x46) && (data[3] == 0x38) && (data[4] == 0x39) && (data[5] == 0x61)) {
+				return "gif";
+			} else {
+				return "unknown";
+			}
+		}
+
+		function decodeJpeg(jpedData, alphaData) {
+			var fi = removeInvalidJpegData(jpedData);
+			var res = AT_JPG_Decoder.decode(fi);
+			var image = new ImageData(res.width, res.height);
+			var width = image.width;
+			var height = image.height;
+			var pxData = image.data;
+			pxData.set(res.data, 0);
+			if (alphaData) {
+				var len = width * height;
+				var dat = ZLib.decompress(alphaData, len, 0);
+				var adata = dat;
+				var pxIdx = 3;
+				for (var i = 0; i < len; i++) {
+					pxData[pxIdx] = adata[i];
+					pxIdx += 4;
 				}
 			}
-			image.onerror = function() {
-				console.log("jped failed");
-				callback(null);
+			return image;
+		}
+
+		function decodeDefineBitsJpeg(data, alphaData) {
+			var format = determineJpegTagFormat(data);
+			var result;
+			try {
+				switch(format) {
+					case "jpeg":
+						result = decodeJpeg(data, alphaData);
+						break;
+					case "png":
+					case "gif":
+						console.log("TODO", format, data);
+						break;
+				}
+			} catch(e) {
+				console.log(e);
 			}
-			var fi = removeInvalidJpegData(jpedData);
-			image.src = "data:image/jpeg;base64," + window.btoa(fi);
+			return result;
 		}
 		class Loader {
 			constructor(file) {
 				this.progressText = 'loading';
-				// Compressing SWF
-				// Building Tags
 				this.swfFile = file;
 				this.onload = null;
 				this.onerror = null;
@@ -14917,174 +16321,123 @@ var PinkFie = (function(moduleResults) {
 				this.onprogress = null;
 				this.aborted = true;
 			}
-			loadTags(tagCallback, clip, stage, endFunc) {
+			loadTags(tagCallback, clip, context, movie, endFunc) {
 				var _this = this;
 				var obj = {};
-				obj.frameCount = 0;
-				obj.resultSoundStreamBlock = null;
-				obj.soundStreamBlockRecords = [];
-				obj.soundStreamBlocks = [];
+				clip.frameCount = 0;
 				obj.endTagFound = false;
 				var timelineTags = [];
 				tagCallback._ontag = function (tag) {
-					switch (tag.tagType) {
+					switch (tag.tagcode) {
 						//////// frames ////////
-						case "End":
+						case 0:
 							obj.endTagFound = true;
 							break;
-						case "ShowFrame":
-							obj.frameCount++;
-							if (obj.resultSoundStreamBlock) {
-								obj.soundStreamBlocks.push(obj.resultSoundStreamBlock);
-								obj.resultSoundStreamBlock = null;
-							} else {
-								if (obj.soundStreamBlocks.length) {
-									obj.soundStreamBlockRecords.push(obj.soundStreamBlocks);
-									obj.soundStreamBlocks = [];
-								}
-							}
+						case 1:
+							clip.frameCount++;
 							timelineTags.push(tag);
 							break;
-						case "PlaceObject":
-						case "PlaceObject2":
-						case "PlaceObject3":
-						case "PlaceObject4":
-						case "RemoveObject":
-						case "RemoveObject2":
-						case "StartSound":
-						case "StartSound2":
-						case "DoAction":
-						case "FrameLabel":
+						case 4:
+						case 26:
+						case 70:
+						case 94:
+						case 5:
+						case 28:
+						case 15:
+						case 89:
+						case 12:
+						case 43:
+						case 72:
+						case 76:
+						case 82:
+						case 19:
 							timelineTags.push(tag);
 							break;
-						case "SoundStreamHead":
-						case "SoundStreamHead2":
-							_this.soundStreamHead(stage, clip, tag);
-							timelineTags.push(tag);
-							break;
-						case "SoundStreamBlock":
-							obj.resultSoundStreamBlock = tag;
+						case 18:
+						case 45:
+							_this.soundStreamHead(clip, tag);
 							timelineTags.push(tag);
 							break;
 						//////// Define ////////
-						case "DefineFont":
-						case "DefineFont2":
-						case "DefineFont3":
-							_this.defineFont(tag, stage);
+						case 10:
+						case 48:
+						case 75:
+							_this.defineFont(context, movie, tag);
 							break;
-						case "DefineBitsLossless":
-						case "DefineBitsLossless2":
-							_this.defineLossless(tag, stage);
+						case 20:
+						case 36:
+							_this.defineLossless(movie, tag);
 							break;
-						case "DefineBits":
-						case "DefineBitsJpeg2":
-						case "DefineBitsJpeg3":
-						case "DefineBitsJpeg4":
-							return _this.defineBits(tag, stage);
-						case "DefineSound":
-							return _this.defineSound(tag, stage);
-						case "DefineVideoStream":
-							_this.defineVideoStream(tag, stage);
+						case 6:
+						case 21:
+						case 35:
+						case 90:
+							_this.defineBits(movie, tag);
 							break;
-						case "DefineShape":
-						case "DefineShape2":
-						case "DefineShape3":
-						case "DefineShape4":
-							_this.defineShape(tag, stage);
+						case 14:
+							return _this.defineSound(context, movie, tag);
+						case 60:
+							_this.defineVideoStream(movie, tag);
 							break;
-						case "DefineMorphShape":
-						case "DefineMorphShape2":
-							_this.defineMorphShape(tag, stage);
+						case 2:
+						case 22:
+						case 32:
+						case 83:
+							_this.defineShape(movie, tag);
 							break;
-						case "DefineSprite":
-							_this.defineSprite(tag, stage);
+						case 46:
+						case 84:
+							_this.defineMorphShape(tag, movie);
 							break;
-						case "DefineText":
-						case "DefineText2":
-							_this.defineText(tag, stage);
+						case 39:
+							_this.defineSprite(context, movie, tag);
 							break;
-						case "DoAbc":
-						case "DoAbc2":
+						case 11:
+						case 33:
+							_this.defineText(tag, movie);
 							break;
-						case "SymbolClass":
-							_this.symbolClass(tag, stage);
+						case 59:
+							_this.doInitAction(tag, movie);
 							break;
-						case "DoInitAction":
-							_this.doInitAction(tag, stage);
+						case 37:
+							_this.defineEditText(tag, movie);
 							break;
-						case "DefineEditText":
-							_this.defineEditText(tag, stage);
+						case 7:
+						case 34:
+							_this.defineButton(tag, movie);
 							break;
-						case "DefineButton":
-						case "DefineButton2":
-							_this.defineButton(tag, stage);
+						case 87:
+							_this.defineBinaryData(tag, movie);
 							break;
-						case "DefineBinaryData":
-							_this.defineBinaryData(tag, stage);
+						case 17:
+							_this.defineButtonSound(tag, movie);
 							break;
-						case "DefineFontAlignZones":
-							_this.defineFontAlignZones(tag, stage);
+						case 23:
+							_this.defineButtonCxform(tag, movie);
 							break;
-						case "DefineButtonSound":
-							_this.defineButtonSound(tag, stage);
+						case 9:
+							context.player.setBackgroundColor(...tag.rgb);
 							break;
-						case "DefineButtonCxform":
-							_this.defineButtonCxform(tag, stage);
+						case 8:
+							movie.library.setJpegTables(tag.jpegtable);
 							break;
-						//////// . ////////
-						case "SetBackgroundColor":
-							stage.setBackgroundColor(...tag.rgb);
+						case 61:
+							_this.preloadVideoFrame(tag, movie);
 							break;
-						case "JpegTables":
-							stage.library.setJpegTables(tag.jpegtable);
+						case 56:
+							_this.exportAssets(tag, movie);
 							break;
-						case "FileAttributes":
-							stage.initAttributes(tag);
-							break;
-						case "VideoFrame":
-							_this.preloadVideoFrame(tag, stage);
-							break;
-						case "ExportAssets":
-							_this.exportAssets(tag, stage);
-							break;
-						case "CsmTextSettings":
-							_this.csmTextSettings(tag, stage);
-							break;
-						//////// . ////////
-						case "DefineSceneAndFrameLabelData":
-						case "ScriptLimits":
-							break;
-						// N/A
-						case "DefineFontInfo":
-						case "DefineFontInfo2":
-						case "DefineFontName":
-						case "SetTabIndex":
-						case "ImportAssets":
-						case "ImportAssets2":
-						case "DefineScalingGrid":
-							break;
-						// Not documented
-						case "Metadata":
-						case "Protect":
-						case "NameCharacter":
-						case "ProductInfo":
-						case "EnableDebugger":
-						case "EnableDebugger2":
-						case "DebugID":
-						case "EnableTelemetry":
+						case 74:
+							_this.csmTextSettings(tag, movie);
 							break;
 					}
 				};
 				tagCallback._onend = function () {
-					if (obj.soundStreamBlocks.length) {
-						obj.soundStreamBlockRecords.push(obj.soundStreamBlocks);
-						obj.soundStreamBlocks = [];
-					}
-					clip.frameCount = obj.frameCount;
 					clip.init(timelineTags);
-					if (obj.soundStreamBlockRecords.length) {
+					var soundStreamBlockRecords = context.audio.streamFromSwfTag(clip.audioStreamInfo, timelineTags);
+					if (soundStreamBlockRecords.length) {
 						return function (callback) {
-							_this.loadSoundStreamSprite(clip, stage, obj.soundStreamBlockRecords, function () {
+							_this.loadSoundStreamSprite(clip, context.audio, soundStreamBlockRecords, function () {
 								callback();
 								endFunc();
 							});
@@ -15094,120 +16447,107 @@ var PinkFie = (function(moduleResults) {
 					}
 				};
 			}
-			defineFont(tag, stage) {
-				stage.library.registerCharacter(tag.id, FlashFont.fromSwfTag(stage, tag));
+			defineFont(context, movie, tag) {
+				movie.library.registerCharacter(tag.id, FlashFont.fromSwfTag(tag));
 			}
-			defineBits(tag1, stage) {
-				var rr = stage.library.jpegTables;
-				var tag = BitmapGraphic.createStatic(stage, tag1.id);
-				if (tag1.tagType == "DefineBits") {
-					tag.jpegTable = rr;
+			defineBits(movie, tag1) {
+				var rr = movie.library.jpegTables;
+				var tag = BitmapGraphic.createStatic(movie, tag1.id);
+				var jpegTables = null;
+				if (tag1.tagcode == 6) {
+					jpegTables = rr;
 				}
-				var JPEGData = new Uint8Array(tag1.data);
+				var data = tag1.data;
 				var bitmadA = tag1.alphaData;
-				return function (callback) {
-					var jpegTables = tag.jpegTable;
-					var _JPEGData = glueTablesToJpeg(JPEGData, jpegTables);
-					decodeDefineBitsJpeg(_JPEGData, bitmadA, function (img) {
-						if (img) {
-							tag.setBitmap(img);
-						}
-						stage.library.registerCharacter(tag1.id, tag);
-						callback();
-					});
-				};
+				var _JPEGData = glueTablesToJpeg(data, jpegTables);
+				var img = decodeDefineBitsJpeg(_JPEGData, bitmadA);
+				if (img) {
+					tag.setBitmap(img);
+				}
+				movie.library.registerCharacter(tag1.id, tag);
 			}
-			defineLossless(bitmapInfo, stage) {
+			defineLossless(movie, bitmapInfo) {
 				var canvas = decodeDefineBitsLossless(bitmapInfo);
-				var rg = BitmapGraphic.createStatic(stage, bitmapInfo.id);
+				var rg = BitmapGraphic.createStatic(movie, bitmapInfo.id);
 				rg.setBitmap(canvas);
-				stage.library.registerCharacter(bitmapInfo.id, rg);
+				movie.library.registerCharacter(bitmapInfo.id, rg);
 			}
-			defineSound(tag, stage) {
-				var sp = stage.audio.registerSound(tag);
-				var _this = this;
+			defineSound(context, movie, tag) {
+				var sp = context.audio.registerSound(tag);
 				return function (callback) {
-					stage.audio.decodeSound(tag, function (a) {
+					context.audio.decodeSound(tag, function (a) {
 						sp.setAudio(a);
-						stage.library.registerCharacter(tag.id, sp);
+						movie.library.registerCharacter(tag.id, sp);
 						callback();
 					});
 				};
 			}
-			defineShape(tag, stage) {
-				var shape = Shape.fromSwfTag(stage, tag);
-				stage.library.registerCharacter(tag.id, shape);
+			defineShape(movie, tag) {
+				var shape = Shape.fromSwfTag(movie, tag);
+				movie.library.registerCharacter(tag.id, shape);
 			}
-			defineMorphShape(tag, stage) {
-				var shape = MorphShape.fromSwfTag(stage, tag);
-				stage.library.registerCharacter(tag.id, shape);
+			defineMorphShape(tag, movie) {
+				var shape = MorphShape.fromSwfTag(movie, tag);
+				movie.library.registerCharacter(tag.id, shape);
 			}
-			defineSprite(tag, stage) {
-				var clip = MovieClip.createStatic(stage);
+			defineSprite(context, movie, tag) {
+				var clip = MovieClip.createStatic(movie);
 				clip.characterId = tag.id;
 				clip.totalframes = tag.numFrames;
-				this.loadTags(tag.tagCallback, clip, stage, function () {
-					stage.library.registerCharacter(tag.id, clip);
+				this.loadTags(tag.tagCallback, clip, context, movie, function() {
+					movie.library.registerCharacter(tag.id, clip);
 				});
 			}
-			defineText(tag, stage) {
-				stage.library.registerCharacter(tag.id, StaticText.fromSwfTag(stage, tag));
+			defineText(tag, movie) {
+				movie.library.registerCharacter(tag.id, StaticText.fromSwfTag(movie, tag));
 			}
-			defineEditText(tag, stage) {
-				stage.library.registerCharacter(tag.id, TextField.fromSwfTag(stage, tag));
+			defineEditText(tag, movie) {
+				movie.library.registerCharacter(tag.id, TextField.fromSwfTag(movie, tag));
 			}
-			defineButton(tag, stage) {
-				var r = Avm1Buttom.fromSwfTag(stage, tag);
-				stage.library.registerCharacter(tag.id, r);
+			defineButton(tag, movie) {
+				var r = Avm1Buttom.fromSwfTag(movie, tag);
+				movie.library.registerCharacter(tag.id, r);
 			}
-			defineFontAlignZones(tag, stage) {
-				var resultFont = stage.library.characterById(tag.id);
-				resultFont.setAlignZones(tag);
+			defineBinaryData(tag, movie) {
+				movie.library.registerCharacter(tag.id, new BinaryData(tag));
 			}
-			defineBinaryData(tag, stage) {
-				stage.library.registerCharacter(tag.id, new BinaryData(tag));
+			defineVideoStream(movie, tag) {
+				movie.library.registerCharacter(tag.id, VideoDisplay.fromSwfTag(movie, tag));
 			}
-			defineVideoStream(tag, stage) {
-				stage.library.registerCharacter(tag.id, VideoDisplay.fromSwfTag(stage, tag));
-			}
-			defineButtonSound(tag, stage) {
-				var resultButton = stage.library.characterById(tag.buttonId);
+			defineButtonSound(tag, movie) {
+				var resultButton = movie.library.characterById(tag.buttonId);
 				if (resultButton) {
 					resultButton.setSounds(tag);
 				} else {
-					console.log("DefineButtonSound: Character ID " + tag.buttonId + " doesn't exist");
+					log.warn("DefineButtonSound: Character ID " + tag.buttonId + " doesn't exist");
 				}
 			}
-			defineButtonCxform(tag, stage) {
-				var resultButton = stage.library.characterById(tag.id);
+			defineButtonCxform(tag, movie) {
+				var resultButton = movie.library.characterById(tag.id);
 				if (resultButton) {
 					resultButton.setColorTransforms(tag);
 				} else {
-					console.log("DefineButtonSound: Character ID " + tag.id + " doesn't exist");
+					log.warn("DefineButtonSound: Character ID " + tag.id + " doesn't exist");
 				}
 			}
-			symbolClass(tag, stage) {
-				console.log(tag);
-			}
-			doInitAction(tag, stage) {
+			doInitAction(tag, movie) {
 				var spriteId = tag.spriteId;
 				var action = tag.action;
-				var movieclip = stage.library.characterById(spriteId);
-				console.log(movieclip);
+				var movieclip = movie.library.characterById(spriteId);
+				console.log(movieclip, action);
 			}
-			soundStreamHead(stage, clip, tag) {
+			soundStreamHead(clip, tag) {
 				clip.audioStreamInfo = tag;
-		
 			}
-			preloadVideoFrame(tag, stage) {
+			preloadVideoFrame(tag, movie) {
 				let vframe = tag;
-				let library = stage.library;
+				let library = movie.library;
 				let v = library.characterById(vframe.streamId);
 				if (v) {
-					v.preloadSwfFrame(vframe, stage);
+					v.preloadSwfFrame(vframe);
 				}
 			}
-			exportAssets(tag, stage) {
+			exportAssets(tag, movie) {
 				var packages = tag.packages;
 				for (let i = 0; i < packages.length; i++) {
 					let _package = packages[i];
@@ -15215,32 +16555,32 @@ var PinkFie = (function(moduleResults) {
 					let name = _package[1];
 		
 					// TODO: do other types of Character need to know their exported name?
-					stage.library.registerExport(id, name);
-					var character = stage.library.characterById(id);
+					movie.library.registerExport(id, name);
+					var character = movie.library.characterById(id);
 					if (character) {
 						if (character.displayType == "movieclip") {
 							character.exportedName = name;
 						}
 					} else {
-						console.log("Can't register export {}: Character ID {} doesn't exist");
+						log.warn("Can't register export {}: Character ID {} doesn't exist");
 					}
 				}
 			}
-			csmTextSettings(tag, stage) {
-				var text = stage.library.characterById(tag.id);
+			csmTextSettings(tag, movie) {
+				var text = movie.library.characterById(tag.id);
 				if (text) {
 					if (text.displayType == "text") {
 						text.setRenderSettings(tag);
 					} else if (text.displayType == "edittext") {
 						text.setRenderSettings(tag);
 					} else {
-						console.log("Tried to apply CSMTextSettings to non-text character ID");
+						log.warn("Tried to apply CSMTextSettings to non-text character ID");
 					}
 				} else {
-					console.log("Tried to apply CSMTextSettings to unregistered character ID");
+					log.warn("Tried to apply CSMTextSettings to unregistered character ID");
 				}
 			}
-			loadSoundStreamSprite(sp, stage, blockRecords, callback) {
+			loadSoundStreamSprite(sp, audio, blockRecords, callback) {
 				var audioStreamInfo = sp.audioStreamInfo;
 				if (audioStreamInfo) {
 					var c = blockRecords.length;
@@ -15251,7 +16591,7 @@ var PinkFie = (function(moduleResults) {
 					var result = [];
 					for (let i = 0; i < blockRecords.length; i++) {
 						const blockRecord = blockRecords[i];
-						result.push(this.loadSoundStream(audioStreamInfo, blockRecord, stage, function () {
+						result.push(this.loadSoundStream(audioStreamInfo, blockRecord, audio, function () {
 							c--;
 							if (c == 0) {
 								callback();
@@ -15263,14 +16603,14 @@ var PinkFie = (function(moduleResults) {
 					callback();
 				}
 			}
-			loadSoundStream(streamInfo, blocks, stage, callback2) {
+			loadSoundStream(streamInfo, blocks, audio, callback2) {
 				var soundInfo = {
 					blocks: blocks,
 					streamInfo: streamInfo
 				};
 				var result = {};
 				result.soundInfo = soundInfo;
-				stage.audio.decodeSoundStream(streamInfo, blocks, function (a) {
+				audio.decodeSoundStream(streamInfo, blocks, function (a) {
 					result.audioStream = a;
 					callback2();
 				}, true);
@@ -15289,7 +16629,6 @@ var PinkFie = (function(moduleResults) {
 					}
 				};
 				swfparser.onload = function () {
-					stage.swf = swfparser.result;
 					if (!_this.aborted) {
 						stage.isLoad = true;
 						calllback(stage);
@@ -15304,16 +16643,20 @@ var PinkFie = (function(moduleResults) {
 				swfparser.onmessage = function (message, type) {
 					console.log(message, type);
 				};
-				swfparser.onstartmovie = function (headerInfo, movieInfo, tagCallback) {
-					stage.swfData = swfData;
-					stage.version = headerInfo.version;
+				swfparser.onstartmovie = function (header, movieInfo, tagCallback, fileAttributes) {
+					var movie = new SwfMovie(header, movieInfo);
+					stage.swf = movie;
+					stage.version = header.version;
 					stage.bounds = movieInfo.bounds;
 					stage.frameRate = movieInfo.frameRate;
 					stage.setPlayerBounds();
-					var rootClip = MovieClip.createStatic(stage);
+					var rootClip = MovieClip.createStatic(movie);
 					rootClip.isRoot = true;
 					stage.rootClipTag = rootClip;
-					_this.loadTags(tagCallback, rootClip, stage, function () {
+					movie.initAttributes(fileAttributes);
+					stage.mutateWithUpdateContext(function(context) {
+						_this.loadTags(tagCallback, rootClip, context, movie, function () {
+						});
 					});
 				};
 				_this.swfparser = swfparser;
@@ -15323,7 +16666,7 @@ var PinkFie = (function(moduleResults) {
 				var _this = this;
 				var reader = new FileReader();
 				reader.onload = function (e) {
-					var data = e.target.result;
+					var data = new Uint8Array(e.target.result);
 					_this.loadSwfMovie(data, function (stage) {
 						if (_this.onload) {
 							_this.onload(stage);
@@ -15335,10 +16678,12 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Loader;
 	},
-	"src/Library.js": function(wpjsm){
-		class Library {
-			constructor(stage) {
-				this.stage = stage;
+	"./src/Library.js": function(wpjsm) {
+		const FlashFont = wpjsm.importJS("./src/font.js");
+		const log = wpjsm.importJS("./src/log.js");
+
+		class MovieLibrary {
+			constructor() {
 				this.characters = [];
 				this.exportCharacters = [];
 				this.jpegTables = null;
@@ -15351,7 +16696,7 @@ var PinkFie = (function(moduleResults) {
 				if (!this.containsCharacter(id)) {
 					this.characters[id] = character;
 				} else {
-					console.log("Character ID collision: Tried to register ID twice: " + id);
+					log.error("Character ID collision: Tried to register ID twice: " + id);
 				}
 			}
 			registerExport(id, exportName) {
@@ -15365,7 +16710,7 @@ var PinkFie = (function(moduleResults) {
 				if (c) {
 					return this.instantiateDisplayObject(c);
 				} else {
-					console.log("Character id doesn't exist");
+					log.error("Character id doesn't exist");
 				}
 			}
 			getDisplays() {
@@ -15408,33 +16753,77 @@ var PinkFie = (function(moduleResults) {
 					case "bitmap":
 						return character.instantiate();
 					default:
-						console.log("Not a DisplayObject", character);
+						log.error("Not a DisplayObject", character);
 				}
 			}
 			setJpegTables(jt) {
 				if (this.jpegTables) {
 					// SWF spec says there should only be one JPEGTables tag.
 					// TODO: What is the behavior when there are multiples?
-					console.log("SWF contains multiple JPEGTables tags");
+					log.warn("SWF contains multiple JPEGTables tags");
 					return;
 				}
-				if (jt.byteLength) {
+				if (jt.length) {
 					this.jpegTables = jt;
 				}
 			}
 		}
+
+		class Library {
+			constructor() {
+				this.deviceFont = null;
+			}
+			static createMovieLibrary() {
+				return new MovieLibrary();
+			}
+			registerDeviceFont(definition) {
+				var b = FlashFont.fromSwfTag(definition);
+				this.deviceFont = b;
+			}
+		}
 		wpjsm.exportJS = Library;
 	},
-	"src/MoviePlayer.js": function(wpjsm){
-		const Library = wpjsm.importJS("src/Library.js");
-		const AudioBackend = wpjsm.importJS("src/audio/AudioBackend.js");
-		const Avm1 = wpjsm.importJS("src/Avm1.js");
-		const TransformStack = wpjsm.importJS("src/utils/TransformStack.js");
-		const RenderCanvas2d = wpjsm.importJS("src/renderer/Canvas2d.js");
-		const RenderWebGL = wpjsm.importJS("src/renderer/WebGL.js");
-		const pinkfieFont = wpjsm.importJS("src/PinkFieFonts.js");
-		const MovieClip = wpjsm.importJS("src/display_objects/MovieClip.js");
-		const config = wpjsm.importJS("src/config.js");
+	"./src/log.js": function(wpjsm) {
+		class PinkFieLog {
+			constructor() {
+				this._listeners = []; // [PinkFiePlayer, [type], [messages]]
+			}
+			subscribe(fn) {
+				this._listeners.push(fn);
+			}
+			emit(type, messages) {
+				if (this._listeners.length) {
+					for (const listener of this._listeners) {
+						listener[1](listener[0], type, messages);
+					}	
+				} else {
+					console.log(...messages);
+				}
+			}
+			log() {
+				this.emit("log", arguments);
+			}
+			warn() {
+				this.emit("warn", arguments);
+			}
+			error() {
+				this.emit("error", arguments);
+			}
+		}
+		wpjsm.exportJS = new PinkFieLog();
+	},
+	"./src/MoviePlayer.js": function(wpjsm) {
+		const Library = wpjsm.importJS("./src/Library.js");
+		const AudioBackend = wpjsm.importJS("./src/audio/AudioBackend.js");
+		const Avm1 = wpjsm.importJS("./src/Avm1.js");
+		const TransformStack = wpjsm.importJS("./src/utils/TransformStack.js");
+		const RenderCanvas2d = wpjsm.importJS("./src/renderer/Canvas2d.js");
+		const RenderWebGL = wpjsm.importJS("./src/renderer/WebGL.js");
+		const pinkfieFont = wpjsm.importJS("./src/PinkFieFonts.js");
+		const MovieClip = wpjsm.importJS("./src/display_objects/MovieClip.js");
+		const config = wpjsm.importJS("./src/config.js");
+		const SwfParser = wpjsm.importJS("./src/SwfTag.js");
+		const { UpdateContext, RenderContext } = wpjsm.importJS("./src/context.js");
 		
 		class Timer {
 			constructor() {
@@ -15446,80 +16835,6 @@ var PinkFie = (function(moduleResults) {
 			}
 			getTime() {
 				return this.tickTime - this.startTime;
-			}
-		}
-		
-		function calculateCmd2dPathBounds(cmd) {
-			var bounds = {
-				xMin: Infinity,
-				yMin: Infinity,
-				xMax: -Infinity,
-				yMax: -Infinity
-			}
-			function dfgfd(x, y) {
-				if (x < bounds.xMin) {
-					bounds.xMin = x;
-				}
-				if (y < bounds.yMin) {
-					bounds.yMin = y;
-				}
-				if (x > bounds.xMax) {
-					bounds.xMax = x;
-				}
-				if (y > bounds.yMax) {
-					bounds.yMax = y;
-				}
-			}
-			for (let i = 0; i < cmd.length; i++) {
-				const cmm = cmd[i];
-				if (cmm[0] == 0) {
-					dfgfd(cmm[1], cmm[2]);
-				} else if (cmm[0] == 1) {
-					dfgfd(cmm[1], cmm[2]);
-				} else if (cmm[0] == 2) {
-					dfgfd(cmm[1], cmm[2]);
-				}
-			}
-			return bounds;
-		}
-		
-		class PinkFieFonts {
-			constructor() {
-				this.glyphs = [];
-				this.glyphBounds = [];
-				this.codeTables = [];
-				this.movieplayer = null;
-			}
-			getGlyph(idx) {
-				return this.glyphs[idx];
-			}
-			getGlyphAtStrCode(charCode) {
-				return this.getGlyph(this.codeTables.indexOf(charCode));
-			}
-			toGlyph(glyph) {
-				var shapeRender = this.movieplayer.renderer.shapeToInterval([{
-					type: 0,
-					path2d: glyph,
-					fill: {
-						type: 0,
-						color: [255, 255, 255, 1]
-					}
-				}]);
-				var bounds = calculateCmd2dPathBounds(glyph);
-				return {
-					shapeRender,
-					bounds,
-				};
-			}
-			install(movieplayer) {
-				this.movieplayer = movieplayer;
-				var glyphs = pinkfieFont.glyphs;
-				for (let i = 0; i < glyphs.length; i++) {
-					const glyph = glyphs[i];
-					var t = this.toGlyph(glyph);
-					this.glyphs.push(t);
-				}
-				this.codeTables = pinkfieFont.codeTable;
 			}
 		}
 
@@ -15553,7 +16868,7 @@ var PinkFie = (function(moduleResults) {
 			mat[4] = tx;
 			mat[5] = ty;
 		}
-		
+
 		class MoviePlayer {
 			constructor(audioContext) {
 				this.audioContext = audioContext;
@@ -15598,7 +16913,7 @@ var PinkFie = (function(moduleResults) {
 				this.root = document.createElement('div');
 				this.root.classList.add('pinkfie-root');
 		
-				this.library = new Library(this);
+				this.library = new Library();
 				
 				try {
 					if (config.useWebGL) {
@@ -15619,7 +16934,7 @@ var PinkFie = (function(moduleResults) {
 				this.canvas.style.outline = 'none';
 		
 				this.audio = new AudioBackend(this);
-				this.avm1 = new Avm1(this);
+				this.avm1 = new Avm1();
 
 				this.useLastBound = false;
 				this.wth = false;
@@ -15628,19 +16943,11 @@ var PinkFie = (function(moduleResults) {
 		
 				this.transformStack = new TransformStack();
 				this.debugTransformStack = new TransformStack();
-				this.buttomTransformStack = new TransformStack();
 		
 				this.timer = new Timer();
 		
 				this.instanceCounter = 0;
 				this.actionQueue = [];
-		
-				this.attributes = {};
-				this.attributes.useDirectBlit = false;
-				this.attributes.useGPU = false;
-				this.attributes.hasMetadata = false;
-				this.attributes.isActionScript3 = false;
-				this.attributes.useNetworkSandbox = false;
 		
 				this.cursor = 0;
 		
@@ -15648,6 +16955,9 @@ var PinkFie = (function(moduleResults) {
 				this._starttime = 0;
 				this.lastTime = 0;
 				this._startOffset = 0;
+
+				this.mouse_over_object = null;
+				this.mouse_down_object = null;
 		
 				this.renderType = "render";
 		
@@ -15665,16 +16975,15 @@ var PinkFie = (function(moduleResults) {
 		
 				this.debugRectLineShapeRender = this.renderer.shapeToInterval([{
 					type: 1,
-					width: 2,
-					path2d: [[0, 0, 0], [2, 100, 0], [2, 100, 100], [2, 0, 100], [2, 0, 0]],
+					width: 40,
+					path2d: [[0, 0, 0], [2, 2000, 0], [2, 2000, 2000], [2, 0, 2000], [2, 0, 0]],
 					fill: {
 						type: 0,
 						color: [255, 255, 255, 1]
 					}
 				}]);
-		
-				this.pkfFonts = new PinkFieFonts();
-				this.pkfFonts.install(this);
+
+				this.registerDeviceFont(new SwfParser(pinkfieFont).parseDefineFont2(3, pinkfieFont.length));
 			}
 			addEventListeners() {
 				this._onmousedown = this._onmousedown.bind(this);
@@ -15697,6 +17006,9 @@ var PinkFie = (function(moduleResults) {
 				document.removeEventListener('touchstart', this._ontouchstart);
 				document.removeEventListener('touchend', this._ontouchend);
 				document.removeEventListener('touchmove', this._ontouchmove);
+			}
+			registerDeviceFont(definition) {
+				this.library.registerDeviceFont(definition);
 			}
 			_onmousedown(e) {
 				if (e.target === this.canvas) {
@@ -15743,8 +17055,6 @@ var PinkFie = (function(moduleResults) {
 				var rect = this.canvas.getBoundingClientRect();
 				var xm = e.clientX - rect.left;
 				var ym = e.clientY - rect.top;
-		
-				var rc = this.getRectStage();
 
 				var g = this.getScaleRender();
 
@@ -15756,62 +17066,40 @@ var PinkFie = (function(moduleResults) {
 		
 				this.mouseMove(Math.max(Math.min(wx, this.width), 0), Math.max(Math.min(wy, this.height), 0));
 			}
-			allowStrokeMaxWidth() {
-				return this.renderer instanceof RenderWebGL;
-			}
 			updateMouseDown(e) {
 				this.mouseDown();
 			}
 			updateMouseUp() {
 				this.mouseUp();
 			}
-			resetAttributes() {
-				this.attributes.useDirectBlit = false;
-				this.attributes.useGPU = false;
-				this.attributes.hasMetadata = false;
-				this.attributes.isActionScript3 = false;
-				this.attributes.useNetworkSandbox = false;
-			}
-			initAttributes(info) {
-				if (info.useDirectBlit) {
-					this.attributes.useDirectBlit = true;
-				}
-				if (info.useGPU) {
-					this.attributes.useGPU = true;
-				}
-				if (info.hasMetadata) {
-					this.attributes.hasMetadata = true;
-				}
-				if (info.isActionScript3) {
-					this.attributes.isActionScript3 = true;
-				}
-				if (info.useNetworkSandbox) {
-					this.attributes.useNetworkSandbox = true;
-				}
-			}
-			isActionScript3() {
-				return this.attributes.isActionScript3;
-			}
 			getInstanceCounter() {
 				return this.instanceCounter;
 			}
+			clipIsPlaying() {
+				var clip = this.getRootClip();
+				return clip ? clip.isPlaying : false;
+			}
+			rootCurrentFrame() {
+				var clip = this.getRootClip();
+				return clip ? clip.currentFrame : 0;
+			}
+			rootFramesloaded() {
+				return this.rootClipTag ? this.rootClipTag.frameCount : 0;
+			}
 			getTotalFrames() {
-				return this.rootClipTag.frameCount;
+				return this.rootClipTag ? this.rootClipTag.frameCount : 0;
 			}
 			addInstanceCounter() {
 				return this.instanceCounter++;
 			}
-			isSoundPlaying(sound) {
-				return this.audio.isSoundPlaying(sound);
-			}
-			stopAllSounds() {
-				this.audio.stopAllSounds(false);
+			isActionScript3() {
+				return this.swf.isActionScript3();
 			}
 			getDisplayTypes() {
-				return Object.keys(this.library.getDisplayTypes());
+				return Object.keys(this.swf.library.getDisplayTypes());
 			}
 			getCompressVideo() {
-				var characters = this.library.getDisplays();
+				var characters = this.swf.library.getDisplays();
 				var resultType = {};
 				for (var i = 0; i < characters.length; i++) {
 					var c = characters[i];
@@ -15831,9 +17119,14 @@ var PinkFie = (function(moduleResults) {
 			popAction() {
 				return this.actionQueue.pop();
 			}
+			getRootClip() {
+				return this.clip;
+			}
 			getDebugVideoText() {
-				if (!this.clip) return "";
-				var resultTypes = this.getChildTypes(this.clip);
+				var clip = this.getRootClip();
+
+				if (!clip) return "";
+				var resultTypes = this.getChildTypes(clip);
 
 				var result = [];
 				for (var i = 0; i < resultTypes.length; i++) {
@@ -15896,6 +17189,9 @@ var PinkFie = (function(moduleResults) {
 			getPlayingAudioCount() {
 				return this.audio.getPlayingAudioCount();
 			}
+			stopAllSounds() {
+				this.audio.stopAllSounds(false);
+			}
 			getScaleRender() {
 				var tx = 0;
 				var ty = 0;
@@ -15932,11 +17228,11 @@ var PinkFie = (function(moduleResults) {
 				return [scaleX, scaleY, tx, ty, a, b, c, d];
 			}
 			tick() {
-				this.closeCursor();
 				this.timeUpdate();
 				if (this.isLoad) {
 					if (this.playing) {
-						if (this.clip) {
+						var clip = this.getRootClip();
+						if (clip) {
 							var rate = +((1000 / this.frameRate).toFixed(1));
 							this.lastTime = this.tickTime;
 							var _fgh = Date.now();
@@ -15953,17 +17249,16 @@ var PinkFie = (function(moduleResults) {
 								if (this.interpolation) this.needsRender = true;
 							}
 							this.audio.tick();
-							this.buttomTransformStack.stackPush([1 / 20, 0, 0, 1 / 20, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-							this.clip.takeHitButton(this.mousePosition[0], this.mousePosition[1]);
-							this.buttomTransformStack.stackPop();
+							this.mutateWithUpdateContext((context) => {
+								this.mousePick(context, "move");
+							});
 							var tgs = (this.cursor > 0) && this.hitStageMouse();
 							if (tgs) {
 								this.canvas.style.cursor = "pointer";
 							} else {
 								this.canvas.style.cursor = "auto";
 							}
-						}
-						if (!this.clip) {
+						} else {
 							this.audio.stopAllSounds(true);
 							this.audio.stopAllSoundStream(true);
 							this.avm1.clipExecList = null;
@@ -15980,8 +17275,28 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 			}
+			mutateWithUpdateContext(callback) {
+				var context = new UpdateContext({
+					player: this,
+					renderer: this.renderer,
+					library: this.library,
+					audio: this.audio,
+					swf: this.swf,
+					avm1: this.avm1,
+				});
+				let ret = callback(context);
+				return ret;
+			}
+			gotoFrame(frame) {
+				this.mutateWithUpdateContext((context) => {
+					var parent = this.getRootClip();
+					if (parent) {
+						parent.gotoFrame(context, frame, !parent.isPlaying);
+					}
+				});
+			}
 			updateDebugLast() {
-				var parent = this.clip;
+				var parent = this.getRootClip();
 				if (parent) {
 					this.updateDebugLastChild(parent);
 				}
@@ -15994,12 +17309,13 @@ var PinkFie = (function(moduleResults) {
 						this.updateDebugLastChild(c);
 					}
 				}
-				child.debugSetLastMC(false, child.getMatrix(), child.getColorTransform());
-				child.debugSetLastBound(false, child.selfBounds());
+				child.debugSetLastMC(this, false, child.getMatrix(), child.getColorTransform());
+				child.debugSetLastBound(this, false, child.selfBounds());
 			}
 			getChildrenTypes() {
+				var clip = this.getRootClip();
 				var types = [];
-				var resultTypes = this.getChildTypes(this.clip);
+				var resultTypes = this.getChildTypes(clip);
 				for (var i = 0; i < resultTypes.length; i++) {
 					var c = resultTypes[i];
 					types.push(c.displayType);
@@ -16021,6 +17337,60 @@ var PinkFie = (function(moduleResults) {
 				types.push(child);
 				return types;
 			}
+			mouseMove(x, y) {
+				this.mousePosition = [x, y];
+			}
+			mouseDown() {
+				this.mousePressed = true;
+				this.mutateWithUpdateContext((context) => {
+					this.mousePick(context, "down");
+				});
+			}
+			mouseUp() {
+				this.mousePressed = false;
+				this.mutateWithUpdateContext((context) => {
+					this.mousePick(context, "up");
+					this.mousePick(context, "move");
+				});
+			}
+			mousePick(context, type) {
+				var clip = this.getRootClip();
+				if (clip) {
+					if ((type == "move") && !this.mouse_down_object) {
+						var button = clip.mousePickAvm1(context, [this.mousePosition[0] * 20, this.mousePosition[1] * 20], false);
+						if (button) {
+							if (this.mouse_over_object !== button) {
+								if (this.mouse_over_object) {
+									this.mouse_over_object.setState(context, "up");
+								}
+								button.setState(context, "over");
+								this.mouse_over_object = button;
+							}
+							this.openCursor();
+						} else {
+							if (this.mouse_over_object) {
+								this.mouse_over_object.setState(context, "up");
+								this.mouse_over_object = null;
+							}
+							this.closeCursor();
+						}
+					} else if (type == "down") {
+						if (this.mouse_over_object) {
+							this.mouse_down_object = this.mouse_over_object;
+							this.mouse_over_object = null;
+							this.mouse_down_object.setState(context, "down");
+						}
+					} else if (type == "up") {
+						if (this.mouse_down_object) {
+							this.mouse_down_object.clickAction(context, "condOverDownToOverUp");
+							this.mouse_over_object = this.mouse_down_object;
+							this.mouse_over_object.setState(context, "over");
+							this.mouse_down_object = null;
+							this.closeCursor();
+						}
+					}
+				}
+			}
 			timeUpdate() {
 				this.tickTime = (this.timer.getTime() - this._starttime) * this.speed;
 			}
@@ -16036,83 +17406,29 @@ var PinkFie = (function(moduleResults) {
 				this.quality = quality;
 				this.renderer.setQuality(quality);
 			}
-			pause() {
-				this.playing = false;
-				this.audio.pause();
-			}
-			resume() {
-				this.playing = true;
-				this.audio.resume();
-			}
-			clipPlay() {
-				this.needsRender = true;
-				if (this.clip) {
-					this.clip.play();
-				}
-			}
-			clipStop() {
-				if (this.clip) {
-					this.clip.stop();
-				}
-			}
-			clipGetLoop() {
-				if (this.clip) {
-					return this.clip.isLoop;
-				}
-				return false;
-			}
-			clipSetLoop(value) {
-				if (this.clip) {
-					this.clip.isLoop = value;
-				}
-			}
-			togglePlayRootMovie() {
-				if (this.clip) {
-					if (this.clip.isPlaying) {
-						this.clip.stop();
-					} else {
-						this.clip.play();
-					}
-				}
-			}
-			rewindRootMovie() {
-				this.needsRender = true;
-				if (this.clip) {
-					this.clip.gotoFrame(1, true);
-				}
-			}
-			forwardRootMovie() {
-				this.needsRender = true;
-				if (this.clip) {
-					this.clip.nextFrame();
-				}
-			}
-			backRootMovie() {
-				this.needsRender = true;
-				if (this.clip) {
-					this.clip.prevFrame();
-				}
+			debugInfo() {
+				return null;
 			}
 			initRoot() {
-				var mc = this.rootClipTag.instantiate();
-				if (this.rootClipTag.characterId > 0) {
-					mc.setX(this.width / 2);
-					mc.setY(this.height / 2);
-					mc.setXScale(50);
-					mc.setYScale(50);
-				}
-				mc.postInstantiation(null, null, false);
-				mc.setIsRoot(true);
-				mc.isLoop = !this.unloop;
-				mc._debug_matrix = [1,0,0,1,0,0];
-				mc._debug_colorTransform = [1,1,1,1,0,0,0,0];
-				this.clip = mc;
+				this.mutateWithUpdateContext((context) => {
+					var mc = this.rootClipTag.instantiate();
+					mc.postInstantiation(context, null, null, false);
+					mc.setIsRoot(true);
+					mc.isLoop = !this.unloop;
+					mc._debug_matrix = [1,0,0,1,0,0];
+					mc._debug_colorTransform = [1,1,1,1,0,0,0,0];
+					this.clip = mc;
+				});
 			}
 			runFrame() {
 				this.needsRender = true;
-				this.avm1.runFrame();
-				this.runActions();
-				var _parent = this.clip;
+				this.mutateWithUpdateContext((context) => {
+					this.avm1.runFrame(context);
+				});
+				this.mutateWithUpdateContext((context) => {
+					this.runActions(context);
+				});
+				var _parent = this.getRootClip();
 				if (this.vCamId) {
 					var resultVcamId = null;
 					var useScaleStage = false;
@@ -16199,14 +17515,14 @@ var PinkFie = (function(moduleResults) {
 					_parent.applyColorTransform([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]);
 				}
 			}
-			runActions() {
+			runActions(context) {
 				for (let i = 0; i < this.actionQueue.length; i++) {
 					const actionInfo = this.actionQueue[i];
 					if (actionInfo) {
 						var action = actionInfo.action;
 						switch (action.type) {
 							case "normal":
-								this.avm1.runStackFrameForAction(actionInfo.clip, "[Frame]", action.caches);
+								this.avm1.runStackFrameForAction(actionInfo.clip, "[Frame]", action.caches, context);
 								break;
 						}
 						actionInfo.ended = true;
@@ -16261,24 +17577,31 @@ var PinkFie = (function(moduleResults) {
 				this.renderer.clear();
 				var isR = this.renderType !== "bounds without render";
 				var isB = (this.renderType == "bounds without render") || (this.renderType == "render with bounds");
-				this.renderer.setTransform(this.canvas.width, 0, 0, this.canvas.height, 0, 0);
+				var colorT;
 				if (isR) {
-					this.renderer.setColorTransform(this.backgroundColor[0] / 255, this.backgroundColor[1] / 255, this.backgroundColor[2] / 255, this.backgroundColor[3], 0, 0, 0, 0);
+					colorT = [this.backgroundColor[0] / 255, this.backgroundColor[1] / 255, this.backgroundColor[2] / 255, this.backgroundColor[3], 0, 0, 0, 0];
 				} else {
-					this.renderer.setColorTransform(1, 1, 1, 1, 0, 0, 0, 0);
+					colorT = [1, 1, 1, 1, 0, 0, 0, 0];
 				}
-				this.renderer.renderShape(this.backgroundShapeRender);
-				if (this.clip && this.isLoad) {
+				this.renderer.renderShape(this.backgroundShapeRender, [this.canvas.width * 20, 0, 0, this.canvas.height * 20, 0, 0], colorT);
+				var context = new RenderContext({
+					library: this.library,
+					renderer: this.renderer,
+					transformStack: this.transformStack,
+					useLastBound: this.useLastBound
+				});
+				var clip = this.getRootClip();
+				if (clip && this.isLoad) {
 					let [scaleX, scaleY, tx, ty] = this.getScaleRender();
 					if (isR) {
-						this.transformStack.stackPush([scaleX / 20, 0, 0, scaleY / 20, tx, ty], [1, 1, 1, 1, 0, 0, 0, 0]);
-						this.clip.render();
+						this.transformStack.stackPush([scaleX, 0, 0, scaleY, tx * 20, ty * 20], [1, 1, 1, 1, 0, 0, 0, 0]);
+						clip.render(context);
 						this.transformStack.stackPop();
 					} 
 					if (isB) {
 						this.transformStack.stackPush([1, 0, 0, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]);
-						this.debugTransformStack.stackPush([scaleX / 20, 0, 0, scaleY / 20, tx, ty], [1, 1, 1, 1, 0, 0, 0, 0]);
-						this.clip.debugRender(this.renderer);
+						this.debugTransformStack.stackPush([scaleX, 0, 0, scaleY, tx * 20, ty * 20], [1, 1, 1, 1, 0, 0, 0, 0]);
+						clip.debugRender(this);
 						this.debugTransformStack.stackPop();
 						this.transformStack.stackPop();    
 					}
@@ -16286,152 +17609,27 @@ var PinkFie = (function(moduleResults) {
 				this.renderer.render();
 			}
 			drawTextW(x, y, scal, txt) {
+				var deviceFont = this.library.deviceFont;
 				var renderer = this.renderer;
+				var fontScale = deviceFont.scale / 1024;
 				var sc = scal;
 				var rrr = 0;
-				const l = txt;
-				for (let k = 0; k < l.length; k++) {
-					const glyph = this.pkfFonts.getGlyphAtStrCode(l.charCodeAt(k));
-					if (l[k] == " ") {
-						rrr += 12;
-					} else {
-						if (glyph) {
-							var bounds = glyph.bounds;
-							var fgdg = ((bounds.xMax - bounds.xMin) / 20);
-							this.transformStack.stackPush([0.0025 * sc, 0, 0, 0.0025 * sc, (x + (rrr * sc)), y + (40 * sc)], [1, 1, 1, 1, 0, 0, 0, 0]);
-							renderer.setColorTransform(...this.transformStack.getColorTransform());
-							renderer.setTransform(...this.transformStack.getMatrix());
-							renderer.renderShape(glyph.shapeRender);
-							this.transformStack.stackPop();
-							rrr += ((fgdg / 20) + 7);
-						}
+				for (var i = 0; i < txt.length; i++) {
+					var glyph = deviceFont.getGlyphForChar(txt.charCodeAt(i));
+					if (glyph) {
+						var shapeHandle = glyph.getShapeHandle(renderer);
+						this.transformStack.stackPush([sc / fontScale, 0, 0, sc / fontScale, (x + (rrr * sc)), y + (40 * scal)], [1, 1, 1, 1, 0, 0, 0, 0]);
+						renderer.renderShape(shapeHandle, this.transformStack.getMatrix(), this.transformStack.getColorTransform());
+						this.transformStack.stackPop();
+						rrr += glyph.advance / 20;
 					}
 				}
 			}
-			registerShape(shapes) {
-				var ts = this.shapeToRendererInfo(shapes);
+			registerShape(context, shapes) {
+				var ts = this.shapeToRendererInfo(context, shapes);
 				return this.renderer.shapeToInterval(ts);
 			}
-			shapeToRendererInfo(shapes) {
-				if (Array.isArray(shapes[0])) {
-					return [{
-						type: 0,
-						path2d: shapes,
-						fill: {
-							type: 0,
-							color: [255, 255, 255, 1]
-						}
-					}];
-				}
-				var result = [];
-				for (let i = 0; i < shapes.length; i++) {
-					const s = shapes[i];
-					var obj = s.obj;
-					var cmd = s.cmd;
-					result.push(this.lagObjToInfo(obj, cmd));
-				}
-				return result;
-			}
-			lagObjToInfo(obj, cmd) {
-				var isLine = ("width" in obj);
-				if (isLine) {
-					var fgh = this.allowStrokeMaxWidth();
-					return {
-						type: 1,
-						width: fgh ? Math.max(obj.width, 20) : obj.width,
-						path2d: cmd,
-						fill: this.lineToInfo(obj),
-					};
-				} else {
-					return {
-						type: 0,
-						path2d: cmd,
-						fill: this.fillToInfo(obj),
-					};
-				}
-			}
-			fillToInfo(fill) {
-				var type = fill.type;
-				switch (type) {
-					case 0:
-						var color = fill.color;
-						return {
-							type: 0,
-							color: color
-						};
-					case 0x10:
-					case 0x12:
-					case 0x13:
-						var gradient = fill.gradient;
-						if (!gradient) {
-							gradient = fill.linearGradient;
-						}
-						if (!gradient) {
-							gradient = fill.radialGradient;
-						}
-						var gradientMatrix = gradient.matrix;
-						var isRadial = (type !== 16);
-						var focal = 0;
-						if (type == 19) {
-							focal = fill.focalPoint;
-						}
-						var gradientRecords = gradient.gradientRecords;
-						var css = [];
-						for (var rIdx = 0; rIdx < gradientRecords.length; rIdx++) {
-							var record = gradientRecords[rIdx];
-							var color = record.color;
-							var ratio = record.ratio;
-							css.push([color, ratio]);
-						}
-						var repeatMode = 0;
-						if (gradient.spreadMode == "repeat") {
-							repeatMode = 1;
-						}
-						if (gradient.spreadMode == "reflect") {
-							repeatMode = 2;
-						}
-						return {
-							type: 1,
-							matrix: gradientMatrix,
-							focal: focal,
-							isRadial,
-							repeat: repeatMode,
-							records: css
-						};
-					case 0x40:
-					case 0x41:
-					case 0x42:
-					case 0x43:
-						var bitmapId = fill.bitmapId;
-						var bMatrix = fill.bitmapMatrix;
-						var image = this.library.characterById(bitmapId);
-						var texture = (image ? image.getTexture() : null);
-						return {
-							type: 2,
-							matrix: bMatrix,
-							texture: texture,
-							isSmoothed: fill.isSmoothed,
-							isRepeating: fill.isRepeating,
-						};
-					default:
-						return null;
-				}
-			}
-			lineToInfo(line) {
-				if ("fillType" in line) {
-					return this.fillToInfo(line.fillType);
-				} else {
-					return {
-						type: 0,
-						color: line.color
-					};
-				}
-			}
-			renderShape(shapeRender, m2, colorTransform) {
-				this.renderer.setColorTransform(...colorTransform);
-				this.renderer.setTransform(...m2);
-				this.renderer.renderShape(shapeRender);
-			}
+			
 			setBackgroundColor(r, g, b) {
 				this.backgroundColor[0] = r;
 				this.backgroundColor[1] = g;
@@ -16447,30 +17645,104 @@ var PinkFie = (function(moduleResults) {
 			openCursor() {
 				this.cursor = 1;
 			}
-			mouseMove(x, y) {
-				this.mousePosition = [x, y];
-			}
-			mouseDown() {
-				this.mousePressed = true;
-			}
-			mouseUp() {
-				this.mousePressed = false;
-			}
 			destroy() {
 				this.audio.cleanup();
 				this.removeEventListeners();
 				this.isLoad = false;
 				this.renderer.destroy();
 			}
+
+			
+			// Controls
+			pause() {
+				this.playing = false;
+				this.audio.pause();
+			}
+			resume() {
+				this.playing = true;
+				this.audio.resume();
+			}
+			runMenu(menu) {
+				this.mutateWithUpdateContext((context) => {
+					switch (menu) {
+						case "play/stop":
+							this.togglePlayRootMovie(context);
+							break;
+						case "loop":
+							this.toggleLoopRootMovie();
+							break;
+						case "rewind":
+							this.rewindRootMovie(context);
+							break;
+						case "forward":
+							this.forwardRootMovie(context);
+							break;
+						case "back":
+							this.backRootMovie(context);
+							break;
+					}
+				});
+			}
+			clipGetLoop() {
+				var clip = this.getRootClip();
+				if (clip) {
+					return clip.isLoop;
+				}
+				return false;
+			}
+			togglePlayRootMovie(context) {
+				var clip = this.getRootClip();
+				if (clip) {
+					if (clip.isPlaying) {
+						clip.stop(context);
+					} else {
+						clip.play(context);
+					}
+				}
+			}
+			toggleLoopRootMovie() {
+				var clip = this.getRootClip();
+				if (clip) {
+					clip.isLoop = !clip.isLoop;
+				}
+			}
+			rewindRootMovie(context) {
+				var clip = this.getRootClip();
+				this.needsRender = true;
+				if (clip) {
+					clip.gotoFrame(context, 1, true);
+				}
+			}
+			forwardRootMovie(context) {
+				var clip = this.getRootClip();
+				this.needsRender = true;
+				if (clip) {
+					clip.nextFrame(context);
+				}
+			}
+			backRootMovie(context) {
+				var clip = this.getRootClip();
+				this.needsRender = true;
+				if (clip) {
+					clip.prevFrame(context);
+				}
+			}
 		}
 		
 		wpjsm.exportJS = MoviePlayer;
 	},
-	"src/PinkFieFonts.js": function(wpjsm){
-		wpjsm.exportJS = {"codeTable": [32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,160,163,164,166,167,168,169,171,172,173,174,175,176,177,178,179,181,182,183,184,185,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,1025,1029,1030,1031,1032,1040,1041,1042,1043,1044,1045,1046,1047,1048,1049,1050,1051,1052,1053],"glyphs":[[],[[0,4915,-2888],[2,4915,0],[2,1925,0],[2,1925,-2888],[2,4915,-2888],[0,4997,-10957],[2,4157,-4076],[2,2641,-4076],[2,1842,-10957],[2,1842,-14705],[2,4996,-14705],[2,4997,-10957]],[[0,5673,-9155],[2,5673,-14705],[2,7701,-14705],[2,7681,-9155],[2,5673,-9155],[0,1987,-9155],[2,1987,-14705],[2,4015,-14705],[2,3995,-9155],[2,1987,-9155]],[[0,10404,-5919],[2,10158,-4076],[2,8171,-4076],[2,7618,0],[2,5693,0],[2,6246,-4076],[2,4259,-4076],[2,3706,0],[2,1781,0],[2,2334,-4076],[2,347,-4076],[2,593,-5919],[2,2580,-5919],[2,2949,-8377],[2,962,-8377],[2,1187,-10220],[2,3174,-10220],[2,3747,-14296],[2,5672,-14296],[2,5099,-10220],[2,7086,-10220],[2,7659,-14296],[2,9584,-14296],[2,9011,-10220],[2,10998,-10220],[2,10773,-8377],[2,8786,-8377],[2,8417,-5919],[2,10404,-5919],[0,6861,-8376],[2,4874,-8376],[2,4505,-5918],[2,6492,-5918],[2,6861,-8376]],[[0,10465,-10260],[2,7823,-10260],[1,7823,-11530,7291,-12022],[1,6922,-12370,6164,-12370],[2,6164,-8540],[1,7516,-8110,8356,-7700],[1,9196,-7290,9585,-6921],[1,10322,-6225,10568,-5303],[1,10711,-4771,10711,-4054],[1,10711,-2375,9707,-1146],[1,8478,349,6164,349],[2,6184,2356],[2,5242,2356],[2,5222,349],[1,2805,349,1709,-849],[1,613,-2047,613,-4402],[2,3296,-4402],[1,3398,-3173,3705,-2681],[1,4115,-2026,5221,-1821],[2,5221,-6122],[1,3214,-6654,2313,-7330],[1,920,-8374,920,-10279],[1,920,-12081,1964,-13248],[1,3111,-14538,5200,-14538],[2,5200,-15869],[2,6142,-15869],[2,6142,-14538],[1,7924,-14354,8866,-13719],[1,10463,-12654,10463,-10258],[2,10465,-10260],[0,5222,-8827],[2,5222,-12370],[1,4382,-12370,3942,-11878],[1,3502,-11386,3502,-10772],[1,3502,-9871,4055,-9379],[1,4485,-8990,5222,-8826],[2,5222,-8827],[0,6164,-5775],[2,6164,-1822],[1,6819,-1822,7311,-2232],[1,7966,-2785,7966,-3829],[1,7966,-4628,7372,-5160],[1,6921,-5570,6163,-5775],[2,6164,-5775]],[[0,10179,-3482],[1,10179,-5038,11264,-6123],[1,12349,-7208,13905,-7208],[1,15441,-7208,16537,-6112],[1,17633,-5016,17633,-3480],[1,17633,-1944,16537,-848],[1,15441,248,13905,248],[1,12369,248,11273,-827],[1,10177,-1902,10177,-3479],[2,10179,-3482],[0,12288,-3482],[1,12288,-2806,12759,-2335],[1,13230,-1864,13906,-1864],[1,14561,-1864,15042,-2325],[1,15523,-2786,15523,-3482],[1,15523,-4158,15052,-4629],[1,14581,-5100,13905,-5100],[1,13250,-5100,12769,-4639],[1,12288,-4178,12288,-3482],[0,553,-10813],[1,553,-12369,1638,-13454],[1,2723,-14539,4279,-14539],[1,5815,-14539,6911,-13443],[1,8007,-12347,8007,-10811],[1,8007,-9255,6922,-8170],[1,5837,-7085,4301,-7085],[1,2745,-7085,1649,-8160],[1,553,-9235,553,-10812],[2,553,-10813],[0,2662,-10813],[1,2662,-10137,3133,-9666],[1,3604,-9195,4280,-9195],[1,4935,-9195,5416,-9656],[1,5897,-10117,5897,-10813],[1,5897,-11489,5426,-11960],[1,4955,-12431,4279,-12431],[1,3624,-12431,3143,-11970],[1,2662,-11509,2662,-10813],[0,13865,-14541],[2,5734,389],[2,4218,389],[2,12349,-14541],[2,13865,-14541]],[[0,7946,-11325],[1,7946,-11919,7598,-12226],[1,7250,-12533,6697,-12533],[1,6185,-12533,5857,-12226],[1,5529,-11919,5529,-11346],[1,5529,-10629,6594,-9503],[1,7229,-9913,7587,-10343],[1,7945,-10773,7945,-11326],[2,7946,-11325],[0,11674,-3215],[2,14357,0],[2,10896,0],[2,9892,-1249],[1,9114,-471,8315,-102],[1,7230,390,5694,390],[1,3646,390,2366,-849],[1,1086,-2088,1086,-3788],[1,1086,-5037,1578,-5897],[1,2233,-7044,3933,-8068],[2,4240,-8252],[1,3667,-8907,3339,-9562],[1,2909,-10443,2909,-11324],[1,2909,-12819,3994,-13761],[1,5079,-14703,6820,-14703],[1,8213,-14703,9217,-13904],[1,10405,-12962,10405,-11303],[1,10405,-10238,9821,-9388],[1,9237,-8538,7988,-7801],[2,10077,-5221],[1,10528,-5938,10671,-6450],[1,10814,-6962,10814,-7638],[2,13354,-7638],[1,13354,-6225,12903,-5160],[1,12575,-4361,11674,-3214],[2,11674,-3215],[0,8417,-3052],[2,5714,-6431],[1,4731,-5714,4403,-5304],[1,3973,-4751,3973,-3973],[1,3973,-3318,4403,-2786],[1,4997,-2028,6144,-2028],[1,6820,-2028,7455,-2356],[1,7906,-2581,8418,-3052],[2,8417,-3052]],[[0,1413,-9155],[2,1433,-14705],[2,3440,-14705],[2,3420,-9155],[2,1413,-9155]],[[0,6431,4260],[2,4322,4260],[1,2684,2048,1824,41],[1,698,-2601,698,-5345],[1,698,-8110,1783,-10731],[1,2643,-12779,4302,-15032],[2,6411,-15032],[1,5080,-12759,4445,-10772],[1,3646,-8253,3646,-5345],[1,3646,-3358,4035,-1556],[1,4363,-20,5039,1536],[1,5571,2744,6431,4260]],[[0,369,-15032],[2,2478,-15032],[1,4116,-12841,4976,-10813],[1,6082,-8192,6082,-5427],[1,6082,-2642,5017,-41],[1,4157,2048,2498,4260],[2,389,4260],[1,1741,1987,2355,0],[1,3133,-2458,3133,-5428],[1,3133,-8336,2314,-10835],[1,1700,-12719,369,-15033],[2,369,-15032]],[[0,6922,-12964],[2,7393,-11469],[2,5243,-10814],[2,6677,-8827],[2,5366,-7926],[2,3994,-9790],[2,2560,-7926],[2,1290,-8827],[2,2662,-10814],[2,532,-11469],[2,1024,-12964],[2,3092,-12268],[2,3112,-14705],[2,4853,-14705],[2,4833,-12268],[2,6922,-12964]],[[0,4833,-6328],[2,4833,-10363],[2,7127,-10363],[2,7127,-6328],[2,11141,-6328],[2,11141,-4034],[2,7127,-4034],[2,7127,1],[2,4833,1],[2,4833,-4034],[2,819,-4034],[2,819,-6328],[2,4833,-6328]],[[0,4383,-2990],[2,4383,-410],[1,4383,1351,3523,2293],[1,2786,3092,1332,3440],[2,1332,2355],[1,2131,2068,2459,1740],[1,3032,1146,3032,-1],[2,1312,-1],[2,1312,-2991],[2,4383,-2990]],[[0,6246,-7066],[2,6266,-4404],[2,552,-4404],[2,552,-7066],[2,6246,-7066]],[[0,4383,-2990],[2,4383,0],[2,1311,0],[2,1311,-2990],[2,4383,-2990]],[[0,6369,-15094],[2,1720,389],[2,-676,389],[2,3973,-15094],[2,6369,-15094]],[[0,655,-7086],[1,655,-10916,1874,-12728],[1,3093,-14540,5673,-14540],[1,8253,-14540,9492,-12728],[1,10731,-10916,10731,-7086],[1,10731,-3256,9502,-1433],[1,8273,390,5693,390],[1,3133,390,1894,-1443],[1,655,-3276,655,-7085],[2,655,-7086],[0,3604,-7086],[1,3604,-4219,4044,-3062],[1,4484,-1905,5692,-1905],[1,6900,-1905,7340,-3052],[1,7780,-4199,7780,-7087],[1,7780,-9954,7329,-11101],[1,6878,-12248,5670,-12248],[1,4482,-12248,4042,-11101],[1,3602,-9954,3602,-7087],[2,3604,-7086]],[[0,1413,-10015],[2,1413,-12022],[2,1823,-12022],[1,3707,-12022,4629,-12862],[1,5366,-13538,5366,-14542],[2,7721,-14542],[2,7741,-1],[2,4874,-1],[2,4874,-10016],[2,1413,-10015]],[[0,3482,-9400],[2,697,-9400],[1,697,-12472,2581,-13742],[1,3748,-14541,5427,-14541],[1,7598,-14541,9011,-13322],[1,10424,-12103,10424,-9953],[1,10424,-8294,9441,-7024],[1,8786,-6164,7414,-5222],[1,6513,-4587,5632,-3973],[1,4403,-3072,4157,-2540],[2,10465,-2540],[2,10465,0],[2,532,0],[1,532,-1638,1024,-2662],[1,1761,-4218,3911,-5774],[1,5713,-7085,6205,-7515],[1,7557,-8703,7557,-10055],[1,7557,-10874,7086,-11447],[1,6533,-12123,5550,-12123],[1,4239,-12123,3768,-11160],[1,3481,-10566,3481,-9399],[2,3482,-9400]],[[0,4342,-6369],[2,4342,-8417],[2,4793,-8417],[1,5797,-8417,6329,-8683],[1,7251,-9154,7251,-10383],[1,7251,-11264,6739,-11756],[1,6227,-12248,5408,-12248],[1,4138,-12248,3687,-11265],[1,3441,-10733,3441,-9873],[2,779,-9873],[1,779,-12003,1946,-13232],[1,3195,-14543,5591,-14543],[1,7352,-14543,8581,-13683],[1,10117,-12598,10117,-10489],[1,10117,-9445,9564,-8687],[1,9113,-8052,8355,-7724],[1,9399,-7355,9983,-6454],[1,10567,-5553,10567,-4304],[1,10567,-2236,9195,-925],[1,7823,386,5611,386],[1,3112,386,1822,-904],[1,532,-2194,532,-4467],[2,3338,-4467],[1,3338,-3504,3666,-2890],[1,4198,-1907,5468,-1907],[1,6390,-1907,6963,-2480],[1,7618,-3135,7618,-4302],[1,7618,-5613,6492,-6084],[1,5796,-6371,4342,-6371],[2,4342,-6369]],[[0,2662,-5448],[2,6328,-5448],[2,6328,-11694],[2,2662,-5448],[0,10772,-5448],[2,10752,-3216],[2,9155,-3216],[2,9155,-1],[2,6288,-1],[2,6288,-3216],[2,554,-3216],[2,554,-5694],[2,5879,-14541],[2,9156,-14541],[2,9156,-5448],[2,10772,-5448]],[[0,4055,-11878],[2,3563,-8724],[1,4055,-9072,4526,-9256],[1,5243,-9522,6165,-9522],[1,7865,-9522,9094,-8437],[1,10569,-7147,10569,-4833],[1,10569,-2846,9545,-1474],[1,8152,390,5285,390],[1,3360,390,2049,-634],[1,533,-1822,533,-3890],[2,3400,-3890],[1,3502,-2948,4014,-2426],[1,4526,-1904,5448,-1904],[1,6452,-1904,7036,-2662],[1,7620,-3420,7620,-4628],[1,7620,-5693,7128,-6410],[1,6555,-7229,5490,-7229],[1,4917,-7229,4589,-7106],[1,3934,-6860,3545,-6184],[2,985,-6307],[2,1989,-14294],[2,9976,-14294],[2,9976,-11877],[2,4055,-11878]],[[0,10363,-10854],[2,7516,-10854],[1,7434,-11509,7024,-11878],[1,6614,-12247,5815,-12247],[1,4545,-12247,3931,-10957],[1,3419,-9872,3419,-8234],[2,3480,-8193],[1,3972,-8869,4658,-9135],[1,5344,-9401,6204,-9401],[1,8313,-9401,9542,-7988],[1,10648,-6698,10648,-4916],[1,10648,-2520,9337,-1066],[1,8026,388,5896,388],[1,2885,388,1615,-1906],[1,632,-3667,632,-6923],[1,632,-8848,898,-10118],[1,1308,-12064,2373,-13170],[1,3704,-14542,6018,-14542],[1,6714,-14542,7451,-14358],[1,8495,-14092,8987,-13600],[1,9622,-12986,9898,-12464],[1,10174,-11942,10358,-10857],[2,10363,-10854],[0,7762,-4669],[1,7762,-5918,7066,-6573],[1,6493,-7105,5694,-7105],[1,4772,-7105,4199,-6552],[1,3503,-5876,3503,-4606],[1,3503,-3398,4117,-2650],[1,4731,-1902,5775,-1902],[1,6635,-1902,7198,-2578],[1,7761,-3254,7761,-4667],[2,7762,-4669]],[[0,10793,-14295],[2,10793,-12083],[1,9605,-10772,8827,-9687],[1,7393,-7680,6574,-5591],[1,5509,-2847,5509,0],[2,2560,0],[1,2560,-2642,3625,-5345],[1,4444,-7413,5837,-9420],[1,6718,-10690,7722,-11755],[2,493,-11755],[2,493,-14295],[2,10793,-14295]],[[0,5714,-8643],[1,6554,-8643,7015,-9145],[1,7476,-9647,7476,-10446],[1,7476,-11245,6995,-11747],[1,6514,-12249,5797,-12249],[1,4834,-12249,4332,-11768],[1,3830,-11287,3830,-10447],[1,3830,-9730,4332,-9187],[1,4834,-8644,5715,-8644],[2,5714,-8643],[0,10732,-4321],[1,10732,-2580,9667,-1290],[1,8295,389,5694,389],[1,3134,389,1782,-1065],[1,656,-2294,656,-4035],[1,656,-5079,922,-5755],[1,1434,-7066,2847,-7721],[1,1106,-8602,1106,-10568],[1,1106,-12391,2376,-13466],[1,3646,-14541,5612,-14541],[1,7783,-14541,9053,-13415],[1,10241,-12350,10241,-10753],[1,10241,-9749,9831,-9012],[1,9421,-8275,8540,-7824],[1,9666,-7271,10158,-6534],[1,10731,-5674,10731,-4322],[2,10732,-4321],[0,7782,-4198],[1,7782,-5099,7311,-5713],[1,6738,-6471,5632,-6471],[1,4772,-6471,4188,-5908],[1,3604,-5345,3604,-4219],[1,3604,-3154,4167,-2529],[1,4730,-1904,5713,-1904],[1,6757,-1904,7310,-2662],[1,7781,-3297,7781,-4198],[2,7782,-4198]],[[0,3461,-9728],[1,3461,-8212,4116,-7577],[1,4648,-7065,5611,-7065],[1,6451,-7065,7045,-7638],[1,7741,-8314,7741,-9502],[1,7741,-10772,7178,-11479],[1,6615,-12186,5530,-12186],[1,4731,-12186,4219,-11756],[1,3461,-11121,3461,-9728],[0,901,-3359],[2,3748,-3359],[1,3871,-2622,4311,-2264],[1,4751,-1906,5427,-1906],[1,6431,-1906,7066,-2787],[1,7824,-3852,7824,-5961],[2,7763,-6002],[1,7312,-5326,6534,-5019],[1,5879,-4773,5019,-4773],[1,3012,-4773,1814,-6094],[1,616,-7415,616,-9320],[1,616,-11900,2009,-13272],[1,3299,-14542,5552,-14542],[1,8112,-14542,9392,-12730],[1,10672,-10918,10672,-7068],[1,10672,-3156,9034,-1231],[1,7662,387,5409,387],[1,3545,387,2316,-617],[1,1087,-1621,903,-3362],[2,901,-3359]],[[0,4956,-2990],[2,4956,0],[2,1884,0],[2,1884,-2990],[2,4956,-2990],[0,4956,-10486],[2,4956,-7496],[2,1884,-7496],[2,1884,-10486],[2,4956,-10486]],[[0,4956,-2990],[2,4956,-410],[1,4956,1351,4096,2293],[1,3359,3092,1905,3440],[2,1905,2355],[1,2704,2068,3032,1740],[1,3605,1146,3605,-1],[2,1885,-1],[2,1885,-2991],[2,4956,-2990],[0,4956,-10486],[2,4956,-7496],[2,1884,-7496],[2,1884,-10486],[2,4956,-10486]],[[0,11182,-2048],[2,11182,164],[2,778,-4260],[2,778,-6103],[2,11161,-10527],[2,11161,-8315],[2,3747,-5182],[2,11182,-2048]],[[0,11121,-8581],[2,11121,-6287],[2,799,-6287],[2,799,-8581],[2,11121,-8581],[0,11121,-4076],[2,11121,-1782],[2,799,-1782],[2,799,-4076],[2,11121,-4076]],[[0,778,-2048],[2,8212,-5181],[2,757,-8314],[2,757,-10526],[2,11161,-6102],[2,11181,-4259],[2,777,165],[2,778,-2048]],[[0,7660,-4260],[2,4957,-4260],[1,4957,-5857,5315,-6656],[1,5673,-7455,7025,-8418],[1,8295,-9299,8295,-10446],[1,8295,-11552,7640,-12064],[1,7128,-12474,6309,-12474],[1,5367,-12474,4804,-11952],[1,4241,-11430,4098,-10119],[2,1231,-10099],[1,1231,-12536,2849,-13826],[1,4180,-14891,6146,-14891],[1,8604,-14891,10038,-13683],[1,11369,-12557,11369,-10529],[1,11369,-9341,10734,-8440],[1,10202,-7682,8891,-6760],[1,8174,-6228,7949,-5839],[1,7662,-5327,7662,-4262],[2,7660,-4260],[0,7864,-2888],[2,7864,0],[2,4874,0],[2,4874,-2888],[2,7864,-2888]],[[0,10465,-7700],[1,10465,-8458,9994,-8950],[1,9523,-9442,8806,-9442],[1,7802,-9442,7106,-8561],[1,6410,-7680,6410,-6676],[1,6410,-5857,6830,-5355],[1,7250,-4853,8008,-4853],[1,9073,-4853,9769,-5723],[1,10465,-6593,10465,-7699],[2,10465,-7700],[0,11080,-10097],[2,11326,-11182],[2,13128,-11182],[2,11961,-5960],[1,11900,-5673,11859,-5448],[1,11818,-5223,11818,-5080],[1,11818,-4670,12105,-4670],[1,12986,-4670,13713,-5674],[1,14440,-6678,14440,-8275],[1,14440,-10733,12884,-12095],[1,11328,-13457,8850,-13457],[1,6249,-13457,4631,-11716],[1,3013,-9975,3013,-7313],[1,3013,-4589,4723,-2920],[1,6433,-1251,9136,-1251],[1,10385,-1251,11491,-1691],[1,12597,-2131,13437,-2909],[2,15260,-2909],[1,14195,-1332,12567,-472],[1,10939,388,9014,388],[1,5676,388,3321,-1824],[1,966,-4036,966,-7354],[1,966,-10610,3290,-12853],[1,5614,-15096,8891,-15096],[1,11799,-15096,13888,-13376],[1,16100,-11553,16100,-8768],[1,16100,-5860,14032,-4140],[1,12435,-2809,10879,-2809],[1,10408,-2809,10050,-3085],[1,9692,-3361,9692,-3893],[1,9221,-3422,8648,-3115],[1,8075,-2808,7522,-2808],[1,6191,-2808,5208,-3863],[1,4225,-4918,4225,-6372],[1,4225,-8379,5413,-9854],[1,6683,-11431,8608,-11431],[1,9427,-11431,10031,-11124],[1,10635,-10817,11086,-10100],[2,11080,-10097]],[[0,4649,-3031],[2,3645,0],[2,409,0],[2,5652,-14705],[2,9195,-14705],[2,14376,0],[2,11038,0],[2,10075,-3031],[2,4649,-3031],[0,5489,-5571],[2,9237,-5571],[2,7394,-11387],[2,5489,-5571]],[[0,1556,0],[2,1556,-14705],[2,8704,-14705],[1,11121,-14705,12309,-13394],[1,13231,-12370,13231,-10936],[1,13231,-9564,12555,-8765],[1,12166,-8314,11408,-7925],[1,12657,-7454,13210,-6450],[1,13681,-5590,13681,-4361],[1,13681,-2538,12432,-1330],[1,11715,-634,10937,-368],[1,9852,1,7784,1],[2,1556,0],[0,4485,-6472],[2,4505,-2540],[2,8273,-2540],[1,9420,-2540,10024,-3062],[1,10628,-3584,10628,-4690],[1,10628,-5591,9973,-6031],[1,9318,-6471,8396,-6471],[2,4485,-6472],[0,4485,-12165],[2,4505,-8950],[2,8109,-8950],[1,9092,-8950,9645,-9319],[1,10280,-9749,10280,-10589],[1,10280,-11429,9686,-11798],[1,9092,-12167,8007,-12167],[2,4485,-12165]],[[0,14008,-9892],[2,10936,-9892],[1,10649,-10957,10157,-11489],[1,9317,-12431,7658,-12431],[1,6245,-12431,5303,-11427],[1,4033,-10075,4033,-7290],[1,4033,-5119,4873,-3788],[1,5836,-2272,7679,-2272],[1,8969,-2272,9809,-2979],[1,10649,-3686,10915,-5038],[2,13987,-5038],[1,13516,-2519,11980,-1126],[1,10321,390,7618,390],[1,4587,390,2785,-1556],[1,880,-3604,880,-7331],[1,880,-11058,2846,-13147],[1,4669,-15093,7659,-15093],[1,10649,-15093,12410,-13311],[1,13844,-11857,14008,-9891],[2,14008,-9892]],[[0,1556,0],[2,1556,-14705],[2,8048,-14705],[1,11366,-14705,12902,-12247],[1,14028,-10445,14028,-7701],[1,14028,-4731,12799,-2683],[1,11202,0,7925,0],[2,1556,0],[0,4547,-12165],[2,4567,-2539],[2,7557,-2539],[1,9277,-2539,10158,-4095],[1,10895,-5406,10895,-7474],[1,10895,-10341,9687,-11447],[1,8909,-12164,7496,-12164],[2,4547,-12165]],[[0,12370,-14705],[2,12370,-12104],[2,4567,-12104],[2,4567,-9012],[2,11735,-9012],[2,11735,-6411],[2,4567,-6411],[2,4567,-2602],[2,12718,-2602],[2,12718,-1],[2,1556,-1],[2,1556,-14706],[2,12370,-14705]],[[0,4608,-6185],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,12021,-14705],[2,12021,-12104],[2,4628,-12104],[2,4608,-8786],[2,11080,-8786],[2,11080,-6185],[2,4608,-6185]],[[0,8438,-5448],[2,8438,-7926],[2,14582,-7926],[2,14582,0],[2,12554,0],[2,12247,-1843],[1,11366,-819,10670,-389],[1,9421,389,7660,389],[1,4813,389,2949,-1516],[1,901,-3605,901,-7312],[1,901,-10589,2621,-12698],[1,4567,-15094,8090,-15094],[1,11162,-15094,12985,-13374],[1,14521,-11920,14521,-10138],[2,11449,-10138],[1,11449,-10773,10671,-11551],[1,9667,-12555,8233,-12555],[1,6431,-12555,5305,-11326],[1,4015,-9913,4015,-7271],[1,4015,-4506,5367,-3236],[1,6452,-2212,8316,-2212],[1,9279,-2212,10098,-2704],[1,11470,-3523,11880,-5448],[2,8438,-5448]],[[0,10260,-6595],[2,4526,-6595],[2,4526,0],[2,1454,0],[2,1454,-14705],[2,4526,-14705],[2,4526,-9134],[2,10260,-9134],[2,10260,-14705],[2,13332,-14705],[2,13332,0],[2,10260,0],[2,10260,-6595]],[[0,4383,-14705],[2,4383,0],[2,1311,0],[2,1311,-14705],[2,4383,-14705]],[[0,9912,-14705],[2,9912,-4260],[1,9912,-1946,8755,-789],[1,7598,368,5345,368],[1,2089,368,1065,-1537],[1,451,-2663,451,-5551],[2,3318,-5551],[1,3318,-3626,3605,-2971],[1,3974,-2111,5121,-2111],[1,6186,-2111,6575,-2766],[1,6841,-3217,6841,-4261],[2,6841,-14706],[2,9912,-14705]],[[0,4854,-4977],[2,4854,0],[2,1782,0],[2,1782,-14705],[2,4854,-14705],[2,4854,-8725],[2,10466,-14705],[2,14439,-14705],[2,8418,-8684],[2,14787,0],[2,10834,0],[2,6287,-6451],[2,4854,-4977]],[[0,4628,-14705],[2,4628,-2663],[2,11939,-2663],[2,11939,-1],[2,1556,-1],[2,1556,-14706],[2,4628,-14705]],[[0,15667,-14705],[2,15667,0],[2,12800,0],[2,12800,-12288],[2,10015,0],[2,7004,0],[2,4321,-12288],[2,4280,0],[2,1413,0],[2,1413,-14705],[2,5898,-14705],[2,8560,-3113],[2,11222,-14705],[2,15667,-14705]],[[0,10527,-14705],[2,13394,-14705],[2,13394,0],[2,10322,0],[2,4321,-10486],[2,4280,0],[2,1413,0],[2,1413,-14705],[2,4649,-14705],[2,10465,-4465],[2,10527,-14705]],[[0,881,-7352],[1,881,-10506,2274,-12431],[1,3359,-13926,5264,-14622],[1,6554,-15093,7967,-15093],[1,9360,-15093,10650,-14622],[1,12534,-13926,13619,-12431],[1,15012,-10506,15012,-7352],[1,15012,-4198,13619,-2273],[1,12534,-757,10670,-81],[1,9380,390,7967,390],[1,6554,390,5264,-81],[1,3400,-757,2294,-2273],[1,881,-4219,881,-7352],[0,3953,-7352],[1,3953,-4567,5325,-3236],[1,6390,-2212,7967,-2212],[1,9523,-2212,10567,-3236],[1,11939,-4567,11939,-7352],[1,11939,-10137,10587,-11468],[1,9543,-12492,7966,-12492],[1,6410,-12492,5345,-11468],[1,3952,-10137,3952,-7352],[2,3953,-7352]],[[0,4628,-5304],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,8273,-14705],[1,10403,-14705,11622,-13445],[1,12841,-12185,12841,-9994],[1,12841,-8438,11981,-7148],[1,10752,-5305,8151,-5305],[2,4628,-5304],[0,4608,-7844],[2,7455,-7844],[1,8930,-7844,9462,-8745],[1,9749,-9237,9749,-10138],[1,9749,-11223,9114,-11694],[1,8479,-12165,7045,-12165],[2,4608,-12165],[2,4608,-7844]],[[0,8131,-3994],[2,9728,-5653],[2,11284,-4199],[1,11591,-4793,11765,-5581],[1,11939,-6369,11939,-7352],[1,11939,-10137,10587,-11468],[1,9543,-12492,7966,-12492],[1,6410,-12492,5345,-11468],[1,3952,-10137,3952,-7352],[1,3952,-4567,5324,-3236],[1,6389,-2212,7966,-2212],[1,8396,-2212,8816,-2304],[1,9236,-2396,9625,-2601],[2,8131,-3994],[0,15094,-594],[2,13476,1065],[2,11735,-594],[1,10793,-41,9646,205],[1,8786,389,7967,389],[1,6554,389,5264,-82],[1,3400,-758,2294,-2274],[1,881,-4220,881,-7353],[1,881,-10507,2274,-12432],[1,3359,-13927,5264,-14623],[1,6554,-15094,7967,-15094],[1,9360,-15094,10650,-14623],[1,12534,-13927,13619,-12432],[1,15012,-10507,15012,-7353],[1,15012,-5592,14623,-4312],[1,14234,-3032,13497,-2110],[2,15094,-594]],[[0,1556,0],[2,1556,-14705],[2,8990,-14705],[1,11550,-14705,12758,-13108],[1,13598,-11982,13598,-10548],[1,13598,-9319,12994,-8367],[1,12390,-7415,11325,-7046],[1,12369,-6595,12717,-6022],[1,13188,-5244,13188,-3319],[1,13188,-1558,13290,-1066],[1,13392,-574,13863,-390],[2,13863,-1],[2,10463,-1],[1,10299,-595,10217,-1209],[1,10135,-1823,10135,-2970],[1,10135,-4649,9807,-5120],[1,9356,-5755,7738,-5755],[2,4564,-5755],[2,4564,0],[2,1556,0],[0,4547,-8233],[2,8151,-8233],[1,9380,-8233,9953,-8694],[1,10526,-9155,10526,-10240],[1,10526,-10998,10137,-11490],[1,9584,-12166,8376,-12166],[2,4546,-12166],[2,4547,-8233]],[[0,799,-4526],[2,3748,-4526],[1,3748,-3625,4280,-3031],[1,5079,-2150,6861,-2150],[1,8172,-2150,8950,-2519],[1,9933,-2990,9933,-4055],[1,9933,-4854,9196,-5264],[1,8704,-5530,7270,-5878],[2,5693,-6247],[1,3338,-6800,2478,-7394],[1,1024,-8398,1024,-10569],[1,1024,-12269,2048,-13436],[1,3502,-15095,6676,-15095],[1,9687,-15095,11223,-13395],[1,12390,-12105,12390,-10344],[2,9441,-10344],[1,9339,-11225,8929,-11696],[1,8192,-12556,6431,-12556],[1,5387,-12556,4711,-12187],[1,3871,-11716,3871,-10794],[1,3871,-10036,4424,-9647],[1,4731,-9422,5427,-9258],[2,9031,-8377],[1,10854,-7926,11714,-7209],[1,12881,-6246,12881,-4423],[1,12881,-2191,11406,-962],[1,9788,390,7085,390],[1,3501,390,1924,-1371],[1,798,-2620,798,-4525],[2,799,-4526]],[[0,7803,-12104],[2,7803,0],[2,4731,0],[2,4731,-12104],[2,287,-12104],[2,287,-14705],[2,12247,-14705],[2,12247,-12104],[2,7803,-12104]],[[0,13312,-14705],[2,13312,-5141],[1,13312,-2315,11694,-922],[1,10178,389,7290,389],[1,5979,389,4935,61],[1,3522,-390,2600,-1394],[1,1453,-2725,1453,-4957],[2,1473,-14705],[2,4606,-14705],[2,4606,-5161],[1,4606,-3707,5343,-2959],[1,6080,-2211,7227,-2211],[1,8763,-2211,9480,-2928],[1,10197,-3645,10197,-5017],[2,10197,-14704],[2,13312,-14705]],[[0,10076,-14705],[2,13271,-14705],[2,8274,0],[2,5345,0],[2,389,-14705],[2,3686,-14705],[2,6840,-3564],[2,10076,-14705]],[[0,4485,0],[2,328,-14705],[2,3605,-14705],[1,4404,-11305,4977,-8725],[1,5325,-7209,5591,-5837],[1,5857,-4465,5939,-3953],[1,6205,-5489,6492,-7005],[1,6902,-9196,8028,-14705],[2,11284,-14705],[1,12472,-9093,12902,-7025],[1,13189,-5612,13476,-3953],[1,13742,-5325,14100,-6922],[1,14458,-8519,15912,-14704],[2,19025,-14704],[2,14888,1],[2,11939,1],[1,11611,-1555,10792,-5549],[1,10464,-7187,10157,-8754],[1,9850,-10321,9645,-11468],[1,9399,-10055,9194,-8929],[1,8866,-7250,8559,-5734],[1,7945,-2867,7351,0],[2,4485,0]],[[0,8561,-7639],[2,13374,0],[2,9626,0],[2,6841,-5018],[2,3871,0],[2,287,0],[2,5038,-7516],[2,553,-14704],[2,4219,-14704],[2,6820,-9953],[2,9523,-14704],[2,13066,-14704],[2,8561,-7639]],[[0,8458,-5509],[2,8458,0],[2,5386,0],[2,5386,-5550],[2,307,-14705],[2,3932,-14705],[2,6963,-8315],[2,9892,-14705],[2,13374,-14705],[2,8458,-5509]],[[0,12001,-2601],[2,12001,0],[2,512,0],[2,512,-2601],[2,8110,-12104],[2,717,-12104],[2,717,-14705],[2,11961,-14705],[2,11961,-12288],[2,4261,-2601],[2,12001,-2601]],[[0,3768,-12820],[2,3768,2048],[2,6328,2048],[2,6328,4014],[2,1269,4014],[2,1269,-14787],[2,6307,-14787],[2,6307,-12821],[2,3768,-12820]],[[0,3973,389],[2,-676,-15094],[2,1720,-15094],[2,6369,389],[2,3973,389]],[[0,3031,2048],[2,3011,-12820],[2,471,-12820],[2,471,-14786],[2,5509,-14786],[2,5529,4015],[2,491,4015],[2,491,2049],[2,3031,2048]],[[0,3502,-6615],[2,1270,-6615],[2,4936,-14295],[2,6984,-14295],[2,10691,-6615],[2,8438,-6615],[2,5980,-12001],[2,3502,-6615]],[[0,11387,2560],[2,0,2560],[2,0,1536],[2,11387,1536],[2,11387,2560]],[[0,3543,-12370],[2,532,-15360],[2,3686,-15360],[2,5611,-12370],[2,3543,-12370]],[[0,10138,-8028],[2,10158,-2130],[1,10158,-1229,10322,-881],[1,10486,-533,10793,-431],[2,10793,-1],[2,7701,-1],[1,7496,-615,7435,-1291],[1,6739,-554,6166,-247],[1,5224,285,3913,285],[1,2541,285,1640,-452],[1,596,-1312,596,-2889],[1,596,-4425,1446,-5295],[1,2296,-6165,3771,-6370],[2,6331,-6759],[1,6925,-6841,7140,-7056],[1,7355,-7271,7355,-7619],[1,7355,-8418,6679,-8705],[1,6249,-8889,5450,-8889],[1,4508,-8889,4078,-8377],[1,3771,-8008,3710,-7373],[2,945,-7373],[1,1150,-9626,2645,-10527],[1,3730,-11182,5798,-11182],[1,7436,-11182,8542,-10629],[1,10139,-9830,10139,-8028],[2,10138,-8028],[0,7352,-3912],[2,7352,-5305],[1,7147,-5141,6696,-4987],[1,6245,-4833,5334,-4690],[1,4423,-4547,4034,-4281],[1,3461,-3892,3461,-3073],[1,3461,-2397,3912,-2049],[1,4281,-1762,4793,-1762],[1,5817,-1762,6585,-2356],[1,7353,-2950,7353,-3913],[2,7352,-3912]],[[0,8888,-5366],[1,8888,-6820,8356,-7680],[1,7721,-8704,6431,-8704],[1,5079,-8704,4485,-7619],[1,3993,-6738,3993,-5202],[1,3993,-3871,4566,-3031],[1,5221,-2068,6511,-2068],[1,7760,-2068,8395,-3235],[1,8887,-4136,8887,-5365],[2,8888,-5366],[0,4096,-14705],[2,4096,-9483],[1,4792,-10425,5570,-10804],[1,6348,-11183,7290,-11183],[1,9215,-11183,10464,-9790],[1,11836,-8274,11836,-5571],[1,11836,-3093,10771,-1516],[1,9542,286,7248,286],[1,6265,286,5487,-83],[1,4586,-513,4094,-1373],[2,4053,-1],[2,1247,-1],[2,1247,-14706],[2,4096,-14705]],[[0,7803,-3973],[2,10711,-3973],[1,10588,-2560,9687,-1434],[1,8335,286,5734,286],[1,2990,286,1679,-1557],[1,675,-2970,675,-5141],[1,675,-7926,1904,-9482],[1,3235,-11182,5897,-11182],[1,7617,-11182,8846,-10383],[1,10546,-9298,10730,-7004],[2,7822,-7004],[1,7638,-7946,7085,-8397],[1,6634,-8766,5917,-8766],[1,4688,-8766,4094,-7701],[1,3623,-6861,3623,-5612],[1,3623,-3666,4166,-2867],[1,4709,-2068,5835,-2068],[1,6777,-2068,7350,-2826],[1,7801,-3420,7801,-3973],[2,7803,-3973]],[[0,11284,-14705],[2,11284,0],[2,8478,0],[2,8478,-1372],[1,7966,-512,7065,-82],[1,6287,287,5283,287],[1,3010,287,1781,-1515],[1,696,-3112,696,-5570],[1,696,-8273,2048,-9789],[1,3277,-11182,5202,-11182],[1,6451,-11182,7311,-10609],[1,7905,-10220,8356,-9483],[2,8397,-14705],[2,11284,-14705],[0,3645,-5366],[1,3645,-4117,4116,-3236],[1,4730,-2069,5979,-2069],[1,7269,-2069,7945,-3032],[1,8539,-3872,8539,-5203],[1,8539,-6719,8047,-7600],[1,7433,-8706,6061,-8706],[1,4791,-8706,4177,-7682],[1,3645,-6801,3645,-5367],[2,3645,-5366]],[[0,7741,-3195],[2,10690,-3195],[1,10158,-1372,8724,-471],[1,7516,287,5898,287],[1,3379,287,2027,-1003],[1,471,-2498,471,-5672],[1,471,-7536,1270,-8908],[1,2581,-11181,5673,-11181],[1,7741,-11181,9052,-10055],[1,10813,-8539,10813,-5180],[2,10793,-4668],[2,3318,-4668],[1,3502,-3214,4106,-2610],[1,4710,-2006,5898,-2006],[1,6533,-2006,7055,-2313],[1,7577,-2620,7741,-3193],[2,7741,-3195],[0,3420,-6533],[2,7864,-6533],[1,7741,-7741,7045,-8335],[1,6472,-8827,5653,-8827],[1,4649,-8827,4096,-8233],[1,3543,-7639,3420,-6533]],[[0,4649,-8847],[2,4649,0],[2,1782,0],[2,1782,-8847],[2,205,-8847],[2,185,-10895],[2,1762,-10895],[2,1762,-11776],[1,1762,-13394,2591,-14142],[1,3420,-14890,4976,-14890],[2,6430,-14849],[2,6430,-12535],[2,5631,-12535],[1,4955,-12535,4801,-12310],[1,4647,-12085,4647,-11327],[2,4627,-10897],[2,6491,-10897],[2,6511,-8849],[2,4649,-8847]],[[0,8561,-10895],[2,11326,-10895],[2,11326,-573],[1,11326,1577,10589,2642],[1,9340,4444,5817,4444],[1,3912,4444,2601,3686],[1,1065,2785,1065,1167],[2,4178,1167],[1,4301,1699,4588,1924],[1,5059,2272,6185,2272],[1,8458,2272,8458,-227],[2,8458,-1538],[2,8417,-1579],[1,8007,-842,7434,-453],[1,6676,59,5509,59],[1,3441,59,2192,-1313],[1,820,-2829,820,-5573],[1,820,-8276,2172,-9792],[1,3401,-11185,5326,-11185],[1,6678,-11185,7559,-10509],[1,8173,-10038,8521,-9280],[2,8561,-10895],[0,3768,-5386],[1,3768,-4157,4239,-3358],[1,4833,-2354,6021,-2354],[1,7352,-2354,7966,-3358],[1,8478,-4177,8478,-5508],[1,8478,-6880,7823,-7791],[1,7168,-8702,6001,-8702],[1,5059,-8702,4486,-8006],[1,3769,-7146,3769,-5385],[2,3768,-5386]],[[0,11162,-7537],[2,11182,0],[2,8315,0],[2,8315,-6615],[1,8315,-7537,8069,-7988],[1,7659,-8766,6451,-8766],[1,5468,-8766,4833,-8111],[1,4198,-7456,4198,-6248],[2,4198,-2],[2,1331,-2],[2,1331,-14707],[2,4178,-14707],[2,4178,-9485],[1,4526,-10202,5386,-10694],[1,6246,-11186,7372,-11186],[1,9031,-11186,10096,-10234],[1,11161,-9282,11161,-7541],[2,11162,-7537]],[[0,1393,-10895],[2,4260,-10895],[2,4260,0],[2,1393,0],[2,1393,-10895],[0,4260,-14848],[2,4260,-12186],[2,1393,-12186],[2,1393,-14848],[2,4260,-14848]],[[0,4280,-10895],[2,4280,1147],[1,4280,3134,3358,3830],[1,2621,4383,798,4383],[2,81,4383],[2,61,2089],[2,573,2089],[1,901,2089,1085,1966],[1,1413,1741,1413,1086],[2,1413,-10895],[2,4280,-10895],[0,4280,-14848],[2,4280,-12186],[2,1413,-12186],[2,1413,-14848],[2,4280,-14848]],[[0,4280,-3441],[2,4280,0],[2,1413,0],[2,1413,-14705],[2,4260,-14705],[2,4260,-6759],[2,7864,-10896],[2,11387,-10896],[2,7537,-6677],[2,11510,-1],[2,8069,-1],[2,5448,-4670],[2,4280,-3441]],[[0,4280,-14705],[2,4280,0],[2,1413,0],[2,1413,-14705],[2,4280,-14705]],[[0,16896,-7537],[2,16916,0],[2,14049,0],[2,14049,-6615],[1,14049,-7762,13629,-8264],[1,13209,-8766,12492,-8766],[1,11468,-8766,11007,-8172],[1,10546,-7578,10546,-6534],[2,10546,-1],[2,7679,-1],[2,7679,-6555],[1,7679,-7599,7474,-8009],[1,7105,-8767,5958,-8767],[1,5016,-8767,4596,-8194],[1,4176,-7621,4176,-6638],[2,4176,-2],[2,1309,-2],[2,1289,-10897],[2,4033,-10897],[2,4033,-9300],[1,4504,-10099,5036,-10509],[1,5896,-11185,7166,-11185],[1,8292,-11185,8947,-10775],[1,9602,-10365,10196,-9443],[1,10749,-10201,11138,-10508],[1,11978,-11184,13104,-11184],[1,14763,-11184,15828,-10232],[1,16893,-9280,16893,-7539],[2,16896,-7537]],[[0,11162,-7537],[2,11182,0],[2,8315,0],[2,8315,-6615],[1,8315,-7537,8069,-7988],[1,7659,-8766,6451,-8766],[1,5468,-8766,4833,-8111],[1,4198,-7456,4198,-6248],[2,4198,-2],[2,1331,-2],[2,1331,-10897],[2,4055,-10897],[2,4055,-9300],[1,4751,-10344,5539,-10764],[1,6327,-11184,7371,-11184],[1,9030,-11184,10095,-10232],[1,11160,-9280,11160,-7539],[2,11162,-7537]],[[0,11837,-5448],[1,11837,-2642,10158,-1106],[1,8642,287,6266,287],[1,3890,287,2374,-1106],[1,695,-2642,695,-5448],[1,695,-8233,2374,-9789],[1,3890,-11182,6245,-11182],[1,8600,-11182,10136,-9789],[1,11836,-8233,11836,-5448],[2,11837,-5448],[0,8888,-5448],[1,8888,-6800,8417,-7619],[1,7762,-8766,6267,-8766],[1,4792,-8766,4137,-7640],[1,3645,-6780,3645,-5449],[1,3645,-4097,4116,-3278],[1,4771,-2131,6266,-2131],[1,7741,-2131,8396,-3257],[1,8888,-4117,8888,-5448]],[[0,4014,-5202],[1,4014,-3850,4567,-3031],[1,5222,-2068,6512,-2068],[1,7761,-2068,8396,-3235],[1,8888,-4136,8888,-5365],[1,8888,-6819,8356,-7679],[1,7721,-8703,6431,-8703],[1,5079,-8703,4485,-7618],[1,4014,-6758,4014,-5202],[0,3994,-10895],[2,4014,-9318],[1,4587,-10178,5140,-10567],[1,6000,-11181,7290,-11181],[1,9215,-11181,10464,-9788],[1,11836,-8272,11836,-5569],[1,11836,-3091,10771,-1514],[1,9542,288,7248,288],[1,5958,288,5098,-326],[1,4586,-695,4156,-1391],[2,4136,4241],[2,1269,4241],[2,1269,-10894],[2,3994,-10895]],[[0,8540,-10895],[2,11284,-10895],[2,11304,4240],[2,8437,4240],[2,8437,-1351],[1,7495,287,5304,287],[1,2969,287,1720,-1597],[1,696,-3133,696,-5222],[1,696,-7721,1802,-9339],[1,3072,-11182,5448,-11182],[1,6677,-11182,7517,-10506],[1,8070,-10055,8500,-9277],[2,8540,-10895],[0,3625,-5243],[1,3625,-3727,4229,-2928],[1,4833,-2129,6103,-2129],[1,7168,-2129,7834,-2948],[1,8500,-3767,8500,-5385],[1,8500,-7331,7496,-8171],[1,6861,-8703,6021,-8703],[1,4997,-8703,4403,-8027],[1,3625,-7146,3625,-5241],[2,3625,-5243]],[[0,1311,0],[2,1291,-10895],[2,4035,-10895],[2,4055,-9011],[1,4649,-10096,5120,-10506],[1,5878,-11182,7066,-11182],[2,7639,-11141],[2,7619,-8233],[1,7435,-8253,7261,-8263],[1,7087,-8273,6821,-8273],[1,5305,-8273,4670,-7433],[1,4178,-6798,4178,-5672],[2,4178,1],[2,1311,0]],[[0,10301,-7578],[2,7495,-7578],[1,7372,-8274,7085,-8561],[1,6634,-9012,5569,-9012],[1,4525,-9012,4095,-8664],[1,3788,-8418,3788,-7947],[1,3788,-7312,5549,-6923],[1,8089,-6370,8847,-6022],[1,10629,-5182,10629,-3462],[1,10629,-1373,8888,-410],[1,7618,286,5857,286],[1,3666,286,2314,-492],[1,614,-1475,614,-3482],[2,3563,-3482],[1,3563,-2724,4106,-2304],[1,4649,-1884,5939,-1884],[1,6902,-1884,7394,-2294],[1,7763,-2601,7763,-3011],[1,7763,-3687,6022,-4076],[1,3421,-4649,2745,-4956],[1,984,-5775,984,-7536],[1,984,-8970,1906,-9953],[1,3073,-11182,5387,-11182],[1,7455,-11182,8643,-10547],[1,10302,-9666,10302,-7577],[2,10301,-7578]],[[0,4547,-13844],[2,4527,-10895],[2,6329,-10895],[2,6329,-8847],[2,4547,-8847],[2,4527,-2928],[1,4527,-2396,4722,-2222],[1,4917,-2048,5736,-2048],[2,6330,-2089],[2,6330,82],[2,4978,123],[2,4609,123],[1,2868,123,2213,-512],[1,1681,-1024,1681,-2232],[2,1681,-8847],[2,206,-8847],[2,186,-10895],[2,1661,-10895],[2,1681,-13844],[2,4547,-13844]],[[0,11162,-10895],[2,11162,0],[2,8418,0],[2,8418,-1536],[1,7333,287,5060,287],[1,3360,287,2397,-676],[1,1353,-1720,1353,-3727],[2,1333,-10895],[2,4221,-10895],[2,4221,-4137],[1,4221,-2990,4815,-2498],[1,5266,-2129,6085,-2129],[1,6966,-2129,7539,-2621],[1,8297,-3276,8297,-4607],[2,8297,-10894],[2,11162,-10895]],[[0,11100,-10895],[2,7188,0],[2,4177,0],[2,245,-10895],[2,3440,-10895],[2,5713,-2867],[2,8048,-10895],[2,11100,-10895]],[[0,15729,-10895],[2,12616,0],[2,9667,0],[2,7947,-7946],[2,6227,0],[2,3278,0],[2,186,-10895],[2,3238,-10895],[2,4958,-3072],[2,6514,-10895],[2,9402,-10895],[2,11061,-3072],[2,12781,-10895],[2,15729,-10895]],[[0,7373,-5550],[2,11080,0],[2,7537,0],[2,5653,-3277],[2,3769,0],[2,308,0],[2,4015,-5550],[2,431,-10895],[2,3913,-10895],[2,5756,-7721],[2,7558,-10895],[2,10937,-10895],[2,7373,-5550]],[[0,11018,-10895],[2,7291,-184],[1,6247,2908,5633,3604],[1,4937,4382,3094,4382],[2,1783,4341],[2,1783,2047],[2,2336,2088],[1,3217,2088,3565,1842],[1,4036,1514,4220,449],[2,185,-10897],[2,3380,-10897],[2,5735,-2869],[2,7988,-10897],[2,11018,-10895]],[[0,9626,-8540],[2,4096,-2355],[2,9810,-2355],[2,9830,0],[2,409,0],[2,409,-2232],[2,5980,-8601],[2,778,-8601],[2,778,-10895],[2,9625,-10895],[2,9626,-8540]],[[0,7475,2212],[2,7475,4014],[2,5775,4014],[1,4669,4014,3850,3338],[1,2908,2560,2908,1208],[2,2908,-2888],[1,2908,-3728,2171,-4138],[1,1639,-4445,984,-4445],[2,984,-6329],[1,1639,-6329,2151,-6616],[1,2909,-7046,2909,-7886],[2,2889,-11982],[1,2889,-13334,3831,-14112],[1,4650,-14788,5756,-14788],[2,7476,-14788],[2,7476,-12986],[2,6554,-12986],[1,6001,-12986,5704,-12710],[1,5407,-12434,5407,-11635],[2,5407,-7621],[1,5264,-6474,4424,-5880],[1,3851,-5491,3073,-5409],[1,3851,-5286,4404,-4897],[1,5264,-4283,5407,-3157],[2,5407,857],[1,5407,1471,5571,1758],[1,5837,2209,6554,2209],[2,7475,2212]],[[0,1720,389],[2,1720,-15094],[2,4014,-15094],[2,4014,389],[2,1720,389]],[[0,6984,-6328],[2,6984,-4444],[1,6329,-4444,5817,-4157],[1,5059,-3727,5059,-2887],[2,5059,1209],[1,5059,2561,4117,3339],[1,3298,4015,2192,4015],[2,492,4015],[2,492,2213],[2,1414,2213],[1,1967,2213,2264,1937],[1,2561,1661,2561,862],[2,2561,-3152],[1,2704,-4299,3544,-4893],[1,4117,-5282,4895,-5364],[1,4117,-5487,3564,-5876],[1,2704,-6490,2561,-7616],[2,2561,-11630],[1,2561,-12244,2397,-12531],[1,2131,-12982,1414,-12982],[2,492,-12982],[2,472,-14784],[2,2172,-14784],[1,3278,-14784,4097,-14108],[1,5039,-13330,5039,-11978],[2,5059,-7882],[1,5059,-7042,5796,-6632],[1,6328,-6325,6983,-6325],[2,6984,-6328]],[[0,9974,-7025],[2,10711,-5182],[1,10097,-4322,9667,-3974],[1,8991,-3421,8131,-3421],[1,7496,-3421,6820,-3708],[1,6615,-3790,6062,-4097],[1,5366,-4466,4997,-4609],[1,4383,-4834,3707,-4834],[1,3093,-4834,2642,-4363],[1,2294,-3994,1987,-3339],[2,1250,-5182],[1,1660,-5981,2172,-6391],[1,2848,-6944,3811,-6944],[1,4323,-6944,4917,-6760],[1,5306,-6637,6064,-6289],[1,6617,-6043,7221,-5787],[1,7825,-5531,8153,-5531],[1,8788,-5531,9382,-6227],[1,9628,-6514,9976,-7026],[2,9974,-7025]],[],[[0,9912,-14705],[2,9912,-4260],[1,9912,-1946,8755,-789],[1,7598,368,5345,368],[1,2089,368,1065,-1537],[1,451,-2663,451,-5551],[2,3318,-5551],[1,3318,-3626,3605,-2971],[1,3974,-2111,5121,-2111],[1,6186,-2111,6575,-2766],[1,6841,-3217,6841,-4261],[2,6841,-14706],[2,9912,-14705]],[[0,6103,-4997],[1,7025,-4997,7629,-5663],[1,8233,-6329,8233,-7312],[1,8233,-8295,7629,-8940],[1,7025,-9585,6083,-9585],[1,5141,-9585,4578,-8940],[1,4015,-8295,4015,-7312],[1,4015,-6308,4578,-5653],[1,5141,-4998,6104,-4998],[2,6103,-4997],[0,348,-2908],[2,2355,-4915],[1,2048,-5427,1884,-6011],[1,1720,-6595,1720,-7312],[1,1720,-7947,1894,-8582],[1,2068,-9217,2334,-9668],[2,327,-11675],[2,1679,-13027],[2,3686,-11020],[1,4218,-11348,4802,-11522],[1,5386,-11696,6082,-11696],[1,6778,-11696,7382,-11522],[1,7986,-11348,8478,-11020],[2,10485,-13027],[2,11837,-11675],[2,9830,-9668],[1,10137,-9197,10332,-8572],[1,10527,-7947,10527,-7312],[1,10527,-6616,10353,-6012],[1,10179,-5408,9851,-4916],[2,11858,-2909],[2,10506,-1557],[2,8499,-3564],[1,8028,-3257,7424,-3073],[1,6820,-2889,6103,-2889],[1,5448,-2889,4844,-3063],[1,4240,-3237,3708,-3565],[2,1701,-1558],[2,348,-2908]],[[0,1720,389],[2,1720,-5550],[2,4014,-5550],[2,4014,389],[2,1720,389],[0,1700,-9155],[2,1720,-15094],[2,4014,-15094],[2,3994,-9155],[2,1700,-9155]],[[0,4915,-10486],[2,8233,-8827],[1,9421,-8233,9974,-7598],[1,10691,-6758,10691,-5488],[1,10691,-4935,10261,-4177],[1,9688,-3173,8725,-2743],[1,9217,-2333,9545,-1801],[1,10016,-1023,10016,-122],[1,10016,1721,8664,2786],[1,7415,3769,5592,3769],[1,3216,3769,2069,2233],[1,1291,1189,1291,-60],[2,3994,-60],[1,4076,677,4404,1066],[1,4855,1598,5797,1598],[1,6616,1598,7005,1025],[1,7271,636,7271,144],[1,7271,-348,6984,-635],[1,6697,-922,6062,-1250],[2,2929,-2847],[1,1762,-3441,1270,-4096],[1,697,-4874,697,-6144],[1,697,-7025,1250,-7742],[1,1721,-8356,2602,-8848],[1,2172,-9237,1885,-9749],[1,1516,-10425,1516,-11224],[1,1516,-12740,2581,-13764],[1,3748,-14890,5673,-14890],[1,7393,-14890,8458,-14132],[1,9810,-13169,9810,-11141],[2,7209,-11141],[1,7209,-11878,6789,-12298],[1,6369,-12718,5591,-12718],[1,4915,-12718,4516,-12370],[1,4117,-12022,4117,-11571],[1,4117,-10895,4916,-10485],[2,4915,-10486],[0,6984,-6328],[2,3973,-7844],[1,3563,-7701,3338,-7312],[1,3113,-6923,3113,-6657],[1,3113,-6227,3369,-5920],[1,3625,-5613,4055,-5388],[2,7270,-3668],[1,8151,-4160,8151,-5020],[1,8151,-5430,7823,-5747],[1,7495,-6064,6983,-6330],[2,6984,-6328]],[[0,6103,-16384],[2,3523,-16384],[2,3523,-18739],[2,6103,-18739],[2,6103,-16384],[0,10097,-16384],[2,7517,-16384],[2,7497,-18739],[2,10077,-18739],[2,10097,-16384],[0,12370,-12104],[2,4567,-12104],[2,4567,-9012],[2,11735,-9012],[2,11735,-6411],[2,4567,-6411],[2,4567,-2602],[2,12718,-2602],[2,12718,-1],[2,1556,-1],[2,1556,-14706],[2,12369,-14706],[2,12370,-12104]],[[0,16568,-7373],[1,16568,-3850,14213,-1659],[1,12001,389,8786,389],[1,5571,389,3359,-1659],[1,1004,-3850,1004,-7373],[1,1004,-10896,3359,-13067],[1,5550,-15095,8786,-15095],[1,12001,-15095,14213,-13067],[1,16568,-10896,16568,-7373],[0,14336,-7373],[1,14336,-9974,12708,-11643],[1,11080,-13312,8766,-13312],[1,6411,-13312,4824,-11663],[1,3237,-10014,3237,-7372],[1,3237,-4751,4834,-3082],[1,6431,-1413,8786,-1413],[1,11080,-1413,12708,-3082],[1,14336,-4751,14336,-7372],[2,14336,-7373],[0,10895,-6205],[2,12738,-6205],[1,12513,-4710,11489,-3850],[1,10465,-2990,9093,-2990],[1,7168,-2990,5990,-4250],[1,4812,-5510,4812,-7435],[1,4812,-9360,5959,-10609],[1,7106,-11858,9031,-11858],[1,10465,-11858,11448,-11049],[1,12431,-10240,12677,-8724],[2,10916,-8724],[1,10773,-9400,10261,-9738],[1,9749,-10076,9053,-10076],[1,8049,-10076,7496,-9380],[1,6943,-8684,6943,-7476],[1,6943,-6309,7537,-5541],[1,8131,-4773,9094,-4773],[1,9872,-4773,10353,-5131],[1,10834,-5489,10895,-6206],[2,10895,-6205]],[[0,5202,-7537],[2,3174,-5735],[2,5222,-3933],[2,5222,-1557],[2,1802,-4506],[2,1782,-6964],[2,5223,-9913],[2,5202,-7537],[0,9564,-7537],[2,7536,-5735],[2,9584,-3933],[2,9584,-1557],[2,6164,-4506],[2,6144,-6964],[2,9585,-9913],[2,9564,-7537]],[[0,8847,-2212],[2,8827,-6288],[2,799,-6288],[2,799,-8582],[2,11121,-8582],[2,11141,-2213],[2,8847,-2212]],[[0,7946,-7741],[2,7946,-6225],[2,880,-6225],[2,880,-7741],[2,7946,-7741]],[[0,7496,-6697],[2,7496,-3195],[2,5714,-3195],[2,5714,-11530],[2,8827,-11530],[1,10547,-11530,11397,-10967],[1,12247,-10404,12247,-9011],[1,12247,-7905,11694,-7373],[1,11141,-6841,10240,-6841],[2,12370,-3196],[2,10261,-3196],[2,8336,-6698],[2,7496,-6697],[0,7475,-8110],[2,9052,-8110],[1,9728,-8110,10025,-8315],[1,10322,-8520,10322,-9196],[1,10322,-9769,9871,-9943],[1,9420,-10117,8724,-10117],[2,7475,-10117],[2,7475,-8110],[0,16527,-7352],[1,16527,-3809,14192,-1638],[1,12021,390,8785,390],[1,5529,390,3338,-1638],[1,983,-3809,983,-7352],[1,983,-10895,3338,-13066],[1,5529,-15094,8785,-15094],[1,12021,-15094,14192,-13066],[1,16527,-10895,16527,-7352],[0,14295,-7352],[1,14295,-9953,12687,-11622],[1,11079,-13291,8765,-13291],[1,6389,-13291,4802,-11642],[1,3215,-9993,3215,-7351],[1,3215,-4730,4812,-3071],[1,6409,-1412,8785,-1412],[1,11079,-1412,12687,-3061],[1,14295,-4710,14295,-7352]],[[0,4383,-14705],[2,4383,0],[2,1311,0],[2,1311,-14705],[2,4383,-14705],[0,2150,-18739],[2,2150,-16384],[2,-430,-16384],[2,-430,-18739],[2,2150,-18739],[0,6144,-18739],[2,6144,-16384],[2,3564,-16384],[2,3564,-18739],[2,6144,-18739]],[[0,1147,-11653],[1,1147,-12861,2007,-13721],[1,2867,-14581,4075,-14581],[1,5283,-14581,6143,-13721],[1,7003,-12861,7003,-11653],[1,7003,-10445,6163,-9585],[1,5323,-8725,4094,-8725],[1,2886,-8725,2016,-9575],[1,1146,-10425,1146,-11654],[2,1147,-11653],[0,2294,-11653],[1,2294,-10916,2816,-10394],[1,3338,-9872,4075,-9872],[1,4812,-9872,5334,-10394],[1,5856,-10916,5856,-11653],[1,5856,-12390,5334,-12912],[1,4812,-13434,4075,-13434],[1,3338,-13434,2816,-12912],[1,2294,-12390,2294,-11653]],[[0,4833,-7803],[2,4833,-10363],[2,7127,-10363],[2,7127,-7803],[2,11141,-7803],[2,11141,-5509],[2,7127,-5509],[2,7107,-2929],[2,4813,-2929],[2,4833,-5509],[2,819,-5509],[2,819,-7803],[2,4833,-7803],[0,819,0],[2,819,-2294],[2,11141,-2294],[2,11141,0],[2,819,0]],[[0,4383,-14705],[2,4383,0],[2,1311,0],[2,1311,-14705],[2,4383,-14705]],[[0,1393,-10895],[2,4260,-10895],[2,4260,0],[2,1393,0],[2,1393,-10895],[0,4260,-14848],[2,4260,-12186],[2,1393,-12186],[2,1393,-14848],[2,4260,-14848]],[[0,11162,-10895],[2,11162,0],[2,8418,0],[2,8418,-1536],[1,7906,-655,7210,-184],[1,6514,287,5838,287],[1,4753,287,4221,-245],[2,4221,4240],[2,1354,4240],[2,1334,-10895],[2,4222,-10895],[2,4222,-4137],[1,4222,-2990,4816,-2498],[1,5267,-2129,6086,-2129],[1,6967,-2129,7540,-2621],[1,8298,-3276,8298,-4607],[2,8298,-10894],[2,11162,-10895]],[[0,4383,3912],[2,4383,-7106],[1,2212,-7106,1024,-8048],[1,-164,-8990,-164,-10649],[1,-164,-12677,1249,-13578],[1,2457,-14336,4812,-14336],[2,11038,-14336],[2,11038,3912],[2,8744,3912],[2,8744,-12595],[2,6676,-12595],[2,6676,3912],[2,4383,3912]],[[0,1188,-5181],[1,1188,-5877,1669,-6358],[1,2150,-6839,2846,-6839],[1,3542,-6839,4023,-6358],[1,4504,-5877,4504,-5181],[1,4504,-4505,4033,-4013],[1,3562,-3521,2845,-3521],[1,2149,-3521,1668,-4002],[1,1187,-4483,1187,-5179],[2,1188,-5181]],[[0,5100,-12575],[2,2520,-12575],[2,2520,-14930],[2,5100,-14930],[2,5100,-12575],[0,9073,-12575],[2,6493,-12575],[2,6493,-14930],[2,9073,-14930],[2,9073,-12575],[0,10793,-3195],[1,10261,-1372,8827,-471],[1,7619,287,6001,287],[1,3482,287,2130,-1003],[1,574,-2498,574,-5672],[1,574,-7536,1373,-8908],[1,2684,-11181,5776,-11181],[1,7844,-11181,9155,-10055],[1,10916,-8539,10916,-5180],[2,10896,-4668],[2,3421,-4668],[1,3605,-3214,4209,-2610],[1,4813,-2006,6001,-2006],[1,6636,-2006,7158,-2313],[1,7680,-2620,7844,-3193],[2,10793,-3195],[0,7967,-6533],[1,7844,-7741,7148,-8335],[1,6575,-8827,5756,-8827],[1,4752,-8827,4199,-8233],[1,3646,-7639,3523,-6533],[2,7967,-6533]],[[0,21975,-6001],[1,21975,-4629,21156,-3687],[1,20173,-2561,18350,-2561],[1,16548,-2561,15565,-3687],[1,14725,-4650,14725,-6002],[1,14725,-7354,15565,-8317],[1,16548,-9443,18371,-9443],[1,20153,-9443,21136,-8317],[1,21976,-7354,21976,-6002],[2,21975,-6001],[0,19968,-6001],[1,19968,-6841,19538,-7404],[1,19108,-7967,18350,-7967],[1,17592,-7967,17162,-7414],[1,16732,-6861,16732,-6001],[1,16732,-5182,17183,-4609],[1,17634,-4036,18371,-4036],[1,19129,-4036,19549,-4599],[1,19969,-5162,19969,-6002],[2,19968,-6001],[0,15299,-1638],[2,21443,-1638],[2,21443,0],[2,15299,0],[2,15299,-1638],[0,10527,-14705],[2,13394,-14705],[2,13394,0],[2,10322,0],[2,4321,-10486],[2,4280,0],[2,1413,0],[2,1413,-14705],[2,4649,-14705],[2,10465,-4465],[2,10527,-14705]],[[0,8212,-5734],[2,6144,-7536],[2,6144,-9912],[2,9564,-6963],[2,9584,-4505],[2,6164,-1556],[2,6164,-3932],[2,8212,-5734],[0,3850,-5734],[2,1782,-7536],[2,1802,-9912],[2,5222,-6963],[2,5222,-4505],[2,1802,-1556],[2,1802,-3932],[2,3850,-5734]],[[0,4280,-10895],[2,4280,1147],[1,4280,3134,3358,3830],[1,2621,4383,798,4383],[2,81,4383],[2,61,2089],[2,573,2089],[1,901,2089,1085,1966],[1,1413,1741,1413,1086],[2,1413,-10895],[2,4280,-10895],[0,4280,-14848],[2,4280,-12186],[2,1413,-12186],[2,1413,-14848],[2,4280,-14848]],[[0,799,-4526],[2,3748,-4526],[1,3748,-3625,4280,-3031],[1,5079,-2150,6861,-2150],[1,8172,-2150,8950,-2519],[1,9933,-2990,9933,-4055],[1,9933,-4854,9196,-5264],[1,8704,-5530,7270,-5878],[2,5693,-6247],[1,3338,-6800,2478,-7394],[1,1024,-8398,1024,-10569],[1,1024,-12269,2048,-13436],[1,3502,-15095,6676,-15095],[1,9687,-15095,11223,-13395],[1,12390,-12105,12390,-10344],[2,9441,-10344],[1,9339,-11225,8929,-11696],[1,8192,-12556,6431,-12556],[1,5387,-12556,4711,-12187],[1,3871,-11716,3871,-10794],[1,3871,-10036,4424,-9647],[1,4731,-9422,5427,-9258],[2,9031,-8377],[1,10854,-7926,11714,-7209],[1,12881,-6246,12881,-4423],[1,12881,-2191,11406,-962],[1,9788,390,7085,390],[1,3501,390,1924,-1371],[1,798,-2620,798,-4525],[2,799,-4526]],[[0,10301,-7578],[2,7495,-7578],[1,7372,-8274,7085,-8561],[1,6634,-9012,5569,-9012],[1,4525,-9012,4095,-8664],[1,3788,-8418,3788,-7947],[1,3788,-7312,5549,-6923],[1,8089,-6370,8847,-6022],[1,10629,-5182,10629,-3462],[1,10629,-1373,8888,-410],[1,7618,286,5857,286],[1,3666,286,2314,-492],[1,614,-1475,614,-3482],[2,3563,-3482],[1,3563,-2724,4106,-2304],[1,4649,-1884,5939,-1884],[1,6902,-1884,7394,-2294],[1,7763,-2601,7763,-3011],[1,7763,-3687,6022,-4076],[1,3421,-4649,2745,-4956],[1,984,-5775,984,-7536],[1,984,-8970,1906,-9953],[1,3073,-11182,5387,-11182],[1,7455,-11182,8643,-10547],[1,10302,-9666,10302,-7577],[2,10301,-7578]],[[0,1413,-10895],[2,4280,-10895],[2,4280,0],[2,1413,0],[2,1413,-10895],[0,2150,-14930],[2,2150,-12575],[2,-430,-12575],[2,-430,-14930],[2,2150,-14930],[0,6124,-14930],[2,6144,-12575],[2,3564,-12575],[2,3544,-14930],[2,6124,-14930]],[[0,3543,0],[2,307,0],[2,5550,-14705],[2,9093,-14705],[2,14274,0],[2,10936,0],[2,9973,-3031],[2,4546,-3031],[2,3543,0],[0,5386,-5571],[2,9134,-5571],[2,7291,-11387],[2,5386,-5571]],[[0,4506,-8991],[2,8397,-8991],[1,10711,-8991,12165,-7844],[1,13721,-6615,13721,-4485],[1,13721,-2396,12165,-1167],[1,10690,0,8417,0],[2,1577,0],[2,1577,-14705],[2,12616,-14705],[2,12616,-12125],[2,4506,-12125],[2,4506,-8991],[0,4526,-6451],[2,4526,-2539],[2,8417,-2539],[1,9441,-2539,10045,-3061],[1,10649,-3583,10649,-4484],[1,10649,-5406,10035,-5938],[1,9421,-6470,8397,-6470],[2,4526,-6451]],[[0,1577,-14705],[2,8725,-14705],[1,11142,-14705,12330,-13394],[1,13252,-12370,13252,-10936],[1,13252,-9564,12576,-8765],[1,12187,-8314,11429,-7925],[1,12678,-7454,13231,-6450],[1,13702,-5590,13702,-4361],[1,13702,-2538,12453,-1330],[1,11736,-634,10958,-368],[1,9873,1,7805,1],[2,1579,1],[2,1577,-14705],[0,4526,-2540],[2,8294,-2540],[1,9441,-2540,10045,-3062],[1,10649,-3584,10649,-4690],[1,10649,-5591,9994,-6031],[1,9339,-6471,8417,-6471],[2,4526,-6471],[2,4526,-2540],[0,4526,-8950],[2,8130,-8950],[1,9113,-8950,9666,-9319],[1,10301,-9749,10301,-10589],[1,10301,-11429,9707,-11798],[1,9113,-12167,8028,-12167],[2,4526,-12167],[2,4526,-8950]],[[0,4649,0],[2,1577,0],[2,1577,-14705],[2,12247,-14705],[2,12247,-12104],[2,4649,-12104],[2,4649,0]],[[0,2785,-7352],[2,2785,-14704],[2,12943,-14704],[2,12943,-2600],[2,14377,-2600],[2,14397,2745],[2,11509,2745],[2,11509,1],[2,3399,1],[2,3399,2745],[2,552,2745],[2,532,-2600],[1,1679,-2600,2191,-3583],[1,2785,-4709,2785,-7351],[2,2785,-7352],[0,9871,-2601],[2,9871,-12104],[2,5673,-12104],[2,5653,-7353],[1,5653,-5285,5377,-4271],[1,5101,-3257,4528,-2602],[2,9871,-2601]],[[0,12390,-12104],[2,4587,-12104],[2,4587,-9012],[2,11755,-9012],[2,11755,-6411],[2,4587,-6411],[2,4587,-2602],[2,12738,-2602],[2,12738,-1],[2,1576,-1],[2,1576,-14706],[2,12389,-14706],[2,12390,-12104]],[[0,8663,0],[2,8663,-4977],[2,7844,-6001],[2,4342,0],[2,410,0],[2,5714,-8479],[2,737,-14705],[2,4423,-14705],[2,8662,-8725],[2,8662,-14705],[2,11734,-14705],[2,11734,-8725],[2,15973,-14705],[2,19659,-14705],[2,14682,-8479],[2,19986,0],[2,16054,0],[2,12511,-6001],[2,11733,-4977],[2,11733,0],[2,8663,0]],[[0,9708,-7803],[1,10834,-7680,11797,-6799],[1,12944,-5755,12944,-4301],[1,12944,-2355,11674,-1106],[1,10138,389,7107,389],[1,3523,389,1946,-1372],[1,820,-2621,820,-4526],[2,3769,-4526],[1,3769,-3666,4383,-3031],[1,5243,-2150,7045,-2150],[1,8212,-2150,9041,-2744],[1,9870,-3338,9870,-4301],[1,9870,-5345,9020,-5908],[1,8170,-6471,6962,-6471],[2,4627,-6471],[2,4647,-8949],[2,6941,-8949],[1,8067,-8949,8763,-9410],[1,9459,-9871,9459,-10752],[1,9459,-11592,8722,-12073],[1,7985,-12554,6818,-12554],[1,5159,-12554,4442,-11694],[1,3971,-11121,3971,-10343],[2,1022,-10343],[1,1022,-12084,2210,-13395],[1,3746,-15095,6777,-15095],[1,9849,-15095,11344,-13539],[1,12470,-12372,12470,-10754],[1,12470,-9464,11569,-8686],[1,10852,-8072,9705,-7806],[2,9708,-7803]],[[0,4321,-4465],[2,10219,-14705],[2,13455,-14705],[2,13455,0],[2,10588,0],[2,10588,-10486],[2,4546,0],[2,1474,0],[2,1474,-14705],[2,4321,-14705],[2,4321,-4465]],[[0,4342,-4465],[2,10240,-14705],[2,13476,-14705],[2,13476,0],[2,10609,0],[2,10609,-10486],[2,4567,0],[2,1495,0],[2,1495,-14705],[2,4342,-14705],[2,4342,-4465],[0,11100,-17736],[1,11100,-16692,10424,-15893],[1,9461,-14746,7454,-14746],[1,5652,-14746,4792,-15934],[1,4198,-16753,4198,-17736],[2,5550,-17736],[1,5673,-17122,5939,-16835],[1,6451,-16303,7577,-16303],[1,8519,-16303,8949,-16508],[1,9604,-16815,9768,-17737],[2,11100,-17736]],[[0,4751,0],[2,1679,0],[2,1679,-14705],[2,4751,-14705],[2,4751,-8725],[2,10363,-14705],[2,14336,-14705],[2,8315,-8684],[2,14684,0],[2,10731,0],[2,6184,-6451],[2,4750,-4976],[2,4751,0]],[[0,5243,-12104],[2,5243,-4649],[1,5243,-2150,4065,-880],[1,2887,390,470,390],[2,470,-2293],[1,1576,-2293,2027,-2989],[1,2375,-3542,2375,-4648],[2,2375,-14704],[2,12533,-14704],[2,12533,1],[2,9461,1],[2,9461,-12103],[2,5243,-12104]],[[0,15770,0],[2,12903,0],[2,12903,-10650],[2,10118,0],[2,7107,0],[2,4424,-10650],[2,4383,0],[2,1516,0],[2,1516,-14705],[2,6001,-14705],[2,8663,-4547],[2,11325,-14705],[2,15769,-14705],[2,15770,0]],[[0,4608,-6595],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,4628,-14705],[2,4628,-9134],[2,10362,-9134],[2,10362,-14705],[2,13434,-14705],[2,13434,0],[2,10342,0],[2,10342,-6595],[2,4608,-6595]],[[0,8069,-15094],[1,9462,-15094,10752,-14623],[1,12636,-13927,13721,-12432],[1,15114,-10507,15114,-7353],[1,15114,-4199,13721,-2274],[1,12636,-758,10772,-82],[1,9482,389,8069,389],[1,6656,389,5366,-82],[1,3502,-758,2396,-2274],[1,983,-4220,983,-7353],[1,983,-10507,2376,-12432],[1,3461,-13927,5366,-14623],[1,6656,-15094,8069,-15094],[0,8069,-2212],[1,9625,-2212,10669,-3236],[1,12041,-4567,12041,-7352],[1,12041,-10137,10689,-11468],[1,9645,-12492,8068,-12492],[1,6512,-12492,5447,-11468],[1,4054,-10137,4054,-7352],[1,4054,-4567,5426,-3236],[1,6491,-2212,8068,-2212],[2,8069,-2212]],[[0,4628,-12104],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,13434,-14705],[2,13434,0],[2,10362,0],[2,10362,-12104],[2,4628,-12104]],[[0,4526,0],[2,1454,0],[2,1454,-14705],[2,8171,-14705],[1,10301,-14705,11520,-13445],[1,12739,-12185,12739,-9994],[1,12739,-8438,11879,-7148],[1,10650,-5305,8049,-5305],[2,4526,-5305],[2,4526,0],[0,7352,-7844],[1,8827,-7844,9359,-8745],[1,9646,-9237,9646,-10138],[1,9646,-11223,9011,-11694],[1,8376,-12165,6942,-12165],[2,4505,-12165],[2,4505,-7844],[2,7352,-7844]],[[0,10834,-9892],[1,10547,-10957,10055,-11489],[1,9215,-12431,7556,-12431],[1,6143,-12431,5201,-11427],[1,3931,-10075,3931,-7290],[1,3931,-5119,4771,-3788],[1,5734,-2272,7577,-2272],[1,8867,-2272,9707,-2979],[1,10547,-3686,10813,-5038],[2,13885,-5038],[1,13414,-2519,11878,-1126],[1,10219,390,7516,390],[1,4485,390,2683,-1556],[1,778,-3604,778,-7331],[1,778,-11058,2744,-13147],[1,4567,-15093,7557,-15093],[1,10547,-15093,12308,-13311],[1,13742,-11857,13906,-9891],[2,10834,-9892]],[[0,7844,0],[2,4772,0],[2,4772,-12104],[2,328,-12104],[2,328,-14705],[2,12288,-14705],[2,12288,-12104],[2,7844,-12104],[2,7844,0]],[[0,6021,225],[2,5775,225],[1,5140,225,4792,194],[1,4444,163,3993,-1],[2,3993,-2622],[1,4177,-2540,4474,-2458],[1,4771,-2376,5017,-2376],[1,5488,-2376,5836,-2560],[1,6184,-2744,6409,-3215],[2,6491,-3338],[2,347,-14704],[2,4013,-14704],[2,7945,-6492],[2,10956,-14704],[2,14479,-14704],[2,9175,-2457],[1,8643,-1208,7558,-430],[1,6657,225,6022,225],[2,6021,225]],[[0,10691,-13128],[1,13190,-13128,14992,-11940],[1,17327,-10404,17327,-7352],[1,17327,-4321,15013,-2785],[1,13211,-1577,10712,-1577],[2,10712,0],[2,7640,0],[2,7640,-1577],[1,5121,-1577,3298,-2765],[1,902,-4321,902,-7352],[1,902,-10363,3278,-11919],[1,5121,-13127,7620,-13127],[2,7620,-14704],[2,10692,-14704],[2,10691,-13128],[0,10711,-10752],[2,10711,-3953],[1,12186,-3953,13128,-4608],[1,14377,-5468,14377,-7352],[1,14377,-9195,13128,-10076],[1,12165,-10752,10711,-10752],[0,7639,-3953],[2,7639,-10752],[1,6164,-10752,5201,-10097],[1,3931,-9237,3931,-7353],[1,3931,-5510,5201,-4629],[1,6184,-3953,7638,-3953],[2,7639,-3953]],[[0,13476,0],[2,9728,0],[2,6943,-5018],[2,3973,0],[2,389,0],[2,5140,-7516],[2,655,-14704],[2,4321,-14704],[2,6922,-9953],[2,9625,-14704],[2,13168,-14704],[2,8662,-7638],[2,13476,0]],[[0,11592,0],[2,1147,0],[2,1147,-14705],[2,4219,-14705],[2,4219,-2601],[2,9953,-2601],[2,9953,-14705],[2,13025,-14705],[2,13025,-2601],[2,14459,-2601],[2,14459,2744],[2,11592,2744],[2,11592,0]],[[0,1536,-9953],[2,1556,-14704],[2,4628,-14704],[2,4608,-9953],[1,4608,-8949,5222,-8478],[1,5836,-8007,6840,-8007],[1,7721,-8007,8653,-8314],[1,9585,-8621,10363,-9133],[2,10363,-14704],[2,13435,-14704],[2,13435,1],[2,10363,1],[2,10343,-6594],[1,9339,-6021,8192,-5693],[1,7045,-5365,5939,-5365],[1,3973,-5365,2847,-6389],[1,1536,-7577,1536,-9953]],[[0,7680,-2601],[2,7680,-14705],[2,10752,-14705],[2,10752,-2601],[2,13824,-2601],[2,13824,-14705],[2,16896,-14705],[2,16896,0],[2,1536,0],[2,1536,-14705],[2,4608,-14705],[2,4608,-2601],[2,7680,-2601]],[[0,15258,0],[2,1332,0],[2,1332,-14705],[2,4404,-14705],[2,4404,-2601],[2,7476,-2601],[2,7476,-14705],[2,10548,-14705],[2,10548,-2601],[2,13620,-2601],[2,13620,-14705],[2,16692,-14705],[2,16692,-2601],[2,18126,-2601],[2,18146,2744],[2,15258,2744],[2,15258,0]],[[0,5857,-9400],[2,9380,-9400],[1,11960,-9400,13209,-7557],[1,14069,-6287,14069,-4710],[1,14069,-2539,12861,-1269],[1,11653,1,9503,1],[2,2786,1],[2,2766,-12123],[2,288,-12123],[2,308,-14703],[2,5858,-14703],[2,5857,-9400],[0,5837,-6861],[2,5857,-2540],[2,8294,-2540],[1,9728,-2540,10353,-3011],[1,10978,-3482,10978,-4567],[1,10978,-5468,10691,-5960],[1,10159,-6861,8684,-6861],[2,5837,-6861]],[[0,4936,-9400],[2,8459,-9400],[1,11039,-9400,12288,-7557],[1,13148,-6287,13148,-4710],[1,13148,-2539,11940,-1269],[1,10732,1,8582,1],[2,1865,1],[2,1865,-14704],[2,4937,-14704],[2,4936,-9400],[0,18084,0],[2,15012,0],[2,15012,-14705],[2,18084,-14705],[2,18084,0],[0,4936,-6861],[2,4936,-2540],[2,7373,-2540],[1,8807,-2540,9432,-3011],[1,10057,-3482,10057,-4567],[1,10057,-5468,9770,-5960],[1,9238,-6861,7763,-6861],[2,4936,-6861]],[[0,4731,-9400],[2,8254,-9400],[1,10834,-9400,12083,-7557],[1,12943,-6287,12943,-4710],[1,12943,-2539,11735,-1269],[1,10527,1,8377,1],[2,1660,1],[2,1660,-14704],[2,4732,-14704],[2,4731,-9400],[0,4710,-6861],[2,4730,-2540],[2,7167,-2540],[1,8601,-2540,9226,-3011],[1,9851,-3482,9851,-4567],[1,9851,-5468,9564,-5960],[1,9032,-6861,7557,-6861],[2,4710,-6861]],[[0,10732,-9011],[1,10384,-10834,9258,-11735],[1,8377,-12431,7230,-12431],[1,5571,-12431,4752,-11489],[1,4301,-10977,3994,-9892],[2,922,-9892],[1,922,-11776,2438,-13292],[1,4240,-15094,7271,-15094],[1,10241,-15094,12064,-13148],[1,14010,-11059,14010,-7332],[1,14010,-3646,12126,-1578],[1,10324,388,7313,388],[1,4651,388,2972,-1128],[1,1395,-2541,903,-5040],[2,3975,-5040],[1,4262,-3709,5122,-2992],[1,5982,-2275,7252,-2275],[1,8890,-2275,9832,-3483],[1,10672,-4568,10856,-6411],[2,5081,-6411],[2,5081,-9012],[2,10732,-9011]],[[0,6738,-6595],[2,4608,-6595],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,4628,-14705],[2,4628,-9134],[2,6860,-9134],[1,7167,-11530,8457,-13005],[1,9481,-14172,10997,-14704],[1,12123,-15093,13208,-15093],[1,14457,-15093,15645,-14622],[1,17365,-13946,18369,-12430],[1,19659,-10484,19659,-7351],[1,19659,-4177,18389,-2272],[1,17385,-756,15665,-80],[1,14477,391,13207,391],[1,11999,391,10791,-39],[1,9050,-674,8046,-2005],[1,6735,-3766,6735,-6592],[2,6738,-6595],[0,13210,-2212],[1,14500,-2212,15401,-3236],[1,16589,-4588,16589,-7353],[1,16589,-10138,15422,-11469],[1,14521,-12493,13210,-12493],[1,11920,-12493,10998,-11469],[1,9790,-10117,9790,-7352],[1,9790,-4567,10978,-3236],[1,11879,-2212,13210,-2212]],[[0,13537,0],[2,10526,0],[2,10526,-5755],[2,8539,-5755],[2,4791,0],[2,1023,0],[2,5180,-5755],[1,3685,-6083,2641,-7209],[1,1453,-8479,1453,-10240],[1,1453,-12042,2702,-13332],[1,4033,-14704,6101,-14704],[2,13535,-14704],[2,13537,0],[0,10506,-8233],[2,10506,-12165],[2,6676,-12165],[1,5611,-12165,5017,-11551],[1,4525,-11039,4525,-10322],[1,4525,-9359,5129,-8796],[1,5733,-8233,6900,-8233],[2,10506,-8233]],[[0,10260,-2130],[1,10260,-1229,10424,-881],[1,10588,-533,10895,-431],[2,10895,-1],[2,7803,-1],[1,7598,-615,7537,-1291],[1,6841,-554,6268,-247],[1,5326,285,4015,285],[1,2643,285,1742,-452],[1,698,-1312,698,-2889],[1,698,-4425,1548,-5295],[1,2398,-6165,3873,-6370],[2,6433,-6759],[1,7027,-6841,7242,-7056],[1,7457,-7271,7457,-7619],[1,7457,-8418,6781,-8705],[1,6351,-8889,5552,-8889],[1,4610,-8889,4180,-8377],[1,3873,-8008,3812,-7373],[2,1047,-7373],[1,1252,-9626,2747,-10527],[1,3832,-11182,5900,-11182],[1,7538,-11182,8644,-10629],[1,10241,-9830,10241,-8028],[2,10260,-2130],[0,7455,-5304],[1,7250,-5140,6799,-4986],[1,6348,-4832,5437,-4689],[1,4526,-4546,4137,-4280],[1,3564,-3891,3564,-3072],[1,3564,-2396,4015,-2048],[1,4384,-1761,4896,-1761],[1,5920,-1761,6688,-2355],[1,7456,-2949,7456,-3912],[2,7455,-5304]],[[0,3092,-14131],[1,3891,-14827,5222,-15073],[1,6123,-15237,8007,-15237],[1,8601,-15237,8826,-15483],[1,8887,-15565,8948,-15749],[2,11242,-15749],[1,11222,-15339,11181,-15073],[1,10853,-13496,9378,-12964],[1,8805,-12759,7033,-12626],[1,5261,-12493,4585,-12104],[1,3909,-11715,3520,-10875],[1,3315,-10465,3110,-9605],[1,3581,-10240,4492,-10711],[1,5403,-11182,6325,-11182],[1,8680,-11182,10216,-9789],[1,11916,-8233,11916,-5448],[1,11916,-2642,10237,-1106],[1,8721,287,6345,287],[1,3969,287,2453,-1106],[1,774,-2642,774,-5448],[1,774,-9093,1327,-11100],[1,1880,-13107,3088,-14131],[2,3092,-14131],[0,6349,-8765],[1,4874,-8765,4219,-7639],[1,3727,-6779,3727,-5448],[1,3727,-4096,4198,-3277],[1,4853,-2130,6348,-2130],[1,7823,-2130,8478,-3256],[1,8970,-4116,8970,-5447],[1,8970,-6799,8499,-7618],[1,7844,-8765,6349,-8765]],[[0,1249,0],[2,1249,-10895],[2,5714,-10895],[1,7864,-10895,9031,-10229],[1,10198,-9563,10198,-8068],[1,10198,-7085,9502,-6409],[1,8888,-5815,7966,-5672],[1,9031,-5488,9686,-4976],[1,10587,-4259,10587,-3010],[1,10587,-1454,9256,-676],[1,8089,20,6082,20],[2,1249,0],[0,4116,-4628],[2,4116,-1884],[2,6021,-1884],[1,7721,-1884,7721,-3195],[1,7721,-3891,7270,-4260],[1,6819,-4629,6020,-4629],[2,4116,-4628],[0,4116,-9011],[2,4116,-6451],[2,5775,-6451],[1,6512,-6451,6952,-6789],[1,7392,-7127,7392,-7762],[1,7392,-8376,6952,-8693],[1,6512,-9010,5775,-9010],[2,4116,-9011]],[[0,8622,-8602],[2,4116,-8602],[2,4116,0],[2,1249,0],[2,1249,-10895],[2,8622,-10895],[2,8622,-8602]],[[0,1925,-5673],[2,1925,-10895],[2,10322,-10895],[2,10342,-2273],[2,11632,-2273],[2,11632,2745],[2,8970,2745],[2,8970,1],[2,2949,1],[2,2949,2745],[2,287,2745],[2,287,-2273],[1,1127,-2273,1526,-2980],[1,1925,-3687,1925,-5674],[2,1925,-5673],[0,7475,-2273],[2,7455,-8601],[2,4567,-8601],[2,4567,-5611],[1,4567,-3112,3809,-2272],[2,7475,-2273]],[[0,10813,-3195],[1,10281,-1372,8847,-471],[1,7639,287,6021,287],[1,3502,287,2150,-1003],[1,594,-2498,594,-5672],[1,594,-7536,1393,-8908],[1,2704,-11181,5796,-11181],[1,7864,-11181,9175,-10055],[1,10936,-8539,10936,-5180],[2,10916,-4668],[2,3441,-4668],[1,3625,-3214,4229,-2610],[1,4833,-2006,6021,-2006],[1,6656,-2006,7178,-2313],[1,7700,-2620,7864,-3193],[2,10813,-3195],[0,7987,-6533],[1,7864,-7741,7168,-8335],[1,6595,-8827,5776,-8827],[1,4772,-8827,4219,-8233],[1,3666,-7639,3543,-6533],[2,7987,-6533]],[[0,7045,0],[2,7045,-3441],[2,6205,-4445],[2,3768,-1],[2,327,-1],[2,4259,-6677],[2,409,-10896],[2,3829,-10896],[2,7024,-6861],[2,7024,-10896],[2,9871,-10896],[2,9871,-6861],[2,13066,-10896],[2,16486,-10896],[2,12636,-6677],[2,16609,-1],[2,13168,-1],[2,10731,-4445],[2,9891,-3441],[2,9891,0],[2,7045,0]],[[0,7864,-5673],[1,9052,-5530,9707,-5120],[1,10731,-4506,10731,-3257],[1,10731,-1311,8990,-389],[1,7720,287,5959,287],[1,3768,287,2416,-491],[1,716,-1474,716,-3481],[2,3665,-3481],[1,3665,-2723,4208,-2303],[1,4751,-1883,6041,-1883],[1,7004,-1883,7496,-2415],[1,7865,-2804,7865,-3255],[1,7865,-3910,7292,-4268],[1,6719,-4626,5920,-4626],[2,3913,-4626],[2,3913,-6449],[2,5900,-6449],[1,6617,-6449,7068,-6777],[1,7519,-7105,7519,-7719],[1,7519,-8231,7232,-8538],[1,6802,-9009,5778,-9009],[1,4734,-9009,4283,-8558],[1,3976,-8251,3853,-7575],[2,1047,-7575],[1,1047,-9623,2685,-10524],[1,3893,-11179,5921,-11179],[1,8235,-11179,9402,-10032],[1,10324,-9110,10324,-7717],[1,10324,-6775,9546,-6243],[1,8993,-5874,7867,-5669],[2,7864,-5673]],[[0,11469,0],[2,8602,0],[2,8602,-6554],[2,4731,0],[2,1659,0],[2,1639,-10895],[2,4527,-10895],[2,4527,-4341],[2,8377,-10895],[2,11469,-10895],[2,11469,0]],[[0,11469,0],[2,8602,0],[2,8602,-6554],[2,4731,0],[2,1659,0],[2,1639,-10895],[2,4527,-10895],[2,4527,-4341],[2,8377,-10895],[2,11469,-10895],[2,11469,0],[0,10179,-15360],[1,10077,-14234,9483,-13517],[1,8541,-12370,6534,-12370],[1,4732,-12370,3872,-13558],[1,3278,-14377,3278,-15360],[2,4630,-15360],[1,4753,-14766,5040,-14459],[1,5552,-13927,6678,-13927],[1,7600,-13927,8030,-14132],[1,8706,-14460,8849,-15361],[2,10179,-15360]],[[0,3912,0],[2,1045,0],[2,1045,-10895],[2,3892,-10895],[2,3892,-6758],[2,7496,-10895],[2,11080,-10895],[2,7168,-6676],[2,11264,0],[2,7782,0],[2,5079,-4669],[2,3912,-3440],[2,3912,0]],[[0,4588,-8602],[2,4588,-3871],[1,4588,-1659,3400,-635],[1,2376,246,553,246],[2,553,-2048],[1,1229,-2048,1577,-2478],[1,1925,-2908,1925,-3871],[2,1925,-10896],[2,10322,-10896],[2,10322,-1],[2,7455,-1],[2,7455,-8603],[2,4588,-8602]],[[0,12001,-7434],[2,9277,0],[2,6860,0],[2,4095,-7434],[2,4013,-7434],[1,4074,-7045,4094,-6697],[1,4114,-6349,4114,-6144],[2,4114,0],[2,1452,0],[2,1452,-10895],[2,5343,-10895],[2,8026,-3481],[2,8108,-3481],[2,10750,-10895],[2,14682,-10895],[2,14682,0],[2,12020,0],[2,12020,-6144],[1,12020,-6881,12030,-7086],[1,12040,-7291,12081,-7434],[2,12001,-7434]],[[0,11264,0],[2,8397,0],[2,8397,-4301],[2,4321,-4301],[2,4321,0],[2,1454,0],[2,1454,-10895],[2,4301,-10895],[2,4301,-6594],[2,8377,-6594],[2,8377,-10895],[2,11265,-10895],[2,11264,0]],[[0,6369,287],[1,3993,287,2477,-1106],[1,798,-2642,798,-5448],[1,798,-8233,2477,-9789],[1,3993,-11182,6348,-11182],[1,8703,-11182,10239,-9789],[1,11939,-8233,11939,-5448],[1,11939,-2642,10260,-1106],[1,8744,287,6368,287],[2,6369,287],[0,6369,-8765],[1,4894,-8765,4239,-7639],[1,3747,-6779,3747,-5448],[1,3747,-4096,4218,-3277],[1,4873,-2130,6368,-2130],[1,7843,-2130,8498,-3256],[1,8990,-4116,8990,-5447],[1,8990,-6799,8519,-7618],[1,7864,-8765,6369,-8765]],[[0,11264,0],[2,8397,0],[2,8397,-8581],[2,4321,-8581],[2,4321,0],[2,1454,0],[2,1454,-10895],[2,11264,-10895],[2,11264,0]],[[0,3912,-9318],[1,4485,-10178,5038,-10567],[1,5898,-11181,7188,-11181],[1,9113,-11181,10362,-9788],[1,11734,-8272,11734,-5569],[1,11734,-3091,10669,-1514],[1,9440,288,7146,288],[1,5856,288,4996,-326],[1,4484,-695,4054,-1391],[2,4013,4241],[2,1166,4241],[2,1166,-10894],[2,3910,-10894],[2,3912,-9318],[0,6410,-2068],[1,7659,-2068,8294,-3235],[1,8786,-4136,8786,-5365],[1,8786,-6819,8254,-7679],[1,7619,-8703,6329,-8703],[1,4977,-8703,4383,-7618],[1,3912,-6758,3912,-5202],[1,3912,-3850,4465,-3031],[1,5120,-2068,6410,-2068]],[[0,10813,-3973],[1,10690,-2560,9789,-1434],[1,8437,286,5836,286],[1,3092,286,1781,-1557],[1,777,-2970,777,-5141],[1,777,-7926,2006,-9482],[1,3337,-11182,5999,-11182],[1,7719,-11182,8948,-10383],[1,10648,-9298,10832,-7004],[2,7924,-7004],[1,7740,-7946,7187,-8397],[1,6736,-8766,6019,-8766],[1,4790,-8766,4196,-7701],[1,3725,-6861,3725,-5612],[1,3725,-3666,4268,-2867],[1,4811,-2068,5937,-2068],[1,6879,-2068,7452,-2826],[1,7903,-3420,7903,-3973],[2,10813,-3973]],[[0,3666,0],[2,3666,-8602],[2,410,-8602],[2,410,-10896],[2,9790,-10896],[2,9790,-8602],[2,6534,-8602],[2,6534,0],[2,3666,0]],[[0,7393,-184],[1,6349,2908,5735,3604],[1,5039,4382,3196,4382],[2,1885,4341],[2,1885,2047],[2,2438,2088],[1,3319,2088,3667,1842],[1,4138,1514,4322,449],[2,287,-10897],[2,3482,-10897],[2,5837,-2869],[2,8090,-10897],[2,11121,-10897],[2,7393,-184]],[[0,7148,4239],[2,7148,-1393],[1,6493,-328,6145,-103],[1,5551,286,4670,286],[1,2602,286,1578,-1516],[1,697,-3052,697,-5571],[1,697,-8295,1823,-9790],[1,2867,-11183,4587,-11183],[1,5713,-11183,6348,-10589],[1,6614,-10343,7249,-9319],[2,7290,-14705],[2,9911,-14705],[2,9911,-9319],[1,10628,-10404,10812,-10568],[1,11467,-11182,12573,-11182],[1,14293,-11182,15358,-9789],[1,16505,-8273,16505,-5570],[1,16505,-3030,15645,-1514],[1,14621,288,12532,288],[1,11406,288,10771,-326],[1,10628,-469,10055,-1391],[2,10014,4241],[2,7148,4239],[0,7291,-5202],[2,7291,-5857],[1,7291,-7270,7025,-7843],[1,6615,-8703,5448,-8703],[1,4404,-8703,3974,-7679],[1,3646,-6901,3646,-5365],[1,3646,-3993,3912,-3235],[1,4322,-2068,5366,-2068],[1,6595,-2068,7005,-3031],[1,7292,-3686,7292,-5202],[2,7291,-5202],[0,11796,-2068],[1,12820,-2068,13250,-3235],[1,13557,-4054,13557,-5365],[1,13557,-6881,13209,-7680],[1,12758,-8704,11714,-8704],[1,10567,-8704,10178,-7844],[1,9912,-7250,9912,-5857],[2,9912,-5202],[1,9912,-3625,10158,-3031],[1,10568,-2068,11797,-2068],[2,11796,-2068]],[[0,11141,0],[2,7598,0],[2,5714,-3277],[2,3830,0],[2,369,0],[2,4076,-5550],[2,492,-10895],[2,3974,-10895],[2,5817,-7721],[2,7619,-10895],[2,10998,-10895],[2,7434,-5550],[2,11141,0]],[[0,9708,0],[2,1250,0],[2,1250,-10875],[2,4117,-10875],[2,4117,-2294],[2,8193,-2294],[2,8193,-10875],[2,11060,-10875],[2,11060,-2294],[2,12371,-2294],[2,12371,2744],[2,9709,2744],[2,9708,0]],[[0,11469,0],[2,8602,0],[2,8602,-4485],[1,7967,-4157,7557,-3993],[1,6287,-3481,5365,-3481],[1,3645,-3481,2703,-4341],[1,1659,-5304,1659,-7291],[2,1659,-10895],[2,4526,-10895],[2,4526,-7372],[1,4526,-6512,5120,-6164],[1,5571,-5898,6370,-5898],[1,6964,-5898,7824,-6226],[1,8111,-6328,8582,-6574],[2,8582,-10895],[2,11470,-10895],[2,11469,0]],[[0,7188,-2294],[2,7188,-10896],[2,10055,-10896],[2,10055,-2294],[2,12943,-2294],[2,12943,-10875],[2,15810,-10875],[2,15810,0],[2,1454,0],[2,1454,-10875],[2,4321,-10875],[2,4321,-2294],[2,7188,-2294]],[[0,14254,0],[2,1249,0],[2,1249,-10875],[2,4116,-10875],[2,4116,-2294],[2,6983,-2294],[2,6983,-10896],[2,9850,-10896],[2,9850,-2294],[2,12738,-2294],[2,12738,-10875],[2,15605,-10875],[2,15605,-2294],[2,16916,-2294],[2,16916,2744],[2,14254,2744],[2,14254,0]],[[0,5407,-10895],[2,5407,-6656],[2,7127,-6656],[1,9298,-6656,10404,-5919],[1,11694,-5059,11694,-3195],[1,11694,-1639,10342,-779],[1,9113,-1,7126,-1],[2,2538,-1],[2,2538,-8603],[2,265,-8603],[2,265,-10897],[2,5407,-10895],[0,5407,-4628],[2,5407,-1884],[2,7066,-1884],[1,7885,-1884,8356,-2222],[1,8827,-2560,8827,-3195],[1,8827,-3891,8346,-4260],[1,7865,-4629,7066,-4629],[2,5407,-4628]],[[0,4321,-6656],[2,5898,-6656],[1,8069,-6656,9175,-5919],[1,10465,-5059,10465,-3195],[1,10465,-1639,9113,-779],[1,7884,-1,5897,-1],[2,1453,-1],[2,1453,-10896],[2,4320,-10896],[2,4321,-6656],[0,14684,0],[2,11817,0],[2,11817,-10895],[2,14684,-10895],[2,14684,0],[0,4321,-4628],[2,4321,-1884],[2,5837,-1884],[1,6656,-1884,7127,-2222],[1,7598,-2560,7598,-3195],[1,7598,-3891,7117,-4260],[1,6636,-4629,5837,-4629],[2,4321,-4628]],[[0,4116,-6656],[2,5836,-6656],[1,8007,-6656,9113,-5919],[1,10403,-5059,10403,-3195],[1,10403,-1639,9051,-779],[1,7822,-1,5835,-1],[2,1247,-1],[2,1247,-10896],[2,4114,-10896],[2,4116,-6656],[0,4116,-4628],[2,4116,-1884],[2,5775,-1884],[1,6594,-1884,7065,-2222],[1,7536,-2560,7536,-3195],[1,7536,-3891,7055,-4260],[1,6574,-4629,5775,-4629],[2,4116,-4628]],[[0,7762,-6574],[1,7598,-7557,7147,-8089],[1,6574,-8765,5591,-8765],[1,4690,-8765,4178,-8151],[1,3789,-7680,3687,-7004],[2,779,-7004],[1,779,-9257,2520,-10363],[1,3810,-11182,5571,-11182],[1,8213,-11182,9565,-9482],[1,10794,-7926,10794,-5141],[1,10794,-2970,9831,-1577],[1,8541,287,5776,287],[1,3175,287,1823,-1413],[1,922,-2539,799,-3973],[2,3707,-3973],[1,3707,-3154,4362,-2540],[1,4874,-2069,5632,-2069],[1,6656,-2069,7209,-2765],[1,7639,-3318,7803,-4301],[2,4567,-4301],[2,4547,-6595],[2,7762,-6574]],[[0,6083,-4301],[2,4117,-4301],[2,4117,0],[2,1250,0],[2,1250,-10895],[2,4097,-10895],[2,4097,-6594],[2,6063,-6594],[1,6370,-8826,7865,-10055],[1,9237,-11181,11121,-11181],[1,13271,-11181,14684,-9788],[1,16261,-8232,16261,-5447],[1,16261,-2641,14705,-1105],[1,13312,288,11141,288],[1,9216,288,7885,-818],[1,6390,-2047,6083,-4300],[2,6083,-4301],[0,11141,-8765],[1,9933,-8765,9360,-7639],[1,8909,-6758,8909,-5447],[1,8909,-4116,9339,-3276],[1,9933,-2129,11141,-2129],[1,12349,-2129,12922,-3255],[1,13373,-4136,13373,-5447],[1,13373,-6778,12943,-7618],[1,12349,-8765,11141,-8765]],[[0,532,0],[2,3502,-4362],[1,2642,-4362,1802,-5181],[1,778,-6185,778,-7701],[1,778,-9319,1935,-10107],[1,3092,-10895,5283,-10895],[2,10137,-10895],[2,10137,0],[2,7270,0],[2,7270,-4362],[2,6635,-4362],[2,3952,0],[2,532,0],[0,7250,-6185],[2,7250,-9011],[2,5366,-9011],[1,4629,-9011,4148,-8653],[1,3667,-8295,3667,-7660],[1,3667,-6943,4107,-6564],[1,4547,-6185,5346,-6185],[2,7250,-6185]],[[0,6103,-16384],[2,3523,-16384],[2,3523,-18739],[2,6103,-18739],[2,6103,-16384],[0,10097,-16384],[2,7517,-16384],[2,7497,-18739],[2,10077,-18739],[2,10097,-16384],[0,12370,-12104],[2,4567,-12104],[2,4567,-9012],[2,11735,-9012],[2,11735,-6411],[2,4567,-6411],[2,4567,-2602],[2,12718,-2602],[2,12718,-1],[2,1556,-1],[2,1556,-14706],[2,12369,-14706],[2,12370,-12104]],[[0,799,-4526],[2,3748,-4526],[1,3748,-3625,4280,-3031],[1,5079,-2150,6861,-2150],[1,8172,-2150,8950,-2519],[1,9933,-2990,9933,-4055],[1,9933,-4854,9196,-5264],[1,8704,-5530,7270,-5878],[2,5693,-6247],[1,3338,-6800,2478,-7394],[1,1024,-8398,1024,-10569],[1,1024,-12269,2048,-13436],[1,3502,-15095,6676,-15095],[1,9687,-15095,11223,-13395],[1,12390,-12105,12390,-10344],[2,9441,-10344],[1,9339,-11225,8929,-11696],[1,8192,-12556,6431,-12556],[1,5387,-12556,4711,-12187],[1,3871,-11716,3871,-10794],[1,3871,-10036,4424,-9647],[1,4731,-9422,5427,-9258],[2,9031,-8377],[1,10854,-7926,11714,-7209],[1,12881,-6246,12881,-4423],[1,12881,-2191,11406,-962],[1,9788,390,7085,390],[1,3501,390,1924,-1371],[1,798,-2620,798,-4525],[2,799,-4526]],[[0,4383,-14705],[2,4383,0],[2,1311,0],[2,1311,-14705],[2,4383,-14705]],[[0,4383,-14705],[2,4383,0],[2,1311,0],[2,1311,-14705],[2,4383,-14705],[0,2150,-18739],[2,2150,-16384],[2,-430,-16384],[2,-430,-18739],[2,2150,-18739],[0,6144,-18739],[2,6144,-16384],[2,3564,-16384],[2,3564,-18739],[2,6144,-18739]],[[0,9912,-14705],[2,9912,-4260],[1,9912,-1946,8755,-789],[1,7598,368,5345,368],[1,2089,368,1065,-1537],[1,451,-2663,451,-5551],[2,3318,-5551],[1,3318,-3626,3605,-2971],[1,3974,-2111,5121,-2111],[1,6186,-2111,6575,-2766],[1,6841,-3217,6841,-4261],[2,6841,-14706],[2,9912,-14705]],[[0,3543,0],[2,307,0],[2,5550,-14705],[2,9093,-14705],[2,14274,0],[2,10936,0],[2,9973,-3031],[2,4546,-3031],[2,3543,0],[0,5386,-5571],[2,9134,-5571],[2,7291,-11387],[2,5386,-5571]],[[0,4506,-8991],[2,8397,-8991],[1,10711,-8991,12165,-7844],[1,13721,-6615,13721,-4485],[1,13721,-2396,12165,-1167],[1,10690,0,8417,0],[2,1577,0],[2,1577,-14705],[2,12616,-14705],[2,12616,-12125],[2,4506,-12125],[2,4506,-8991],[0,4526,-6451],[2,4526,-2539],[2,8417,-2539],[1,9441,-2539,10045,-3061],[1,10649,-3583,10649,-4484],[1,10649,-5406,10035,-5938],[1,9421,-6470,8397,-6470],[2,4526,-6451]],[[0,1577,-14705],[2,8725,-14705],[1,11142,-14705,12330,-13394],[1,13252,-12370,13252,-10936],[1,13252,-9564,12576,-8765],[1,12187,-8314,11429,-7925],[1,12678,-7454,13231,-6450],[1,13702,-5590,13702,-4361],[1,13702,-2538,12453,-1330],[1,11736,-634,10958,-368],[1,9873,1,7805,1],[2,1579,1],[2,1577,-14705],[0,4526,-2540],[2,8294,-2540],[1,9441,-2540,10045,-3062],[1,10649,-3584,10649,-4690],[1,10649,-5591,9994,-6031],[1,9339,-6471,8417,-6471],[2,4526,-6471],[2,4526,-2540],[0,4526,-8950],[2,8130,-8950],[1,9113,-8950,9666,-9319],[1,10301,-9749,10301,-10589],[1,10301,-11429,9707,-11798],[1,9113,-12167,8028,-12167],[2,4526,-12167],[2,4526,-8950]],[[0,4649,0],[2,1577,0],[2,1577,-14705],[2,12247,-14705],[2,12247,-12104],[2,4649,-12104],[2,4649,0]],[[0,2785,-7352],[2,2785,-14704],[2,12943,-14704],[2,12943,-2600],[2,14377,-2600],[2,14397,2745],[2,11509,2745],[2,11509,1],[2,3399,1],[2,3399,2745],[2,552,2745],[2,532,-2600],[1,1679,-2600,2191,-3583],[1,2785,-4709,2785,-7351],[2,2785,-7352],[0,9871,-2601],[2,9871,-12104],[2,5673,-12104],[2,5653,-7353],[1,5653,-5285,5377,-4271],[1,5101,-3257,4528,-2602],[2,9871,-2601]],[[0,12390,-12104],[2,4587,-12104],[2,4587,-9012],[2,11755,-9012],[2,11755,-6411],[2,4587,-6411],[2,4587,-2602],[2,12738,-2602],[2,12738,-1],[2,1576,-1],[2,1576,-14706],[2,12389,-14706],[2,12390,-12104]],[[0,8663,0],[2,8663,-4977],[2,7844,-6001],[2,4342,0],[2,410,0],[2,5714,-8479],[2,737,-14705],[2,4423,-14705],[2,8662,-8725],[2,8662,-14705],[2,11734,-14705],[2,11734,-8725],[2,15973,-14705],[2,19659,-14705],[2,14682,-8479],[2,19986,0],[2,16054,0],[2,12511,-6001],[2,11733,-4977],[2,11733,0],[2,8663,0]],[[0,9708,-7803],[1,10834,-7680,11797,-6799],[1,12944,-5755,12944,-4301],[1,12944,-2355,11674,-1106],[1,10138,389,7107,389],[1,3523,389,1946,-1372],[1,820,-2621,820,-4526],[2,3769,-4526],[1,3769,-3666,4383,-3031],[1,5243,-2150,7045,-2150],[1,8212,-2150,9041,-2744],[1,9870,-3338,9870,-4301],[1,9870,-5345,9020,-5908],[1,8170,-6471,6962,-6471],[2,4627,-6471],[2,4647,-8949],[2,6941,-8949],[1,8067,-8949,8763,-9410],[1,9459,-9871,9459,-10752],[1,9459,-11592,8722,-12073],[1,7985,-12554,6818,-12554],[1,5159,-12554,4442,-11694],[1,3971,-11121,3971,-10343],[2,1022,-10343],[1,1022,-12084,2210,-13395],[1,3746,-15095,6777,-15095],[1,9849,-15095,11344,-13539],[1,12470,-12372,12470,-10754],[1,12470,-9464,11569,-8686],[1,10852,-8072,9705,-7806],[2,9708,-7803]],[[0,4321,-4465],[2,10219,-14705],[2,13455,-14705],[2,13455,0],[2,10588,0],[2,10588,-10486],[2,4546,0],[2,1474,0],[2,1474,-14705],[2,4321,-14705],[2,4321,-4465]],[[0,4342,-4465],[2,10240,-14705],[2,13476,-14705],[2,13476,0],[2,10609,0],[2,10609,-10486],[2,4567,0],[2,1495,0],[2,1495,-14705],[2,4342,-14705],[2,4342,-4465],[0,11100,-17736],[1,11100,-16692,10424,-15893],[1,9461,-14746,7454,-14746],[1,5652,-14746,4792,-15934],[1,4198,-16753,4198,-17736],[2,5550,-17736],[1,5673,-17122,5939,-16835],[1,6451,-16303,7577,-16303],[1,8519,-16303,8949,-16508],[1,9604,-16815,9768,-17737],[2,11100,-17736]],[[0,4751,0],[2,1679,0],[2,1679,-14705],[2,4751,-14705],[2,4751,-8725],[2,10363,-14705],[2,14336,-14705],[2,8315,-8684],[2,14684,0],[2,10731,0],[2,6184,-6451],[2,4750,-4976],[2,4751,0]],[[0,5243,-12104],[2,5243,-4649],[1,5243,-2150,4065,-880],[1,2887,390,470,390],[2,470,-2293],[1,1576,-2293,2027,-2989],[1,2375,-3542,2375,-4648],[2,2375,-14704],[2,12533,-14704],[2,12533,1],[2,9461,1],[2,9461,-12103],[2,5243,-12104]],[[0,15770,0],[2,12903,0],[2,12903,-10650],[2,10118,0],[2,7107,0],[2,4424,-10650],[2,4383,0],[2,1516,0],[2,1516,-14705],[2,6001,-14705],[2,8663,-4547],[2,11325,-14705],[2,15769,-14705],[2,15770,0]],[[0,4608,-6595],[2,4628,0],[2,1556,0],[2,1556,-14705],[2,4628,-14705],[2,4628,-9134],[2,10362,-9134],[2,10362,-14705],[2,13434,-14705],[2,13434,0],[2,10342,0],[2,10342,-6595],[2,4608,-6595]]]}
+	"./src/PinkFieFonts.js": function(wpjsm) {
+		var base64 = "AQCMAQpOb3RvIFNhbnMAHwKACAAAgggAAPYIAAAeCQAAjwkAAFQKAACXCwAAhQwAAJoMAAAGDQAAcg0AALUNAADbDQAAHA4AAC4OAACPDgAApQ4AAIMPAADNDwAAdRAAAIcRAADrEQAAtRIAAPkTAAAWFAAAkRUAAMsWAACLFwAAKxgAAEwYAABtGAAAjRgAAKYZAADTGgAAEhsAAKsbAAAbHAAAaxwAAJMcAAC1HAAAMR0AAFkdAACFHQAAvh0AAPIdAAAJHgAAUB4AAJoeAAAaHwAAbR8AAPsfAABZIAAAByEAACQhAAB0IQAAoyEAAAUiAAA6IgAAYCIAAIYiAACjIgAAuSIAANUiAAD2IgAACCMAADIjAADYIwAAbCQAANMkAABjJQAA6CUAADgmAADpJgAARScAAIwnAAD6JwAANigAAEgoAADRKAAAJykAAKUpAAA3KgAAwSoAAAorAACpKwAA/isAAFQsAACPLAAADS0AAEEtAACiLQAAyC0AAHkuAACMLgAARy8AAOkvAADrLwAAODAAAKcwAAATMQAAuTEAAAIyAAAjMgAAJzMAAJQzAACmNAAAMTUAAHM1AACKNQAAnDUAAKc2AAC5NgAALjcAAGQ3AADQNwAAVjgAAIA4AADROAAAEjkAAEs5AACSOQAAvzkAADY6AAB4OgAA9zoAAKE7AAB5PAAAHz0AAIY9AADtPQAAXj4AAAc/AACxPwAAVUAAAJ1AAABSQQAAoUEAAPBBAABKQgAA3UIAADBDAACDQwAA4UMAAHhEAADdRAAAkUUAADlGAADhRgAAk0cAAH1IAABoSQAAn0kAAENKAAC6SgAAMUsAALNLAABuTAAAvEwAABtNAADkTQAAsk4AAIBPAABYUAAAaFEAAHhSAACMUwAAjlQAADlVAADlVQAAkVYAAEhXAAA3WAAAcFgAAKlYAADtWAAAaVkAAB9aAADgWgAAhVsAACpcAADaXAAAwl0AAKpeAAByXwAADWAAAItgAAAJYQAAkmEAAFNiAADbYgAAa2MAADZkAACFZAAAO2UAALllAACeZgAAGmcAAP1nAACVaAAAI2kAAMVpAABeagAABGsAAKBrAAA9bAAA0GwAAE1tAAAEbgAAaW4AAA1vAABFbwAA2W8AAD9wAAACcQAAX3EAABlyAAB9cgAAPnMAAJNzAABEdAAA8nQAANV1AACPdgAAf3cAADB4AAAWeQAAuXkAAJF6AADregAAeXsAAMV7AAA1fAAAy3wAAEd9AACDfQAApH0AAA9+AABffgAAx34AAEp/AACrfwAAvX8AACCAAADSgAAAPYEAAKiBAAADggAAZoIAAKCCAADfggAAGIMAAFaDAACPgwAAzYMAAAaEAABShAAAmYQAAM2EAAD8hAAAbYUAAOuFAABchgAA2YYAAFCHAADThwAARYgAAKWIAAAciQAArIkAADmKAAD4igAAtIsAAIOMAABPjQAA0Y0AALyOAABBjwAAsY8AADaQAACmkAAAMJEAAKWRAAB7kgAAQpMAACKUAADzlAAA5pUAAMqWAACllwAAcZgAANKYAABrmQAAtZkAADGaAABjmgAAx5oAAIGbAABCnAAAopwAAAidAACXnQAALJ4AAOqeAACunwAATaAAAPKgAAB+oQAAEaIAAKaiAABWowAArqMAAEGkAADSpAAAH6UAAGylAADHpQAAIqYAAHWmAADHpgAA/KYAAKSnAABoqAAAyKgAAGKpAADMqQAAVaoAAMWqAABiqwAA6qsAAE+sAADKrAAAI60AALmtAACHrgAArq4AADGvAADgrwAAIrAAAJqwAAA9sQAAzbEAAGWyAACpsgAA6bIAAFGzAACtswAA07MAAGi0AAAAtQAAcLUAAMe1AABStgAA8rYAAKG3AABguAAADrkAAIy5AABJugAAq7oAAFm7AAD3uwAALLwAAMC8AAAqvQAAbb0AAOa9AAApvgAAm74AABS/AACivwAABMAAAEnAAADEwAAAAsEAAD7BAACzwQAANMIAAJ3CAAA4wwAAvcMAADHEAACXxAAAHMUAAI/FAAChxQAAw8UAAP/FAABLxgAA7MYAAIzHAABsyAAAusgAAD3JAAC6yQAAO8oAAPDKAACyywAAHswAAPHMAABKzQAAiM0AADXOAADfzgAAXM8AAN/PAACo0AAAd9EAAE3SAAAp0wAAIdQAAB/VAAD11QAA0dYAAFbXAAAO2AAALdkAALHZAACc2gAA89oAAATcAACU3AAASd0AAPLdAADQ3gAAMN8AAJnfAABW4AAAEOEAAN3hAACn4gAASeMAAOPjAABI5AAAvOQAADDlAADk5QAAh+YAAF/nAADA5wAANOgAAKXoAAAj6QAA7OkAACjrAACX6wAAwOwA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LwEwATEBMgEzATQBNQE2ATcBOAE5AToBOwE8AT0BPgE/AUABQQFCAUMBRAFFAUYBRwFIAUkBSgFLAUwBTQFOAU8BUAFRAVIBUwFUAVUBVgFXAVgBWQFaAVsBXAFdAV4BXwFgAWEBYgFjAWQBZQFmAWcBaAFpAWoBawFsAW0BbgFvAXABcQFyAXMBdAF1AXYBdwF4AXkBegF7AXwBfQF+AX8BgAGBAYIBgwGEAYUBhgGHAYgBiQGKAYsBjAGNAY4BjwGQAZEBkgGTAZQBlQGWAZcBmAGZAZoBmwGcAZ0BngGfAaABoQGiAaMBpAGlAaYBpwGoAakBqgGrAawBrQGuAa8BsAGxAbIBswG0AbUBtgG3AbgBuQG6AbsBvAG9Ab4BvwHAAcEBwgHDAcQBxQHGAccByAHJAcoBywHMAc0BzgHPAdAB0QHSAdMB1AHVAdYB1wHYAdkB2gHbAdwB3QHeAd8B4AHhAeIB4wHkAeUB5gHnAegB6QHqAesB7AHtAe4B7wHwAfEB8gHzAfQB9QH2AfcB+AH5AfoB+wH8Af0B/gH/AcYC3AIAIAEgAiADIAQgBSAGIAcgCCAJIAogCyAMIA0gDiAPIBIgEyAUIBUgFiAXIBggGSAaIBsgHCAdIB4gHyAgICEgIiAmICogKyAsIC0gLiAvIDAgMiAzIDQgOSA6IDwgPiBEIF4gaiBrIGwgbSBuIG8goCChIKIgoyCkIKUgpiCnIKggqSCrIKwgrSCuIK8gsCCxILIgsyC0ILUguSC6IAUhEyEWIRchIiEmIS4hTSFOIVMhVCFbIVwhXSFeIYxVcBf8HMgUtB4oKEQ0yC1AQpg6GBpIHEgcmDAQLAAUMBt8FWAiECwQLBAsECwQLBAsECwQLBAsECyYF5gXECwQLBAsaCn0RywzCDSMMnA6iCyQKUg6TDscG+AViDH0KZRIyDyAPnAwgD7EMegriCyEOgwwdErgLlAtyC2EHGAihBwQLOQgaC7sLDgxcCY4MSgtlBs4MXQxoBSgFLwqoBTYSnQxcDA4MTgxDCFcJugcdDGgKOQ+WCrIKKglQB80KxQeECzIFJAVyC3ILcgtyC0QLBgpaC6QQpgctCjILcgZkEIwG0wiyC0MHAwcaC7YMWw0fBUMEgwcFB60KDQ/ND80P8QiLDMsMywzLDMsMywzeEaMMogsiCyILIgsHBscGxwbHBtwOsg8gD6APoA+gD6APhAsgD6EOoQ6hDqEOlAtcDB4Muws7CzsLOws7CzsLCRFcCYoLSgtKC0oLaAUoBSgFKAUcDB0MXAwcDBwMHAwcDAQLHAwdDF0MXQxdDHIKDgxyCgsM+wsLDPsLCwz7CyMMnAmjDJwJowycCaMMnAmcDo4MXA6YDGILCgtiCwoLYgsKC2ILCgtiCwoLUg6ODFIOjgxSDo4MUg6ODFMO3QxTDt0MRwboBQcG6AUHBugFBwboBQcG6AU/DAsKeAVoBSIMbwqvCr0KaAU9CmgFPQpoBT0KQQa9CmgFMg8dDHIPHQxyDx0MVA3yDx0MYA+cDCAPnAwgD5wMExKtEvEMQwhxDEMIcQxDCHoK1wm6CtcJugrXCboK1wmiCzoHIgs6ByILOgchDp0MYQ6dDGEOnQxhDp0MYQ6dDGEOnQxdErkPlAtyChQLcgtqCXILaglyC2oJRgaODFwOjgxODHIMvwwjDKMMjwocDrYQDgxODFcMIgsJDsIL5ApyC1IOqAtxErkGxwbiDG8KqAUXCtsUsg8dDGUPrw+TDEEVqhD2DY4McQx6CtcJqAtxBjoHBgu6ByILGw+6DWUPgwwUC1cK8gtqCW4Lrgu2CfYJ6AtuC44Jwgl9C5UKVQpVCmQFVxnBGDMVsA/lD5UKahSfFEURiwz7CwcG6AUgD5wMIQ6dDGEOnQxhDp0MYQ6dDGEOnQxKC0sM+wsLDPsLHhGJEVIOjgxSDo4MYgxvCqAPnAwgD5wMLgu2CegFFxnBGDMVkg6ODEUS+Q0yDx0MUAz7Cx4RiRFgD5wMAAAAAAAKABQACgAUKQaABRcDcQsfBUEEAwIAAAAAAAAAAAAAMgtACgAUABQECzkIAAZ7BgAFPwNACgAKEghwBwEKQQpFB5gQAAAAAAAAAAAAAAEECReDBKoIEQv2BjYGOwnAChkCnwVAAAAAAAAAAAAAAAAyC3ILcgtyC3ILdhKyC0cPqRCmDVgMcgtyC3ILahNyC3ILUg6rDDoK4wyECzILbRBpCmkUZBC4D2UPogxwDoAIzQ/ND80PzQ/ND80PwgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAAA";
+		var str = atob(base64);
+		var data = new Uint8Array(str.length);
+		for (let i = 0; i < data.length; i++) {
+			data[i] = str.charCodeAt(i);
+		}
+		wpjsm.exportJS = data;
 	},
-	"src/PinkFiePlayer.js": function(wpjsm){
-		const Loader = wpjsm.importJS("src/IO.js");
+	"./src/PinkFiePlayer.js": function(wpjsm) {
+		const Loader = wpjsm.importJS("./src/IO.js");
+		const log = wpjsm.importJS("./src/log.js");
 		
 		function getDuraction(num) {
 			var txt = '';
@@ -16497,6 +17769,19 @@ var PinkFie = (function(moduleResults) {
 			}
 			return txt;
 		}
+		
+		function getByteText(byte) {
+			if (byte >= 1000000) {
+				return "" + (Math.floor(byte / 10000) / 100) + "MB";
+			} else {
+				if (byte >= 1000) {
+					return "" + Math.floor(byte / 1000) + "KB";
+				} else {
+					return "" + byte + "B";
+				}
+			}
+		}
+		
 		class Slot {
 			constructor() {
 				this._listeners = [];
@@ -16510,11 +17795,503 @@ var PinkFie = (function(moduleResults) {
 				}
 			}
 		}
-		const SC = {
-			"FWS": "Uncompressed",
-			"CWS": "ZLib",
-			"ZWS": "LZMA",
+
+		function JPEGEncoder(quality) {
+			var self = this;
+			var fround = Math.round;
+			var ffloor = Math.floor;
+			var YTable = new Array(64);
+			var UVTable = new Array(64);
+			var fdtbl_Y = new Array(64);
+			var fdtbl_UV = new Array(64);
+			var YDC_HT;
+			var UVDC_HT;
+			var YAC_HT;
+			var UVAC_HT;
+			var bitcode = new Array(65535);
+			var category = new Array(65535);
+			var outputfDCTQuant = new Array(64);
+			var DU = new Array(64);
+			var byteout = [];
+			var bytenew = 0;
+			var bytepos = 7;
+			var YDU = new Array(64);
+			var UDU = new Array(64);
+			var VDU = new Array(64);
+			var clt = new Array(256);
+			var RGB_YUV_TABLE = new Array(2048);
+			var currentQuality;
+			var ZigZag = [0, 1, 5, 6, 14, 15, 27, 28, 2, 4, 7, 13, 16, 26, 29, 42, 3, 8, 12, 17, 25, 30, 41, 43, 9, 11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32, 39, 45, 52, 54, 20, 22, 33, 38, 46, 51, 55, 60, 21, 34, 37, 47, 50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63];
+			var std_dc_luminance_nrcodes = [0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+			var std_dc_luminance_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+			var std_ac_luminance_nrcodes = [0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125];
+			var std_ac_luminance_values = [1, 2, 3, 0, 4, 17, 5, 18, 33, 49, 65, 6, 19, 81, 97, 7, 34, 113, 20, 50, 129, 145, 161, 8, 35, 66, 177, 193, 21, 82, 209, 240, 36, 51, 98, 114, 130, 9, 10, 22, 23, 24, 25, 26, 37, 38, 39, 40, 41, 42, 52, 53, 54, 55, 56, 57, 58, 67, 68, 69, 70, 71, 72, 73, 74, 83, 84, 85, 86, 87, 88, 89, 90, 99, 100, 101, 102, 103, 104, 105, 106, 115, 116, 117, 118, 119, 120, 121, 122, 131, 132, 133, 134, 135, 136, 137, 138, 146, 147, 148, 149, 150, 151, 152, 153, 154, 162, 163, 164, 165, 166, 167, 168, 169, 170, 178, 179, 180, 181, 182, 183, 184, 185, 186, 194, 195, 196, 197, 198, 199, 200, 201, 202, 210, 211, 212, 213, 214, 215, 216, 217, 218, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250];
+			var std_dc_chrominance_nrcodes = [0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0];
+			var std_dc_chrominance_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+			var std_ac_chrominance_nrcodes = [0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119];
+			var std_ac_chrominance_values = [0, 1, 2, 3, 17, 4, 5, 33, 49, 6, 18, 65, 81, 7, 97, 113, 19, 34, 50, 129, 8, 20, 66, 145, 161, 177, 193, 9, 35, 51, 82, 240, 21, 98, 114, 209, 10, 22, 36, 52, 225, 37, 241, 23, 24, 25, 26, 38, 39, 40, 41, 42, 53, 54, 55, 56, 57, 58, 67, 68, 69, 70, 71, 72, 73, 74, 83, 84, 85, 86, 87, 88, 89, 90, 99, 100, 101, 102, 103, 104, 105, 106, 115, 116, 117, 118, 119, 120, 121, 122, 130, 131, 132, 133, 134, 135, 136, 137, 138, 146, 147, 148, 149, 150, 151, 152, 153, 154, 162, 163, 164, 165, 166, 167, 168, 169, 170, 178, 179, 180, 181, 182, 183, 184, 185, 186, 194, 195, 196, 197, 198, 199, 200, 201, 202, 210, 211, 212, 213, 214, 215, 216, 217, 218, 226, 227, 228, 229, 230, 231, 232, 233, 234, 242, 243, 244, 245, 246, 247, 248, 249, 250];
+			function initQuantTables(sf) {
+				var YQT = [16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56, 14, 17, 22, 29, 51, 87, 80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92, 95, 98, 112, 100, 103, 99];
+				for (var i = 0; i < 64; i++) {
+					var t = ffloor((YQT[i] * sf + 50) / 100);
+					if (t < 1) {
+						t = 1
+					} else if (t > 255) {
+						t = 255
+					}
+					YTable[ZigZag[i]] = t
+				}
+				var UVQT = [17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99, 99, 47, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99];
+				for (var j = 0; j < 64; j++) {
+					var u = ffloor((UVQT[j] * sf + 50) / 100);
+					if (u < 1) {
+						u = 1
+					} else if (u > 255) {
+						u = 255
+					}
+					UVTable[ZigZag[j]] = u
+				}
+				var aasf = [1, 1.387039845, 1.306562965, 1.175875602, 1, .785694958, .5411961, .275899379];
+				var k = 0;
+				for (var row = 0; row < 8; row++) {
+					for (var col = 0; col < 8; col++) {
+						fdtbl_Y[k] = 1 / (YTable[ZigZag[k]] * aasf[row] * aasf[col] * 8);
+						fdtbl_UV[k] = 1 / (UVTable[ZigZag[k]] * aasf[row] * aasf[col] * 8);
+						k++
+					}
+				}
+			}
+			function computeHuffmanTbl(nrcodes, std_table) {
+				var codevalue = 0;
+				var pos_in_table = 0;
+				var HT = new Array;
+				for (var k = 1; k <= 16; k++) {
+					for (var j = 1; j <= nrcodes[k]; j++) {
+						HT[std_table[pos_in_table]] = [];
+						HT[std_table[pos_in_table]][0] = codevalue;
+						HT[std_table[pos_in_table]][1] = k;
+						pos_in_table++;
+						codevalue++
+					}
+					codevalue *= 2
+				}
+				return HT
+			}
+			function initHuffmanTbl() {
+				YDC_HT = computeHuffmanTbl(std_dc_luminance_nrcodes, std_dc_luminance_values);
+				UVDC_HT = computeHuffmanTbl(std_dc_chrominance_nrcodes, std_dc_chrominance_values);
+				YAC_HT = computeHuffmanTbl(std_ac_luminance_nrcodes, std_ac_luminance_values);
+				UVAC_HT = computeHuffmanTbl(std_ac_chrominance_nrcodes, std_ac_chrominance_values)
+			}
+			function initCategoryNumber() {
+				var nrlower = 1;
+				var nrupper = 2;
+				for (var cat = 1; cat <= 15; cat++) {
+					for (var nr = nrlower; nr < nrupper; nr++) {
+						category[32767 + nr] = cat;
+						bitcode[32767 + nr] = [];
+						bitcode[32767 + nr][1] = cat;
+						bitcode[32767 + nr][0] = nr
+					}
+					for (var nrneg = -(nrupper - 1); nrneg <= -nrlower; nrneg++) {
+						category[32767 + nrneg] = cat;
+						bitcode[32767 + nrneg] = [];
+						bitcode[32767 + nrneg][1] = cat;
+						bitcode[32767 + nrneg][0] = nrupper - 1 + nrneg
+					}
+					nrlower <<= 1;
+					nrupper <<= 1
+				}
+			}
+			function initRGBYUVTable() {
+				for (var i = 0; i < 256; i++) {
+					RGB_YUV_TABLE[i] = 19595 * i;
+					RGB_YUV_TABLE[i + 256 >> 0] = 38470 * i;
+					RGB_YUV_TABLE[i + 512 >> 0] = 7471 * i + 32768;
+					RGB_YUV_TABLE[i + 768 >> 0] = -11059 * i;
+					RGB_YUV_TABLE[i + 1024 >> 0] = -21709 * i;
+					RGB_YUV_TABLE[i + 1280 >> 0] = 32768 * i + 8421375;
+					RGB_YUV_TABLE[i + 1536 >> 0] = -27439 * i;
+					RGB_YUV_TABLE[i + 1792 >> 0] = -5329 * i
+				}
+			}
+			function writeBits(bs) {
+				var value = bs[0];
+				var posval = bs[1] - 1;
+				while (posval >= 0) {
+					if (value & 1 << posval) {
+						bytenew |= 1 << bytepos
+					}
+					posval--;
+					bytepos--;
+					if (bytepos < 0) {
+						if (bytenew == 255) {
+							writeByte(255);
+							writeByte(0)
+						} else {
+							writeByte(bytenew)
+						}
+						bytepos = 7;
+						bytenew = 0
+					}
+				}
+			}
+			function writeByte(value) {
+				byteout.push(value)
+			}
+			function writeWord(value) {
+				writeByte(value >> 8 & 255);
+				writeByte(value & 255)
+			}
+			function fDCTQuant(data, fdtbl) {
+				var d0, d1, d2, d3, d4, d5, d6, d7;
+				var dataOff = 0;
+				var i;
+				var I8 = 8;
+				var I64 = 64;
+				for (i = 0; i < I8; ++i) {
+					d0 = data[dataOff];
+					d1 = data[dataOff + 1];
+					d2 = data[dataOff + 2];
+					d3 = data[dataOff + 3];
+					d4 = data[dataOff + 4];
+					d5 = data[dataOff + 5];
+					d6 = data[dataOff + 6];
+					d7 = data[dataOff + 7];
+					var tmp0 = d0 + d7;
+					var tmp7 = d0 - d7;
+					var tmp1 = d1 + d6;
+					var tmp6 = d1 - d6;
+					var tmp2 = d2 + d5;
+					var tmp5 = d2 - d5;
+					var tmp3 = d3 + d4;
+					var tmp4 = d3 - d4;
+					var tmp10 = tmp0 + tmp3;
+					var tmp13 = tmp0 - tmp3;
+					var tmp11 = tmp1 + tmp2;
+					var tmp12 = tmp1 - tmp2;
+					data[dataOff] = tmp10 + tmp11;
+					data[dataOff + 4] = tmp10 - tmp11;
+					var z1 = (tmp12 + tmp13) * .707106781;
+					data[dataOff + 2] = tmp13 + z1;
+					data[dataOff + 6] = tmp13 - z1;
+					tmp10 = tmp4 + tmp5;
+					tmp11 = tmp5 + tmp6;
+					tmp12 = tmp6 + tmp7;
+					var z5 = (tmp10 - tmp12) * .382683433;
+					var z2 = .5411961 * tmp10 + z5;
+					var z4 = 1.306562965 * tmp12 + z5;
+					var z3 = tmp11 * .707106781;
+					var z11 = tmp7 + z3;
+					var z13 = tmp7 - z3;
+					data[dataOff + 5] = z13 + z2;
+					data[dataOff + 3] = z13 - z2;
+					data[dataOff + 1] = z11 + z4;
+					data[dataOff + 7] = z11 - z4;
+					dataOff += 8
+				}
+				dataOff = 0;
+				for (i = 0; i < I8; ++i) {
+					d0 = data[dataOff];
+					d1 = data[dataOff + 8];
+					d2 = data[dataOff + 16];
+					d3 = data[dataOff + 24];
+					d4 = data[dataOff + 32];
+					d5 = data[dataOff + 40];
+					d6 = data[dataOff + 48];
+					d7 = data[dataOff + 56];
+					var tmp0p2 = d0 + d7;
+					var tmp7p2 = d0 - d7;
+					var tmp1p2 = d1 + d6;
+					var tmp6p2 = d1 - d6;
+					var tmp2p2 = d2 + d5;
+					var tmp5p2 = d2 - d5;
+					var tmp3p2 = d3 + d4;
+					var tmp4p2 = d3 - d4;
+					var tmp10p2 = tmp0p2 + tmp3p2;
+					var tmp13p2 = tmp0p2 - tmp3p2;
+					var tmp11p2 = tmp1p2 + tmp2p2;
+					var tmp12p2 = tmp1p2 - tmp2p2;
+					data[dataOff] = tmp10p2 + tmp11p2;
+					data[dataOff + 32] = tmp10p2 - tmp11p2;
+					var z1p2 = (tmp12p2 + tmp13p2) * .707106781;
+					data[dataOff + 16] = tmp13p2 + z1p2;
+					data[dataOff + 48] = tmp13p2 - z1p2;
+					tmp10p2 = tmp4p2 + tmp5p2;
+					tmp11p2 = tmp5p2 + tmp6p2;
+					tmp12p2 = tmp6p2 + tmp7p2;
+					var z5p2 = (tmp10p2 - tmp12p2) * .382683433;
+					var z2p2 = .5411961 * tmp10p2 + z5p2;
+					var z4p2 = 1.306562965 * tmp12p2 + z5p2;
+					var z3p2 = tmp11p2 * .707106781;
+					var z11p2 = tmp7p2 + z3p2;
+					var z13p2 = tmp7p2 - z3p2;
+					data[dataOff + 40] = z13p2 + z2p2;
+					data[dataOff + 24] = z13p2 - z2p2;
+					data[dataOff + 8] = z11p2 + z4p2;
+					data[dataOff + 56] = z11p2 - z4p2;
+					dataOff++
+				}
+				var fDCTQuant;
+				for (i = 0; i < I64; ++i) {
+					fDCTQuant = data[i] * fdtbl[i];
+					outputfDCTQuant[i] = fDCTQuant > 0 ? fDCTQuant + .5 | 0 : fDCTQuant - .5 | 0
+				}
+				return outputfDCTQuant
+			}
+			function writeAPP0() {
+				writeWord(65504);
+				writeWord(16);
+				writeByte(74);
+				writeByte(70);
+				writeByte(73);
+				writeByte(70);
+				writeByte(0);
+				writeByte(1);
+				writeByte(1);
+				writeByte(0);
+				writeWord(1);
+				writeWord(1);
+				writeByte(0);
+				writeByte(0)
+			}
+			function writeSOF0(width, height) {
+				writeWord(65472);
+				writeWord(17);
+				writeByte(8);
+				writeWord(height);
+				writeWord(width);
+				writeByte(3);
+				writeByte(1);
+				writeByte(17);
+				writeByte(0);
+				writeByte(2);
+				writeByte(17);
+				writeByte(1);
+				writeByte(3);
+				writeByte(17);
+				writeByte(1)
+			}
+			function writeDQT() {
+				writeWord(65499);
+				writeWord(132);
+				writeByte(0);
+				for (var i = 0; i < 64; i++) {
+					writeByte(YTable[i])
+				}
+				writeByte(1);
+				for (var j = 0; j < 64; j++) {
+					writeByte(UVTable[j])
+				}
+			}
+			function writeDHT() {
+				writeWord(65476);
+				writeWord(418);
+				writeByte(0);
+				for (var i = 0; i < 16; i++) {
+					writeByte(std_dc_luminance_nrcodes[i + 1])
+				}
+				for (var j = 0; j <= 11; j++) {
+					writeByte(std_dc_luminance_values[j])
+				}
+				writeByte(16);
+				for (var k = 0; k < 16; k++) {
+					writeByte(std_ac_luminance_nrcodes[k + 1])
+				}
+				for (var l = 0; l <= 161; l++) {
+					writeByte(std_ac_luminance_values[l])
+				}
+				writeByte(1);
+				for (var m = 0; m < 16; m++) {
+					writeByte(std_dc_chrominance_nrcodes[m + 1])
+				}
+				for (var n = 0; n <= 11; n++) {
+					writeByte(std_dc_chrominance_values[n])
+				}
+				writeByte(17);
+				for (var o = 0; o < 16; o++) {
+					writeByte(std_ac_chrominance_nrcodes[o + 1])
+				}
+				for (var p = 0; p <= 161; p++) {
+					writeByte(std_ac_chrominance_values[p])
+				}
+			}
+			function writeSOS() {
+				writeWord(65498);
+				writeWord(12);
+				writeByte(3);
+				writeByte(1);
+				writeByte(0);
+				writeByte(2);
+				writeByte(17);
+				writeByte(3);
+				writeByte(17);
+				writeByte(0);
+				writeByte(63);
+				writeByte(0)
+			}
+			function processDU(CDU, fdtbl, DC, HTDC, HTAC) {
+				var EOB = HTAC[0];
+				var M16zeroes = HTAC[240];
+				var pos;
+				var I16 = 16;
+				var I63 = 63;
+				var I64 = 64;
+				var DU_DCT = fDCTQuant(CDU, fdtbl);
+				for (var j = 0; j < I64; ++j) {
+					DU[ZigZag[j]] = DU_DCT[j]
+				}
+				var Diff = DU[0] - DC;
+				DC = DU[0];
+				if (Diff == 0) {
+					writeBits(HTDC[0])
+				} else {
+					pos = 32767 + Diff;
+					writeBits(HTDC[category[pos]]);
+					writeBits(bitcode[pos])
+				}
+				var end0pos = 63;
+				for (; end0pos > 0 && DU[end0pos] == 0; end0pos--) {}
+				if (end0pos == 0) {
+					writeBits(EOB);
+					return DC
+				}
+				var i = 1;
+				var lng;
+				while (i <= end0pos) {
+					var startpos = i;
+					for (; DU[i] == 0 && i <= end0pos; ++i) {}
+					var nrzeroes = i - startpos;
+					if (nrzeroes >= I16) {
+						lng = nrzeroes >> 4;
+						for (var nrmarker = 1; nrmarker <= lng; ++nrmarker)
+							writeBits(M16zeroes);
+						nrzeroes = nrzeroes & 15
+					}
+					pos = 32767 + DU[i];
+					writeBits(HTAC[(nrzeroes << 4) + category[pos]]);
+					writeBits(bitcode[pos]);
+					i++
+				}
+				if (end0pos != I63) {
+					writeBits(EOB)
+				}
+				return DC
+			}
+			function initCharLookupTable() {
+				var sfcc = String.fromCharCode;
+				for (var i = 0; i < 256; i++) {
+					clt[i] = sfcc(i)
+				}
+			}
+			this.encode = function(image, quality) {
+				if (quality)
+					setQuality(quality);
+				byteout = new Array;
+				bytenew = 0;
+				bytepos = 7;
+				writeWord(65496);
+				writeAPP0();
+				writeDQT();
+				writeSOF0(image.width, image.height);
+				writeDHT();
+				writeSOS();
+				var DCY = 0;
+				var DCU = 0;
+				var DCV = 0;
+				bytenew = 0;
+				bytepos = 7;
+				this.encode.displayName = "_encode_";
+				var imageData = image.data;
+				var width = image.width;
+				var height = image.height;
+				var quadWidth = width * 4;
+				var tripleWidth = width * 3;
+				var x, y = 0;
+				var r, g, b;
+				var start, p, col, row, pos;
+				while (y < height) {
+					x = 0;
+					while (x < quadWidth) {
+						start = quadWidth * y + x;
+						p = start;
+						col = -1;
+						row = 0;
+						for (pos = 0; pos < 64; pos++) {
+							row = pos >> 3;
+							col = (pos & 7) * 4;
+							p = start + row * quadWidth + col;
+							if (y + row >= height) {
+								p -= quadWidth * (y + 1 + row - height)
+							}
+							if (x + col >= quadWidth) {
+								p -= x + col - quadWidth + 4
+							}
+							r = imageData[p++];
+							g = imageData[p++];
+							b = imageData[p++];
+							YDU[pos] = (RGB_YUV_TABLE[r] + RGB_YUV_TABLE[g + 256 >> 0] + RGB_YUV_TABLE[b + 512 >> 0] >> 16) - 128;
+							UDU[pos] = (RGB_YUV_TABLE[r + 768 >> 0] + RGB_YUV_TABLE[g + 1024 >> 0] + RGB_YUV_TABLE[b + 1280 >> 0] >> 16) - 128;
+							VDU[pos] = (RGB_YUV_TABLE[r + 1280 >> 0] + RGB_YUV_TABLE[g + 1536 >> 0] + RGB_YUV_TABLE[b + 1792 >> 0] >> 16) - 128
+						}
+						DCY = processDU(YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
+						DCU = processDU(UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
+						DCV = processDU(VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
+						x += 32
+					}
+					y += 8
+				}
+				if (bytepos >= 0) {
+					var fillbits = [];
+					fillbits[1] = bytepos + 1;
+					fillbits[0] = (1 << bytepos + 1) - 1;
+					writeBits(fillbits)
+				}
+				writeWord(65497);
+				return new Uint8Array(byteout);
+			}
+			;
+			function setQuality(quality) {
+				if (quality <= 0) {
+					quality = 1
+				}
+				if (quality > 100) {
+					quality = 100
+				}
+				if (currentQuality == quality)
+					return;
+				var sf = 0;
+				if (quality < 50) {
+					sf = Math.floor(5e3 / quality)
+				} else {
+					sf = Math.floor(200 - quality * 2)
+				}
+				initQuantTables(sf);
+				currentQuality = quality
+			}
+			function init() {
+				if (!quality)
+					quality = 50;
+				initCharLookupTable();
+				initHuffmanTbl();
+				initCategoryNumber();
+				initRGBYUVTable();
+				setQuality(quality);
+			}
+			init()
 		}
+		function jpeg_encode(imgData, qu) {
+			if (typeof qu === "undefined")
+				qu = 50;
+			var encoder = new JPEGEncoder(qu);
+			var data = encoder.encode(imgData, qu);
+			return {
+				data: data,
+				width: imgData.width,
+				height: imgData.height
+			}
+		}
+
 		class ScreenCap {
 			constructor() {
 				this.canvas = document.createElement("canvas");
@@ -16526,6 +18303,14 @@ var PinkFie = (function(moduleResults) {
 				this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
 				return this.canvas.toDataURL();
 			}
+			scanWithJPEG(image, width, height) {
+				this.canvas.width = width || image.width;
+				this.canvas.height = height || image.height;
+				this.ctx.drawImage(image, 0, 0, this.canvas.width, this.canvas.height);
+				var imgData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+				var result = jpeg_encode(imgData, 80);
+				return result.data;
+			}
 			scanWithBlob(image, callback) {
 				this.canvas.width = image.width;
 				this.canvas.height = image.height;
@@ -16535,7 +18320,8 @@ var PinkFie = (function(moduleResults) {
 		}
 
 		class LoaderSwfUrl {
-			constructor(callback, callback2) {
+			constructor(url, callback, callback2) {
+				this.url = url;
 				this.callback = callback;
 				this.callback2 = callback2;
 			}
@@ -16546,13 +18332,17 @@ var PinkFie = (function(moduleResults) {
 			fetchSwfMd5(md5, callback, callbackProgress) {
 				var xhr = new XMLHttpRequest();
 				xhr.onload = function () {
-					callback(new Uint8Array(xhr.response.slice(0x2c)));
+					if (xhr.status == 200) {
+						callback(new Uint8Array(xhr.response.slice(0x2c)));
+					} else {
+						callback(null, xhr.status);
+					}
 				};
 				xhr.onprogress = function (e) {
-					if (callbackProgress) callbackProgress(e.loaded / e.total);
+					if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
 				};
 				xhr.onerror = function () {
-					callback(null);
+					callback(null, "");
 				};
 				xhr.responseType = "arraybuffer";
 				xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
@@ -16560,7 +18350,6 @@ var PinkFie = (function(moduleResults) {
 			}
 			fetchSwfUrl(url, callback, callbackProgress) {
 				var _this = this;
-				var xhr = new XMLHttpRequest();
 				if (Array.isArray(url)) {
 					var result = [];
 					var id_md5 = 0;
@@ -16582,9 +18371,9 @@ var PinkFie = (function(moduleResults) {
 						}
 					}
 					function _next() {
-						_this.fetchSwfMd5(url[id_md5], function(res) {
+						_this.fetchSwfMd5(url[id_md5], function(res, status) {
 							if (!res) {
-								callback(null, "failed md5");
+								callback(null, "failed md5: " + status);
 								return;
 							}
 							id_md5++;
@@ -16594,12 +18383,13 @@ var PinkFie = (function(moduleResults) {
 							} else {
 								_next();
 							}
-						}, function(_p) {
-							if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length));
+						}, function(_p, l, t) {
+							if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length), l, t);
 						});
 					}
 					_next();
 				} else {
+					var xhr = new XMLHttpRequest();
 					xhr.onload = function () {
 						if (xhr.status !== 200) {
 							callback(null, xhr.status || xhr.statusText);
@@ -16609,7 +18399,7 @@ var PinkFie = (function(moduleResults) {
 						}
 					};
 					xhr.onprogress = function (e) {
-						if (callbackProgress) callbackProgress(e.loaded / e.total);
+						if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
 					};
 					xhr.onerror = function () {
 						callback(null, "unknown");
@@ -16619,8 +18409,9 @@ var PinkFie = (function(moduleResults) {
 					xhr.send();
 				}
 			}
-			load(url) {
+			load() {
 				var _this = this;
+				var url = this.url;
 				this.fetchSwfUrl(url, function() {
 					if (_this.callback) _this.callback(...arguments);
 				}, function() {
@@ -16665,15 +18456,13 @@ var PinkFie = (function(moduleResults) {
 				this.tickTime = 0;
 				this.isLoad = false;
 				this.loaded = 0;
-				this.loadedTick = 0;
 
 				this.swfData = null;
-
-				this.debugSample = false;
 		
-				this.addMenuVerticals();
 				this.addStatsControls();
 				this.addloadingC();
+				this.addLogC();
+				this.addMenuVerticals();
 				this.addSettingVerticals();
 		
 				this.setOptions(Object.assign(Object.assign({}, options), Player.DEFAULT_OPTIONS));
@@ -16686,6 +18475,11 @@ var PinkFie = (function(moduleResults) {
 						if ((e.target === this.stage.canvas) || (e.target === this.clickToPlayContainer)) {
 							e.preventDefault();
 							this.sendList(e);
+						}
+					} else {
+						if (e.target === this.loadingContainer) {
+							e.preventDefault();
+							this.sendList(e);	
 						}
 					}
 				});
@@ -16779,6 +18573,8 @@ var PinkFie = (function(moduleResults) {
 					this.MenuVertical.style.display = 'none';
 				});
 
+				this.swfDataElement.style.display = 'none';
+
 				this.MenuVertical.appendChild(this.swfDataElement);
 				var rr = this._createE('Settings', (e) => {
 					e.preventDefault();
@@ -16789,6 +18585,60 @@ var PinkFie = (function(moduleResults) {
 				this.MenuVertical.style.display = 'none';
 				this.playerContainer.appendChild(this.MenuVertical);
 			}
+			addLogC() {
+				this.logVertical = document.createElement('div');
+				this.logVertical.className = 'watcher-pinkfie-setting';
+				this.logVertical.style = '';
+				this.logVertical.style.display = 'none';
+				this.logVertical.style.overflow = 'auto';
+				this.logVertical.style.position = 'absolute';
+				this.logVertical.style.bottom = '0';
+				this.logVertical.style.left = '50%';
+				this.logVertical.style.padding = '6px';
+				this.logVertical.style.transform = 'translate(-50%, 0)';
+				this.logVertical.style.background = 'rgba(0, 0, 0, 0.6)';
+				this.logVertical.style.width = '360px';
+				this.logVertical.style.height = 'auto';
+				this.logVertical.innerHTML = '<h3 style="margin:0;">Logs</h3>';
+				var rrj2 = document.createElement('a');
+				rrj2.onclick = () => {
+					this.logVertical.style.display = 'none';
+				};
+				rrj2.style = '';
+				rrj2.style.position = 'fixed';
+				rrj2.style.top = '0px';
+				rrj2.style.right = '0px';
+				rrj2.innerHTML = "[x]";
+				var _fn = (player, type, messages) => {
+					if (player === this) {
+						var str = "";
+						for (let i = 0; i < messages.length; i++) {
+							const message = messages[i];
+							str += message;
+							if (i != (messages.length - 1)) str += ", ";
+						}
+						this.logEmitMessage(type, str);
+					}
+				}
+				log.subscribe([this, _fn]);
+				this.logVertical.appendChild(rrj2);
+
+				this.logScene = document.createElement('div');
+				this.logScene.style.width = '360px';
+				this.logScene.style.height = '80px';
+				this.logScene.style.overflow = 'auto';
+
+				this.logVertical.appendChild(this.logScene);
+				this.playerContainer.appendChild(this.logVertical);
+			}
+			logEmitMessage(type, message) {
+				var content = document.createElement('p');
+
+				content.textContent = message;
+
+				this.logScene.appendChild(content);
+			}
+
 			addSettingVerticals() {
 				this.settingVertical = document.createElement('div');
 				this.settingVertical.className = 'watcher-pinkfie-setting';
@@ -16931,8 +18781,7 @@ var PinkFie = (function(moduleResults) {
 				fdfj.max = 2;
 				fdfj.addEventListener("input", () => {
 					if (fdfj.value && this.stage) {
-						var clip = this.stage.clip;
-						if (clip) clip.gotoFrame(+fdfj.value, !clip.isPlaying);
+						this.stage.gotoFrame(+fdfj.value);
 					}
 				});
 				this.__fdfj = fdfj;
@@ -16984,7 +18833,7 @@ var PinkFie = (function(moduleResults) {
 
 				fdgdf2.onclick = () => {
 					if (this.stage) {
-						this.stage.audio.stopAllSounds();
+						this.stage.stopAllSounds();
 					}
 				}
 
@@ -17087,11 +18936,6 @@ var PinkFie = (function(moduleResults) {
 				this.MenuVertical.style.top = (event.clientY - rect.top) + 'px';
 				this.MenuVertical.style.left = (event.clientX - rect.left) + 'px';
 				this.MenuVertical.style.height = 'auto';
-				if (this.swfData) {
-					this.swfDataElement.style.display = '';
-				} else {
-					this.swfDataElement.style.display = 'none';
-				}
 				if (this.hasStage() && this.stage.playing) {
 					this.movie_playPause.innerHTML = "Pause";
 				} else {
@@ -17122,16 +18966,16 @@ var PinkFie = (function(moduleResults) {
 				if (!this.isLoad) return;
 				var j = this.getSwfName();
 				this.stage.render();
-				var h = this.scanned.scan(_movieCanvas);
+				var _j = this.scanned.scanWithJPEG(_movieCanvas);
+				var _h = new Blob([_j]);
 				var a = document.createElement("a");
-				a.href = h;
-				a.download = j + ".png";
+				a.href = URL.createObjectURL(_h);
+				a.download = j + ".jpg";
 				a.click();
 			}
 			downloadSwf() {
-				if (!this.hasStage()) return;
 				if (!this.swfData) return;
-				var j = this.getSwfName();
+				var j = this.hasStage() ? this.getSwfName() : "swf_download";
 				var h = URL.createObjectURL(this.swfData);
 				var a = document.createElement("a");
 				a.href = h;
@@ -17140,10 +18984,7 @@ var PinkFie = (function(moduleResults) {
 			}
 			isPlayMovie() {
 				if (!this.hasStage()) return false;
-				if (this.stage.clip) {
-					return this.stage.clip.isPlaying;
-				}
-				return false;
+				return this.stage.clipIsPlaying();
 			}
 			isLoopMovie() {
 				if (!this.hasStage()) return false;
@@ -17151,23 +18992,23 @@ var PinkFie = (function(moduleResults) {
 			}
 			c_playStop() {
 				if (!this.hasStage()) return;
-				this.stage.togglePlayRootMovie();
+				this.stage.runMenu("play/stop");
 			}
 			c_loop() {
 				if (!this.hasStage()) return;
-				this.stage.clipSetLoop(!this.stage.clipGetLoop());
+				this.stage.runMenu("loop");
 			}
 			c_rewind() {
 				if (!this.hasStage()) return;
-				this.stage.rewindRootMovie();
+				this.stage.runMenu("rewind");
 			}
 			c_Forward() {
 				if (!this.hasStage()) return;
-				this.stage.forwardRootMovie();
+				this.stage.runMenu("forward");
 			}
 			c_Back() {
 				if (!this.hasStage()) return;
-				this.stage.backRootMovie();
+				this.stage.runMenu("back");
 			}
 			setOptions(changedOptions) {
 				this.options = Object.assign(Object.assign({}, this.options), changedOptions);
@@ -17257,16 +19098,6 @@ var PinkFie = (function(moduleResults) {
 				document.body.classList.remove('pinkfie-body-fullscreen');
 				this._resize(this.width, this.height);
 			}
-			playMovie() {
-				if (this.stage) {
-					this.stage.clipPlay();
-				}
-			}
-			stopMovie() {
-				if (this.stage) {
-					this.stage.clipStop();
-				}
-			}
 			handleError(error) {
 				console.log(error);
 				this.onerror.emit(error);
@@ -17284,7 +19115,6 @@ var PinkFie = (function(moduleResults) {
 				loader.audioContext = this.audioContext;
 				loader.onprogress = function (fs) {
 					var r = fs[1];
-					_this.loadedTick = r;
 					_this.onprogress.emit(r);
 					_this.loadingContainerProgressText.textContent = loader.progressText;
 					_this.loadingContainerProgress.style.width = (r * 100) + "%";
@@ -17302,6 +19132,7 @@ var PinkFie = (function(moduleResults) {
 			loadSwfFromFile(file) {
 				this.beginLoadingSWF();
 				this.loadingContainerProgressText.textContent = "Loading SWF Data";
+				this.swfData = file;
 				var loader = new Loader(file);
 				this.loadLoader(loader);
 			}
@@ -17309,8 +19140,9 @@ var PinkFie = (function(moduleResults) {
 				this.beginLoadingSWF();
 				this.loadingContainerProgressText.textContent = "Loading SWF URL";
 				var _this = this;
-				var loaderC = new LoaderSwfUrl(function (file, status) {
+				var loaderC = new LoaderSwfUrl(url, function (file, status) {
 					_this.swfData = file;
+					_this.swfDataElement.style.display = '';
 					_this.__fdgdf.style.display = "";
 					if (file) {
 						var loader = new Loader(file);
@@ -17318,11 +19150,23 @@ var PinkFie = (function(moduleResults) {
 					} else {
 						_this.loadingContainerProgressText.textContent = "Failed to load SWF: " + status;
 					}
-				}, function(r) {
-					_this.loadingContainerProgress.style.width = (r * 100) + "%";
+				}, function(r, l, t) {
+					_this.loadingContainerProgressText.textContent = "Loading SWF URL " + getByteText(l) + " / " + getByteText(t);
+					_this.loadingContainerProgress.style.width = Math.round(r * 100) + "%";
 				});
 				this.currentLoaderSwfUrl = loaderC;
-				loaderC.load(url);
+				loaderC.load();
+			}
+			reload() {
+				var swfData = this.swfData;
+				if (swfData) {
+					var a = this.swfDataElement.style.display;
+					this.beginLoadingSWF();
+					this.swfData = swfData;
+					var loader = new Loader(swfData);
+					this.swfDataElement.style.display = a;
+					this.loadLoader(loader);	
+				}
 			}
 			getInfoStage() {
 				var stage = this.stage;
@@ -17334,7 +19178,6 @@ var PinkFie = (function(moduleResults) {
 			setStage(stage) {
 				this.stage = stage;
 				this.loaded = 2;
-				stage.debugSample = this.debugSample;
 				this.applyOptionsToStage();
 				this.applyResizeStage();
 				this.isLoad = true;
@@ -17468,17 +19311,14 @@ var PinkFie = (function(moduleResults) {
 			tick() {
 				this.tickTime = (Date.now() - this.startTime);
 				if (this.isLoad) {
-					var clip = this.stage.clip;
-					if (clip) {
-						this.__a2.textContent = clip.currentFrame + "/" + clip.totalframes;
-						if (clip.totalframes > 1) {
-							this.__fdfj.min = 1;
-							this.__fdfj.max = clip.totalframes;
-							this.__fdfj.value = clip.currentFrame;
-							this.__fdfj.disabled = false;
-						} else {
-							this.__fdfj.disabled = true;
-						}
+					var clip_current_frame = this.stage.rootCurrentFrame();
+					var clip_total_frames = this.stage.getTotalFrames();
+					this.__a2.textContent = clip_current_frame + "/" + clip_total_frames;
+					if (clip_total_frames > 1) {
+						this.__fdfj.min = 1;
+						this.__fdfj.max = clip_total_frames;
+						this.__fdfj.value = clip_current_frame;
+						this.__fdfj.disabled = false;
 					} else {
 						this.__fdfj.disabled = true;
 					}
@@ -17539,9 +19379,11 @@ var PinkFie = (function(moduleResults) {
 				} else {
 					if (this.isLoad) {
 						var rrgg = ((this.tickTime - this._displayMessage[2]) < this._displayMessage[3]);
-						if (this._viewFrame && this.stage && this.stage.clip) {
-							var _r = getDuraction((this.stage.clip.currentFrame / this.stage.clip.totalframes) * (this.stage.clip.totalframes / this.stage.frameRate)) + "/" + getDuraction(this.stage.clip.totalframes / this.stage.frameRate);
-							var _u = this.stage.clip.currentFrame + "/" + this.stage.clip.totalframes;
+						if (this._viewFrame && this.stage) {
+							var clip_current_frame = this.stage.rootCurrentFrame();
+							var clip_total_frames = this.stage.rootFramesloaded();
+							var _r = getDuraction((clip_current_frame / clip_total_frames) * (clip_total_frames / this.stage.frameRate)) + "/" + getDuraction(clip_total_frames / this.stage.frameRate);
+							var _u = clip_current_frame + "/" + clip_total_frames;
 							var hkj = "Time: " + _r;
 							hkj += "<br>Frame: " + _u;
 							hkj += "<br>Mouse Point: " + this.stage.mousePosition;
@@ -17591,6 +19433,7 @@ var PinkFie = (function(moduleResults) {
 				this.isLoad = false;
 				this.settingVertical.style.display = 'none';
 				this.__agdfdf.style.display = 'none';
+				this.swfDataElement.style.display = 'none';
 				for (var i = 0; i < this._controlsMC.length; i++) {
 					this._controlsMC[i].style.display = "none";
 				}
@@ -17630,14 +19473,62 @@ var PinkFie = (function(moduleResults) {
 		}
 		wpjsm.exportJS = Player;
 	},
-	"src/SwfTag.js": function(wpjsm){
-		const ByteStream = wpjsm.importJS("src/utils/ByteStream.js");
-		const ZLib = wpjsm.importJS("src/utils/ZLib.js");
-		const LZMA = wpjsm.importJS("src/utils/LZMA.js");
+	"./src/SwfMovie.js": function(wpjsm) {
+		const Library = wpjsm.importJS("./src/Library.js");
+
+		class SwfMovie {
+			constructor(header, movieInfo) {
+				this.library = Library.createMovieLibrary();
+				this.header = header;
+				this.movieInfo = movieInfo;
+		
+				this.attributes = {};
+				this.attributes.useDirectBlit = false;
+				this.attributes.useGPU = false;
+				this.attributes.hasMetadata = false;
+				this.attributes.isActionScript3 = false;
+				this.attributes.useNetworkSandbox = false;
+			}
+			resetAttributes() {
+				this.attributes.useDirectBlit = false;
+				this.attributes.useGPU = false;
+				this.attributes.hasMetadata = false;
+				this.attributes.isActionScript3 = false;
+				this.attributes.useNetworkSandbox = false;
+			}
+			initAttributes(info) {
+				if (info.useDirectBlit) {
+					this.attributes.useDirectBlit = true;
+				}
+				if (info.useGPU) {
+					this.attributes.useGPU = true;
+				}
+				if (info.hasMetadata) {
+					this.attributes.hasMetadata = true;
+				}
+				if (info.isActionScript3) {
+					this.attributes.isActionScript3 = true;
+				}
+				if (info.useNetworkSandbox) {
+					this.attributes.useNetworkSandbox = true;
+				}
+			}
+			isActionScript3() {
+				return this.attributes.isActionScript3;
+			}
+			getVersion() {
+				return this.header.version;
+			}
+		}
+		wpjsm.exportJS = SwfMovie;
+	},
+	"./src/SwfTag.js": function(wpjsm) {
+		const ByteStream = wpjsm.importJS("./src/utils/ByteStream.js");
+		const ZLib = wpjsm.importJS("./src/utils/ZLib.js");
+		const LZMA = wpjsm.importJS("./src/utils/LZMA.js");
 		//! The data structures used in an Adobe SWF file.
 		//!
 		//! These structures are documented in the Adobe SWF File Format Specification
-		
 		
 		const SwfParser = function(data) {
 			this.byteStream = new ByteStream(data);
@@ -17818,9 +19709,13 @@ var PinkFie = (function(moduleResults) {
 						this.frameRate = headerMovie.frameRate;
 						this.numframes = headerMovie.frameCount;
 						this.taglengthstack[this.taglengthstackSize++] = this._uncompressedLength;
+						var startA = this.byteStream.position;
+						var {tagcode, length} = this.parseTagCodeLength();
+						var fileAttributes = (tagcode == 69) ? this.parseFileAttributes() : {};
+						this.byteStream.position = startA;
 						var t = this.parseTags();
 						if (this.onstartmovie) {
-							this.onstartmovie(this.header, headerMovie, t);
+							this.onstartmovie(this.header, headerMovie, t, fileAttributes);
 						}
 						this._bytesLoaded = this.byteStream.position;
 						this._bytesTotal = this._uncompressedLength;
@@ -17841,15 +19736,10 @@ var PinkFie = (function(moduleResults) {
 									this._loadedType++;
 								}
 							} else {
-								var _fileLength = this._uncompressedLength;
 								var compressStream = this.decompressStream(this._compression, this._uncompressedLength);
 								if (compressStream) {
 									if (compressStream instanceof Uint8Array) {
-										var FixedData = new Uint8Array(_fileLength);
-										for (let i = 0; i < _fileLength; i++) {
-											FixedData[i] = compressStream[i];
-										}
-										this.byteStream = new ByteStream(FixedData.buffer);
+										this.byteStream = new ByteStream(compressStream);
 										this.byteStream.setOffset(8, 0);
 										this._loadedType++;
 									} else {
@@ -17898,9 +19788,9 @@ var PinkFie = (function(moduleResults) {
 				case "FWS":
 					return null;
 				case "CWS":
-					return new ZLib(this.byteStream.arrayBuffer, size, 8);
+					return new ZLib(this.byteStream.data, size, 8);
 				case "ZWS":
-					return LZMA.parse(new Uint8Array(this.byteStream.arrayBuffer), size);
+					return LZMA.parse(this.byteStream.data, size);
 				default:
 					throw new Error("Invalid SWF");
 			}
@@ -17919,19 +19809,25 @@ var PinkFie = (function(moduleResults) {
 			return this.getTagStack();
 		}
 		SwfParser.prototype.parseTag = function() {
+			var byteStream = this.byteStream;
 			var {tagcode, length} = this.parseTagCodeLength();
-			var tagDataStartOffset = this.byteStream.position;
-			var result = this.parseTagWithCode(tagcode, length);
-			result.tagcode = tagcode;
-			result.tagType = SwfParser.tagCodes[tagcode] || "Unknown";
-			result._byteLength = length;
-			if (result.tagcode !== 39) { // Sprite
-				if ((tagDataStartOffset + length) !== this.byteStream.position) {
-					this.emitMessage(this.byteStream.position - tagDataStartOffset + ", " + length + ", " + SwfParser.tagCodes[tagcode], "log");
-					this.byteStream.position = (tagDataStartOffset + length);
-					this.byteStream.bit_offset = 0;
+			var tagDataStartOffset = byteStream.position;
+			var result;
+			if (tagcode == 39) { // Sprite
+				result = {};
+				result.id = byteStream.readUint16();
+				result.numFrames = byteStream.readUint16();
+				this.taglengthstack[this.taglengthstackSize++] = (byteStream.position + (length - 4));
+				result.tagCallback = this.parseTags();
+			} else {
+				result = this.parseTagWithCode(tagcode, length);
+				if ((tagDataStartOffset + length) !== byteStream.position) {
+					byteStream.position = (tagDataStartOffset + length);
+					byteStream.bit_offset = 0;
 				}
 			}
+			result.tagcode = tagcode;
+			result._byteLength = length;
 			return result;
 		}
 		SwfParser.prototype.parseTagCodeLength = function() {
@@ -18180,8 +20076,8 @@ var PinkFie = (function(moduleResults) {
 				case 52: // FontRef
 				case 54: // PlaceFunction
 				case 55: // GenTagObject
-					console.log("[base] tagType -> " + tagType);
-					this.byteStream.position += length;
+					console.log("[base] tagType -> " + tagType, this.byteStream.readBytes(length));
+					//this.byteStream.position += length;
 					break;
 				case 27: // 27 (invalid)
 				case 30: // 30 (invalid)
@@ -18205,12 +20101,12 @@ var PinkFie = (function(moduleResults) {
 		SwfParser.prototype.rect = function() {
 			var byteStream = this.byteStream;
 			byteStream.byteAlign();
-			var nBits = byteStream.getUIBits(5);
+			var nBits = byteStream.readUB(5);
 			var obj = {};
-			obj.xMin = byteStream.getSIBits(nBits);
-			obj.xMax = byteStream.getSIBits(nBits);
-			obj.yMin = byteStream.getSIBits(nBits);
-			obj.yMax = byteStream.getSIBits(nBits);
+			obj.xMin = byteStream.readSB(nBits);
+			obj.xMax = byteStream.readSB(nBits);
+			obj.yMin = byteStream.readSB(nBits);
+			obj.yMax = byteStream.readSB(nBits);
 			return obj;
 		}
 		SwfParser.prototype.rgb = function() {
@@ -18225,24 +20121,24 @@ var PinkFie = (function(moduleResults) {
 			var byteStream = this.byteStream;
 			byteStream.byteAlign();
 			var result = [1, 1, 1, 1, 0, 0, 0, 0];
-			var first6bits = byteStream.getUIBits(6);
+			var first6bits = byteStream.readUB(6);
 			var hasAddTerms = first6bits >> 5;
 			var hasMultiTerms = (first6bits >> 4) & 1;
 			var nbits = first6bits & 0x0f;
 			if (hasMultiTerms) {
-				result[0] = byteStream.getSIBitsFixed8(nbits);
-				result[1] = byteStream.getSIBitsFixed8(nbits);
-				result[2] = byteStream.getSIBitsFixed8(nbits);
+				result[0] = byteStream.readSBFixed8(nbits);
+				result[1] = byteStream.readSBFixed8(nbits);
+				result[2] = byteStream.readSBFixed8(nbits);
 				if (hasAlpha) {
-					result[3] = byteStream.getSIBitsFixed8(nbits);
+					result[3] = byteStream.readSBFixed8(nbits);
 				}
 			}
 			if (hasAddTerms) {
-				result[4] = byteStream.getSIBits(nbits);
-				result[5] = byteStream.getSIBits(nbits);
-				result[6] = byteStream.getSIBits(nbits);
+				result[4] = byteStream.readSB(nbits);
+				result[5] = byteStream.readSB(nbits);
+				result[6] = byteStream.readSB(nbits);
 				if (hasAlpha) {
-					result[7] = byteStream.getSIBits(nbits);
+					result[7] = byteStream.readSB(nbits);
 				}
 			}
 			return result;
@@ -18252,68 +20148,26 @@ var PinkFie = (function(moduleResults) {
 			byteStream.byteAlign();
 			var result = [1, 0, 0, 1, 0, 0];
 			// Scale
-			if (byteStream.getUIBit()) {
-				var nScaleBits = byteStream.getUIBits(5);
-				result[0] = byteStream.getSIBitsFixed16(nScaleBits);
-				result[3] = byteStream.getSIBitsFixed16(nScaleBits);
+			if (byteStream.readBit()) {
+				var nScaleBits = byteStream.readUB(5);
+				result[0] = byteStream.readSBFixed16(nScaleBits);
+				result[3] = byteStream.readSBFixed16(nScaleBits);
 			}
 			// Rotate/Skew
-			if (byteStream.getUIBit()) {
-				var nRotateBits = byteStream.getUIBits(5);
-				result[1] = byteStream.getSIBitsFixed16(nRotateBits);
-				result[2] = byteStream.getSIBitsFixed16(nRotateBits);
+			if (byteStream.readBit()) {
+				var nRotateBits = byteStream.readUB(5);
+				result[1] = byteStream.readSBFixed16(nRotateBits);
+				result[2] = byteStream.readSBFixed16(nRotateBits);
 			}
 			// Translate (always present)
-			var nTranslateBits = byteStream.getUIBits(5);
-			result[4] = byteStream.getSIBits(nTranslateBits);
-			result[5] = byteStream.getSIBits(nTranslateBits);
+			var nTranslateBits = byteStream.readUB(5);
+			result[4] = byteStream.readSB(nTranslateBits);
+			result[5] = byteStream.readSB(nTranslateBits);
 			return result;
 		}
 		//////// Structure ////////
 		
 		//////// Shapes ////////
-		SwfParser.prototype.gradientSpread = function(code) {
-			switch (code) {
-				case 0: // Pad
-				// Per SWF19 p. 136, SpreadMode 3 is reserved.
-				// Flash treats it as pad mode.
-				case 3:
-					return "pad";
-				case 1: // Reflect
-					return "reflect";
-				case 2: // Repeat
-					return "repeat";
-				default:
-					this.emitMessage("Invalid gradient spread mode:" + code, "error");
-			}
-		}
-		SwfParser.prototype.gradientInterpolation = function(code) {
-			switch (code) {
-				case 0: // Rgb
-				// Per SWF19 p. 136, InterpolationMode 2 and 3 are reserved.
-				// Flash treats them as normal RGB mode interpolation.
-				case 2:
-				case 3:
-					return "rgb";
-				case 1: // LinearRgb
-					return "linearRgb";
-				default:
-					this.emitMessage("Invalid gradient interpolation mode:" + code, "error");
-			}
-		}
-		SwfParser.prototype.shapeWithStyle = function(shapeVersion) {
-			var byteStream = this.byteStream;
-			var fillStyles = this.fillStyleArray(shapeVersion);
-			var lineStyles = this.lineStyleArray(shapeVersion);
-			var numBits = byteStream.readUint8();
-			var numFillBits = numBits >> 4;
-			var numLineBits = numBits & 0b1111;
-			var shapeRecords = this.shapeRecords(shapeVersion, {
-				fillBits: numFillBits,
-				lineBits: numLineBits
-			});
-			return {fillStyles, lineStyles, shapeRecords, numFillBits, numLineBits};
-		}
 		SwfParser.prototype.fillStyleArray = function(shapeVersion) {
 			var byteStream = this.byteStream;
 			var count = byteStream.readUint8();
@@ -18330,19 +20184,19 @@ var PinkFie = (function(moduleResults) {
 			var byteStream = this.byteStream;
 			var matrix = this.matrix();
 			var flags = byteStream.readUint8();
-			var spreadMode = this.gradientSpread((flags >> 6) & 0b11);
-			var interpolationMode = this.gradientInterpolation((flags >> 4) & 0b11);
+			var spreadMode = (flags >> 6) & 0b11;
+			var interpolationMode = (flags >> 4) & 0b11;
 			var numGradients = (flags & 0b1111);
-			var gradientRecords = [];
+			var records = [];
 			for (var i = numGradients; i--;) {
 				var ratio = byteStream.readUint8() / 255;
 				var color = ((shapeVersion >= 3) ? this.rgba() : this.rgb());
-				gradientRecords.push({ratio, color});
+				records.push({ratio, color});
 			}
 			return {
 				spreadMode,
 				interpolationMode,
-				gradientRecords,
+				records,
 				matrix: matrix
 			};
 		}
@@ -18360,10 +20214,10 @@ var PinkFie = (function(moduleResults) {
 					}
 					break;
 				case 0x10:
-					obj.linearGradient = this.gradient(shapeVersion);
+					obj.gradient = this.gradient(shapeVersion);
 					break;
 				case 0x12:
-					obj.radialGradient = this.gradient(shapeVersion);
+					obj.gradient = this.gradient(shapeVersion);
 					break;
 				case 0x13:
 					// SWF19 says focal gradients are only allowed in SWFv8+ and DefineShape4,
@@ -18378,7 +20232,7 @@ var PinkFie = (function(moduleResults) {
 					obj.bitmapId = byteStream.readUint16();
 					obj.bitmapMatrix = this.matrix();
 					// Bitmap smoothing only occurs in SWF version 8+.
-					obj.isSmoothed = ((this._swfVersion >= 8) && ((bitType & 0b10) == 0));
+					obj.isSmoothed = (this._swfVersion >= 8) && ((bitType & 0b10) == 0);
 					obj.isRepeating = (bitType & 0b01) == 0;
 					break;
 				default:
@@ -18405,15 +20259,15 @@ var PinkFie = (function(moduleResults) {
 			obj.width = byteStream.readUint16();
 			if (shapeVersion == 4) {
 				// LineStyle2 in DefineShape4
-				obj.startCapStyle = byteStream.getUIBits(2);
-				obj.joinStyle = byteStream.getUIBits(2);
-				obj.hasFill = byteStream.getUIBit();
-				obj.noHScale = byteStream.getUIBit();
-				obj.noVScale = byteStream.getUIBit();
-				obj.pixelHinting = byteStream.getUIBit();
-				byteStream.getUIBits(5); // Reserved
-				obj.noClose = byteStream.getUIBit();
-				obj.endCapStyle = byteStream.getUIBits(2);
+				obj.startCapStyle = byteStream.readUB(2);
+				obj.joinStyle = byteStream.readUB(2);
+				obj.hasFill = byteStream.readBit();
+				obj.noHScale = byteStream.readBit();
+				obj.noVScale = byteStream.readBit();
+				obj.pixelHinting = byteStream.readBit();
+				byteStream.readUB(5); // Reserved
+				obj.noClose = byteStream.readBit();
+				obj.endCapStyle = byteStream.readUB(2);
 				if (obj.joinStyle === 2) {
 					obj.miterLimitFactor = byteStream.readFixed8();
 				}
@@ -18436,7 +20290,7 @@ var PinkFie = (function(moduleResults) {
 			var byteStream = this.byteStream;
 			var shapeRecords = [];
 			while (true) {
-				var first6Bits = byteStream.getUIBits(6);
+				var first6Bits = byteStream.readUB(6);
 				var shape = null;
 				if (first6Bits & 0x20) {
 					var numBits = first6Bits & 0b1111;
@@ -18463,17 +20317,17 @@ var PinkFie = (function(moduleResults) {
 			var byteStream = this.byteStream;
 			var deltaX = 0;
 			var deltaY = 0;
-			var GeneralLineFlag = byteStream.getUIBit();
+			var GeneralLineFlag = byteStream.readBit();
 			if (GeneralLineFlag) {
-				deltaX = byteStream.getSIBits(numBits + 2);
-				deltaY = byteStream.getSIBits(numBits + 2);
+				deltaX = byteStream.readSB(numBits + 2);
+				deltaY = byteStream.readSB(numBits + 2);
 			} else {
-				var VertLineFlag = byteStream.getUIBit();
+				var VertLineFlag = byteStream.readBit();
 				if (VertLineFlag) {
 					deltaX = 0;
-					deltaY = byteStream.getSIBits(numBits + 2);
+					deltaY = byteStream.readSB(numBits + 2);
 				} else {
-					deltaX = byteStream.getSIBits(numBits + 2);
+					deltaX = byteStream.readSB(numBits + 2);
 					deltaY = 0;
 				}
 			}
@@ -18486,10 +20340,10 @@ var PinkFie = (function(moduleResults) {
 		}
 		SwfParser.prototype.curvedEdgeRecord = function(numBits) {
 			var byteStream = this.byteStream;
-			var controlDeltaX = byteStream.getSIBits(numBits + 2);
-			var controlDeltaY = byteStream.getSIBits(numBits + 2);
-			var anchorDeltaX = byteStream.getSIBits(numBits + 2);
-			var anchorDeltaY = byteStream.getSIBits(numBits + 2);
+			var controlDeltaX = byteStream.readSB(numBits + 2);
+			var controlDeltaY = byteStream.readSB(numBits + 2);
+			var anchorDeltaX = byteStream.readSB(numBits + 2);
+			var anchorDeltaY = byteStream.readSB(numBits + 2);
 			return {
 				controlDeltaX,
 				controlDeltaY,
@@ -18508,21 +20362,21 @@ var PinkFie = (function(moduleResults) {
 			obj.stateLineStyle = (changeFlag >> 3) & 1;
 			obj.stateNewStyles = (changeFlag >> 4) & 1;
 			if (obj.stateMoveTo) {
-				var moveBits = byteStream.getUIBits(5);
-				obj.moveX = byteStream.getSIBits(moveBits);
-				obj.moveY = byteStream.getSIBits(moveBits);
+				var moveBits = byteStream.readUB(5);
+				obj.moveX = byteStream.readSB(moveBits);
+				obj.moveY = byteStream.readSB(moveBits);
 			}
 			obj.fillStyle0 = 0;
 			if (obj.stateFillStyle0) {
-				obj.fillStyle0 = byteStream.getUIBits(currentNumBits.fillBits);
+				obj.fillStyle0 = byteStream.readUB(currentNumBits.fillBits);
 			}
 			obj.fillStyle1 = 0;
 			if (obj.stateFillStyle1) {
-				obj.fillStyle1 = byteStream.getUIBits(currentNumBits.fillBits);
+				obj.fillStyle1 = byteStream.readUB(currentNumBits.fillBits);
 			}
 			obj.lineStyle = 0;
 			if (obj.stateLineStyle) {
-				obj.lineStyle = byteStream.getUIBits(currentNumBits.lineBits);
+				obj.lineStyle = byteStream.readUB(currentNumBits.lineBits);
 			}
 			if (obj.stateNewStyles) {
 				obj.fillStyles = this.fillStyleArray(shapeVersion);
@@ -18557,10 +20411,10 @@ var PinkFie = (function(moduleResults) {
 					obj.endColor = this.rgba();
 					break;
 				case 0x10:
-					obj.linearGradient = this.morphGradient();
+					obj.gradient = this.morphGradient();
 					break;
 				case 0x12:
-					obj.radialGradient = this.morphGradient();
+					obj.gradient = this.morphGradient();
 					break;
 				case 0x13:
 					// SWF19 says focal gradients are only allowed in SWFv8+ and DefineMorphShape2,
@@ -18591,19 +20445,19 @@ var PinkFie = (function(moduleResults) {
 			obj.startMatrix = this.matrix();
 			obj.endMatrix = this.matrix();
 			var flags = byteStream.readUint8();
-			obj.spreadMode = this.gradientSpread((flags >> 6) & 0b11);
-			obj.interpolationMode = this.gradientInterpolation((flags >> 4) & 0b11);
-			var numGradients = (flags & 0b1111);
-			var gradientRecords = [];
+			obj.spreadMode = (flags >> 6) & 0b11;
+			obj.interpolationMode = (flags >> 4) & 0b11;
+			var numGradients = flags & 0b1111;
+			var records = [];
 			for (var i = numGradients; i--;) {
-				gradientRecords.push({
+				records.push({
 					startRatio: byteStream.readUint8() / 255,
 					startColor: this.rgba(),
 					endRatio: byteStream.readUint8() / 255,
 					endColor: this.rgba()
 				});
 			}
-			obj.gradientRecords = gradientRecords;
+			obj.records = records;
 			return obj;
 		}
 		SwfParser.prototype.morphLineStyleArray = function(shapeVersion) {
@@ -18628,15 +20482,15 @@ var PinkFie = (function(moduleResults) {
 				obj.endColor = this.rgba();
 			} else {
 				// MorphLineStyle2 in DefineMorphShape2
-				obj.startCapStyle = byteStream.getUIBits(2);
-				obj.joinStyle = byteStream.getUIBits(2);
-				obj.hasFill = byteStream.getUIBit();
-				obj.noHScale = byteStream.getUIBit();
-				obj.noVScale = byteStream.getUIBit();
-				obj.pixelHinting = byteStream.getUIBit();
-				byteStream.getUIBits(5); // Reserved
-				obj.noClose = byteStream.getUIBit();
-				obj.endCapStyle = byteStream.getUIBits(2);
+				obj.startCapStyle = byteStream.readUB(2);
+				obj.joinStyle = byteStream.readUB(2);
+				obj.hasFill = byteStream.readBit();
+				obj.noHScale = byteStream.readBit();
+				obj.noVScale = byteStream.readBit();
+				obj.pixelHinting = byteStream.readBit();
+				byteStream.readUB(5); // Reserved
+				obj.noClose = byteStream.readBit();
+				obj.endCapStyle = byteStream.readUB(2);
 				if (obj.joinStyle === 2) {
 					obj.miterLimitFactor = byteStream.readFixed8();
 				}
@@ -18667,25 +20521,6 @@ var PinkFie = (function(moduleResults) {
 		}
 		
 		//////// Font Text ////////
-		SwfParser.prototype.parseLanguage = function() {
-			var languageCode = this.byteStream.readUint8();
-			switch (languageCode) {
-				case 0: // Unknown
-					return "";
-				case 1: // Latin
-					return "latin";
-				case 2: // Japanese
-					return "japanese";
-				case 3: // Korean
-					return "korean";
-				case 4: // SimplifiedChinese
-					return "simplifiedChinese";
-				case 5: // TraditionalChinese
-					return "traditionalChinese";
-				default:
-					this.emitMessage("Invalid language code:" + languageCode, "error");
-			}
-		}
 		SwfParser.prototype.getTextRecords = function(ver, GlyphBits, AdvanceBits) {
 			var byteStream = this.byteStream;
 			var array = [];
@@ -18707,32 +20542,18 @@ var PinkFie = (function(moduleResults) {
 					}
 				}
 				if (flags & 0b1) {
-					obj.XOffset = byteStream.readInt16();
+					obj.x = byteStream.readInt16();
 				}
 				if (flags & 0b10) {
-					obj.YOffset = byteStream.readInt16();
+					obj.y = byteStream.readInt16();
 				}
 				if (flags & 0b1000) {
 					obj.textHeight = byteStream.readUint16();
 				}
-				obj.glyphEntries = this.getGlyphEntries(GlyphBits, AdvanceBits);
+				obj.entries = this.getGlyphEntries(GlyphBits, AdvanceBits);
 				array.push(obj);
 			}
 			return array;
-		}
-		SwfParser.prototype.textAlign = function(type) {
-			switch (type) {
-				case 0:
-					return "left";
-				case 1:
-					return "right";
-				case 2:
-					return "center";
-				case 3:
-					return "justify";
-				default:
-					this.emitMessage("Invalid language code:" + type, "error");
-			}
 		}
 		SwfParser.prototype.getGlyphEntries = function(GlyphBits, AdvanceBits) {
 			// TODO(Herschel): font_id and height are tied together. Merge them into a struct?
@@ -18741,8 +20562,8 @@ var PinkFie = (function(moduleResults) {
 			var array = [];
 			while (count--) {
 				array.push({
-					index: byteStream.getUIBits(GlyphBits),
-					advance: byteStream.getSIBits(AdvanceBits)
+					index: byteStream.readUB(GlyphBits),
+					advance: byteStream.readSB(AdvanceBits)
 				});
 			}
 			return array;
@@ -18769,7 +20590,7 @@ var PinkFie = (function(moduleResults) {
 					obj.filters = this.getFilterList();
 				}
 				if (flags & 32) {
-					obj.blendMode = this.parseBlendMode();
+					obj.blendMode = this.byteStream.readUint8();
 				}
 				records.push(obj);
 			}
@@ -18869,42 +20690,6 @@ var PinkFie = (function(moduleResults) {
 			obj.isStereo = frags & 0b1;
 			return obj;
 		}
-		SwfParser.prototype.parseBlendMode = function() {
-			var blendMode = this.byteStream.readUint8();
-			switch (blendMode) {
-				case 0:
-				case 1:
-					return "normal";
-				case 2:
-					return "layer";
-				case 3:
-					return "multiply";
-				case 4:
-					return "screen";
-				case 5:
-					return "lighten";
-				case 6:
-					return "darken";
-				case 7:
-					return "difference";
-				case 8:
-					return "add";
-				case 9:
-					return "subtract";
-				case 10:
-					return "invert";
-				case 11:
-					return "alpha";
-				case 12:
-					return "erase";
-				case 13:
-					return "overlay";
-				case 14:
-					return "hardlight";
-				default:
-					this.emitMessage("Invalid blend mode: " + blendMode, "error");
-			}
-		}
 		SwfParser.prototype.parseClipActions = function(startOffset, length) {
 			var byteStream = this.byteStream;
 			byteStream.readUint16();
@@ -18913,7 +20698,7 @@ var PinkFie = (function(moduleResults) {
 			var actionRecords = [];
 			while (byteStream.position < endLength) {
 				var clipActionRecord = this.parseClipActionRecord(endLength);
-				actionRecords[actionRecords.length] = clipActionRecord;
+				actionRecords.push(clipActionRecord);
 				if (endLength <= byteStream.position) {
 					break;
 				}
@@ -18949,30 +20734,30 @@ var PinkFie = (function(moduleResults) {
 		SwfParser.prototype.parseClipEventFlags = function() {
 			var obj = {};
 			var byteStream = this.byteStream;
-			obj.keyUp = byteStream.getUIBits(1);
-			obj.keyDown = byteStream.getUIBits(1);
-			obj.mouseUp = byteStream.getUIBits(1);
-			obj.mouseDown = byteStream.getUIBits(1);
-			obj.mouseMove = byteStream.getUIBits(1);
-			obj.unload = byteStream.getUIBits(1);
-			obj.enterFrame = byteStream.getUIBits(1);
-			obj.load = byteStream.getUIBits(1);
+			obj.keyUp = byteStream.readUB(1);
+			obj.keyDown = byteStream.readUB(1);
+			obj.mouseUp = byteStream.readUB(1);
+			obj.mouseDown = byteStream.readUB(1);
+			obj.mouseMove = byteStream.readUB(1);
+			obj.unload = byteStream.readUB(1);
+			obj.enterFrame = byteStream.readUB(1);
+			obj.load = byteStream.readUB(1);
 			if (this._swfVersion >= 6) {
-				obj.dragOver = byteStream.getUIBits(1);
-				obj.rollOut = byteStream.getUIBits(1);
-				obj.rollOver = byteStream.getUIBits(1);
-				obj.releaseOutside = byteStream.getUIBits(1);
-				obj.release = byteStream.getUIBits(1);
-				obj.press = byteStream.getUIBits(1);
-				obj.initialize = byteStream.getUIBits(1);
+				obj.dragOver = byteStream.readUB(1);
+				obj.rollOut = byteStream.readUB(1);
+				obj.rollOver = byteStream.readUB(1);
+				obj.releaseOutside = byteStream.readUB(1);
+				obj.release = byteStream.readUB(1);
+				obj.press = byteStream.readUB(1);
+				obj.initialize = byteStream.readUB(1);
 			}
-			obj.data = byteStream.getUIBits(1);
+			obj.data = byteStream.readUB(1);
 			if (this._swfVersion >= 6) {
-				byteStream.getUIBits(5);
-				obj.construct = byteStream.getUIBits(1);
-				obj.keyPress = byteStream.getUIBits(1);
-				obj.dragOut = byteStream.getUIBits(1);
-				byteStream.getUIBits(8);
+				byteStream.readUB(5);
+				obj.construct = byteStream.readUB(1);
+				obj.keyPress = byteStream.readUB(1);
+				obj.dragOut = byteStream.readUB(1);
+				byteStream.readUB(8);
 			}
 			byteStream.byteAlign();
 			return obj;
@@ -19030,10 +20815,10 @@ var PinkFie = (function(moduleResults) {
 			var angle = byteStream.readFixed16() * 180 / Math.PI;
 			var distance = byteStream.readFixed16();
 			var strength = byteStream.readFloat16() / 256;
-			var inner = (byteStream.getUIBits(1)) ? true : false;
-			var knockout = (byteStream.getUIBits(1)) ? true : false;
-			var hideObject = (byteStream.getUIBits(1)) ? false : true;
-			var quality = byteStream.getUIBits(5);
+			var inner = (byteStream.readUB(1)) ? true : false;
+			var knockout = (byteStream.readUB(1)) ? true : false;
+			var hideObject = (byteStream.readUB(1)) ? false : true;
+			var quality = byteStream.readUB(5);
 			if (!strength) {
 				return null;
 			}
@@ -19043,8 +20828,8 @@ var PinkFie = (function(moduleResults) {
 			var byteStream = this.byteStream;
 			var blurX = byteStream.readFixed16();
 			var blurY = byteStream.readFixed16();
-			var quality = byteStream.getUIBits(5);
-			byteStream.getUIBits(3);
+			var quality = byteStream.readUB(5);
+			byteStream.readUB(3);
 			return {blurX, blurY, quality}
 		}
 		SwfParser.prototype.glowFilter = function() {
@@ -19055,10 +20840,10 @@ var PinkFie = (function(moduleResults) {
 			var blurX = byteStream.readFixed16();
 			var blurY = byteStream.readFixed16();
 			var strength = byteStream.readFloat16() / 256;
-			var inner = (byteStream.getUIBits(1)) ? true : false;
-			var knockout = (byteStream.getUIBits(1)) ? true : false;
-			byteStream.getUIBits(1);
-			var quality = byteStream.getUIBits(5);
+			var inner = (byteStream.readUB(1)) ? true : false;
+			var knockout = (byteStream.readUB(1)) ? true : false;
+			byteStream.readUB(1);
+			var quality = byteStream.readUB(5);
 			if (!strength) {
 				return null;
 			}
@@ -19078,11 +20863,11 @@ var PinkFie = (function(moduleResults) {
 			var angle = byteStream.readFixed16() * 180 / Math.PI;
 			var distance = byteStream.readFixed16();
 			var strength = byteStream.readFloat16() / 256;
-			var inner = (byteStream.getUIBits(1)) ? true : false;
-			var knockout = (byteStream.getUIBits(1)) ? true : false;
-			byteStream.getUIBits(1);
-			var OnTop = byteStream.getUIBits(1);
-			var quality = byteStream.getUIBits(4);
+			var inner = (byteStream.readUB(1)) ? true : false;
+			var knockout = (byteStream.readUB(1)) ? true : false;
+			byteStream.readUB(1);
+			var OnTop = byteStream.readUB(1);
+			var quality = byteStream.readUB(4);
 			var type = "inner";
 			if (!inner) {
 				if (OnTop) {
@@ -19116,11 +20901,11 @@ var PinkFie = (function(moduleResults) {
 			var angle = byteStream.readFixed16() * 180 / Math.PI;
 			var distance = byteStream.readFixed16();
 			var strength = byteStream.readFloat16() / 256;
-			var inner = (byteStream.getUIBits(1)) ? true : false;
-			var knockout = (byteStream.getUIBits(1)) ? true : false;
-			byteStream.getUIBits(1);
-			var onTop = byteStream.getUIBits(1);
-			var quality = byteStream.getUIBits(4);
+			var inner = (byteStream.readUB(1)) ? true : false;
+			var knockout = (byteStream.readUB(1)) ? true : false;
+			byteStream.readUB(1);
+			var onTop = byteStream.readUB(1);
+			var quality = byteStream.readUB(4);
 			var type = "inner";
 			if (!inner) {
 				if (onTop) {
@@ -19147,9 +20932,9 @@ var PinkFie = (function(moduleResults) {
 				matrixArr.push(byteStream.readUint32());
 			}
 			obj.defaultColor = this.rgba();
-			byteStream.getUIBits(6);
-			obj.clamp = byteStream.getUIBits(1);
-			obj.preserveAlpha = byteStream.getUIBits(1);
+			byteStream.readUB(6);
+			obj.clamp = byteStream.readUB(1);
+			obj.preserveAlpha = byteStream.readUB(1);
 			return obj;
 		}
 		SwfParser.prototype.gradientBevelFilter = function() {
@@ -19172,11 +20957,11 @@ var PinkFie = (function(moduleResults) {
 			var angle = byteStream.readFixed16() * 180 / Math.PI;
 			var distance = byteStream.readFixed16();
 			var strength = byteStream.readFloat16() / 256;
-			var inner = (byteStream.getUIBits(1)) ? true : false;
-			var knockout = (byteStream.getUIBits(1)) ? true : false;
-			byteStream.getUIBits(1);
-			var OnTop = byteStream.getUIBits(1);
-			var quality = byteStream.getUIBits(4);
+			var inner = (byteStream.readUB(1)) ? true : false;
+			var knockout = (byteStream.readUB(1)) ? true : false;
+			byteStream.readUB(1);
+			var OnTop = byteStream.readUB(1);
+			var quality = byteStream.readUB(4);
 			var type = "inner";
 			if (!inner) {
 				if (OnTop) {
@@ -19339,9 +21124,11 @@ var PinkFie = (function(moduleResults) {
 			byteStream.bit_offset = 0;
 			return obj;
 		}
+
 		SwfParser.prototype.parseDefineFont2 = function(ver, length) {
 			var byteStream = this.byteStream;
 			var startOffset = byteStream.position;
+
 			var obj = {};
 			obj.version = ver;
 			obj.id = byteStream.readUint16();
@@ -19357,7 +21144,7 @@ var PinkFie = (function(moduleResults) {
 			obj.isSmallText = (fontFlags >>> 5) & 1;
 			obj.isShiftJIS = (fontFlags >>> 6) & 1;
 			var hasLayout = (fontFlags >>> 7) & 1;
-			obj.language = this.parseLanguage();
+			obj.language = this.byteStream.readUint8();
 			
 			// SWF19 states that the font name should not have a terminating null byte,
 			// but it often does (depends on Flash IDE version?)
@@ -19523,7 +21310,7 @@ var PinkFie = (function(moduleResults) {
 			obj.isSmallText = (flags >>> 5) & 1;
 			byteStream.byteAlign();
 			if (ver === 2) {
-				obj.language = this.parseLanguage();
+				obj.language = this.byteStream.readUint8();
 			}
 			var codeTable = [];
 			var tLen = endOffset - byteStream.position;
@@ -19596,7 +21383,7 @@ var PinkFie = (function(moduleResults) {
 			}
 			if (hasLayout) {
 				obj.layout = {};
-				obj.layout.align = this.textAlign(byteStream.readUint8());
+				obj.layout.align = byteStream.readUint8();
 				obj.layout.leftMargin = byteStream.readUint16();
 				obj.layout.rightMargin = byteStream.readUint16();
 				obj.layout.indent = byteStream.readUint16();
@@ -19617,20 +21404,33 @@ var PinkFie = (function(moduleResults) {
 			obj.tagCallback = this.parseTags();
 			return obj;
 		}
-		SwfParser.prototype.parseDefineShape = function(version) {
+		SwfParser.prototype.parseDefineShape = function(shapeVersion) {
 			var byteStream = this.byteStream;
 			var obj = {};
 			obj.id = byteStream.readUint16();
 			obj.bounds = this.rect();
-			obj.version = version;
-			if (version >= 4) {
+			obj.version = shapeVersion;
+			if (shapeVersion >= 4) {
 				obj.edgeBounds = this.rect();
 				var flags = byteStream.readUint8();
 				obj.scalingStrokes = flags & 1;
 				obj.nonScalingStrokes = (flags >>> 1) & 1;
 				obj.fillWindingRule = (flags >>> 2) & 1;
 			}
-			obj.shapes = this.shapeWithStyle(version);
+			var fillStyles = this.fillStyleArray(shapeVersion);
+			var lineStyles = this.lineStyleArray(shapeVersion);
+			var numBits = byteStream.readUint8();
+			var numFillBits = numBits >> 4;
+			var numLineBits = numBits & 0b1111;
+			var shapeRecords = this.shapeRecords(shapeVersion, {
+				fillBits: numFillBits,
+				lineBits: numLineBits
+			});
+			obj.fillStyles = fillStyles;
+			obj.lineStyles = lineStyles;
+			obj.shapeRecords = shapeRecords;
+			obj.numFillBits = numFillBits;
+			obj.numLineBits = numLineBits;
 			return obj;
 		}
 		SwfParser.prototype.parseDefineSound = function(length) {
@@ -19790,16 +21590,12 @@ var PinkFie = (function(moduleResults) {
 				obj.data = byteStream.readBytes(length - 2);
 			} else {
 				var dataSize = byteStream.readUint32();
-				var deblocking = null;
-				if (ver >= 4) {
-					deblocking = byteStream.readUint16();
-				}
+				if (ver >= 4) obj.deblocking = byteStream.readUint16();
 				var data = byteStream.readBytes(dataSize);
 				var sub = byteStream.position - startOffset;
 				var alphaData = byteStream.readBytes(length - sub);
 				obj.data = data;
 				obj.alphaData = alphaData;
-				obj.deblocking = deblocking;
 			}
 			return obj;
 		}
@@ -19939,7 +21735,7 @@ var PinkFie = (function(moduleResults) {
 					obj.filters = this.getFilterList();
 				}
 				if (hasBlendMode) {
-					obj.blendMode = this.parseBlendMode();
+					obj.blendMode = this.byteStream.readUint8();
 				}
 				if (hasBitmapCache) {
 					obj.bitmapCache = byteStream.readUint8();
@@ -19982,16 +21778,10 @@ var PinkFie = (function(moduleResults) {
 			obj.version = ver;
 			if (ver == 2) {
 				obj.flags = byteStream.readUint32();
-				obj.lazyInitialize = obj.flags & 1;
 				obj.name = byteStream.readStringWithUntil();
 			}
 			var offset = (length - (byteStream.position - startOffset));
-			try {
-				obj.abc = this.parseABC(byteStream.readBytes(offset));
-			} catch(e) {
-				console.log(offset, ver, e);
-				obj.abc = e;
-			}
+			obj.abc = byteStream.readBytes(offset);
 			return obj;
 		}
 		SwfParser.prototype.parseProductInfo = function() {
@@ -20219,7 +22009,6 @@ var PinkFie = (function(moduleResults) {
 				this.byteStream.position = startOffset + action.len;
 			}
 			return action;
-		
 		}
 		Avm1Parser.prototype.parseOpcodeAndLength = function() {
 			let opcode = this.byteStream.readUint8();
@@ -20424,7 +22213,7 @@ var PinkFie = (function(moduleResults) {
 						var type = this.byteStream.readUint8();
 						switch (type) {
 							case 0: // String
-								value = String(this.byteStream.readStringWithUntil());
+								value = this.byteStream.readStringWithUntil();
 								break;
 							case 1: // Float
 								value = this.byteStream.readFloat32();
@@ -20467,10 +22256,10 @@ var PinkFie = (function(moduleResults) {
 					action.offset = this.byteStream.readInt16();
 					break;
 				case 0x9A: // GetUrl2
-					action.loadVariablesFlag = this.byteStream.getUIBits(1); // 0=none, 1=LoadVariables
-					action.loadTargetFlag = this.byteStream.getUIBits(1);// 0=web, 1=Sprite
-					this.byteStream.getUIBits(4); // Reserved
-					action.sendVarsMethod = this.byteStream.getUIBits(2);// 0=NONE, 1=GET, 2=POST
+					action.loadVariablesFlag = this.byteStream.readUB(1); // 0=none, 1=LoadVariables
+					action.loadTargetFlag = this.byteStream.readUB(1);// 0=web, 1=Sprite
+					this.byteStream.readUB(4); // Reserved
+					action.sendVarsMethod = this.byteStream.readUB(2);// 0=NONE, 1=GET, 2=POST
 					this.byteStream.byteAlign();
 					break;
 				case 0x9B: // DefineFunction

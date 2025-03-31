@@ -8,15 +8,14 @@
         <style>
 			body {
 				font-family: monospace;
+				background-color: #000;
+			}
+			a{
+				color: #fff;
 			}
 			.app {
-				width: 640px;
-				margin: auto;
-				color: #000000;
+				color: #fff;
 			}
-            .pinkfie-stage{
-                width: 640px;
-            }
 			#soundimage {
 				width: 640px;
 				height: 320px;
@@ -52,26 +51,28 @@
 				margin: 0;
 				text-align: center;
 			}
+			#pinkfie-player {
+				display: none;
+			}
         </style>
 	</head>
 	<body>
-		<a href="./" style="position: fixed; top: 4px; left: 4px;">back</a>
+		<a href="./" style="position: fixed; top: 4px; right: 4px;">back</a>
 		<div class="app">
 			<h1>SWF Preview</h1>
 			<p>The Flash Reader in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open .swf</a>
 			<div id="pinkfie-player"></div>
-			<h3>Sprites</h3>
-			<div id="soritimage"></div>
-			<h3>Sounds</h3>
-			<div id="soundimage"></div>
-			<h3>Shapes</h3>
-			<div id="shapes">
-				<a id="shapesloadmore" href="#">Load More</a>
+			<br>
+			<div id="fdgddg">
+				<a href="#" id="sound_button">Sounds</a>
+				<a href="#" id="shape_button">Shapes & Bitmaps</a>
+				<h3 id="hkjjhk">Sounds</h3>
+				<div id="soundimage"></div>
+				<div id="shapes">
+					<a id="shapesloadmore" href="#">Load More</a>
+				</div>	
 			</div>
-			<h3>MorphShapes</h3>
-			<h3>Bitmaps</h3>
-			<h3>Fonts</h3>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script>
@@ -339,7 +340,7 @@
 				}
 	            ATPlayer.prototype.downloadWAV = function() {
 					if (this.swfSoundData && window.pinkfie_allow_swfsound) {
-						downloadUint8(new Uint8Array(this.swfSoundData.slice(2)), player.getSwfName() + ".mp3");
+						downloadUint8(this.swfSoundData.slice(2), player.getSwfName() + ".mp3");
 						return;
 					}
 	                var _buffer = this._player.buffer;
@@ -557,6 +558,15 @@
 					}
 				};
 
+				function toBitmapIst(bitmap) {
+					var canvas = document.createElement("canvas");
+					canvas.width = bitmap.width;
+					canvas.height = bitmap.height;
+					var ctx = canvas.getContext("2d");
+					ctx.putImageData(bitmap, 0, 0);
+					return canvas;
+				}
+
 				var ATShape = function(shapeCache, id) {
 					this.shapeCache = shapeCache;
 					this.root = document.createElement("div");
@@ -671,12 +681,6 @@
 							case 0x13:
 								var css;
 								var gg = styleObj.gradient;
-								if (!gg) {
-									gg = styleObj.linearGradient;
-								}
-								if (!gg) {
-									gg = styleObj.radialGradient;
-								}
 								var m = gg.matrix;
 								var ggg = m;
 								var type = styleObj.type;
@@ -688,7 +692,7 @@
 									var xy = linearGradientXY(m);
 									css = ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
 								}
-								var records = gg.gradientRecords;
+								var records = gg.records;
 								var rLength = records.length;
 								for (var rIdx = 0; rIdx < rLength; rIdx++) {
 									var record = records[rIdx];
@@ -717,9 +721,9 @@
 								var bitmapId = styleObj.bitmapId;
 								var bMatrix = styleObj.bitmapMatrix;
 								var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-								var image = player.stage.library.characterById(bitmapId);
+								var image = player.stage.swf.library.characterById(bitmapId);
 								if (image && image.image) {
-									var c = image.image;
+									var c = toBitmapIst(image.image);
 									if (styleType === 0x41 || styleType === 0x43) {
 										ctx.save();
 										ctx.clip();
@@ -829,12 +833,6 @@
 							case 0x13:
 								var css;
 								var gg = styleObj.gradient;
-								if (!gg) {
-									gg = styleObj.linearGradient;
-								}
-								if (!gg) {
-									gg = styleObj.radialGradient;
-								}
 								var m = gg.matrix;
 								var ggg = m;
 								var type = styleObj.type;
@@ -846,7 +844,7 @@
 									var xy = linearGradientXY(m);
 									css = ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
 								}
-								var records = gg.gradientRecords;
+								var records = gg.records;
 								var rLength = records.length;
 								for (var rIdx = 0; rIdx < rLength; rIdx++) {
 									var record = records[rIdx];
@@ -875,9 +873,9 @@
 								var bitmapId = styleObj.bitmapId;
 								var bMatrix = styleObj.bitmapMatrix;
 								var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-								var image = player.stage.library.characterById(bitmapId);
+								var image = player.stage.swf.library.characterById(bitmapId);
 								if (image && image.image) {
-									var c = image.image;
+									var c = toBitmapIst(image.image);
 									if (styleType === 0x41 || styleType === 0x43) {
 										ctx.save();
 										ctx.clip();
@@ -896,6 +894,55 @@
 					}
 				}
 
+				const ATBitmap = function(image, id) {
+					this.image = image;
+
+					this.root = document.createElement("div");
+					this.root.className = "shapeat";
+
+					var s = document.createElement("p");
+					s.textContent = 'Bitmap' + id;
+
+					this._name = 'Bitmap' + id;
+
+					this.canvas = document.createElement("canvas");
+					this.canvas.width = 80;
+					this.canvas.height = 80;
+					this.ctx = this.canvas.getContext('2d');
+					this.root.appendChild(this.canvas);
+					this.root.appendChild(s);
+
+					this.canvas.onclick = () => this.downloadPng();
+
+					this.render();
+				}
+				ATBitmap.prototype.render = function() {
+					var image = toBitmapIst(this.image);
+					if (image) {
+						var scaleW = 80 / (image.width / 1);
+						var scaleH = 80 / (image.height / 1);
+						var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
+
+						this.ctx.drawImage(image, 0, 0, image.width * scale, image.height * scale);
+					}
+				}
+				ATBitmap.prototype.downloadPng = function() {
+					var image = toBitmapIst(this.image);
+					if (image) {
+						var canvas = document.createElement("canvas");
+						canvas.width = image.width;
+						canvas.height = image.height;
+						var ctx = canvas.getContext("2d");
+
+						ctx.drawImage(image, 0, 0);
+
+						var a = document.createElement("a");
+						a.href = canvas.toDataURL();
+						a.download = this._name + ".png";
+						a.click();
+					}
+				}
+
 	            var playerArea = document.getElementById('pinkfie-player');
 
 	            playerArea.appendChild(player.root);
@@ -903,11 +950,30 @@
 				var soundimage = document.getElementById("soundimage");
 				var soundimage2 = document.getElementById("shapes");
 
-				var soritimage = document.getElementById("soritimage");
+				var fdgddg = document.getElementById("fdgddg");
+				fdgddg.style.display = "none";
+				soundimage2.style.display = "none";
+
+				var hkjjhk = document.getElementById("hkjjhk");
 
 				var shapesloadmore = document.getElementById("shapesloadmore");
 
 				var shapegdloadmore = document.createElement("a");
+
+				var sound_button = document.getElementById("sound_button");
+				var shape_button = document.getElementById("shape_button");
+
+				sound_button.onclick = function() {
+					hkjjhk.innerHTML = "Sounds";
+					soundimage.style.display = "";
+					soundimage2.style.display = "none";
+				}
+
+				shape_button.onclick = function() {
+					hkjjhk.innerHTML = "Shapes";
+					soundimage.style.display = "none";
+					soundimage2.style.display = "";
+				}
 
 	            player.setOptions({
 	                autoplayPolicy: 'never'
@@ -915,7 +981,6 @@
 
 				var atplayerpre = [];
 				var atshapepre = [];
-				var atspeotpre = [];
 
 				var atshapecga = [];
 
@@ -933,19 +998,20 @@
 					}
 					atshapepre = [];
 					atshapecga = [];
-					for (let i = 0; i < atspeotpre.length; i++) {
-						const element = atspeotpre[i];
-						soritimage.removeChild(element);
-					}
-					atspeotpre = [];
 					ss = 0;
 				}
 
 				function showShapes() {
 					soundimage2.removeChild(shapesloadmore);
 					for (let js = ss; js < (ss + Math.min(atshapecga.length - ss, 250)); js++) {
-						const _data = atshapecga[js];
-						var ats = new ATShape(shapeUtils.convert(_data.shapes), _data.id);
+						const das = atshapecga[js];
+						var ats;
+						if (das.displayType == "shape") {
+							var _data = das.data;
+							ats = new ATShape(shapeUtils.convert(_data), _data.id);	
+						} else if (das.displayType == "bitmap") {
+							ats = new ATBitmap(das.image, das.characterId);	
+						}
 						soundimage2.appendChild(ats.root);
 						atshapepre.push(ats);
 					}
@@ -956,33 +1022,37 @@
 				shapesloadmore.onclick = function() {
 					showShapes();
 				}
+
+				player.oncleanup.subscribe(function() {
+					fdgddg.style.display = "none";
+				});
 				
 				player.onload.subscribe(function (stage) {
+					fdgddg.style.display = "";
 					var streamSoundSprites = [];
 	                streamSoundSprites.push(stage.rootClipTag);
-					for (var i in stage.library.characters) {
-						var fgd = stage.library.characters[i];
+					for (var i in stage.swf.library.characters) {
+						var fgd = stage.swf.library.characters[i];
 						if (!fgd) break;
 						var _data = fgd.data;
 	                    if (_data) {
-	                        switch(_data.tagType) {
-	                            case "DefineSound":
+	                        switch(fgd.displayType) {
+	                            case "sound":
 	                                var atp = new ATPlayer();
 									atp.swfSoundData = _data.data;
-
 	                        		atp.__name = _data.format.compression || "";
 	                                atp.init(soundimage);
 	                                atp.setBuffer(fgd.audio.getBuffer());
 									atplayerpre.push(atp);
 	                                break;
-	                            case "DefineShape":
-	                            case "DefineShape2":
-	                            case "DefineShape3":
-	                            case "DefineShape4":
-									atshapecga.push(_data);
+								case "shape":
+									atshapecga.push(fgd);
 	                                break;
 	                        }
 	                    } else {
+							if (fgd.displayType == "bitmap") {
+								atshapecga.push(fgd);
+							}
 							if (fgd.tags) {
 	                    	    streamSoundSprites.push(fgd);
 							}
@@ -1004,21 +1074,6 @@
 	                        atp.setBuffer(audiost.getBuffer());
 							atplayerpre.push(atp);
 	                    }
-					}
-					for (let fg = 0; fg < streamSoundSprites.length; fg++) {
-						const fgff = streamSoundSprites[fg];
-						var ag = document.createElement("a");
-						ag.href = "#";
-						ag.innerHTML = "sprite" + fgff.characterId;
-						ag.onclick = function() {
-							player.stage.rootClipTag = fgff;
-							player.stage.clip = null;
-						}
-						atspeotpre.push(ag);
-						soritimage.appendChild(ag);
-						var hgfh = document.createElement("br");
-						atspeotpre.push(hgfh);
-						soritimage.appendChild(hgfh);
 					}
 					showShapes();
 				});

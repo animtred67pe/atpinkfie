@@ -39,6 +39,26 @@ SWFE.prototype.load = function() {
 	}
 	this.loadElements(0);
 };
+SWFE.prototype.getRect = function(o_width, o_height) {
+	var _movieCanvas = {
+		width: o_width,
+		height: o_height
+	};
+	var __Width = 130;
+	var __Height = 90;
+	var w, h;
+	var x = 0, y = 0;
+	if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+		w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+		h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+		x = (__Width - w) / 2;
+	} else {
+		w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+		h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+		y = (__Height - h) / 2;
+	}
+	return [x, y, w, h];
+}
 SWFE.prototype.loadElements = function(a) {
 	while (this.elements.length) {
 		var elem = this.elements.pop();
@@ -63,11 +83,23 @@ SWFE.prototype.loadElement = function(data) {
 	elem.style.margin = "5px";
 	elem.style.padding = "5px";
 	elem.style.cursor = "pointer";
-	elem.style.border = "2px solid #fff";
+	elem.style.border = "2px solid #ccc";
+	var sceneImg = document.createElement('div');
 	var img = document.createElement('img');
-	img.width = 130;
-	img.height = 90;
 	img.title = data.metadata;
+	img.onload = function() {
+		var rect = _this.getRect(img.width, img.height);
+		img.style.position = "absolute";
+		img.style.top = rect[1] + "px";
+		img.style.left = rect[0] + "px";
+		img.style.width = rect[2] + "px";
+		img.style.height = rect[3] + "px";
+	}
+	sceneImg.style.position = "relative";
+	sceneImg.style.width = "130px";
+	sceneImg.style.height = "90px";
+	sceneImg.style.overflow = "hidden";
+	sceneImg.appendChild(img);
 	if (data.thumb_id in _this.images) {
 		if (_this.images[data.thumb_id]) img.src = URL.createObjectURL(_this.images[data.thumb_id]);
 	} else {
@@ -79,7 +111,7 @@ SWFE.prototype.loadElement = function(data) {
 			});
 		});	
 	}
-	elem.appendChild(img);
+	elem.appendChild(sceneImg);
 	elem.onclick = function() {
 		if (_this.onclick) {
 			_this.onclick(data);

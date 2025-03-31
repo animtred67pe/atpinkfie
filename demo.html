@@ -73,6 +73,7 @@
 				<label>Sample SWF:</label>
 				<select value="" id="sampleSWFpkf"></select>
 			</div>
+			<a class="pkfcontrolB" id="enswfreload" style="margin: 8px; float: right;">Reload SWF</a>
 			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
 		</div>
 		<div id="pinkswf">
@@ -101,6 +102,7 @@
 				var playerArea = document.getElementById('pinkswf');
 				var pinkswfmetadata = document.getElementById("pinkswfmetadata");
 				var enswfmetadata = document.getElementById("enswfmetadata");
+				var enswfreload = document.getElementById("enswfreload");
 				var pinkswfmetadataResult = document.getElementById("pinkswfmetadataResult");
 
 				function getByteText(byte) {
@@ -219,7 +221,7 @@
 					sa.click();
 				}
 
-				enswfmetadata.addEventListener("click", function() {
+				enswfmetadata.addEventListener("click", function(e) {
 					if (pinkswfmetadata.style.width == '0px') {
 						pinkswfmetadata.style.width = "250px";
 						minWW = 250;
@@ -231,7 +233,9 @@
 				});
 				enswfmetadata.addEventListener("contextmenu", function(e) {
 					e.preventDefault();
-					player.showSetting();
+				});
+				enswfreload.addEventListener("click", function(e) {
+					player.reload();
 				});
 				
 				function dropHandler(ev) {

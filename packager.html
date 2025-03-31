@@ -92,7 +92,7 @@
                         demo.textContent = "Loading internal files";
                         loadFilespack(data, function(jsss, csss) {
                             loadAssets(function(g1, g2) {
-                                const bodyg = new Packer.Packager(csss.replace("pinkfie_logo_l.svg", "data:image/svg+xml," + encodeURIComponent(g1)).replace("click-to-play.svg", "data:image/svg+xml," + encodeURIComponent(g2)), jsss, data);
+                                const bodyg = new Packer.Packager(csss.replace("pinkfie_logo_l.svg", "data:image/svg+xml;base64," + btoa(g1)).replace("click-to-play.svg", "data:image/svg+xml;base64," + btoa(g2)), jsss, data);
                                 var bod = bodyg.run();
                                 var rrrg = new Blob([bod]);
                                 var ra = document.createElement("a");
