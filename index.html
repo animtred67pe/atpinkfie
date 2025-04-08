@@ -35,10 +35,11 @@
 			</div>
 			<div id="pinkfiestage" style="display: none;">
 				<div id="pinkfieplayerarea"></div>
-				<a id="viewbbb2">Play/Pause</a>
-				<a id="viewbbb3">Settings</a>
-				<label>volume:</label>
-				<input type="range" id="fvolumeff" max="100" min="0" value="100" style="width: 120px">
+				<div style="padding: 3px;">
+					<a id="viewbbb2">Controls</a>
+					<a id="viewbbb3">Settings</a>
+					<a id="viewbbb1">Console</a>
+				</div>
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
@@ -50,10 +51,9 @@
 					<li><a href="packager.html">HTML Packager</a></li>
 					<li><a href="swfreader.html">Swf Reader Preview</a></li>
 					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
-					<li><a href="videopreview.html">PinkFie Video Decoder</a></li>
+					<li><a href="videopreview.html" title="Video Decoder Supports H.263 and VP6">PinkFie Video Decoder</a></li>
 					<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
-					<li><a href="https://scratch.mit.edu/projects/1025145662/" target="_blank">Feedback</a></li>
 					<li><a href="about.html">credits</a></li>
 				</ul>
 				<label>Enable WebGL Renderer:</label>
@@ -83,9 +83,9 @@
 				var player = new PinkFie.Player();
 				var swfeArea = document.getElementById('swfeArea');
 
-				window.player = player;
+				player.menuSettingControls(false);
 
-				var fvolumeff = document.getElementById('fvolumeff');
+				window.player = player;
 
 				var demo = document.getElementById("demo");
 				var ggtitle5 = document.getElementById("ggtitle5");
@@ -96,17 +96,13 @@
 
 				var viewbbb2 = document.getElementById('viewbbb2');
 				var viewbbb3 = document.getElementById('viewbbb3');
+				var viewbbb1 = document.getElementById('viewbbb1');
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfieplayerarea');
 
 				var advancedWebGL = document.getElementById('enwebgla');
 
 				playerArea.appendChild(player.root);
-				fvolumeff.addEventListener('input', function (e) {
-					player.setOptions({
-						volume: (+fvolumeff.value)
-					});
-				});
 
 				player.setOptions(Common.playerOptions);
 				if (!Common.autoplay) {
@@ -114,12 +110,6 @@
 						autoplayPolicy: 'never'
 					});
 				}
-				
-				player.onoptionschange.subscribe(function(o) {
-					fvolumeff.value = player.getOptions().volume;
-				});
-
-				fvolumeff.value = player.getOptions().volume;
 
 				function showSwf() {
 
@@ -163,10 +153,13 @@
 				}
 
 				viewbbb2.onclick = function () {
-					player.toggleRunning();
+					player.showControls();
 				}
 				viewbbb3.onclick = function () {
 					player.showSetting();
+				}
+				viewbbb1.onclick = function () {
+					player.showLogs();
 				}
 				function oohid() {
 					document.title = initialTitle;

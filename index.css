@@ -32,10 +32,10 @@ a:hover{
 .app{
     width: 640px;
     margin: auto;
-    color: #111;
+    color: #000;
 }
 .app a{
-    color: #111;
+    color: #000;
 }
 .dark {
     background-color: #111;
@@ -50,18 +50,4 @@ a:hover{
 #pinkfie-player{
     width: 640px;
     margin: 0 auto;
-}
-.dropdown {
-    display: inline-block;
-    position: relative;
-}
-.dropdown > select {
-    position: absolute;
-    font: inherit;
-    opacity: 0;
-    cursor: pointer;
-    top: 0px;
-    left: 0px;
-    width: 100%;
-    height: 100%;
 }

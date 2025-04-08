@@ -10,15 +10,27 @@
   transform: translateZ(0);
 }
 
+.watcher-pinkfie-stats {
+  background-color: #222;
+  padding: 3px 5px;
+  margin: 3px;
+  height: auto;
+  border: 2px solid #444;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
 .watcher-pinkfie-menu-vertical {
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
+  background-color: #222;
+  border-radius: 8px;
+  border: 2px solid #444;
+  padding: 1px;
 }
 .watcher-pinkfie-menu-vertical div {
-  padding: 3px;
-  margin: 3px;
-  font-size: 13px;
-  color: rgb(255, 255, 255);
+  padding: 1px;
+  margin: 1px;
+  font-size: 14px;
+  color: #ccc;
   transition: 0s;
 }
 .watcher-pinkfie-menu-vertical div:hover {
@@ -26,11 +38,13 @@
   text-shadow: 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1), 0px 0px 2px rgba(255, 255, 255, 1);
 }
 .watcher-pinkfie-setting {
-  color: rgba(255, 255, 255, 1);
-  backdrop-filter: blur(2px);
+  background: #222;
+  color: #ccc;
+  border: 2px solid #444;
+  border-radius: 8px;
 }
 .watcher-pinkfie-setting a {
-  color: rgba(255, 255, 255, 1);
+  color: #ccc;
   cursor: pointer;
   text-decoration: underline;
   transition: 0s;
@@ -41,7 +55,7 @@
 
 /* Player Styles */
 .pinkfie-player-root{
-  font-family: monospace;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
 .pinkfie-player-stage{
 	position: relative;
@@ -94,19 +108,19 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, 40px);
+  transform: translate(-50%, 40px); 
   color: #000;
 }
 .pinkfie-player-loading-image {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -80px);
+  transform: translate(-50%, -60px);
   width: 320px;
-  height: 120px;
+  height: 84px;
   margin: auto;
-  background-image: url(pinkfie_logo_l.svg);
-  background-size: 320px 120px;
+  background-image: url(pinkfie_logo.svg);
+  background-size: 320px 84px;
 }
 .pinkfie-player-loading-progress{
   position: absolute;

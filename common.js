@@ -56,6 +56,7 @@ var Common = (function() {
   }
 
   PinkFie.config.useWebGL = URLsearchParams("webgl", true);
+  PinkFie.config.allowDownloadMP3SoundStream = URLsearchParams("allow_download_mp3_sound_stream", true);
 
   return {
     playerOptions: playerOptions,

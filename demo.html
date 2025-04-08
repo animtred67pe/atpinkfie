@@ -54,12 +54,11 @@
 				width: 120px;
 			}
 			.pinkfielogo{
-				width: 75px;
-				height: 24px;
-				padding: 6px;
-				margin: 3px;
-				background-image: url(pinkfie_logo.svg);
-				background-size: 87px 36px;
+				width: 87px;
+				height: 25px;
+				margin: 8px 3px;
+				background-image: url(pinkfie_logo_l.svg);
+				background-size: 87px 25px;
 			}
 		</style>
 	</head>
@@ -91,8 +90,6 @@
 				var autoplayL = true;
 
 				var player = new PinkFie.Player();
-
-				player.debugSample = true;
 
 				var initialTitle = document.title;
 
@@ -200,7 +197,6 @@
 
 				player.onload.subscribe(function() {
 					showSwf();
-					player.debugSample = false;
 					if ((!Common.autoplay) && autoplayL) {
 						player.setOptions({autoplayPolicy: "never"});
 						autoplayL = false;
@@ -233,6 +229,7 @@
 				});
 				enswfmetadata.addEventListener("contextmenu", function(e) {
 					e.preventDefault();
+					player.showMenuVertical(12, 12);
 				});
 				enswfreload.addEventListener("click", function(e) {
 					player.reload();
@@ -289,7 +286,6 @@
 					sampleSWFpkf.appendChild(g);
 				}
 				if (Common.swfUrl) {
-					player.debugSample = false;
 					if (!Common.autoplay) player.setOptions({autoplayPolicy: "never"})
 					sampleSWFpkf.value = '';
 					loadSwfUrl(Common.swfUrl);

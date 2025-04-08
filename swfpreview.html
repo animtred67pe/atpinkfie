@@ -562,8 +562,11 @@
 					var canvas = document.createElement("canvas");
 					canvas.width = bitmap.width;
 					canvas.height = bitmap.height;
+					bitmap.toRGBA();
+					var imageData = new ImageData(bitmap.width, bitmap.height);
+					imageData.data.set(bitmap.data, 0);
 					var ctx = canvas.getContext("2d");
-					ctx.putImageData(bitmap, 0, 0);
+					ctx.putImageData(imageData, 0, 0);
 					return canvas;
 				}
 
