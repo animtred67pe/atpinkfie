@@ -35,10 +35,10 @@
 			</div>
 			<div id="pinkfiestage" style="display: none;">
 				<div id="pinkfieplayerarea"></div>
-				<div style="padding: 3px;">
-					<a id="viewbbb2">Controls</a>
+				<div class="pa-controls">
 					<a id="viewbbb3">Settings</a>
-					<a id="viewbbb1">Console</a>
+					<a id="viewbbb2">Controls</a>
+					<a id="viewbbb1">Copy Debug Info</a>
 				</div>
 			</div>
 			<div id="demo" style="display: none;"></div>
@@ -48,10 +48,8 @@
 				<ul>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
-					<li><a href="packager.html">HTML Packager</a></li>
 					<li><a href="swfreader.html">Swf Reader Preview</a></li>
-					<li><a href="swfpreview.html">Swf Preview [Beta]</a></li>
-					<li><a href="videopreview.html" title="Video Decoder Supports H.263 and VP6">PinkFie Video Decoder</a></li>
+					<li><a href="swfpreview.html" title="Video Decoder Supports H.263 and VP6">Swf Preview</a></li>
 					<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
 					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
 					<li><a href="about.html">credits</a></li>
@@ -143,13 +141,15 @@
 					demo.innerHTML = dfgfd;
 					demo.style.display = "";
 
-					var soundsC = player.stage.audio.getCompressSound();
+					var soundsC = player.stage.getCompressSound();
 					var videosC = player.stage.getCompressVideo();
+
+					var charaterT = player.stage.getDisplayTypes();
 
 					demo.title = "ActionScript 3: " +
 						player.stage.isActionScript3() +
-						(soundsC.length ? (" Sounds Compressions: " + soundsC.join(",")) : "") + (videosC.length ? (" Videos Codec: " + videosC.join(",")) : "") + " DisplayObject Types: " +
-						(player.stage.getDisplayTypes().join(",") || "emtry");
+						(soundsC.length ? (" Sounds Compressions: " + soundsC.join(",")) : "") + (videosC.length ? (" Videos Codec: " + videosC.join(",")) : "") + (charaterT.length ? (" Characters Types: " +
+						charaterT.join(",")) : "");
 				}
 
 				viewbbb2.onclick = function () {
@@ -159,7 +159,7 @@
 					player.showSetting();
 				}
 				viewbbb1.onclick = function () {
-					player.showLogs();
+					player.copyDebugInfo();
 				}
 				function oohid() {
 					document.title = initialTitle;
@@ -246,11 +246,11 @@
 						var zipblob = new Blob([uint8]);
 						var a = document.createElement("a");
 						a.href = URL.createObjectURL(zipblob);
-						a.download = "pinkfie old versions.zip";
+						a.download = "pinkfie versions.zip";
 						a.click();
 					}
 					xhr.responseType = "arraybuffer";
-					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/6a0428c12460239cf41936031490e09e.wav/get/");
+					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/ee50ea95809fa6588ad48b66c6551b83.wav/get/");
 					xhr.send();
 				}
 
@@ -345,6 +345,8 @@
 				advancedWebGL.addEventListener('click', function(e) {
 					PinkFie.config.useWebGL = e.target.checked;
 				});
+				
+                document.querySelector(".version").textContent = "v" + player.version;
 			}());
 		</script>
     </body>

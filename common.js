@@ -30,9 +30,9 @@ var Common = (function() {
 
   playerOptions.vCamId = URLsearchParams("vcam", false) || "";
   playerOptions.vCamShow = URLsearchParams("vcam_show_clip", true);
-  playerOptions.allowAvm = URLsearchParams("allow_avm", true);
   playerOptions.interpolation = URLsearchParams("interpolation", true);
   playerOptions.unloop = URLsearchParams("unloop", true);
+  playerOptions.useBitmapCache = URLsearchParams("bitmap_cache", true);
   playerOptions.wth = +URLsearchParams("wth", false);
 
   var swfUrl = URLsearchParams("swfurl");
@@ -43,6 +43,7 @@ var Common = (function() {
     if (URLsearchParams("gotta_catch_em_all_again", true)) swfUrl = ["c09da91a1b96cb3f061dd634605b5c15"];
     if (URLsearchParams("guardian", true)) swfUrl = ["200cb9d6fbf02a30add188244e6c69a1","7e383a22fb070f0afaa8400770e35f6b"];
     if (URLsearchParams("once_upon_a_time_in_canterlot", true)) swfUrl = ["deef195cbadc444515be401f7bab13ca","cd18e3bd92c164c7307670afdce35096"];
+    if (URLsearchParams("derpy_cardcaptor", true)) swfUrl = ["c1235a2f67fbb40c92f290156db43319"];
     if (swfMd5) swfUrl = swfMd5.split("_");
   }
   
@@ -56,7 +57,6 @@ var Common = (function() {
   }
 
   PinkFie.config.useWebGL = URLsearchParams("webgl", true);
-  PinkFie.config.allowDownloadMP3SoundStream = URLsearchParams("allow_download_mp3_sound_stream", true);
 
   return {
     playerOptions: playerOptions,

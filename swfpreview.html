@@ -8,7 +8,7 @@
         <style>
 			body {
 				font-family: monospace;
-				background-color: #000;
+				background-color: #111;
 			}
 			a{
 				color: #fff;
@@ -17,60 +17,60 @@
 				color: #fff;
 			}
 			#soundimage {
-				width: 640px;
+				width: 1070px;
 				height: 320px;
-				border: 2px solid #ccc;
 				overflow: auto;
+			}
+			#soundimage a{
+				opacity: 1;
+				background: #000;
+				float: left;
+				padding: 8px 0px;
+				width: 104px;
+				text-align: center;
+			}
+			#soundimage a:hover{
+				opacity: 0.75;
 			}
 			#shapes {
-				width: 640px;
-				height: 320px;
 				border: 2px solid #ccc;
-				overflow: auto;
+				border-radius: 8px;
+				overflow: hidden;
 			}
-			#soritimage {
-				width: 640px;
-				height: 320px;
-				border: 2px solid #ccc;
-				overflow: auto;
+			#shapes[fullscreen] {
+				border: 0px;
+				border-radius: 0px;
+				position: absolute;
+				top: 0;
+				left: 0;
+				background: #000;
+				height: 100%;
+				width: 100%;
 			}
-			.shapeat {
-				margin: 5px;
-				width: 100px;
-				height: 110px;
-				border: 2px solid;
-				padding: 5px;
-				float: left;
+			.swf-preview-fullscreen {
+				background: #000;
+				overflow: hidden;
 			}
-			.shapeat canvas {
-				padding: 5px;
-				margin: 0;
-				text-align: center;
-			}
-			.shapeat p {
-				margin: 0;
-				text-align: center;
-			}
-			#pinkfie-player {
-				display: none;
+			#closefs {
+				position: fixed;
+				top: 4px;
+				right: 4px;
+				z-index: 50;
 			}
         </style>
 	</head>
 	<body>
 		<a href="./" style="position: fixed; top: 4px; right: 4px;">back</a>
 		<div class="app">
-			<h1>SWF Preview</h1>
-			<p>The Flash Reader in Javascript, is still in development.</p>
 			<a href="#" id="loadswffile">Open .swf</a>
-			<div id="pinkfie-player"></div>
+			<label id="ggtitle5"></label>
+			<div id="demo"></div>
 			<br>
 			<div id="fdgddg">
-				<a href="#" id="sound_button">Sounds</a>
-				<a href="#" id="shape_button">Shapes & Bitmaps</a>
-				<h3 id="hkjjhk">Sounds</h3>
 				<div id="soundimage"></div>
+				<h3>Preview</h3>
 				<div id="shapes">
-					<a id="shapesloadmore" href="#">Load More</a>
+					<a href="#" id="closefs">[x]</a>
 				</div>	
 			</div>
 		</div>
@@ -78,9 +78,31 @@
 		<script>
 			(function() {
 				var shapeUtils = PinkFie.shapeUtils;
-				var player = new PinkFie.Player();
+				var AudioMixer = PinkFie.AudioMixer;
+				var SwfInput = PinkFie.SwfInput;
+				var SwfDecompress = PinkFie.SwfDecompress;
 
-				window.pinkfie_allow_swfsound = false;
+				var mixer = new AudioMixer(new AudioContext());	
+				
+				const {
+					decodeDefineBitsJpeg,
+					glueTablesToJpeg,
+					decodeDefineBitsLossless
+				} = PinkFie;
+
+				function parseSwf(data, callback) {
+					var a = new SwfDecompress(data);
+					a.onload = function(d) {
+						var b = new SwfInput(d.data, d.header.version);
+						var c = b.parseTagList();
+						callback({
+							header: d.header,
+							movieInfo: d.movieInfo,
+							tags: c
+						});
+					}
+					a.load();
+				}
 
 				function _executeCmdCtx2dPath(ctx, cmd) {
 					for (let i = 0; i < cmd.length; i++) {
@@ -95,7 +117,34 @@
 					}
 				}
 
-				var linearGradientXY = function(m) { // n
+				var mxWidth = 320;
+				var mxHeight = 240;
+
+				var o_mxWidth = mxWidth;
+				var o_mxHeight = mxHeight;
+
+				var _getRect = function(o_width, o_height, width, height) {
+					var _movieCanvas = {
+						width: o_width,
+						height: o_height
+					};
+					var __Width = width;
+					var __Height = height;
+					var w, h;
+					var x = 0, y = 0;
+					if ((__Height - (_movieCanvas.height * (__Width / _movieCanvas.width))) < 0) {
+						w = (_movieCanvas.width * (__Height / _movieCanvas.height));
+						h = (_movieCanvas.height * (__Height / _movieCanvas.height));
+						x = (__Width - w) / 2;
+					} else {
+						w = (_movieCanvas.width * (__Width / _movieCanvas.width));
+						h = (_movieCanvas.height * (__Width / _movieCanvas.width));
+						y = (__Height - h) / 2;
+					}
+					return [x, y, w, h];
+				}
+
+				var linearGradientXY = function(m) {
 					var x0 = -16384 * m[0] - 16384 * m[2] + m[4];
 					var x1 =  16384 * m[0] - 16384 * m[2] + m[4];
 					var x2 = -16384 * m[0] + 16384 * m[2] + m[4];
@@ -111,139 +160,6 @@
 					return [x0 + r2 * vx2, y0 + r2 * vy2, x1, y1];
 				}
 
-	            const SoundPlayer = function (audioContext) {
-	                this.isPaused = true;
-	                this.audioContext = audioContext;
-	                this.node = this.audioContext.createGain();
-	                this.node.connect(this.audioContext.destination);
-	                this.startTime = Date.now();
-	                this.duration = 0;
-	                this.currentTime = 0;
-	                this.buffer = null;
-	                this.onended = null;
-	                this.playingSource = null;
-	                this.isLoad = false;
-	                this.loadingLoaded = 0;
-	                this._p = 0;
-	                setInterval(this.step.bind(this), 20);
-	            }
-	            SoundPlayer.prototype.cleanup = function() {
-	                this.stopSource();
-	                this.currentTime = 0;
-	                this.setStartTime(this.currentTime);
-	                this.duration = 0;
-	                this.isPaused = true;
-	                this.isLoad = false;
-	            };
-	            SoundPlayer.prototype.setCurrentTime = function(time) {
-	                this.currentTime = time;
-	                this.setStartTime(time);
-	                if (!this.isPaused) {
-	                    this.playSource(this.currentTime);
-	                }
-	            };
-	            SoundPlayer.prototype.setVolume = function(v) {
-	                this.node.gain.value = v;
-	            };
-	            SoundPlayer.prototype.getVolume = function() {
-	                return this.node.gain.value;
-	            };
-	            SoundPlayer.prototype.setStartTime = function(time) {
-	                this.startTime = (Date.now() - (time * 1000));
-	            };
-	            SoundPlayer.prototype.getTime = function() {
-	                return (Date.now() - this.startTime) / 1000;
-	            };
-	            SoundPlayer.prototype.play = function() {
-	                if (!this.isLoad) return;
-	                this.isPaused = false;
-	                this.setStartTime(this.currentTime);
-	                if (this.currentTime >= this.duration) {
-	                    this.currentTime = 0;
-	                    this.setStartTime(0);
-	                }
-	                this.playSource(this.currentTime);
-	            };
-	            SoundPlayer.prototype.stop = function() {
-	                this.isPaused = true;
-	                this.currentTime = 0;
-	                this.setStartTime(0);
-	                this.stopSource();
-	            };
-	            SoundPlayer.prototype.pause = function() {
-	                if (!this.isLoad) return;
-	                this.isPaused = true;
-	                this.setStartTime(this.currentTime);
-	                this.stopSource();
-	            };
-	            SoundPlayer.prototype.playSource = function(time) {
-	                this._p = Date.now();
-	                this.stopSource();
-	                this.playingSource = this.audioContext.createBufferSource();
-	                this.playingSource.buffer = this.buffer;
-	                this.playingSource.connect(this.node);
-	                this.playingSource.start(this.audioContext.currentTime, time);
-	            };
-	            SoundPlayer.prototype.stopSource = function() {
-	                if (this.playingSource) {
-	                    this.playingSource.disconnect();
-	                    this.playingSource = null;
-	                }
-	            };
-	            SoundPlayer.prototype.step = function() {
-	                if (this.currentTime > this.duration && !this.isPaused) {
-	                    this.stopSource();
-	                    this.currentTime = this.duration;
-	                    this.setStartTime(this.duration);
-	                    this.isPaused = true;
-	                    if (this.onended) this.onended();
-	                }
-	                if (!this.isPaused && this.loadingLoaded == 0) {
-	                    this.currentTime = Math.round((Date.now() - this.startTime)) / 1000;
-	                }
-	            };
-	            SoundPlayer.prototype.setBuffer = function(buffer) {
-	                var _this = this;
-	                _this.cleanup();
-	                this.buffer = buffer;
-	                this.duration = this.buffer.duration;
-	                this.isLoad = true;
-	            };
-
-	            function mod(x, y) {
-					var r = x % y;
-					if (r / y < 0) {
-					r += y;
-					}
-					return r; 
-				};
-				function getDuraction(num) {
-					var txt = '';
-					if (Math.floor(num) > 3599) {
-						txt += '' + Math.floor(num / 3600);
-						txt += ':';
-						if (mod(Math.floor(num / 60), 60) > 9) {
-							txt += '' + mod(Math.floor(num / 60), 60);
-						} else {
-							txt += '0' + mod(Math.floor(num / 60), 60);
-						}
-						txt += ':';
-						if (mod(Math.floor(num), 60) > 9) {
-							txt += '' + mod(Math.floor(num), 60);
-						} else {
-							txt += '0' + mod(Math.floor(num), 60);
-						}
-					} else {
-						txt += '' + mod(Math.floor(num / 60), 60);
-						txt += ':';
-						if (mod(Math.floor(num), 60) > 9) {
-							txt += '' + mod(Math.floor(num), 60);
-						} else {
-							txt += '0' + mod(Math.floor(num), 60);
-						}
-					}
-					return txt;
-				}
 				function downloadUint8(data, name) {
 					var bb = new Blob([data]);
 					var a = document.createElement('a');
@@ -251,314 +167,9 @@
 					a.download = name;
 					a.click();
 				}
-				function _createImage(url) {
-					const img = new Image;
-					img.src = url;
-					return img;
-				}
-				function z_dir(dx,dy) {
-					return Math.sqrt((dx * dx) + (dy * dy));
-				}
-				function cosiLINE(x, y, width, r, tx, ty) {
-					return (tx > (x - r)) && (tx < ((x + width) + r)) && (ty > (y - r)) && (ty < (y + r));
-				}
-				function GGint8(data, pos, cc) {
-					var fixval = (cc | 0) % 0x100;
-					data[pos] = fixval;
-				}
-				function GGint16(data, pos, cc) {
-					var fixval = (cc | 0) % 0x10000;
-					data[pos] = fixval % 256;
-					data[pos + 1] = Math.floor(fixval / 256);
-				}
-				function GGint32(data, pos, cc) {
-					var fixval = (cc | 0) % 0x100000000;
-					data[pos] = fixval % 256;
-					data[pos + 1] = Math.floor(fixval / 256);
-					data[pos + 2] = Math.floor(fixval / 0x10000);
-					data[pos + 3] = Math.floor(fixval / 0x1000000);
-				}
-				function Grint16(data, pos) {
-					var val = (data[pos] + (data[pos + 1] * 256));
-					return (val > 32767) ? (val - 0x10000) : val;
-				}
-				var ATPlayer = function () {
-					this._player = new SoundPlayer(player.audioContext);
-					this._player.setVolume(1);
-					this.volumeimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSIzNy43NjMzOSIgaGVpZ2h0PSIzOS43ODMiIHZpZXdCb3g9IjAsMCwzNy43NjMzOSwzOS43ODMiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMjIuMzc4OTYsLTE2MC41NTQyMikiPjxnIGRhdGEtcGFwZXItZGF0YT0ieyZxdW90O2lzUGFpbnRpbmdMYXllciZxdW90Ozp0cnVlfSIgZmlsbD0iIzAwMDAwMCIgZmlsbC1ydWxlPSJub256ZXJvIiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMCIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiLz48cGF0aCBkPSJNMjQxLjM1MjMyLDE4OS42MDk2MnYtMTguNDE4OTdjMCwwIDguMTQ5OTksMC43ODAwNSA4LjE0OTk5LDguNjM4OTljMCw5LjM1MjkyIC04LjE0OTk5LDkuNzc5OTkgLTguMTQ5OTksOS43Nzk5OXoiLz48cGF0aCBkPSJNMjQxLjc2NjcyLDIwMC4zMzcyMWMwLDAgMC4xMTcsLTUuMjc3MyAwLjExNywtNS4yNzczYzAsMCAxMy4wMjEsLTMuMjUzNDkgMTMuNDEwODksLTE0LjYxNDJjMC40MTg1MywtMTIuMTk1MjMgLTEzLjY1OTQ0LC0xNC45MDU5NyAtMTMuNjU5NDQsLTE0LjkwNTk3bDAuMTMxNTUsLTQuOTg1NTNjMCwwIDE4LjA2MjAzLDAuMTUxMTUgMTguMzcxMjYsMTguOTI0NTVjMC4zMzIwMiwyMC4xNTY1MiAtMTguMzcxMjYsMjAuODU4NDUgLTE4LjM3MTI2LDIwLjg1ODQ1eiIvPjwvZz48L2c+PC9zdmc+');
-					this.volumeoffimg = _createImage('data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSI0MSIgaGVpZ2h0PSI0MSIgdmlld0JveD0iMCwwLDQxLDQxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMjE5LjUsLTE1OS41KSI+PGcgZGF0YS1wYXBlci1kYXRhPSJ7JnF1b3Q7aXNQYWludGluZ0xheWVyJnF1b3Q7OnRydWV9IiBmaWxsLXJ1bGU9Im5vbnplcm8iIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLWRhc2hhcnJheT0iIiBzdHJva2UtZGFzaG9mZnNldD0iMCIgc3R5bGU9Im1peC1ibGVuZC1tb2RlOiBub3JtYWwiPjxwYXRoIGQ9Ik0yMjIuMzc4OTYsMTkxLjM2MjM5di0yMi42MjE3OGg4LjAzNzc2bDkuODE1MjksLTguMTg2MzlsMC4wODM0NSwzOS4yMzQ4OWwtOS44OTg3MywtOC40MjY3MXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yNDEuMzUyMzIsMTg5LjYwOTYydi0xOC40MTg5N2MwLDAgOC4xNDk5OSwwLjc4MDA1IDguMTQ5OTksOC42Mzg5OWMwLDkuMzUyOTIgLTguMTQ5OTksOS43Nzk5OSAtOC4xNDk5OSw5Ljc3OTk5eiIgZmlsbD0iIzAwMDAwMCIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjAiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTI0MS43NjY3MiwyMDAuMzM3MjFsMC4xMTcsLTUuMjc3M2MwLDAgMTMuMDIxLC0zLjI1MzQ5IDEzLjQxMDg5LC0xNC42MTQyYzAuNDE4NTMsLTEyLjE5NTIzIC0xMy42NTk0NCwtMTQuOTA1OTcgLTEzLjY1OTQ0LC0xNC45MDU5N2wwLjEzMTU1LC00Ljk4NTUzYzAsMCAxOC4wNjIwMywwLjE1MTE1IDE4LjM3MTI2LDE4LjkyNDU1YzAuMzMyMDIsMjAuMTU2NTIgLTE4LjM3MTI2LDIwLjg1ODQ1IC0xOC4zNzEyNiwyMC44NTg0NXoiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0yMjIuNSwxNjIuNWwzNSwzNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwMDAwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvZz48L2c+PC9zdmc+');
-			    	this.mousePressed = false;
-			    	this.loop = false;
-			    	this.autoPlay = false;
-			    	this.mouseX = 0;
-			    	this.mouseY = 0;
-	    			this.ToPlayAudio = 0;
-	    			this.ToVolume = 0;
-					this.canvas = document.createElement('canvas');
-					this.ctx = this.canvas.getContext('2d');
-			        this.interval = null;
-			        this.variableNotUse = {"mouseDown":false};
-					this.swfSoundData = null;
-					this.__name = "";
-				}
-				ATPlayer.prototype.init = function(dix) {
-					var _this = this;
-					dix.appendChild(this.canvas);
-					this.canvas.onmousedown = function (e) {
-						_this.mousePressed = true;
-	                    e.preventDefault();
-					}
-					this.canvas.onmouseup = function (e) {
-						_this.mousePressed = false;
-	                    e.preventDefault();
-					}
-					this.canvas.onclick = function (e) {
-						if (z_dir(25 - _this.mouseX, 25 - _this.mouseY) < 12) {
-							if (_this._player.isPaused) {
-								_this._player.play();
-							} else {
-								_this._player.pause();
-							}
-						}
-	                    e.preventDefault();
-					}
-					document.addEventListener("mousemove", function(e) {
-						var df = _this.canvas.getBoundingClientRect();
-						_this.mouseX = e.clientX - df.left;
-						_this.mouseY = e.clientY - df.top;
-					});
-					this.canvas.oncontextmenu = function (e) {
-	                    _this.downloadWAV();
-	                    e.preventDefault();
-					}
-					this.canvas.width = 300;
-					this.canvas.height = 50;
-					this.interval = setInterval(this.step.bind(this), 5);
-				};
-				ATPlayer.prototype.unload = function() {
-
-				}
-	            ATPlayer.prototype.downloadWAV = function() {
-					if (this.swfSoundData && window.pinkfie_allow_swfsound) {
-						downloadUint8(this.swfSoundData.slice(2), player.getSwfName() + ".mp3");
-						return;
-					}
-	                var _buffer = this._player.buffer;
-					var rate = _buffer.sampleRate;
-	                var ___sampleCount = _buffer.length;
-					var sampleCount = ___sampleCount;
-					var wavData = new Uint8Array(36 + (8 + ((2 * _buffer.numberOfChannels) * sampleCount)));
-					wavData[0] = 82;
-					wavData[1] = 73;
-					wavData[2] = 70;
-					wavData[3] = 70;
-					GGint32(wavData, 4, ((2 * _buffer.numberOfChannels) * sampleCount) + 36); // total size (excluding 8-byte RIFF header)
-					wavData[8] = 87;
-					wavData[9] = 65;
-					wavData[10] = 86;
-					wavData[11] = 69;
-					// format chunk
-					wavData[12] = 102;
-					wavData[13] = 109;
-					wavData[14] = 116;
-					wavData[15] = 32;
-					GGint32(wavData, 16, 16); // format chunk size
-					GGint16(wavData, 20, 1); // encoding; 1 = PCM
-					GGint16(wavData, 22, _buffer.numberOfChannels); // channels; 1 = mono
-					GGint32(wavData, 24, rate); // samplesPerSecond
-					GGint32(wavData, 28, rate * _buffer.numberOfChannels); // bytesPerSecond
-					GGint16(wavData, 32, 2 * _buffer.numberOfChannels); // blockAlignment
-					GGint16(wavData, 34, 16); // bitsPerSample
-					// data chunk
-					wavData[36] = 100;
-					wavData[37] = 97;
-					wavData[38] = 116;
-					wavData[39] = 97;
-					GGint32(wavData, 40, ((2 * _buffer.numberOfChannels) * sampleCount)); // format chunk size
-					var _left = null;
-					var _right = null;
-					_left = _buffer.getChannelData(0);
-					if (_buffer.numberOfChannels > 1) {
-	                    _right = _buffer.getChannelData(1);
-					}
-					for (var i = 0; i < ___sampleCount; i++) {
-						var id = (i * (2 * _buffer.numberOfChannels));
-					    GGint16(wavData, id + 44, Math.max(Math.min((_left[i] * 0x7fff), 32767), -32768) | 0); // bitsPerSample
-						if (_right) {
-					    	GGint16(wavData, id + 46, Math.max(Math.min((_right[i] * 0x7fff), 32767), -32768) | 0); // bitsPerSample
-						}
-					}
-					downloadUint8(wavData, (this.__name + "_" + sampleCount + "_" + rate + "_" + _buffer.numberOfChannels) + ".wav");
-	            }
-				ATPlayer.prototype.step = function() {
-					this.ctx.clearRect(0, 0, this.canvas.width, 50);
-					this.ctx.beginPath();
-					this.ctx.lineCap = "round";
-					this.ctx.lineWidth = 50;
-					this.ctx.strokeStyle = "#f4f4f4";
-					this.ctx.moveTo(25, 25);
-					this.ctx.lineTo(this.canvas.width - 25, 25);
-					this.ctx.stroke();
-					if (z_dir(25 - this.mouseX, 25 - this.mouseY) < 12) {
-						this.ctx.beginPath();
-						this.ctx.lineCap = "round";
-						this.ctx.lineWidth = 25;
-						this.ctx.strokeStyle = "#ddd";
-						this.ctx.moveTo(25, 25);
-						this.ctx.lineTo(25, 25);
-						this.ctx.stroke();
-					}
-					this.ctx.beginPath();
-					this.ctx.fillStyle = "#000";
-					if (this._player.isPaused) {
-						this.ctx.moveTo(30, 25);
-						this.ctx.lineTo(20, 19);
-						this.ctx.lineTo(20, 31);
-					} else {
-						this.ctx.moveTo(20, 19);
-						this.ctx.lineTo(20, 31);
-						this.ctx.lineTo(23, 31);
-						this.ctx.lineTo(23, 19);
-						this.ctx.moveTo(27, 19);
-						this.ctx.lineTo(27, 31);
-						this.ctx.lineTo(30, 31);
-						this.ctx.lineTo(30, 19);
-					}
-					this.ctx.fill();
-					var VS1 = this.canvas.width - 100;
-					var VS2 = this.canvas.width - 50;
-					var GS1 = 125;
-					var GS2 = this.canvas.width - 48;
-					if (this.ToVolume > 0) {
-						GS2 = VS1 - 25;
-					}
-					if (this.ToVolume != 2 && (this.ToPlayAudio < 2)) {
-						if ((z_dir((VS2 + 25) - this.mouseX, 25 - this.mouseY) < 12) && this.ToVolume == 0) {
-							this.ToVolume = 1;
-						}
-						if (!cosiLINE(VS1, 25, ((VS2 + 25) - VS1), 12, this.mouseX, this.mouseY)) {
-							this.ToVolume = 0;
-						}
-					}
-					this.ctx.font = "13px Arial";
-					this.ctx.fillText(getDuraction(this._player.currentTime) + ' / ' + getDuraction(this._player.duration),45,30);
-					this.ctx.beginPath();
-					this.ctx.lineCap = "round";
-					this.ctx.lineWidth = 4;
-					this.ctx.strokeStyle = "#bbb";
-					this.ctx.moveTo(GS1, 25);
-					this.ctx.lineTo(GS2, 25);
-					this.ctx.stroke();
-					var duH1 = (this._player.currentTime / this._player.duration);
-					var duH2 = (this._player.currentTime / this._player.duration);
-					this.ctx.beginPath();
-					this.ctx.lineCap = "round";
-					this.ctx.lineWidth = 4;
-					this.ctx.strokeStyle = "#555";
-					this.ctx.moveTo(GS1, 25);
-					this.ctx.lineTo(GS1 + (duH2 * (GS2 - GS1)), 25);
-					this.ctx.stroke();
-					this.ctx.beginPath();
-					this.ctx.lineCap = "round";
-					this.ctx.lineWidth = 4;
-					this.ctx.strokeStyle = "#000";
-					this.ctx.moveTo(GS1, 25);
-					this.ctx.lineTo(GS1 + (duH1 * (GS2 - GS1)), 25);
-					this.ctx.stroke();
-					if ((this.ToPlayAudio < 2) && this.ToVolume !== 2) {
-						if (cosiLINE(GS1, 25, (GS2 - GS1), 8, this.mouseX, this.mouseY)) {
-							this.ToPlayAudio = 1;
-						} else {
-							this.ToPlayAudio = 0;
-						}
-					}
-					if (this.ToPlayAudio > 0) {
-						this.ctx.beginPath();
-						this.ctx.lineCap = "round";
-						this.ctx.lineWidth = 12;
-						this.ctx.strokeStyle = "#000";
-						this.ctx.moveTo(GS1 + (duH1 * (GS2 - GS1)), 25);
-						this.ctx.lineTo(GS1 + (duH1 * (GS2 - GS1)), 25);
-						this.ctx.stroke();
-					}
-					if (this.ToPlayAudio == 1 && this.mousePressed == true) {
-						this.ToPlayAudio = 2;
-						this._ToPlayAudioPaused = this._player.isPaused;
-						this._player.pause();
-					}
-					if (this.ToPlayAudio == 2) {
-						var AudioCurrentTime = (((this.mouseX - GS1) / (GS2 - GS1)) * this._player.duration);
-						if (AudioCurrentTime < 0) {
-							AudioCurrentTime = 0;
-						}
-						if (AudioCurrentTime > this._player.duration) {
-							AudioCurrentTime = this._player.duration;
-						}
-						this._player.setCurrentTime(AudioCurrentTime);
-						if (this.mousePressed == false) {
-							this.ToPlayAudio = 0;
-							if (this._ToPlayAudioPaused == false && this._player.currentTime != this._player.duration) this._player.play();
-						}
-					}
-					if (this.ToVolume > 0) {
-						var vuH1 = this._player.getVolume();
-						this.ctx.beginPath();
-						this.ctx.lineCap = "round";
-						this.ctx.lineWidth = 25;
-						this.ctx.strokeStyle = "#ddd";
-						this.ctx.moveTo(VS1, 25);
-						this.ctx.lineTo(VS2 + 25, 25);
-						this.ctx.stroke();
-						this.ctx.beginPath();
-						this.ctx.lineCap = "round";
-						this.ctx.lineWidth = 4;
-						this.ctx.strokeStyle = "#bbb";
-						this.ctx.moveTo(VS1, 25);
-						this.ctx.lineTo(VS2, 25);
-						this.ctx.stroke();
-						this.ctx.beginPath();
-						this.ctx.lineCap = "round";
-						this.ctx.lineWidth = 4;
-						this.ctx.strokeStyle = "#000";
-						this.ctx.moveTo(VS1, 25);
-						this.ctx.lineTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
-						this.ctx.stroke();
-						if (cosiLINE(VS1, 25, (VS2 - VS1), 10, this.mouseX, this.mouseY) || this.ToVolume == 2) {
-							this.ctx.beginPath();
-							this.ctx.lineCap = "round";
-							this.ctx.lineWidth = 12;
-							this.ctx.strokeStyle = "#000";
-							this.ctx.moveTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
-							this.ctx.lineTo(VS1 + (vuH1 * (VS2 - VS1)), 25);
-							this.ctx.stroke();
-							if (this.mousePressed && this.ToVolume !== 2) this.ToVolume = 2;
-						}
-						if (this.ToVolume == 2) {
-							var AudioVolume = (((this.mouseX - VS1) / (VS2 - VS1)));
-							if (AudioVolume < 0) {
-								AudioVolume = 0;
-							}
-							if (AudioVolume > 1) {
-								AudioVolume = 1;
-							}
-							this._player.setVolume(AudioVolume);
-							if (this.mousePressed == false) this.ToVolume = 1;
-						}
-					}
-					if (this._player.getVolume() > 0) {
-						this.ctx.drawImage(this.volumeimg, VS2 + 18,18,15,15);
-					} else {
-						this.ctx.drawImage(this.volumeoffimg, VS2 + 18,18,15,15);
-					}
-				};
-				ATPlayer.prototype.setBuffer = function(buffer) {
-					this._player.setBuffer(buffer);
-					if (this.autoPlay) {
-						this._player.play();
-					}
-				};
 
 				function toBitmapIst(bitmap) {
+					if (!bitmap) return null;
 					var canvas = document.createElement("canvas");
 					canvas.width = bitmap.width;
 					canvas.height = bitmap.height;
@@ -570,194 +181,32 @@
 					return canvas;
 				}
 
-				var ATShape = function(shapeCache, id) {
-					this.shapeCache = shapeCache;
+				var ATShape = function(tag) {
+					this.shapeCache = shapeUtils.convert(tag);
 					this.root = document.createElement("div");
-					this.root.className = "shapeat";
 
-					var s = document.createElement("p");
-					s.textContent = 'Shape' + id;
-
-					this._name = 'Shape' + id;
+					this.width = 640;
+					this.height = 360;
 
 					this.canvas = document.createElement("canvas");
 					this.canvas.width = 80;
 					this.canvas.height = 80;
 					this.ctx = this.canvas.getContext('2d');
 					this.root.appendChild(this.canvas);
-					this.root.appendChild(s);
 
-					this.canvas.onclick = () => this.downloadPng();
-
-					try {
-						this.renderShape();
-					} catch (e) {
-						console.log("renderShape", e);
-					}
+					this.resize(mxWidth, mxHeight);
 				}
-				ATShape.prototype.downloadPng = function() {
-					var canvas = document.createElement("canvas");
-					var ctx = canvas.getContext("2d");
-
-					var bounds = {
-						xMin: Infinity,
-						yMin: Infinity,
-						xMax: -Infinity,
-						yMax: -Infinity
-					}
-					var shapes = this.shapeCache;
-					function dfgfd(x, y) {
-						if (x < bounds.xMin) {
-							bounds.xMin = x;
-						}
-						if (y < bounds.yMin) {
-							bounds.yMin = y;
-						}
-						if (x > bounds.xMax) {
-							bounds.xMax = x;
-						}
-						if (y > bounds.yMax) {
-							bounds.yMax = y;
-						}
-					}
-					for (let u = 0; u < shapes.length; u++) {
-						const data = shapes[u];
-						var cmd = data.cmd;
-						for (let i = 0; i < cmd.length; i++) {
-							const cmm = cmd[i];
-							if (cmm[0] == 0) {
-								dfgfd(cmm[1], cmm[2]);
-							} else if (cmm[0] == 1) {
-								dfgfd(cmm[1], cmm[2]);
-								dfgfd(cmm[3], cmm[4]);
-							} else if (cmm[0] == 2) {
-								dfgfd(cmm[1], cmm[2]);
-							}
-						}
-					}
-
-					var minX = bounds.xMin;
-					var minY = bounds.yMin;
-					var maxX = bounds.xMax;
-					var maxY = bounds.yMax;
-
-					var maxWidth = Math.abs(maxX - minX);
-					var maxHeight = Math.abs(maxY - minY);
-
-					var scale = 8;
-
-					canvas.width = (maxWidth * scale) / 20;
-					canvas.height = (maxHeight * scale) / 20;
-
-					ctx.clearRect(0, 0, canvas.width, canvas.height);
-					var m2 = [scale / 20, 0, 0, scale / 20, ((0 - minX) / 20) * scale, ((0 - minY) / 20) * scale];
-					for (let k = 0; k < shapes.length; k++) {
-						ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
-						const data = shapes[k];
-						var obj = data.obj;
-						if (!obj) {
-							continue;
-						}
-						var cmd = data.cmd;
-						ctx.beginPath();
-						_executeCmdCtx2dPath(ctx, cmd);
-						var styleObj = (!("fillType" in obj)) ? obj : obj.fillType;
-						var isStroke = ("width" in obj);
-						var styleType = styleObj.type || 0;
-						switch (styleType) {
-							case 0:
-								var color = styleObj.color;
-								var css = 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
-								if (isStroke) {
-									ctx.strokeStyle = css;
-									ctx.lineWidth = obj.width;
-									ctx.lineCap = "round";
-									ctx.lineJoin = "round";
-									ctx.stroke();
-								} else {
-									ctx.fillStyle = css;
-									ctx.fill();
-								}
-								break;
-							case 0x10:
-							case 0x12:
-							case 0x13:
-								var css;
-								var gg = styleObj.gradient;
-								var m = gg.matrix;
-								var ggg = m;
-								var type = styleObj.type;
-								if (type !== 16) {
-									ctx.save();
-									ctx.transform(ggg[0], ggg[1], ggg[2], ggg[3], ggg[4], ggg[5]);
-									css = ctx.createRadialGradient(0, 0, 0, 0, 0, 16384);
-								} else {
-									var xy = linearGradientXY(m);
-									css = ctx.createLinearGradient(xy[0] || 0, xy[1] || 0, xy[2] || 0, xy[3] || 0);
-								}
-								var records = gg.records;
-								var rLength = records.length;
-								for (var rIdx = 0; rIdx < rLength; rIdx++) {
-									var record = records[rIdx];
-									var color = record.color;
-									var rgba = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-									css.addColorStop(record.ratio, rgba);
-								}
-								if (isStroke) {
-									ctx.strokeStyle = css;
-									ctx.lineWidth = obj.width;
-									ctx.lineCap = "round";
-									ctx.lineJoin = "round";
-									ctx.stroke();
-								} else {
-									ctx.fillStyle = css;
-									ctx.fill();
-								}
-								if (type !== 16) {
-									ctx.restore();
-								}
-								break;
-							case 0x40:
-							case 0x41:
-							case 0x42:
-							case 0x43:
-								var bitmapId = styleObj.bitmapId;
-								var bMatrix = styleObj.bitmapMatrix;
-								var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-								var image = player.stage.swf.library.characterById(bitmapId);
-								if (image && image.image) {
-									var c = toBitmapIst(image.image);
-									if (styleType === 0x41 || styleType === 0x43) {
-										ctx.save();
-										ctx.clip();
-										ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
-										ctx.imageSmoothingEnabled = false;
-										ctx.drawImage(c, 0, 0);
-										ctx.restore();
-									} else {
-										ctx.fillStyle = ctx.createPattern(c, repeat);
-										ctx.transform(bMatrix[0], bMatrix[1], bMatrix[2], bMatrix[3], bMatrix[4], bMatrix[5]);
-										ctx.fill();
-									}
-								}
-								break;
-						}
-					}
-
-					var a = document.createElement("a");
-					a.href = canvas.toDataURL();
-					a.download = this._name + ".png";
-					a.click();
-				}
+				ATShape.prototype.showControls = function() {}
 				ATShape.prototype.renderShape = function() {
-
 					var bounds = {
 						xMin: Infinity,
 						yMin: Infinity,
 						xMax: -Infinity,
 						yMax: -Infinity
 					}
+
 					var shapes = this.shapeCache;
+
 					function dfgfd(x, y) {
 						if (x < bounds.xMin) {
 							bounds.xMin = x;
@@ -797,12 +246,18 @@
 					var maxWidth = Math.abs(maxX - minX);
 					var maxHeight = Math.abs(maxY - minY);
 
-					var scaleW = 80 / (maxWidth / 20);
-					var scaleH = 80 / (maxHeight / 20);
+					canvas.width = this.width;
+					canvas.height = this.height;
+
+					var dg = _getRect((maxWidth / 20) | 0, (maxHeight / 20) | 0, this.width, this.height);
+
+					var scaleW = this.width / (maxWidth / 20);
+					var scaleH = this.height / (maxHeight / 20);
 					var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
+
 					var ctx = this.ctx;
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
-					var m2 = [scale / 20, 0, 0, scale / 20, ((0 - minX) / 20) * scale, ((0 - minY) / 20) * scale];
+					var m2 = [scale / 20, 0, 0, scale / 20, ((((0 - minX) / 20) + 0) * scale) + dg[0], ((((0 - minY) / 20) + 0) * scale) + dg[1]];
 					for (let k = 0; k < shapes.length; k++) {
 						ctx.setTransform(m2[0], m2[1], m2[2], m2[3], m2[4], m2[5]);
 						const data = shapes[k];
@@ -876,9 +331,9 @@
 								var bitmapId = styleObj.bitmapId;
 								var bMatrix = styleObj.bitmapMatrix;
 								var repeat = (styleType === 0x40 || styleType === 0x42) ? "repeat" : "no-repeat";
-								var image = player.stage.swf.library.characterById(bitmapId);
-								if (image && image.image) {
-									var c = toBitmapIst(image.image);
+								var image = characters[bitmapId];
+								if (image && image.bitmap) {
+									var c = image.bitmap;
 									if (styleType === 0x41 || styleType === 0x43) {
 										ctx.save();
 										ctx.clip();
@@ -896,190 +351,896 @@
 						}
 					}
 				}
+				ATShape.prototype.resize = function(w, h) {
+					this.width = w;
+					this.height = h;
+					try {
+						this.renderShape();
+					} catch (e) {
+						console.log("renderShape", e);
+					}
+				}
 
-				const ATBitmap = function(image, id) {
+				const ATBitmap = function(image) {
 					this.image = image;
 
 					this.root = document.createElement("div");
-					this.root.className = "shapeat";
 
-					var s = document.createElement("p");
-					s.textContent = 'Bitmap' + id;
-
-					this._name = 'Bitmap' + id;
+					this.width = 640;
+					this.height = 360;
 
 					this.canvas = document.createElement("canvas");
-					this.canvas.width = 80;
-					this.canvas.height = 80;
 					this.ctx = this.canvas.getContext('2d');
 					this.root.appendChild(this.canvas);
-					this.root.appendChild(s);
 
-					this.canvas.onclick = () => this.downloadPng();
-
+					this.resize(mxWidth, mxHeight);
+				}
+				ATBitmap.prototype.showControls = function() {}
+				ATBitmap.prototype.render = function() {
+					if (!this.image) return;
+					var image = this.image;
+					this.canvas.width = this.width;
+					this.canvas.height = this.height;
+					if (image) {
+						var dg = _getRect(image.width, image.height, this.width, this.height);
+						this.ctx.imageSmoothingEnabled = false;
+						this.ctx.drawImage(image, dg[0], dg[1], dg[2], dg[3]);
+					}
+				}
+				ATBitmap.prototype.resize = function(w, h) {
+					this.width = w;
+					this.height = h;
 					this.render();
 				}
-				ATBitmap.prototype.render = function() {
-					var image = toBitmapIst(this.image);
-					if (image) {
-						var scaleW = 80 / (image.width / 1);
-						var scaleH = 80 / (image.height / 1);
-						var scale = Math.min(Math.abs(scaleW), Math.abs(scaleH));
 
-						this.ctx.drawImage(image, 0, 0, image.width * scale, image.height * scale);
+				var H263Decoder = PinkFie.H263Decoder;
+				var ScreenVideoDecoder = PinkFie.ScreenVideoDecoder;
+				var Vp6Decoder = PinkFie.Vp6Decoder;
+
+				function createDecoder(_num_frames, size, codec, filter) {
+					var decoder;
+					switch (codec) {
+						case "none":
+							decoder = null;
+							break;
+						case "H263":
+							decoder = new H263Decoder(filter);
+							break;
+						case "ScreenVideo":
+							decoder = new ScreenVideoDecoder(false);
+							break;
+						case "Vp6":
+							decoder = new Vp6Decoder(size, false);
+							break;
+						case "Vp6WithAlpha":
+							decoder = new Vp6Decoder(size, true);
+							break;
+						default:
+							console.log("Unsupported video codec type " + codec);
+					}
+					return decoder;
+				}
+
+				const VideoPlayer = function(data, frameRate) {
+					this.isPlaying = false;
+					this.interval = null;
+					this.frame = -1;
+					this.data = data;
+					this.width = data.width;
+					this.height = data.height;
+					this.frames = data.frames;
+					this.frameRate = frameRate;
+					this.decoder = createDecoder(0, [data.width, data.height], data.codec, data.deblocking);
+					this.keyframes = [];
+					this.root = document.createElement("div");
+					this.root.style.position = "relative";
+					this.canvas = document.createElement("canvas");
+					this.canvas.style.imageRendering = "pixelated";
+					this.canvas.style.position = "absolute";
+					this.canvas.style.top = "0";
+					this.canvas.style.left = "0";
+					this.canvas.width = this.width;
+					this.canvas.height = this.height;
+					this.ctx = this.canvas.getContext("2d");
+
+					this.imageData = null;
+
+					this.controls = document.createElement("div");
+					this.controls.style.background = "rgba(0,0,0,0.5)";
+					this.controls.style.position = "absolute";
+					this.controls.style.bottom = "0";
+					this.controls.style.left = "0";
+					this.controls.style.width = "100%";
+					this.controls.style.height = "25px";
+					this.controls.style.overflow = "hidden";
+					this.controls.style.display = "none";
+
+					this.controlPlayPause = document.createElement("button");
+					this.controlPlayPause.textContent = "Play";
+
+					this.controlPlayPause.onclick = () => {
+						if (this.isPlaying) {
+							this.pause();
+						} else {
+							this.play();
+						}
+					}
+
+					this.controlLabel = document.createElement("label");
+					this.controlLabel.textContent = "1/1";
+					this.controlLabel.style.color = "#fff";
+
+					this.controlRange = document.createElement("input");
+					this.controlRange.type = "range";
+					this.controlRange.min = "0";
+					this.controlRange.max = Math.max(this.frames.length - 1, 1);
+					this.controlRange.value = "0";
+
+					this.controlRange.addEventListener("input", () => {
+						this.seek(+this.controlRange.value);
+					});
+
+					this.controls.appendChild(this.controlPlayPause);
+					this.controls.appendChild(this.controlLabel);
+					this.controls.appendChild(this.controlRange);
+
+					this.root.appendChild(this.canvas);
+					this.root.appendChild(this.controls);
+					this.resize(mxWidth, mxHeight);
+				}
+				VideoPlayer.prototype.showControls = function(g) {
+					if (this.frames.length <= 1) {
+						this.controls.style.display = "none";
+					} else {
+						this.controls.style.display = g ? "" : "none";
 					}
 				}
-				ATBitmap.prototype.downloadPng = function() {
-					var image = toBitmapIst(this.image);
-					if (image) {
-						var canvas = document.createElement("canvas");
-						canvas.width = image.width;
-						canvas.height = image.height;
-						var ctx = canvas.getContext("2d");
+				VideoPlayer.prototype.resize = function(w, h) {
+					this.width = w;
+					this.height = h;
+					this.root.style.width = w + "px";
+					this.root.style.height = h + "px";
+					this.controlRange.style.width = (w - 150) + "px";
 
-						ctx.drawImage(image, 0, 0);
+					var g = _getRect(this.canvas.width, this.canvas.height, this.width, this.height);
+					this.canvas.style.left = g[0] + "px";
+					this.canvas.style.top = g[1] + "px";
+					this.canvas.style.width = g[2] + "px";
+					this.canvas.style.height = g[3] + "px";
+				}
+				VideoPlayer.prototype.init = function() {
+					for (var i = 0; i < this.frames.length; i++) {
+						var frame = this.frames[i];
+						if (frame) {
+							this.keyframes[i] = this.decoder.preloadFrame({data: frame});
+						}
+					}
+					this.seek(0);
+				}
+				VideoPlayer.prototype.play = function() {
+					if ((!this.isPlaying) && (this.frames.length > 1)) {
+						this.controlPlayPause.textContent = "Pause";
+						this.isPlaying = true;
+						this.interval = setInterval(this.step.bind(this), this.frameRate);
+					}
+				}
+				VideoPlayer.prototype.pause = function() {
+					if (this.isPlaying) {
+						this.controlPlayPause.textContent = "Play";
+						this.isPlaying = false;
+						clearInterval(this.interval);
+						this.interval = null;
+					}
+				}
+				VideoPlayer.prototype.step = function() {
+					this.seek((this.frame + 1) % this.frames.length);
+				}
+				VideoPlayer.prototype.seek = function(frame_id) {
 
-						var a = document.createElement("a");
-						a.href = canvas.toDataURL();
-						a.download = this._name + ".png";
-						a.click();
+					let last_frame = this.frame;
+
+					if (last_frame == frame_id) return;
+
+					let is_ordered_seek = (frame_id == 0) || frame_id == (last_frame + 1);
+
+					let sweep_from = frame_id;
+					if (!is_ordered_seek) {
+						var keyframes = this.keyframes;
+						for (let i = frame_id; i >= 0; i--) {
+							if (i in keyframes) {
+								const isKeyframe = keyframes[i];
+								if (!isKeyframe) {
+									sweep_from = i;
+									break;
+								}
+							}
+						}
+						if (last_frame !== null) {
+							if (frame_id > last_frame) {
+								sweep_from = Math.max(sweep_from, last_frame + 1);
+							}
+						}
+					}
+					
+					var fr = sweep_from;
+					while (fr <= frame_id) {
+						this.seek_internal(fr);
+						fr++;
+					}
+				}
+				VideoPlayer.prototype.renderBitmap = function(bitmap) {
+					if (this.imageData) {
+						if ((this.imageData.width != bitmap.width) || (this.imageData.height != bitmap.height)) {
+							this.imageData = new ImageData(bitmap.width, bitmap.height);
+						}
+					} else {
+						this.imageData = new ImageData(bitmap.width, bitmap.height);
+					}
+					this.imageData.data.set(bitmap.data, 0);
+					this.ctx.putImageData(this.imageData, 0, 0);
+				}
+				VideoPlayer.prototype.seek_internal = function(frame) {
+					this.frame = frame;
+					this.controlRange.value = Math.min(frame, this.frames.length);
+					this.controlLabel.textContent = (frame + 1) + "/" + this.frames.length;
+					var frameData = this.frames[frame];
+					if (frameData) {
+						var data;
+						try {
+							data = this.decoder.decodeFrame({data: frameData});
+						} catch(e) {
+							console.log(e);
+							return;
+						}
+						data.toRGBA();
+						this.renderBitmap(data);
+					}
+				}
+				VideoPlayer.prototype.destroy = function() {
+					this.pause();
+				}
+
+				class Waveform {
+					constructor() {
+						this.canvas = document.createElement("canvas");
+						this.ctx = this.canvas.getContext("2d");
+						this.canvas.style.background = '#000';
+
+						this.width = 640;
+						this.height = 360;
+
+						this.isShowControl = false;
+
+						this.canvas.width = this.width;
+						this.canvas.height = this.height;
+						
+						this.canvas.style.position = "absolute";
+						this.canvas.style.top = "0";
+						this.canvas.style.left = "0";
+
+						this.waveform = new Float32Array(this.width * 2);
+						this.root = document.createElement("div");
+						this.root.style.position = "relative";
+
+						this.root.appendChild(this.canvas);
+
+						this.controls = document.createElement("div");
+						this.controls.style.background = "rgba(0,0,0,0.5)";
+						this.controls.style.position = "absolute";
+						this.controls.style.bottom = "0";
+						this.controls.style.left = "0";
+						this.controls.style.width = "100%";
+						this.controls.style.height = "25px";
+						this.controls.style.overflow = "hidden";
+						this.controls.style.display = "none";
+
+						this.controlPlayPause = document.createElement("button");
+						this.controlPlayPause.textContent = "Play";
+
+						this.controlPlayPause.onclick = () => {
+							if (this.sprite.isPlaying) {
+								this.sprite.stop();
+							} else {
+								this.sprite.play();
+							}
+						}
+
+						this.controlLabel = document.createElement("label");
+						this.controlLabel.textContent = "1/1";
+						this.controlLabel.style.color = "#fff";
+
+						this.controlRange = document.createElement("input");
+						this.controlRange.type = "range";
+						this.controlRange.min = 1;
+						this.controlRange.max = 2;
+						this.controlRange.value = 1;
+
+						this.controlRange.addEventListener("input", () => {
+							if (this.sprite) this.sprite.runGoto(+this.controlRange.value, false);
+						});
+						
+						this.controls.appendChild(this.controlPlayPause);
+						this.controls.appendChild(this.controlLabel);
+						this.controls.appendChild(this.controlRange);
+
+						this.root.appendChild(this.controls);
+
+						this.sprite = null;
+						this.frame_accumulator = 0;
+						this.time_offset = 0;
+						this.last_time = 0;
+
+						this.resize(mxWidth, mxHeight);
+					}
+					showControls(g) {
+						this.isShowControl = g;
+					}
+					render() {
+						var s = mixer.getPlayingCompressSound();
+						this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+						if ((s.length == 0) && !this.sprite) return;
+						this.ctx.strokeStyle = "#fff";
+						this.ctx.lineWidth = 2;
+						this.ctx.beginPath();
+						this.ctx.moveTo(0, (this.height * 0.25) | 0);
+						for (let i = 0; i < this.width; i+=1) {
+							var o = ((((i / this.width) * this.waveform.length) / 2) | 0) * 2;
+							var l = this.waveform[o];
+							this.ctx.lineTo(i, ((l * (this.height * 0.25)) + (this.height * 0.25)) | 0);
+						}
+						this.ctx.moveTo(0, (this.height * 0.75));
+						for (let i = 0; i < this.width; i+=1) {
+							var o = ((((i / this.width) * this.waveform.length) / 2) | 0) * 2;
+							var l = this.waveform[o + 1];
+							this.ctx.lineTo(i, ((l * (this.height * 0.25)) + (this.height * 0.75)) | 0);
+						}
+						this.ctx.stroke();
+
+						var h = "";
+
+						if (this.sprite) {
+							h += this.sprite.currentFrame + "/" + this.sprite.totalframes;
+						}
+
+						h += " " + s.toString().toUpperCase();
+
+						h += " " + mixer.debug_ms + "ms";
+
+						this.ctx.fillStyle = "#fff";
+						this.ctx.fillText(h, 0, 10);
+					}
+					destroy() {
+						if (this.sprite) {
+							this.sprite.stopAudioStream();
+							this.sprite = null;
+						}
+						this.isShowControl = false;
+					}
+					tick() {
+						if (this.time_offset == 0) this.time_offset = Date.now();
+						if (this.sprite) {
+							if ((this.sprite.totalframes > 1) && this.isShowControl) {
+								this.controls.style.display = "";
+								this.controlLabel.textContent = this.sprite.currentFrame + "/" + this.sprite.totalframes;
+								this.controlRange.min = 1;
+								this.controlRange.max = this.sprite.totalframes;
+								this.controlRange.value = this.sprite.currentFrame;
+								this.controlPlayPause.textContent = this.sprite.isPlaying ? "Pause" : "Play";
+							} else {
+								this.controls.style.display = "none";
+							}
+							var fd = Math.max(Date.now() - this.time_offset, 0);
+							var hhfgh = 0;
+							while ((fd - this.last_time) >= 0) {
+								this.last_time += 10;
+								this.frame_accumulator += 10;
+								hhfgh += 10;
+							}
+							let frame_rate = (resultswf ? resultswf.movieInfo.frameRate : 10);
+							let frame_time = +((1000 / frame_rate).toFixed(1));
+							var frame = 0;
+							while ((frame < 3) && (this.frame_accumulator >= 0)) {
+								this.sprite.runFrame();
+								this.frame_accumulator -= frame_time;
+								frame++;
+							}
+							if (this.frame_accumulator >= 0) {
+								this.frame_accumulator = 0;
+								hhfgh = 0;
+							}
+						} else {
+							this.cur_frame = 0;
+							this.last_time = 0;
+							this.time_offset = Date.now();
+							this.controls.style.display = "none";
+						}
+						mixer.toWaveform(this.waveform);
+						this.render();
+					}
+					resize(w, h) {
+						this.width = w;
+						this.height = h;
+						this.root.style.width = w + "px";
+						this.root.style.height = h + "px";
+						this.controlRange.style.width = (w - 150) + "px";
+						this.canvas.width = this.width;
+						this.canvas.height = this.height;
+						this.waveform = new Float32Array(this.width * 2);
+						mixer.toWaveform(this.waveform);
+						this.render();
 					}
 				}
 
-	            var playerArea = document.getElementById('pinkfie-player');
+				const tagUtils_decodeTags = function(reader, callback) {
+					while (reader.pos < reader.tags.length) {
+						var c = callback(reader.tags[reader.pos]);
+						reader.pos++;
+						if (c == "exit") {
+							break;
+						}
+					}
+				}
 
-	            playerArea.appendChild(player.root);
+				class SwfTagStream {
+					constructor(pos, tags) {
+						this.pos = pos;
+						this.tags = tags;
+					}
+					toSwfTag() {
+						return {
+							pos: this.pos,
+							tags: this.tags
+						}
+					}
+				}
 
-				var soundimage = document.getElementById("soundimage");
-				var soundimage2 = document.getElementById("shapes");
+				const SpriteSoundStreamPlayer = function(audioStreamInfo, timelineTags, totalframes) {
+					this.audioStreamInfo = audioStreamInfo;
+					this.timelineTags = timelineTags;
+					this.tagStreamPos = 0;
+					this.currentFrame = 0;
+					this.audioStream = null;
+					this.totalframes = totalframes;
+					this.isPlaying = true;
+				}
+				SpriteSoundStreamPlayer.prototype.stopAudioStream = function() {
+					if (this.audioStream) {
+						mixer.stopSound(this.audioStream);
+						this.audioStream = null;
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.determineNextFrame = function() {
+					var totalframes = this.totalframes;
+					if (this.currentFrame < totalframes) {
+						return "next";
+					} else if (totalframes > 1) {
+						return "first";
+					} else {
+						return "same";
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.play = function() {
+					if (this.totalframes > 1) {
+						this.isPlaying = true;
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.stop = function() {
+					this.isPlaying = false;
+					this.stopAudioStream();
+				}
+				SpriteSoundStreamPlayer.prototype.runFrame = function() {
+					if (this.isPlaying) {
+						this.nextFrame(true, true);
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.nextFrame = function(runDisplayAction, runSounds) {
+					let nextFrame = this.determineNextFrame();
+					switch (nextFrame) {
+						case "next":
+							this.currentFrame++;
+							break;
+						case "first":
+							this.runGoto(1, true);
+							return;
+						case "same":
+							this.stop();
+							break;
+					}
+					var reader = new SwfTagStream(this.tagStreamPos, this.timelineTags);
+					let tagCallback = (tag) => {
+						switch (tag.tagcode) {
+							case 19:
+								if (runSounds) {
+									this.soundStreamBlock(reader.toSwfTag());
+								}
+								break;
+							case 1:
+								return "exit";
+						}
+						return "continue";
+					};
+					tagUtils_decodeTags(reader, tagCallback);
+					this.tagStreamPos = reader.pos;
 
-				var fdgddg = document.getElementById("fdgddg");
+					if (this.audioStream) {
+						if (!(mixer.getSoundPosition(this.audioStream) !== null)) {
+							this.audioStream = null;
+						}
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.soundStreamBlock = function(tag) {
+					if (this.isPlaying) {
+						var stream_info = this.audioStreamInfo;
+						if (stream_info && !this.audioStream) {
+							var audioStream = mixer.startStream(tag, stream_info);
+							this.audioStream = audioStream;
+						}
+					}
+				}
+				SpriteSoundStreamPlayer.prototype.runGoto = function(frame, isImplicit) {
+					let frameBeforeRewind = this.currentFrame;
+					this.stopAudioStream();
+					let isRewind = (frame <= this.currentFrame);
+					if (isRewind) {
+						this.tagStreamPos = 0;
+						this.currentFrame = 0;
+					}
+					let clamped_frame = frame;
+					
+					var reader = new SwfTagStream(this.tagStreamPos, this.timelineTags);
+				
+					var frame_pos = reader.pos;
+			
+					while (this.currentFrame < clamped_frame) {
+						this.currentFrame++;
+						frame_pos = reader.pos;
+						let tagCallback = (tag) => {
+							switch (tag.tagcode) {
+								case 1:
+									return "exit";
+							}
+							return "continue";
+						};
+						tagUtils_decodeTags(reader, tagCallback);
+					}
+
+					let hitTargetFrame = this.currentFrame == frame;
+					if (hitTargetFrame) {
+						this.currentFrame--;
+						this.tagStreamPos = frame_pos;
+						this.nextFrame(false, frame != frameBeforeRewind);
+					} else {
+						this.currentFrame = clamped_frame;
+					}
+				}
+
+				var waveform = new Waveform();
+
+				var resultswf = null;
+
+				var soundimage = document.getElementById('soundimage');
+				var shapes = document.getElementById('shapes');
+				var ggtitle5 = document.getElementById("ggtitle5");
+
+				shapes.style.width = mxWidth + "px";
+				shapes.style.height = mxHeight + "px";
+
+				var demo = document.getElementById("demo");
+
+				var closefs = document.getElementById("closefs");
+
+				var fdgddg = document.getElementById('fdgddg');
 				fdgddg.style.display = "none";
-				soundimage2.style.display = "none";
 
-				var hkjjhk = document.getElementById("hkjjhk");
+				var characters = [];
 
-				var shapesloadmore = document.getElementById("shapesloadmore");
+				var previewId = -1;
+				var previewC = null;
 
-				var shapegdloadmore = document.createElement("a");
+				var listC = [];
 
-				var sound_button = document.getElementById("sound_button");
-				var shape_button = document.getElementById("shape_button");
-
-				sound_button.onclick = function() {
-					hkjjhk.innerHTML = "Sounds";
-					soundimage.style.display = "";
-					soundimage2.style.display = "none";
+				function unloadPreviewC() {
+					if (previewC) {
+						shapes.removeChild(previewC.root);
+						if (previewC.destroy) previewC.destroy();
+						previewC = null;
+					}
 				}
 
-				shape_button.onclick = function() {
-					hkjjhk.innerHTML = "Shapes";
-					soundimage.style.display = "none";
-					soundimage2.style.display = "";
-				}
-
-	            player.setOptions({
-	                autoplayPolicy: 'never'
-	            });
-
-				var atplayerpre = [];
-				var atshapepre = [];
-
-				var atshapecga = [];
-
-				var ss = 0;
+				var jpegTable = null;
 
 				function unloadSwf() {
-					for (let i = 0; i < atplayerpre.length; i++) {
-						const eg = atplayerpre[i];
-						soundimage.removeChild(eg.canvas);
+					demo.style.display = "none";
+					jpegTable = null;
+					unloadPreviewC();
+					mixer.stopAllSounds();
+					mixer.pause();
+					for (let i = 0; i < listC.length; i++) {
+						soundimage.removeChild(listC[i]);
 					}
-					atplayerpre = [];
-					for (let i = 0; i < atshapepre.length; i++) {
-						const ee = atshapepre[i];
-						soundimage2.removeChild(ee.root);
-					}
-					atshapepre = [];
-					atshapecga = [];
-					ss = 0;
-				}
-
-				function showShapes() {
-					soundimage2.removeChild(shapesloadmore);
-					for (let js = ss; js < (ss + Math.min(atshapecga.length - ss, 250)); js++) {
-						const das = atshapecga[js];
-						var ats;
-						if (das.displayType == "shape") {
-							var _data = das.data;
-							ats = new ATShape(shapeUtils.convert(_data), _data.id);	
-						} else if (das.displayType == "bitmap") {
-							ats = new ATBitmap(das.image, das.characterId);	
-						}
-						soundimage2.appendChild(ats.root);
-						atshapepre.push(ats);
-					}
-					soundimage2.appendChild(shapesloadmore);
-					ss += Math.min(atshapecga.length - ss, 250);
-				}
-				
-				shapesloadmore.onclick = function() {
-					showShapes();
-				}
-
-				player.oncleanup.subscribe(function() {
+					listC = [];
+					characters = [];
 					fdgddg.style.display = "none";
-				});
-				
-				player.onload.subscribe(function (stage) {
+					resultswf = null;
+					previewId = -1;
+				}
+				function showTag(tags, name) {
+					var timelineTags = [];
+					var streamInfo = null;
+					var blockFound = false;
+					var frameLoaded = 0;
+					for (let i = 0; i < tags.length; i++) {
+						const tag = tags[i];
+						switch(tag.tagcode) {
+							case 1:
+							case 19:
+								if (tag.tagcode == 1) frameLoaded++;
+								if (tag.tagcode == 19) blockFound = true;
+								timelineTags.push(tag);
+								break;
+							case 18:
+							case 45:
+								streamInfo = tag;
+								break;
+							case 2:
+							case 22:
+							case 32:
+							case 83:
+								characters[tag.id] = {
+									tag: tag,
+									type: "Shape"
+								}
+								break;
+							case 8:
+								if (!jpegTable) {
+									jpegTable = tag.jpegtable;	
+								}
+								break;
+							case 14:
+								characters[tag.id] = {
+									sound: mixer.registerSound(tag),
+									type: "Sound"
+								}
+								break;
+							case 39:
+								var _ = showTag(tag.tags, "[Sprite:" + tag.id + "]");
+								characters[tag.id] = _;
+								break;
+							case 20:
+							case 36:
+								var c = decodeDefineBitsLossless(tag);
+								characters[tag.id] = {
+									bitmap: toBitmapIst(c),
+									type: "Bitmap"
+								}
+								break;
+							case 6:
+							case 21:
+							case 35:
+							case 90:
+								var g = (tag.tagcode == 6) ? jpegTable : null;
+								var a = glueTablesToJpeg(tag.data, g);
+								var c = decodeDefineBitsJpeg(a, tag.alphaData);
+								characters[tag.id] = {
+									bitmap: toBitmapIst(c),
+									type: "Bitmap"
+								}
+								break;
+							case 60:
+								characters[tag.id] = {
+									width: tag.width,
+									height: tag.height,
+									codec: tag.codec,
+									deblocking: tag.deblocking,
+									frames: [],
+									type: "Video"
+								}
+								break;
+							case 61:
+								characters[tag.streamId].frames[tag.frameNum] = tag.videoData;
+								break;
+						}
+					}
+					return {
+						name: name,
+						type: "Sprite",
+						blockFound,
+						timelineTags,
+						frameLoaded,
+						streamInfo
+					}
+				}
+
+				function showCharacter(character) {
+					unloadPreviewC();
+					mixer.stopAllSounds();
+					switch(character.type) {
+						case "Sprite":
+							mixer.resume();
+							var g = new SpriteSoundStreamPlayer(character.streamInfo, character.timelineTags, character.frameLoaded);
+							waveform.sprite = g;
+							previewC = waveform;
+							break;
+						case "Sound":
+							mixer.resume();
+							var sound = character.sound;
+							mixer.startSound(sound, {});
+							previewC = waveform;
+							break;
+						case "Shape":
+							var g = new ATShape(character.tag);
+							previewC = g;
+							break;
+						case "Bitmap":
+							var g = new ATBitmap(character.bitmap);
+							previewC = g;
+							break;
+						case "Video":
+							var g = new VideoPlayer(character, 1000 / (resultswf ? resultswf.movieInfo.frameRate : 10));
+							g.init();
+							g.play();
+							previewC = g;
+							break;
+						default:
+							console.log(character);
+					}
+					if (previewC) {
+						shapes.appendChild(previewC.root);
+					}
+				}
+
+				function _resize() {
+					if (closefs.style.display) {
+					} else {
+						mxWidth = window.innerWidth;
+						mxHeight = window.innerHeight;
+					}
+					if (previewC) {
+						if (previewC.resize) {
+							previewC.resize(mxWidth, mxHeight);
+						}
+					}
+					shapes.style.width = mxWidth + "px";
+					shapes.style.height = mxHeight + "px";
+					waveform.resize(mxWidth, mxHeight);
+				}
+
+				window.addEventListener("resize", _resize);
+
+				function showFullscreen(b) {
+					if (b) {
+						closefs.style.display = "";
+						shapes.setAttribute("fullscreen", '');
+						document.body.classList.add('swf-preview-fullscreen');
+						
+						if (shapes.requestFullScreenWithKeys) {
+							shapes.requestFullScreenWithKeys();
+						} else if (shapes.webkitRequestFullScreen) {
+							shapes.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+						} else if (shapes.requestFullscreen) {
+							shapes.requestFullscreen();
+						}
+						
+						_resize();
+					} else {
+						closefs.style.display = "none";
+
+						shapes.removeAttribute("fullscreen");
+
+						mxWidth = o_mxWidth;
+						mxHeight = o_mxHeight;
+
+						document.body.classList.remove('swf-preview-fullscreen');
+						
+						if (document.fullscreenElement === shapes || document.webkitFullscreenElement === shapes) {
+							if (document.exitFullscreen) {
+								document.exitFullscreen();
+							} else if (document.mozCancelFullScreen) {
+								document.mozCancelFullScreen();
+							} else if (document.webkitCancelFullScreen) {
+								document.webkitCancelFullScreen();
+							} else if (document.webkitExitFullscreen) {
+								document.webkitExitFullscreen();
+							}
+						}
+
+						_resize();
+					}
+
+					if (previewC) {
+						previewC.showControls(b);
+					}
+				}
+
+				closefs.style.display = "none";
+
+				closefs.onclick = function() {
+					showFullscreen(false);
+				}
+
+				function createElem(character, id) {
+					var a = document.createElement("a");
+					a.textContent = character.type + ":" + id;
+					a.href = "#";
+					a.onclick = function() {
+						showFullscreen(true);
+					}
+					a.onmousemove = function() {
+						if (previewId != id) {
+							showCharacter(character);
+							previewId = id;	
+						}
+					}
+					switch(character.type) {
+						case "Shape":
+							a.style.background = "#009";
+							break;
+						case "Sound":
+							a.style.background = "#909";
+							break;
+						case "Video":
+							a.style.background = "#090";
+							break;
+						case "Bitmap":
+							a.style.background = "#990";
+							break;
+						case "Sprite":
+							a.style.background = "#900";
+							a.textContent = character.name;
+							break;
+					}
+					listC.push(a);
+					soundimage.appendChild(a);
+				}
+
+				function fghgfg(c) { 
+					if (c.type == "Sprite") {
+						return c.blockFound;
+					}
+					return true;
+				}
+
+				function showSwf() {
+
+					var dfgfd = "<h3>SWF Info</h3>";
+					var stageSize = resultswf.movieInfo.bounds;
+
+					dfgfd += "signature: " + resultswf.header.compression;
+					dfgfd += " version: " + resultswf.header.version;
+					dfgfd += " uncompressed length: " + resultswf.header.uncompressedLength + "<br>";
+
+					dfgfd += "resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
+					dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20);
+					dfgfd += " frame rate: " + resultswf.movieInfo.frameRate;
+					dfgfd += " total frames: " + resultswf.movieInfo.numFrames + "";
+
+					demo.innerHTML = dfgfd;
+					demo.style.display = "";
+
+					var ocl = 1;
+
+					var s = showTag(resultswf.tags, "[Stage]");
+					if (fghgfg(s)) createElem(s, "[Stage]");
+					for (let i = 0; i < characters.length; i++) {
+						const character = characters[i];
+						if (character) {
+							if (fghgfg(character)) {
+								createElem(character, i);
+								ocl++;
+								if (ocl >= 2000) {
+									//break;
+								}
+							}
+						}
+					}
 					fdgddg.style.display = "";
-					var streamSoundSprites = [];
-	                streamSoundSprites.push(stage.rootClipTag);
-					for (var i in stage.swf.library.characters) {
-						var fgd = stage.swf.library.characters[i];
-						if (!fgd) break;
-						var _data = fgd.data;
-	                    if (_data) {
-	                        switch(fgd.displayType) {
-	                            case "sound":
-	                                var atp = new ATPlayer();
-									atp.swfSoundData = _data.data;
-	                        		atp.__name = _data.format.compression || "";
-	                                atp.init(soundimage);
-	                                atp.setBuffer(fgd.audio.getBuffer());
-									atplayerpre.push(atp);
-	                                break;
-								case "shape":
-									atshapecga.push(fgd);
-	                                break;
-	                        }
-	                    } else {
-							if (fgd.displayType == "bitmap") {
-								atshapecga.push(fgd);
-							}
-							if (fgd.tags) {
-	                    	    streamSoundSprites.push(fgd);
-							}
-	                    }
-					}
-	                for (var i in streamSoundSprites) {
-						var fgd = streamSoundSprites[i];
-						if (!fgd) break;
-	                    var strea = fgd.soundStreamBlockRecords;
-						if (!strea) break;
-						for (var i2 in strea) {
-							var _data = strea[i2];
-							if (!_data) break;
-	                        var audiost = _data.audioStream;
-							if (!audiost) break;
-	                        var atp = new ATPlayer();
-	                        atp.__name = _data.soundInfo.streamInfo.stream.compression || "";
-	                        atp.init(soundimage);
-	                        atp.setBuffer(audiost.getBuffer());
-							atplayerpre.push(atp);
-	                    }
-					}
-					showShapes();
-				});
+				}
+
+				setInterval(function() {
+					mixer.tick();
+					waveform.tick();
+				}, 10);
+				
 				var loadprojectfile = document.getElementById('loadswffile');
 				loadprojectfile.onclick = function () {
 					var sa = document.createElement('input');
@@ -1090,8 +1251,16 @@
 						if (!file) {
 							return;
 						}
+						ggtitle5.textContent = file.name;
 						unloadSwf();
-						player.loadSwfFromFile(file);
+						var reader = new FileReader();
+						reader.onload = function(e) {
+							parseSwf(new Uint8Array(e.target.result), function(result) {
+								resultswf = result;
+								showSwf();
+							});
+						};
+						reader.readAsArrayBuffer(file);
 					}, false);
 					sa.click();
 				}	

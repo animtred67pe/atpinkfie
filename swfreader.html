@@ -40,14 +40,28 @@
 		<script src="pinkfie.js"></script>
 		<script>
 			(function() {
-				var SwfTag = PinkFie.SwfTag;
+				var SwfInput = PinkFie.SwfInput;
+				var SwfDecompress = PinkFie.SwfDecompress;
+
+				function parseSwf(data, callback) {
+					var swfdecompress = new SwfDecompress(data);
+					swfdecompress.onload = function(result) {
+						var swfinput = new SwfInput(result.data, result.header.version);
+						var tags = swfinput.parseTagList();
+						callback({
+							header: result.header,
+							movieInfo: result.movieInfo,
+							tags
+						});
+					}
+					swfdecompress.load();
+				}
 
 				var demo = document.getElementById("demo");
 				var demo2 = document.getElementById("demo2");
 				var demo3 = document.getElementById("demo3");
 				var ggtitle5 = document.getElementById("ggtitle5");
 				var resultswf = null;
-
 
 				var result_tagsElem = null;
 				var result_tagElem = null;
@@ -141,7 +155,7 @@
 						for (let i = gfgbvbvbvb; i < tags.length; i++) {
 							const tag = tags[i];
 							var aaa = document.createElement("li");
-							aaa.innerHTML = SwfTag.tagCodes[tag.tagcode] + ": ";
+							aaa.innerHTML = SwfInput.tagCodes[tag.tagcode] + ": ";
 							var ar = document.createElement("a");
 							ar.href = "#";
 							ar.onclick = (function(objTag) {
@@ -158,7 +172,7 @@
 							}
 							gg.appendChild(aaa);
 							if (i > tags.length) {
-
+								
 							}
 							if ((i - gfgbvbvbvb) >= tagsLimit) {
 								gfgbvbvbvb = i;
@@ -198,7 +212,7 @@
 					demo.innerHTML = dfgfd;
 					demo2.appendChild(result_tagsElem);
 					demo2.style.display = "";
-					console.log(resultswf);
+					//console.log(resultswf);
 				}
 				demo2.style.display = "none";
 				demo3.style.display = "none";
@@ -223,44 +237,13 @@
 						demo.innerHTML = "<br>opening swf file";
 						var reader = new FileReader();
 						reader.onload = function(e) {
-							var swfparser = new SwfTag(new Uint8Array(e.target.result));
-							swfparser.onprogress = function(fs) {
-								if (fs[0]) {
-									demo.innerHTML = "<br>decoding tags " + Math.round(fs[1] * 100) + "%";
-								} else {
-									demo.innerHTML = "<br>compressed swf " + Math.round(fs[1] * 100) + "%";
-								}
-							}
-							swfparser.onload = function() {
-								slowswf();
-							}
-							swfparser.onerror = function(e) {
-							}
-							swfparser.onstartmovie = function(header, movieInfo, tagCallback) {
-								function j(s, h) {
-									var g = [];
-									s._ontag = function(o) {
-										g.push(o);
-										if (o.tagcode == 39) {
-											j(o.tagCallback, function(b) {
-												o.tags = b;
-											});
-										};
-										return null;
-									}
-									s._onend = function() {
-										h(g);
-									}
-								}
+							parseSwf(new Uint8Array(e.target.result), function(result) {
 								resultswf = {};
-								resultswf.header = header;
-								resultswf.movieInfo = movieInfo;
-								j(tagCallback, function(q) {
-									resultswf.tags = q;
-								});
-							}
-							console.log(swfparser);
-							swfparser.load();
+								resultswf.header = result.header;
+								resultswf.movieInfo = result.movieInfo;
+								resultswf.tags = result.tags;
+								slowswf();
+							});
 						};
 						reader.readAsArrayBuffer(file);
 					}, false);

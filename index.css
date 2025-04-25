@@ -12,12 +12,35 @@ a:hover{
 .version {
 	padding-left: 2%;
 	font-size: 50%;
-	color: rgba(0, 0, 0, .4);
+	color: rgba(0, 0, 0, .5);
 }
 .dark .version {
 	color: rgb(194, 194, 194);
 }
 
+.pa-controls{
+    margin: 8px 0px;
+}
+.pa-controls a{
+    text-decoration: none;
+    padding: 4px;
+    font-size: 12px;
+    background-color: #ddd;
+    border-radius: 8px;
+    color: #111;
+}
+.pa-controls a:hover{
+    background-color: #333;
+    color: #fff;
+}
+.dark .pa-controls a{
+    background-color: #333;
+    color: #fff;
+}
+.dark .pa-controls a:hover{
+    background-color: #fff;
+    color: #000;
+}
 /* Theme changer */
 .theme-select {
     position: absolute;
