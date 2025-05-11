@@ -82,7 +82,7 @@
 				var SwfInput = PinkFie.SwfInput;
 				var SwfDecompress = PinkFie.SwfDecompress;
 
-				var mixer = new AudioMixer(new AudioContext());	
+				var mixer = PinkFie.Player.createAudioBackend(new AudioContext());	
 				
 				const {
 					decodeDefineBitsJpeg,
