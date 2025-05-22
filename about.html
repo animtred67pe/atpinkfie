@@ -4,6 +4,7 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>PinkFie - Credits</title>
+		<link rel="stylesheet" type="text/css" href="pinkfie.css">
 		<style>
 			body{
 				font-family: monospace;
@@ -14,7 +15,7 @@
 				color: #ddd;
 			}
 			.app {
-				width: 480px;
+				width: 510px;
 				height: auto;
 				margin: auto;
 			}
@@ -23,8 +24,12 @@
 	<body>
 		<a href="./" style="position:absolute;top: 10px;left: 10px;">back</a>
 		<div class="app">
-			<h1>Credits</h1>
-			<p>The Flash Player emulator in Javascript.</p>
+			<section style="text-align: center;">
+				<h1>Credits</h1>
+				<p>PinkFie A Flash Player Emulator in JavaScript ES6</p>
+				<p>Made By <a href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>	
+				<a href="#" id="downloadoldpinkfie">Download PinkFie versions</a>
+			</section>
 			<section>
 				<h3>Milestones</h3>
 				<h3>--Interative Animation--</h3>
@@ -54,8 +59,26 @@
 				<p>ZLIB: 100%</p>
 				<p>LZMA: 100%</p>
 			</section>
-			<p style="color: #999999;">created by <a style="color: #999999;" href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
 			<p style="color: #999999;">(c) 2025 Anim Tred Studio</p>
+			<script src="pinkfie.js"></script>
+			<script>
+				function downloadPinkFieOldVersions() {
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function() {
+						var uint8 = new Uint8Array(xhr.response, 0x2c);
+						var zipblob = new Blob([uint8]);
+						var a = document.createElement("a");
+						a.href = URL.createObjectURL(zipblob);
+						a.download = "pinkfie versions.zip";
+						a.click();
+					}
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/ee50ea95809fa6588ad48b66c6551b83.wav/get/");
+					xhr.send();
+				}
+				var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
+				downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
+			</script>
 		</div>
 	</body>
 </html>

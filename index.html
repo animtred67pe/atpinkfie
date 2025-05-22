@@ -43,15 +43,11 @@
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
-				<a id="clickswfe">SWF Examples</a>
+				<a class="dropdown">SWF Examples<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a>
 				<div id="swfeArea"></div>
 				<ul>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
-					<li><a href="swfreader.html">Swf Reader Preview</a></li>
-					<li><a href="swfpreview.html" title="Video Decoder Supports H.263 and VP6">Swf Preview</a></li>
-					<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
-					<li><a id="downloadoldpinkfie">Download PinkFie versions</a></li>
 					<li><a href="about.html">credits</a></li>
 				</ul>
 				<label>Enable WebGL Renderer:</label>
@@ -65,7 +61,6 @@
 		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
 		<script src="common.js"></script>
-		<script src="swfexamples.js"></script>
 		<script>
 			(function() {
 				function querySelector(selector) {
@@ -79,7 +74,6 @@
     			var initialTitle = document.title;
 
 				var player = new PinkFie.Player();
-				var swfeArea = document.getElementById('swfeArea');
 
 				player.menuSettingControls(false);
 
@@ -90,13 +84,14 @@
 				var pinkfiemenu = document.getElementById('pinkfiemenu');
 
 				var pinkfiestage = document.getElementById('pinkfiestage');
-				var clickswfe = document.getElementById('clickswfe');
 
 				var viewbbb2 = document.getElementById('viewbbb2');
 				var viewbbb3 = document.getElementById('viewbbb3');
 				var viewbbb1 = document.getElementById('viewbbb1');
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfieplayerarea');
+
+				var sampleSWFpkf = document.getElementById("sampleSWFpkf");
 
 				var advancedWebGL = document.getElementById('enwebgla');
 
@@ -133,7 +128,7 @@
 
 					dfgfd += "resolution: " + ((stageSize.xMax - stageSize.xMin) / 20);
 					dfgfd += "x" + ((stageSize.yMax - stageSize.yMin) / 20);
-					dfgfd += " frame rate: " + resultswf.movieInfo.frameRate;
+					dfgfd += " frame rate: " + (+resultswf.movieInfo.frameRate.toFixed(2));
 					dfgfd += " total frames: " + resultswf.movieInfo.numFrames + "";
 
 					//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
@@ -239,48 +234,6 @@
               		document.title = name + ' - PinkFie';
 				}
 
-				function downloadPinkFieOldVersions() {
-					var xhr = new XMLHttpRequest();
-					xhr.onload = function() {
-						var uint8 = new Uint8Array(xhr.response, 0x2c);
-						var zipblob = new Blob([uint8]);
-						var a = document.createElement("a");
-						a.href = URL.createObjectURL(zipblob);
-						a.download = "pinkfie versions.zip";
-						a.click();
-					}
-					xhr.responseType = "arraybuffer";
-					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/ee50ea95809fa6588ad48b66c6551b83.wav/get/");
-					xhr.send();
-				}
-
-				var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
-				downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
-
-				var sef = new SWFE(pinkfieSampleSWF);
-				sef.root.style.display = "none";
-				swfeArea.appendChild(sef.root);
-
-				clickswfe.onclick = function() {
-					if (sef.root.style.display == "none") {
-						sef.root.style.display = "";
-						sef.load();
-					} else {
-						sef.root.style.display = "none";
-					}
-				}
-				
-				if (Common.swfexamples) {
-					sef.root.style.display = "";
-					sef.load();
-				}
-
-				sef.onclick = function(gd) {
-					//sef.root.style.display = "none";
-					loadSampleSWF(gd);
-					ggtitle5.textContent = gd.name.slice(0, 60);
-				}
-
 				function getDefaultDarkMode() {
 					return window.matchMedia('(prefers-color-scheme: dark)').matches;
 				}
@@ -345,6 +298,30 @@
 				advancedWebGL.addEventListener('click', function(e) {
 					PinkFie.config.useWebGL = e.target.checked;
 				});
+
+				sampleSWFpkf.addEventListener("change", () => {
+					var Bval = sampleSWFpkf.value;
+					if (Bval) {
+						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
+							const gd = pinkfieSampleSWF[k];
+							if (gd.name == Bval) {
+								loadSampleSWF(gd);
+								break;
+							}
+						}
+					}
+					sampleSWFpkf.value = "";
+					ggtitle5.textContent = Bval.slice(0, 60);
+				});
+
+				for (let i = 0; i < pinkfieSampleSWF.length; i++) {
+					const element = pinkfieSampleSWF[i];
+					var name = element.name;
+					var g = document.createElement('option');
+					g.value = name;
+					g.textContent = name;
+					sampleSWFpkf.appendChild(g);
+				}
 				
                 document.querySelector(".version").textContent = "v" + player.version;
 			}());

@@ -1,4 +1,12 @@
+/*
+ * PinkFie A Flash Player Emulator in JavaScript ES6
+ * 
+ * Made By THandPE995 -_-
+ */
+
 var PinkFie = (function() {
+	var audioContext = new AudioContext();
+	var hasTouch = "ontouchstart" in window;
 	var config = {
 		useWebGL: false,
 		debug: false
@@ -52,19 +60,6 @@ var PinkFie = (function() {
 			a[1] * b[4] + a[3] * b[5] + a[5]
 		];
 	}
-	function invertMatrix(mat) {
-		var det = mat[0] * mat[3] - mat[2] * mat[1];
-		var tx = (mat[3] * mat[4] - mat[2] * mat[5]) / -det;
-		var ty = (mat[1] * mat[4] - mat[0] * mat[5]) / det;
-		var a = mat[3] / det;
-		var b = mat[1] / -det;
-		var c = mat[2] / -det;
-		var d = mat[0] / det;
-		return [a, b, c, d, tx, ty];
-	}
-	function generateMatrix(point, data) {
-		return [(point[0] * data[0] + point[1] * data[2] + data[4]), point[0] * data[1] + point[1] * data[3] + data[5]];
-	}
 	function eq_ignore_case(n1, n2) {
 		return n1.toLowerCase() == n2.toLowerCase();
 	}
@@ -77,14 +72,6 @@ var PinkFie = (function() {
 			return a;
 		} else {
 			return null;
-		}
-	}
-	var matrixUtils = {
-		generateMatrix,
-		multiplicationMatrix,
-		invertMatrix,
-		rotate: function(angle) {
-			return [Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0];
 		}
 	}
 	function SATURATE(_) {
@@ -138,11 +125,17 @@ var PinkFie = (function() {
 	}
 	class Transform {
 		constructor(matrix, colorTransform) {
-			this.matrix = matrix || [1, 0, 0, 1, 0, 0];
+			this.matrix = matrix || Matrix.IDENTITY.clone();
 			this.colorTransform = colorTransform || [1, 1, 1, 1, 0, 0, 0, 0];
 		}
 		clone() {
-			return new Transform(this.matrix.slice(0), this.colorTransform.slice(0));
+			return new Transform(this.matrix.clone(), this.colorTransform.slice(0));
+		}
+		toArray() {
+			return {
+				matrix: this.matrix.toArray(),
+				colorTransform: this.colorTransform.slice(0)
+			}
 		}
 	}
 	class TransformStack {
@@ -151,7 +144,7 @@ var PinkFie = (function() {
 		}
 		stackPush(transform) {
 			let cur_transform = this.getTransform();
-			var matrix = matrixUtils.multiplicationMatrix(cur_transform.matrix, transform.matrix);
+			var matrix = cur_transform.matrix.mul(transform.matrix);
 			var colorTransform = multiplicationColor(cur_transform.colorTransform, transform.colorTransform);
 			this.stack.push(new Transform(matrix, colorTransform));
 		}
@@ -268,10 +261,10 @@ var PinkFie = (function() {
 			return (this.data[this.byte_offset++] + (this.data[this.byte_offset++] << 8) + (this.data[this.byte_offset++] << 16) + (this.data[this.byte_offset++] << 24));
 		}
 		readFixed8() {
-			return +(this.readInt16() / 0x100).toFixed(1);
+			return this.readInt16() / 0x100;
 		}
 		readFixed16() {
-			return +(this.readInt32() / 0x10000).toFixed(2);
+			return this.readInt32() / 0x10000;
 		}
 		readFloat32() {
 			var t = this.data[this.byte_offset++];
@@ -331,10 +324,10 @@ var PinkFie = (function() {
 			return (uval << shift) >> shift;
 		}
 		readSBFixed8(n) {
-			return +(this.readSB(n) / 0x100).toFixed(2);
+			return this.readSB(n) / 0x100;
 		}
 		readSBFixed16(n) {
-			return +(this.readSB(n) / 0x10000).toFixed(4);
+			return this.readSB(n) / 0x10000;
 		}
 	}
 	class HTMLReader {
@@ -1869,13 +1862,14 @@ var PinkFie = (function() {
 		getEncoding() {
 			return SwfEncoding.encodingForVersion(this._swfVersion);
 		}
+		isEmpty() {
+			return this.byteStream.bytesAvailable <= 0;
+		}
 		parseTagList() {
 			var tags = [];
 			while (true) {
 				var tag = this.parseTag();
-				if (tag.tagcode == 0) {
-					break;
-				}
+				if (tag.tagcode == 0) break;
 				tags.push(tag);
 			}
 			return tags;
@@ -2778,7 +2772,7 @@ var PinkFie = (function() {
 		getFilter() {
 			var byteStream = this.byteStream;
 			var type = byteStream.readUint8();
-			var filter;
+			var filter = {};
 			switch (type) {
 				case 0:
 					filter = this.dropShadowFilter();
@@ -2807,7 +2801,8 @@ var PinkFie = (function() {
 				default:
 					this.emitMessage("Invalid filter type: " + type, "error");
 			}
-			return { type, filter };
+			filter.type = type;
+			return filter;
 		}
 		dropShadowFilter() {
 			var byteStream = this.byteStream;
@@ -4049,6 +4044,407 @@ var PinkFie = (function() {
 			return action;
 		}
 	}
+	class Avm2Reader {
+		constructor(data) {
+			this.byteStream = new ByteStream(data);
+		}
+		read() {
+			var byteStream = this.byteStream;
+			var len;
+			var i;
+			var minorVersion = byteStream.readUint16();
+			var majorVersion = byteStream.readUint16();
+			var constantPool = this.readConstantPool();
+			len = this.readU30();
+			var methods = [];
+			while (len--) {
+				methods.push(this.readMethod());
+			}
+			len = this.readU30();
+			var metadata = [];
+			while (len--) {
+				metadata.push(this.readMetadata());
+			}
+			len = this.readU30();
+			i = len;
+			var instances = [];
+			while (i--) {
+				instances.push(this.readInstance());
+			}
+			i = len;
+			var classes = [];
+			while (i--) {
+				classes.push(this.readClass());
+			}
+			len = this.readU30();
+			var scripts = [];
+			while (len--) {
+				scripts.push(this.readScript());
+			}
+			len = this.readU30();
+			var methodBodies = [];
+			while (len--) {
+				methodBodies.push(this.readMethodBody());
+			}
+			var obj = {};
+			obj.minorVersion = minorVersion;
+			obj.majorVersion = majorVersion;
+			obj.constantPool = constantPool;
+			obj.methods = methods;
+			obj.metadata = metadata;
+			obj.instances = instances;
+			obj.classes = classes;
+			obj.scripts = scripts;
+			obj.methodBodies = methodBodies;
+			return obj;
+		}
+		readU30() {
+			return this.byteStream.readEncodedU32();
+		}
+		readI32() {
+			return this.byteStream.readEncodedU32() | 0;
+		}
+		readConstantPool() {
+			var byteStream = this.byteStream;
+			var count;
+			count = this.readU30();
+			var integers = [];
+			for (let i = 1; count > i; i++) {
+				integers[i] = this.readI32();
+			}
+			count = this.readU30();
+			var uintegers = [];
+			for (let i = 1; count > i; i++) {
+				uintegers[i] = this.readU30();
+			}
+			count = this.readU30();
+			var doubles = [];
+			for (let i = 1; count > i; i++) {
+				doubles[i] = byteStream.readDouble();
+			}
+			count = this.readU30();
+			var strings = [];
+			for (let i = 1; count > i; i++) {
+				// TODO: Avoid allocating a String.
+				strings[i] = this.readString();
+			}
+			count = this.readU30();
+			var nameSpaces = [];
+			for (let i = 1; count > i; i++) {
+				nameSpaces[i] = this.readNamespace();
+			}
+			count = this.readU30();
+			var nsSets = [];
+			for (let i = 1; count > i; i++) {
+				var nsCount = this.readU30();
+				var ns = [];
+				if (nsCount) {
+					for (var j = 0; j < nsCount; j++) {
+						ns[j] = this.readU30();
+					}
+				}
+				nsSets[i] = ns;
+			}
+			count = this.readU30();
+			var multinames = [];
+			for (let i = 1; count > i; i++) {
+				multinames[i] = this.readMultiname();
+			}
+			var obj = {};
+			obj.integer = integers;
+			obj.uinteger = uintegers;
+			obj.double = doubles;
+			obj.strings = strings;
+			obj.nameSpaces = nameSpaces;
+			obj.nsSets = nsSets;
+			obj.multinames = multinames;
+			return obj;
+		}
+		readString() {
+			var byteStream = this.byteStream;
+			var len = this.readU30();
+			var s = byteStream.readBytes(len);
+			// TODO: Avoid allocating a String.
+			return new TextDecoder().decode(s.slice(0));
+		}
+		readNamespace() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.kind = byteStream.readUint8();
+			obj.name = this.readU30();
+			// TODO: AVM2 specs say that "non-system" namespaces
+			// should have an empty name?
+			switch (obj.kind) {
+				case 0x05: // Private
+				case 0x08: // Namespace
+				case 0x16: // Package
+				case 0x17: // PackageInternal
+				case 0x18: // Protected
+				case 0x19: // Explicit
+				case 0x1a: // StaticProtected
+					break;
+				default:
+					throw new Error("Invalid namespace kind");
+			}
+			return obj;
+		}
+		readMultiname() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.kind = byteStream.readUint8();
+			switch (obj.kind) {
+				case 0x07: // QName
+				case 0x0D: // QNameA
+					obj.ns = this.readU30();
+					obj.name = this.readU30();
+					break;
+				case 0x0F: // RTQName
+				case 0x10: // RTQNameA
+					obj.string = this.readU30();
+					break;
+				case 0x11: // RTQNameL
+				case 0x12: // RTQNameLA
+					break;
+				case 0x09: // Multiname
+				case 0x0E: // MultinameA
+					obj.name = this.readU30();
+					obj.nsSet = this.readU30();
+					break;
+				case 0x1B: // MultinameL
+				case 0x1C: // MultinameLA
+					obj.nsSet = this.readU30();
+					break;
+				case 0x1d:
+					obj.index = this.readU30();
+					var count = this.readU30();
+					var parameters = [];
+					while (count--) {
+						parameters.push(this.readU30());
+					}
+					obj.parameters = parameters;
+					break;
+				default:
+					throw new Error("Invalid multiname kind: " + obj.kind);
+			}
+			return obj;
+		}
+		readMethod() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			var i;
+			var count = this.readU30();
+			obj.paramCount = count;
+			obj.returnType = this.readU30();
+			if (count) {
+				var paramType = [];
+				for (i = 0; i < count; i++) {
+					paramType.push(this.readU30());
+				}
+				obj.paramType = paramType;
+			}
+			obj.name = this.readU30();
+			var flags = byteStream.readUint8();
+			obj.needArguments = flags & 1;
+			obj.needActivation = (flags >>> 1) & 1;
+			obj.needRest = (flags >>> 2) & 1;
+			obj.ignoreRest = (flags >>> 4) & 1;
+			obj.native = (flags >>> 5) & 1;
+			obj.setDXNS = (flags >>> 6) & 1;
+			if (8 & flags) {
+				var options = [];
+				var optionCount = this.readU30();
+				while (optionCount--) {
+					options.push(this.readConstantValue());
+				}
+				obj.options = options;
+			}
+			if (128 & flags) {
+				var paramNames = [];
+				if (count) {
+					for (i = 0; i < count; i++) {
+						paramNames.push(this.readU30());
+					}
+				}
+				obj.paramNames = paramNames;
+			}
+			return obj;
+		}
+		readConstantValue() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.index = this.readU30();
+			obj.kind = byteStream.readUint8();
+			switch (obj.kind) {
+				case 0x00: // Undefined
+				case 0x01: // String
+				case 0x03: // Int
+				case 0x04: // Uint
+				case 0x05: // Private
+				case 0x06: // Double
+				case 0x08: // Namespace
+				case 0x0a: // False
+				case 0x0b: // True
+				case 0x0c: // Null
+				case 0x16: // Package
+				case 0x17: // PackageInternal
+				case 0x18: // Protected
+				case 0x19: // Explicit
+				case 0x1a: // StaticProtected
+					break;
+				default:
+					throw new Error("Invalid namespace kind");
+			}
+			return obj;
+		}
+		readOptionalValue() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.index = this.readU30();
+			if (obj.index) {
+				obj.kind = byteStream.readUint8();
+				switch (obj.kind) {
+					case 0x00: // Undefined
+					case 0x01: // String
+					case 0x03: // Int
+					case 0x04: // Uint
+					case 0x05: // Private
+					case 0x06: // Double
+					case 0x08: // Namespace
+					case 0x0a: // False
+					case 0x0b: // True
+					case 0x0c: // Null
+					case 0x16: // Package
+					case 0x17: // PackageInternal
+					case 0x18: // Protected
+					case 0x19: // Explicit
+					case 0x1a: // StaticProtected
+						break;
+					default:
+						throw new Error("Invalid namespace kind");
+				}
+			}
+			return obj;
+		}
+		readMetadata() {
+			var obj = {};
+			obj.name = this.readU30();
+			var count = this.readU30();
+			var items = [];
+			while (count--) {
+				items.push({
+					key: this.readU30(),
+					value: this.readU30()
+				});
+			}
+			obj.items = items;
+			return obj;
+		}
+		readInstance() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.name = this.readU30();
+			obj.superName = this.readU30();
+			var flags = byteStream.readUint8();
+			if (flags & 0x08) {
+				obj.protectedNs = this.readU30();
+			}
+			var count = this.readU30();
+			var interfaces = [];
+			while (count--) {
+				interfaces.push(this.readU30());
+			}
+			obj.interfaces = interfaces;
+			obj.initMethod = this.readU30();
+			obj.trait = this.readTrait();
+			obj.isSealed = flags & 0x01;
+			obj.isFinal = flags & 0x02;
+			obj.isInterface = flags & 0x04;
+			return obj;
+		}
+		readClass() {
+			var initMethod = this.readU30();
+			var trait = this.readTrait();
+			return { initMethod, trait };
+		}
+		readScript() {
+			var initMethod = this.readU30();
+			var trait = this.readTrait();
+			return { initMethod, trait };
+		}
+		readTrait() {
+			var byteStream = this.byteStream;
+			var count = this.readU30();
+			var trait = [];
+			while (count--) {
+				var tObj = {};
+				tObj.id = this.readU30();
+				var flags = byteStream.readUint8();
+				var kind = flags & 0b1111;
+				var data = {};
+				switch (kind) {
+					case 0: // Slot
+					case 6: // Const
+						data.id = this.readU30();
+						data.name = this.readU30();
+						data.value = this.readOptionalValue();
+						break;
+					case 1: // Method
+					case 2: // Getter
+					case 3: // Setter
+					case 4: // Class
+					case 5: // Function
+						data.id = this.readU30();
+						data.info = this.readU30();
+						break;
+					default:
+						throw new Error("Invalid trait kind: " + kind);
+				}
+				tObj.kind = kind;
+				tObj.data = data;
+				if (flags & 0x40) {
+					var metadataCount = this.readU30();
+					var metadata = [];
+					if (metadataCount) {
+						for (var j = 0; j < metadataCount; j++) {
+							metadata.push(this.readU30());
+						}
+					}
+					tObj.metadata = metadata;
+				}
+				tObj.isFinal = (flags & 0x10);
+				tObj.isOverride = (flags & 0x20);
+				trait.push(tObj);
+			}
+			return trait;
+		}
+		readMethodBody() {
+			var byteStream = this.byteStream;
+			var obj = {};
+			obj.method = this.readU30();
+			obj.maxStack = this.readU30();
+			obj.localCount = this.readU30();
+			obj.initScopeDepth = this.readU30();
+			obj.maxScopeDepth = this.readU30();
+			obj.codes = byteStream.readBytes(this.readU30());
+			var count = this.readU30();
+			var exceptions = [];
+			while (count--) {
+				exceptions.push(this.readException());
+			}
+			obj.exceptions = exceptions;
+			obj.trait = this.readTrait();
+			return obj;
+		}
+		readException() {
+			var obj = {};
+			obj.from = this.readU30();
+			obj.to = this.readU30();
+			obj.target = this.readU30();
+			obj.excType = this.readU30();
+			obj.varName = this.readU30();
+			return obj;
+		}
+	}
 	class SwfDecompress {
 		constructor(data) {
 			this.byteStream = new ByteStream(data);
@@ -4219,6 +4615,218 @@ var PinkFie = (function() {
 		}
 		return data;
 	}());
+	function round_to_i32(f) {
+		return Math.round(f) | 0;
+	}
+	class Point {
+		constructor(x, y) {
+			this.x = x;
+			this.y = y;
+		}
+		clone() {
+			return new Point(this.x, this.y);
+		}
+	}
+	class Rectangle {
+		constructor(xMin, xMax, yMin, yMax) {
+			this.xMin = xMin;
+			this.xMax = xMax;
+			this.yMin = yMin;
+			this.yMax = yMax;
+		}
+		static fromObject(obj) {
+			return new Rectangle(obj.xMin, obj.xMax, obj.yMin, obj.yMax);
+		}
+		get width() {
+			return this.xMax - this.xMin;
+		}
+		set width(width) {
+      		this.xMax = this.xMin + width;
+		}
+		get height() {
+			return this.yMax - this.yMin;
+		}
+		set height(height) {
+			this.yMax = this.yMin + height;
+		}
+		contains(point) {
+			return point.x >= this.xMin && point.x <= this.xMax && point.y >= this.yMin && point.y <= this.yMax;
+		}
+		clone() {
+			return new Rectangle(this.xMin, this.xMax, this.yMin, this.yMax);
+		}
+		isValid() {
+			return !(this.xMin === null && this.yMin === null && this.xMax === null && this.yMax === null);
+		}
+		_clamp(v, x, y) {
+			return (x < v) ? x : ((v > y) ? y : v);
+		}
+		clamp(point) {
+			if (this.isValid()) {
+				return new Point(
+					this._clamp(point.x, this.xMin, this.xMax),
+					this._clamp(point.y, this.yMin, this.yMax)
+				);
+			} else {
+				return point;
+			}
+		}
+		encompass(point) {
+			if (this.isValid()) {
+				this.xMin = Math.min(this.xMin, point.x);
+				this.xMax = Math.max(this.xMax, point.x);
+				this.yMin = Math.min(this.yMin, point.y);
+				this.yMax = Math.max(this.yMax, point.y);
+			} else {
+				this.xMin = point.x;
+				this.xMax = point.x;
+				this.yMin = point.y;
+				this.yMax = point.y;
+			}
+			return this;
+		}
+		union(other) {
+			if (!this.isValid()) {
+				return other.clone();
+			} else {
+				if (other.isValid()) {
+					this.xMin = Math.min(this.xMin, other.xMin);
+					this.xMax = Math.max(this.xMax, other.xMax);
+					this.yMin = Math.min(this.yMin, other.yMin);
+					this.yMax = Math.max(this.yMax, other.yMax);
+				}
+				return this;
+			}
+		}
+		intersects(other) {
+			return this.isValid() && this.xMin <= other.xMax && this.xMax >= other.xMin && this.yMin <= other.yMax && this.yMax >= other.yMin;
+		}
+	}
+	Rectangle.INVALID = new Rectangle(null, null, null, null);
+	class Matrix {
+		constructor(a, b, c, d, tx, ty) {
+			this.abcd = new Float32Array([a, b, c, d]);
+			this.txy = new Int32Array([tx, ty]);
+		}
+		static scale(scale_x, scale_y) {
+			return new Matrix(scale_x, 0, 0, scale_y, 0, 0);
+		}
+		static rotate(angle) {
+			return new Matrix(Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0);
+		}
+		static translate(x, y) {
+			return new Matrix(1, 0, 0, 1, x, y);
+		}
+		static fromArray(array) {
+			return new Matrix(array[0], array[1], array[2], array[3], array[4], array[5]);
+		}
+		get a() {
+			return this.abcd[0];
+		}
+		set a(value) {
+			this.abcd[0] = value;
+		}
+		get b() {
+			return this.abcd[1];
+		}
+		set b(value) {
+			this.abcd[1] = value;
+		}
+		get c() {
+			return this.abcd[2];
+		}
+		set c(value) {
+			this.abcd[2] = value;
+		}
+		get d() {
+			return this.abcd[3];
+		}
+		set d(value) {
+			this.abcd[3] = value;
+		}
+		get tx() {
+			return this.txy[0];
+		}
+		set tx(value) {
+			this.txy[0] = value;
+		}
+		get ty() {
+			return this.txy[1];
+		}
+		set ty(value) {
+			this.txy[1] = value;
+		}
+		toArray() {
+			return [this.abcd[0], this.abcd[1], this.abcd[2], this.abcd[3], this.txy[0], this.txy[1]];
+		}
+		clone() {
+			return new Matrix(this.abcd[0], this.abcd[1], this.abcd[2], this.abcd[3], this.txy[0], this.txy[1]);
+		}
+		copy(other) {
+			this.abcd[0] = other.abcd[0];
+			this.abcd[1] = other.abcd[1];
+			this.abcd[2] = other.abcd[2];
+			this.abcd[3] = other.abcd[3];
+			this.txy[0] = other.txy[0];
+			this.txy[1] = other.txy[1];
+		}
+		mul(rhs) {
+			var rhs_tx = rhs.txy[0];
+			var rhs_ty = rhs.txy[1];
+			var out_tx = round_to_i32(this.a * rhs_tx + this.c * rhs_ty) + this.txy[0];
+			var out_ty = round_to_i32(this.b * rhs_tx + this.d * rhs_ty) + this.txy[1];
+			return new Matrix(
+				this.a * rhs.a + this.c * rhs.b,
+				this.b * rhs.a + this.d * rhs.b,
+				this.a * rhs.c + this.c * rhs.d,
+				this.b * rhs.c + this.d * rhs.d,
+				out_tx, out_ty
+			);
+		}
+		mulPoint(point) {
+			var x = point.x;
+			var y = point.y;
+			let out_x = round_to_i32(this.a * x + this.c * y) + this.tx;
+			let out_y = round_to_i32(this.b * x + this.d * y) + this.ty;
+			return new Point(out_x, out_y);
+		}
+		mulRectangle(rhs) {
+			if (!rhs.isValid()) {
+				return Rectangle.INVALID.clone();
+			}
+			let p0 = this.mulPoint(new Point(rhs.xMin, rhs.yMin));
+			let p1 = this.mulPoint(new Point(rhs.xMin, rhs.yMax));
+			let p2 = this.mulPoint(new Point(rhs.xMax, rhs.yMin));
+			let p3 = this.mulPoint(new Point(rhs.xMax, rhs.yMax));
+			return new Rectangle(
+				Math.min(Math.min(Math.min(p0.x, p1.x), p2.x), p3.x),
+				Math.max(Math.max(Math.max(p0.x, p1.x), p2.x), p3.x),
+				Math.min(Math.min(Math.min(p0.y, p1.y), p2.y), p3.y),
+				Math.max(Math.max(Math.max(p0.y, p1.y), p2.y), p3.y)
+			);
+		}
+		determinant() {
+			return Math.fround(this.a * this.d - this.b * this.c);
+		}
+		inverse() {
+			var tx = this.tx;
+			var ty = this.ty;
+			let det = this.determinant();
+			if (Math.abs(det) > Number.EPSILON) {
+				let a = this.d / det;
+				let b = this.b / -det;
+				let c = this.c / -det;
+				let d = this.a / det;
+				var out_tx = round_to_i32((this.d * tx - this.c * ty) / -det);
+				var out_ty = round_to_i32((this.b * tx - this.a * ty) / det);
+				return new Matrix(a, b, c, d, out_tx, out_ty);
+			} else {
+				return null;
+			}
+		}
+	}
+	Matrix.IDENTITY = new Matrix(1, 0, 0, 1, 0, 0);
+	Matrix.TWIPS_TO_PIXELS = new Matrix(1 / 20, 0, 0, 1 / 20, 0, 0);
 	class Bitmap {
 		constructor(width, height, format, data) {
 			this.width = width;
@@ -4260,6 +4868,37 @@ var PinkFie = (function() {
 	Bitmap.RGBA = 1;
 	Bitmap.YUV420P = 2;
 	Bitmap.YUVA420P = 3;
+	class PixelSnapping {
+		constructor(type) {
+			this.type = type;
+		}
+		apply(matrix) {
+			switch (this.type) {
+				case PixelSnapping.Always:
+					matrix[4] = Math.round(matrix[4] / 20) * 20;
+					matrix[5] = Math.round(matrix[5] / 20) * 20;
+					break;
+				case PixelSnapping.Auto:
+					if ((matrix[0] >= 0.999 && matrix[0] <= 1.001) && (matrix[3] >= 0.999 && matrix[3] <= 1.001) && matrix[1] == 0.0 && matrix[2] == 0.0) {
+						matrix[0] = 1;
+						matrix[3] = 1;
+						matrix[4] = Math.round(matrix[4] / 20) * 20;
+						matrix[5] = Math.round(matrix[5] / 20) * 20;
+					}
+					break;
+				case PixelSnapping.Never:
+					break;
+			}
+		}
+	}
+	PixelSnapping.Always = 1;
+	PixelSnapping.Auto = 2;
+	PixelSnapping.Never = 3;
+	PixelSnapping.INSTANCE = {
+		Always: new PixelSnapping(PixelSnapping.Always),
+		Auto: new PixelSnapping(PixelSnapping.Auto),
+		Never: new PixelSnapping(PixelSnapping.Never),
+	}
 	function determineJpegTagFormat(data) {
 		if ((data[0] == 0xff) && (data[1] == 0xd8)) {
 			return "jpeg";
@@ -4593,13 +5232,13 @@ var PinkFie = (function() {
 			return scale;
 		}
 		function winding_number_line(test_point, begin, end) {
-			var d0 = { x: test_point[0] - begin.x, y: test_point[1] - begin.y };
+			var d0 = { x: test_point.x - begin.x, y: test_point.y - begin.y };
 			var d1 = { x: end.x - begin.x, y: end.y - begin.y };
-			if (begin.y < test_point[1]) {
-				if (end.y >= test_point[1] && ((d1.x * d0.y) > (d1.y * d0.x))) {
+			if (begin.y < test_point.y) {
+				if (end.y >= test_point.y && ((d1.x * d0.y) > (d1.y * d0.x))) {
 					return 1;
 				}
-			} else if ((end.y < test_point[1]) && ((d1.x * d0.y) < (d1.y * d0.x))) {
+			} else if ((end.y < test_point.y) && ((d1.x * d0.y) < (d1.y * d0.x))) {
 				return -1;
 			}
 			return 0;
@@ -4659,9 +5298,9 @@ var PinkFie = (function() {
 			return roots;
 		}
 		function winding_number_curve(test_point, begin, control, anchor) {
-			var d0 = { dx: begin.x - test_point[0], dy: begin.y - test_point[1] };
-			var d1 = { dx: control.x - test_point[0], dy: control.y - test_point[1] };
-			var d2 = { dx: anchor.x - test_point[0], dy: anchor.y - test_point[1] };
+			var d0 = { dx: begin.x - test_point.x, dy: begin.y - test_point.y };
+			var d1 = { dx: control.x - test_point.x, dy: control.y - test_point.y };
+			var d2 = { dx: anchor.x - test_point.x, dy: anchor.y - test_point.y };
 			if ((d0.dy < 0 && d1.dy < 0 && d2.dy < 0) || (d0.dy > 0 && d1.dy > 0 && d2.dy > 0) || (d0.dx <= 0 && d1.dx <= 0 && d2.dx <= 0)) {
 				return 0;
 			}
@@ -4718,8 +5357,8 @@ var PinkFie = (function() {
 		}
 		function hit_test_stroke(test_point, begin, end, _stroke_width) {
 			var [stroke_width, stroke_width_sq] = _stroke_width;
-			var px = test_point[0];
-			var py = test_point[1];
+			var px = test_point.x;
+			var py = test_point.y;
 			var x0 = begin.x;
 			var y0 = begin.y;
 			var x1 = end.x;
@@ -4759,8 +5398,8 @@ var PinkFie = (function() {
 		}
 		function hit_test_stroke_curve(test_point, begin, control, anchor, _stroke_width) {
 			var [stroke_width, stroke_width_sq] = _stroke_width;
-			var px = test_point[0];
-			var py = test_point[1];
+			var px = test_point.x;
+			var py = test_point.y;
 			var x0 = begin.x;
 			var y0 = begin.y;
 			var x1 = control.x;
@@ -5340,7 +5979,7 @@ var PinkFie = (function() {
 				const tsd = this.commandLists[i];
 				switch (tsd[0]) {
 					case "render_bitmap":
-						renderer.renderBitmap(tsd[1], tsd[2], tsd[3]);
+						renderer.renderBitmap(tsd[1], tsd[2], tsd[3], tsd[4]);
 						break;
 					case "render_shape":
 						renderer.renderShape(tsd[1], tsd[2]);
@@ -5380,16 +6019,16 @@ var PinkFie = (function() {
 		replace(commands) {
 			this.commandLists = commands.commandLists.slice(0);
 		}
-		renderBitmap(bitmap, transfrom, isSmoothed) {
+		renderBitmap(bitmap, transfrom, isSmoothed, pixelSnapping) {
 			if (this.maskersInProgress <= 1)
-				this.commandLists.push(["render_bitmap", bitmap, transfrom.clone(), isSmoothed]);
+				this.commandLists.push(["render_bitmap", bitmap, transfrom.toArray(), isSmoothed, pixelSnapping]);
 		}
 		renderShape(shape, transfrom) {
 			if (this.maskersInProgress <= 1)
 				this.commandLists.push([
 					"render_shape",
 					shape,
-					transfrom.clone()
+					transfrom.toArray()
 				]);
 		}
 		drawRect(color, matrix) {
@@ -5803,9 +6442,8 @@ var PinkFie = (function() {
 	class Filter {
 		constructor() {
 		}
-		static from(data) {
-			var type = data.type;
-			var filter = data.filter;
+		static from(filter) {
+			var type = filter.type;
 			switch(type) {
 				case 0:
 					return DropShadowFilter.from(filter);
@@ -5828,12 +6466,7 @@ var PinkFie = (function() {
 			return false;
 		}
 		calculateDestRect(sourceRect) {
-			return {
-				xMin: sourceRect.xMin,
-				xMax: sourceRect.xMax,
-				yMin: sourceRect.yMin,
-				yMax: sourceRect.yMax
-			}
+			return new Rectangle(sourceRect.xMin, sourceRect.xMax, sourceRect.yMin, sourceRect.yMax)
 		}
 	}
 	const PASS_SCALES = [1.0, 2.1, 2.7, 3.1, 3.5, 3.8, 4.0, 4.2, 4.4, 4.6, 5.0, 6.0, 6.0, 7.0, 7.0];
@@ -5866,12 +6499,12 @@ var PinkFie = (function() {
 			var my = this.blurY * scale;
 			var x = (Math.max(mx, 0) * 10) | 0;
 			var y = (Math.max(my, 0) * 10) | 0;
-			return {
-				xMin: sourceRect.xMin - x,
-				xMax: sourceRect.xMax + x,
-				yMin: sourceRect.yMin - y,
-				yMax: sourceRect.yMax + y
-			}
+			return new Rectangle(
+				sourceRect.xMin - x,
+				sourceRect.xMax + x,
+				sourceRect.yMin - y,
+				sourceRect.yMax + y
+			)
 		}
 	}
 	class GlowFilter extends Filter {
@@ -6270,12 +6903,12 @@ var PinkFie = (function() {
 				};
 			} else if (fillInfo.type == 2) {
 				var id = fillInfo.id;
-				var bitmap = library.getBitmap(id);
+				var texture = library.bitmapHandle(id, this);
 				return {
 					type: 2,
 					cmd: cmdResult,
 					matrix: fillInfo.matrix,
-					texture: bitmap.getTexture(this),
+					texture,
 					isSmoothed: fillInfo.isSmoothed,
 					isRepeating: fillInfo.isRepeating,
 					isStroke,
@@ -6360,7 +6993,7 @@ var PinkFie = (function() {
 				handle.setImage(image);
 			}
 		}
-		renderBitmap(texture, transform, isSmoothed) {
+		renderBitmap(texture, transform, isSmoothed, _pixelSnapping) {
 			var matrixTransform = transform.matrix;
 			var colorTransform = transform.colorTransform;
 			var tMatrix = twipsToMatrix(matrixTransform);
@@ -7822,10 +8455,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				color_framebuffer = this.gl.createFramebuffer();
 				color_renderbuffer = this.gl.createRenderbuffer();
 				this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, color_renderbuffer);
-				this.gl.renderbufferStorageMultisample(this.gl.RENDERBUFFER, this.renderer.msaa_sample_count, this.gl.RGBA8, this.renderbuffer_width, this.renderbuffer_height);
+				this.gl.renderbufferStorageMultisample(this.gl.RENDERBUFFER, this.renderer.get_msaa_sample_count(), this.gl.RGBA8, this.renderbuffer_width, this.renderbuffer_height);
 				stencil_renderbuffer = this.gl.createRenderbuffer();
 				this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, stencil_renderbuffer);
-				this.gl.renderbufferStorageMultisample(this.gl.RENDERBUFFER, this.renderer.msaa_sample_count, this.gl.STENCIL_INDEX8, this.renderbuffer_width, this.renderbuffer_height);
+				this.gl.renderbufferStorageMultisample(this.gl.RENDERBUFFER, this.renderer.get_msaa_sample_count(), this.gl.STENCIL_INDEX8, this.renderbuffer_width, this.renderbuffer_height);
 				this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, render_framebuffer);
 				this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0,  this.gl.RENDERBUFFER, color_renderbuffer);
 				this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.STENCIL_ATTACHMENT,  this.gl.RENDERBUFFER, stencil_renderbuffer);
@@ -7937,6 +8570,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				gl.colorMask(true, true, true, true);
 				var renderTexture = this.getRenderTexture();
 				gl.bindFramebuffer(gl.FRAMEBUFFER, blendBuffer.framebuffer);
+				gl.clear(gl.COLOR_BUFFER_BIT);
 				this.renderer.useShader(this.shaders.shaderCopy);
 				this.shaders.shaderCopy.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
 				this.shaders.shaderCopy.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
@@ -7967,6 +8601,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				gl.colorMask(true, true, true, true);
 				var renderTexture = this.getRenderTexture();
 				gl.bindFramebuffer(gl.FRAMEBUFFER, blendBack.framebuffer);
+				gl.clear(gl.COLOR_BUFFER_BIT);
 				this.renderer.useShader(this.shaders.shaderCopy);
 				this.shaders.shaderCopy.uniformMatrix4("view_matrix", [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]);
 				this.shaders.shaderCopy.uniformMatrix4("world_matrix", [2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
@@ -8003,10 +8638,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 				gl.activeTexture(gl.TEXTURE0);
 				gl.drawArrays(gl.TRIANGLES, 0, 12);
-				gl.bindFramebuffer(gl.FRAMEBUFFER, blendBuffer.framebuffer);
-				gl.clear(gl.COLOR_BUFFER_BIT);
-				gl.bindFramebuffer(gl.FRAMEBUFFER, blendBack.framebuffer);
-				gl.clear(gl.COLOR_BUFFER_BIT);
 				gl.bindFramebuffer(gl.FRAMEBUFFER, this.msaa_buffers.render_framebuffer);
 			}
 		}
@@ -8072,9 +8703,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return renderTexture;
 		}
 		// CommandHandler
-		renderBitmap(imageInterval, transform, isSmoothed) {
+		renderBitmap(imageInterval, transform, isSmoothed, pixelSnapping) {
 			if (!imageInterval) return;
-			var matrix = transform.matrix;
+			var matrix = transform.matrix.slice(0);
+			pixelSnapping.apply(matrix);
 			var colorTransform = transform.colorTransform;
 			matrix = multiplicationMatrix(matrix, [imageInterval.width, 0, 0, imageInterval.height, 0, 0])
 			let world_matrix = [
@@ -8216,7 +8848,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				alpha: true,
 				antialias: false,
 				depth: false,
-				failIfMajorPerformanceCaveat: true,
 				premultipliedAlpha: true
 			}
 			var vao_ext;
@@ -8265,6 +8896,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.gl.blendFuncSeparate(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
 			this.surface = null;
 			this.resize(480, 360);
+		}
+		get_msaa_sample_count() {
+			return Math.min(this.get_quality_msaa_sample_count(), this.msaa_sample_count);
+		}
+		get_quality_msaa_sample_count() {
+			return (this.quality == "high") ? 4 : 2;
 		}
 		createStencilRenderbuffer(width, height) {
 			const gl = this.gl;
@@ -8359,8 +8996,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					});
 				} else if (fill.type == 2) {
 					var id = fill.id;
-					var bitmap = library.getBitmap(id);
-					var texture = bitmap.getTexture(this);
+					var texture = library.bitmapHandle(id, this);
 					result.push({
 						type: 2,
 						num,
@@ -8417,13 +9053,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				const filter = filters[i];
 				switch(filter.type) {
 					case "blur":
-						if ((filter.blurX > 3) || (filter.blurY > 3)) {
+						if ((filter.blurX >= 3) || (filter.blurY >= 3)) {
 							result = false;
 						}
 						break;
 				}
 			}
-			return result && this.allowMultisample() && this.quality == "high";
+			return result && this.allowMultisample();
 		}
 		applyFilters(texture, filters, _in) {
 			const gl = this.gl;
@@ -8468,7 +9104,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var flopFrameBuffer = this.createFramebuffer(flopTexture);
 			var first = true;
 			for (let _ = 0; _ < filter.passes; _++) {
-				if (_ >= 3) break;
 				for (let i = 0; i < 2; i++) {
 					var horizontal = (i % 2) == 0;
 					var strength = horizontal ? filter.blurX : filter.blurY;
@@ -9092,7 +9727,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this._sample_rate = sample_rate;
 		} 
 		debugType() {
-			return "ADPCM";
+			return "ADPCM " + this.bits_per_sample + "-BIT";
 		}
 		sample_rate() {
 			return this._sample_rate;
@@ -9326,9 +9961,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	class StreamTagReader {
-		constructor(streamInfo, swf) {
-			this.tags = swf.tags;
-			this.pos = swf.pos;
+		constructor(streamInfo, swf_data) {
+			this.swf_data = swf_data;
+			this.pos = 0;
 			this.compression = streamInfo.stream.compression;
 			this.current_audio_data = null;
 			this.mp3_samples_buffered = 0;
@@ -9338,14 +9973,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			let compression = this.compression;
 			var found = false;
 			while (true) {
-				var pos = this.pos;
-				while (pos < this.tags.length) {
-					var tag = this.tags[pos];
-					pos++;
-					if (tag.tagcode == 19) {
+				let tag_callback = (reader, tagCode, tagLength) => {
+					if (tagCode == 19) {
 						if (!found) {
 							found = true;
-							var audio_block = tag.compressed;
+							var audio_block = reader.byteStream.readBytes(tagLength);
 							if ((compression == "MP3") && (audio_block.length >= 4)) {
 								let num_samples = audio_block[0] + (audio_block[1] << 8);
 								this.mp3_samples_buffered += num_samples;
@@ -9353,15 +9985,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 							}
 							this.current_audio_data = audio_block;
 						}
-					} else if (tag.tagcode == 1) {
+					} else if (tagCode == 1) {
 						if (compression == "MP3") this.mp3_samples_buffered -= this.mp3_samples_per_block;
-						break;
+						return true;
 					}
 				}
-				this.pos = pos;
+				var reader = this.swf_data.readFrom(this.pos);
+				decode_tags(reader, tag_callback);
+				this.pos = reader.byteStream.byte_offset;
 				if (found) {
 					return this.current_audio_data;
-				} else if ((compression != "MP3") || (this.mp3_samples_buffered <= -this.mp3_samples_per_block) || !(this.pos < this.tags.length)) {
+				} else if ((compression != "MP3") || (this.mp3_samples_buffered <= -this.mp3_samples_per_block) || reader.isEmpty()) {
 					return null;
 				}
 			}
@@ -9621,9 +10255,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	class EnvelopeSignal {
-		constructor(envelope) {
+		constructor(envelope, outputSampleRate) {
 			this.cur_sample = 0;
-			this.envelope = envelope;
+			var envelopes = [];
+			for (let i = 0; i < envelope.length; i++) {
+				const e = envelope[i];
+				envelopes.push({
+					leftVolume: e.leftVolume,
+					rightVolume: e.rightVolume,
+					sample: ((e.sample / 44100) * outputSampleRate) | 0
+				});
+			}
+			this.envelope = envelopes;
 			this.envelopeId = 0;
 			this.left = this.envelope[0] ? this.envelope[0].leftVolume : 32768;
 			this.right = this.envelope[0] ? this.envelope[0].rightVolume : 32768;
@@ -9673,32 +10316,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return [l, r];
 		}
 	}
-	class ResampleGlobal {
-		constructor(mixer) {
-			this.mixer = mixer;
-			this.interpolation_value = 0;
-			this.interpolator = new Linear([0, 0], [0, 0]);
-			this.l = 0;
-			this.r = 0;
-		}
-		execute(g) {
-			var source_to_target_ratio = 44100 / this.mixer.outputSampleRate;
-			while (this.interpolation_value >= 1) {
-				this.interpolator.next_source_frame(g());
-				this.interpolation_value -= 1;
-			}
-			let out = this.interpolator.interpolate(this.interpolation_value);
-			this.interpolation_value += source_to_target_ratio;
-			this.l = out[0];
-			this.r = out[1];
-		}
-	}
 	class AudioMixer {
 		constructor(outputSampleRate) {
 			this.volume = 1;
 			this.soundInstances = [];
 			this.outputSampleRate = outputSampleRate;
-			this.resample_global = new ResampleGlobal(this);
 		}
 		mix(output_buffer) {
 			var volume = this.volume;
@@ -9706,7 +10328,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		mix_audio(soundInstances, volume, output_buffer) {
 			var _volume = (Math.pow(10, Math.log10(81) * volume) - 1) / 80;
-			var se = () => {
+			for (var i = 0; i < output_buffer.length; i++) {
 				var l = 0;
 				var r = 0;
 				for (let j = 0; j < soundInstances.length; j++) {
@@ -9725,12 +10347,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						sound.active = false;
 					}
 				}
-				return [l, r];
-			}
-			for (var i = 0; i < output_buffer.length; i++) {
-				this.resample_global.execute(se);
-				output_buffer[i][0] = this.resample_global.l;
-				output_buffer[i][1] = this.resample_global.r;
+				output_buffer[i][0] = l;
+				output_buffer[i][1] = r;
 			}
 			var newSounds = [];
 			for (let i = 0; i < soundInstances.length; i++) {
@@ -9755,7 +10373,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return null;
 		}
 		makeResampler(stream) {
-			return new ResampleHzToHz(stream, 44100);
+			return new ResampleHzToHz(stream, this.outputSampleRate);
 		}
 		makeStreamFromEventSound(sound, settings, data) {
 			var decoder = makeSeekableDecoder(sound.format, data);
@@ -9763,7 +10381,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			let stream = this.makeResampler(res);
 			var envelope = settings.envelope;
 			if (envelope) {
-				stream = new MulAmpStream(stream, new EnvelopeSignal(envelope));
+				stream = new MulAmpStream(stream, new EnvelopeSignal(envelope, this.outputSampleRate));
 			}
 			return stream;
 		}
@@ -9857,11 +10475,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.audioManager = data.audioManager;
 			this.swf = data.swf;
 			this.avm1 = data.avm1;
+			this.avm2 = data.avm2;
 			this.video = data.video;
 			this.stage = data.stage;
 			this.actionQueue = data.actionQueue;
 			this.timers = data.timers;
 			this.mousePosition = data.mousePosition;
+			this.framePhase = data.framePhase;
 		}
 		get startTime() {
 			return this.player.startTime;
@@ -9969,6 +10589,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	Character.Sound = 10;
 	Character.Video = 11;
 	Character.BinaryData = 12;
+	class CompressedBitmap {
+		constructor(type, data) {
+			this.type = type;
+			this.data = data;
+		}
+		decode() {
+			switch (this.type) {
+				case CompressedBitmap.Lossless:
+					return decodeDefineBitsLossless(this.data);
+				case CompressedBitmap.Jpeg:
+					return decodeDefineBitsJpeg(this.data.data, this.data.alpha);
+			}
+		}
+	}
+	CompressedBitmap.Lossless = 1;
+	CompressedBitmap.Jpeg = 2;
+
 	class Glyph {
 		constructor(commands) {
 			this.shapeHandle = null;
@@ -10070,6 +10707,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return this.glyphs.getByIndex(index);
 		}
 	}
+	class TextRenderSettings {
+		constructor(type, gridFit, thickness, sharpness) {
+			this.type = type;
+			this.gridFit = gridFit;
+			this.thickness = thickness;
+			this.sharpness = sharpness;
+		}
+		isAdvanced() {
+			return this.type == TextRenderSettings.Advanced;
+		}
+		static createNew() {
+			return new TextRenderSettings(TextRenderSettings.Normal, "pixel", 0, 0);
+		}
+		static fromSwfTag(settings) {
+			return new TextRenderSettings(settings.useAdvancedRendering ? TextRenderSettings.Advanced : TextRenderSettings.Normal, settings.gridFit, settings.thickness, settings.sharpness);
+		}
+	}
+	TextRenderSettings.Normal = 1;
+	TextRenderSettings.Advanced = 2;
 	class BinaryData {
 		constructor(data) {
 			this.data = data.data;
@@ -10174,7 +10830,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	class SwfMovie {
 		constructor(data, header, movieInfo, fileAttributes, encoding) {
-			this.library = Library.createMovieLibrary();
+			this.library = new MovieLibrary(this);
 			this.data = data;
 			this.header = header;
 			this.movieInfo = movieInfo;
@@ -10237,6 +10893,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			r.byteStream.byte_offset = from;
 			return r;
 		}
+		toStartAndEnd(start, end) {
+			let new_start = this.start + start;
+			let new_end = this.start + end;
+			var h = new SwfSlice(this.movie);
+			h.start = new_start;
+			h.end = new_end;
+			return h;
+		}
 		resizeToReader(reader, size) {
 			let outer_offset = this.start + reader.byteStream.byte_offset;
 			let new_start = outer_offset;
@@ -10252,14 +10916,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	function decode_tags(reader, tag_callback) {
 		while (true) {
+			if (reader.isEmpty()) break;
 			var { tagcode, length } = reader.parseTagCodeLength();
 			var startO = reader.byteStream.byte_offset;
 			var c = tag_callback(reader, tagcode, length);
 			var s = startO + length;
 			reader.byteStream.setOffset(s, 0);
-			if (c) {
-				break;
-			}
+			if (c) break;
 		}
 		return true;
 	}
@@ -10521,7 +11184,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	class MovieLibrary {
-		constructor() {
+		constructor(swf) {
+			this.swf = swf;
 			this.characters = [];
 			this.exportCharacters = new Avm1PropertyMap();
 			this.jpegTables = null;
@@ -10553,7 +11217,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		instantiateById(id) {
 			var c = this.characterById(id);
 			if (c) {
-				return this.instantiateDisplayObject(c);
+				return this.instantiateDisplayObject(id, c);
 			} else {
 				log.error("Tried to instantiate non-registered character ID " + id);
 			}
@@ -10561,7 +11225,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		instantiateByExportName(export_name) {
 			var h = this.characterByExportName(export_name);
 			if (h) {
-				return this.instantiateDisplayObject(h[1]);
+				return this.instantiateDisplayObject(h[0], h[1]);
 			} else {
 				return null;
 			}
@@ -10594,19 +11258,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return resultTypes;
 		}
-		instantiateDisplayObject(character) {
+		instantiateDisplayObject(id, character) {
 			switch (character.type) {
+				case Character.Bitmap:
+					let bitmap = character.data.compressed.decode();
+					return BitmapGraphic.createNew(id, bitmap, this.swf);
 				case Character.EditText:
 				case Character.Graphic:
 				case Character.MovieClip:
-				case Character.Bitmap:
 				case Character.Avm1Button:
 				case Character.MorphShape:
 				case Character.Text:
 				case Character.Video:
 					return character.data.instantiate();
 				default:
-					log.error("Not a DisplayObject", character);
+					return null;
 			}
 		}
 		getBitmap(id) {
@@ -10669,12 +11335,31 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 	}
+	class MovieLibrarySource {
+		constructor(library) {
+			this.library = library;
+		}
+		bitmapHandle(id, backend) {
+			var b = this.library.getBitmap(id);
+			if (!b) return null;
+			if (b.handle) {
+				return b.handle;
+			}
+			let decoded;
+			try {
+				decoded = b.compressed.decode();
+			} catch(e) {
+				console.log(`Failed to decode bitmap character ${id}: ${e}`);
+				return null;
+			}
+			let new_handle = backend.registerBitmap(decoded);
+			b.handle = new_handle;
+			return new_handle;
+		}
+	}
 	class Library {
 		constructor() {
 			this.deviceFont = null;
-		}
-		static createMovieLibrary() {
-			return new MovieLibrary();
 		}
 		registerDeviceFont(definition) {
 			var b = FlashFont.fromSwfTag(definition.tag, definition.encoding);
@@ -10776,6 +11461,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.left_to_right = ((lr0 * ll1 + rr0 * lr1) / SoundTransform.MAX_VOLUME) | 0;
 			this.right_to_left = ((ll0 * rl1 + rl0 * rr1) / SoundTransform.MAX_VOLUME) | 0;
 			this.right_to_right = ((lr0 * rl1 + rr0 * rr1) / SoundTransform.MAX_VOLUME) | 0;
+		}
+		getPan() {
+			if (this.left_to_left != SoundTransform.MAX_VOLUME) {
+				return SoundTransform.MAX_VOLUME - Math.abs(this.left_to_left);
+			} else {
+				return Math.abs(this.right_to_right) - SoundTransform.MAX_VOLUME;
+			}
+		}
+		setPan(pan) {
+			if (pan >= 0) {
+				this.left_to_left = SoundTransform.MAX_VOLUME - pan;
+				this.right_to_right = SoundTransform.MAX_VOLUME;
+			} else {
+				this.left_to_left = SoundTransform.MAX_VOLUME;
+				this.right_to_right = SoundTransform.MAX_VOLUME - pan;
+			}
+			this.left_to_right = 0;
+			this.right_to_left = 0;
 		}
 		clone() {
 			var c = new SoundTransform();
@@ -10893,12 +11596,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return this.bitmap ? this.bitmap.handle : null;
 		}
 	}
-	function rect_intersects(a, b) {
-		return !(a.xMin > b.xMax || a.xMax < b.xMin || a.yMin > b.yMax || a.yMax < b.yMin);
-	}
-	function rect_contains(a, b) {
-		return (a.xMin > b[0] && b[0] < a.xMax) && (a.yMin > b[0] && b[0] < a.yMax);
-	}
 	class DisplayObject {
 		constructor() {
 			this.transform = new Transform();
@@ -10932,9 +11629,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.HAS_EXPLICIT_NAME = false;
 			this.SKIP_NEXT_ENTER_FRAME = false;
 			this.CACHE_INVALIDATED = false;
-			this._debug_boundsLast = { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
-			this._debug_matrix = [1,0,0,1,0,0];
-			this._debug_colorTransform = [1,1,1,1,0,0,0,0];
 		}
 		get displayType() {
 			return "Base";
@@ -10945,52 +11639,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		setAvm1PendingRemoval(value) {
 			this.AVM1_PENDING_REMOVAL = value;
 		}
-		boundsMatrix(bounds, matrix) {
-			var no = Number.MAX_VALUE;
-			var xMax = -no;
-			var yMax = -no;
-			var xMin = no;
-			var yMin = no;
-			var _xMin = bounds.xMin;
-			var _xMax = bounds.xMax;
-			var _yMin = bounds.yMin;
-			var _yMax = bounds.yMax;
-			var x0 = _xMax * matrix[0] + _yMax * matrix[2] + matrix[4];
-			var x1 = _xMax * matrix[0] + _yMin * matrix[2] + matrix[4];
-			var x2 = _xMin * matrix[0] + _yMax * matrix[2] + matrix[4];
-			var x3 = _xMin * matrix[0] + _yMin * matrix[2] + matrix[4];
-			var y0 = _xMax * matrix[1] + _yMax * matrix[3] + matrix[5];
-			var y1 = _xMax * matrix[1] + _yMin * matrix[3] + matrix[5];
-			var y2 = _xMin * matrix[1] + _yMax * matrix[3] + matrix[5];
-			var y3 = _xMin * matrix[1] + _yMin * matrix[3] + matrix[5];
-			return {
-				xMin: Math.min(Math.min(Math.min(Math.min(xMin, x0), x1), x2), x3) | 0,
-				xMax: Math.max(Math.max(Math.max(Math.max(xMax, x0), x1), x2), x3) | 0,
-				yMin: Math.min(Math.min(Math.min(Math.min(yMin, y0), y1), y2), y3) | 0,
-				yMax: Math.max(Math.max(Math.max(Math.max(yMax, y0), y1), y2), y3) | 0
-			};
-		}
 		localToGlobalMatrix() {
 			var matrix = this.getMatrix();
 			var node = this.getParent();
 			while(node) {
-				if (node.displayType == "Stage") {
-					break;
-				}
-				matrix = matrixUtils.multiplicationMatrix(node.getMatrix(), matrix);
+				if (node.displayType == "Stage") break;
+				matrix = node.getMatrix().mul(matrix);
 				node = node.getParent();
 			}
 			return matrix;
 		}
 		globalToLocalMatrix() {
-			var matrix = this.localToGlobalMatrix();
-			return matrixUtils.invertMatrix(matrix);
+			return this.localToGlobalMatrix().inverse();
 		}
 		localToGlobal(local) {
-			return generateMatrix(local, this.localToGlobalMatrix());
+			return this.localToGlobalMatrix().mulPoint(local);
 		}
 		globalToLocal(local) {
-			return generateMatrix(local, this.globalToLocalMatrix());
+			var matrix = this.globalToLocalMatrix()
+			return matrix ? matrix.mulPoint(local) : null;
 		}
 		setSoundTransform(context, soundTransform) {
 			this.soundTransform = soundTransform;
@@ -11013,12 +11680,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.transform.colorTransform[7] = colorTransform[7];
 		}
 		applyMatrix(matrix) {
-			this.transform.matrix[0] = matrix[0];
-			this.transform.matrix[1] = matrix[1];
-			this.transform.matrix[2] = matrix[2];
-			this.transform.matrix[3] = matrix[3];
-			this.transform.matrix[4] = matrix[4];
-			this.transform.matrix[5] = matrix[5];
+			this.transform.matrix.copy(matrix);
 		}
 		getBlendMode() {
 			return this.blendMode;
@@ -11072,15 +11734,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.CACHE_AS_BITMAP = value;
 			this.recheck_cache_as_bitmap();
 		}
-		getRenderMatrix(useLastBound) {
-			return useLastBound ? this._debug_matrix : this.getMatrix();
-		}
-		getRenderColorTransform(useLastBound) {
-			return useLastBound ? this._debug_colorTransform : this.getColorTransform();
-		}
-		getRenderTransform(useLastBound) {
-			return useLastBound ? new Transform(this.getRenderMatrix(useLastBound), this.getRenderColorTransform(useLastBound)) : this.transform;
-		}
 		isBitmapCached() {
 			return !!this.cache;
 		}
@@ -11130,19 +11783,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		getX() {
 			var matrix = this.getMatrix();
-			return matrix[4] / 20;
+			return matrix.tx / 20;
 		}
 		getY() {
 			var matrix = this.getMatrix();
-			return matrix[5] / 20;
+			return matrix.ty / 20;
 		}
 		getXScale() {
 			if (this._viewXScale !== null) {
 				return this._viewXScale;
 			}
 			var matrix = this.getMatrix();
-			var xScale = Math.sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1]) * 100;
-			if (0 > matrix[0]) {
+			var xScale = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) * 100;
+			if (0 > matrix.a) {
 				xScale *= -1;
 			}
 			return xScale;
@@ -11152,47 +11805,43 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				return this._viewYScale;
 			}
 			var matrix = this.getMatrix();
-			var yScale = Math.sqrt(matrix[2] * matrix[2] + matrix[3] * matrix[3]) * 100;
-			if (0 > matrix[3]) {
+			var yScale = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) * 100;
+			if (0 > matrix.d) {
 				yScale *= -1;
 			}
 			return yScale;
 		}
 		getWidth() {
 			var local_bounds = this.localBounds();
-			return Math.abs(local_bounds.xMax - local_bounds.xMin) / 20;
+			return local_bounds.width / 20;
 		}
 		getHeight() {
 			var local_bounds = this.localBounds();
-			return Math.abs(local_bounds.yMax - local_bounds.yMin) / 20;
+			return local_bounds.height / 20;
 		}
 		_setWidth(width) {
-            var _matrix = this.getMatrix();
-            var bounds = this.getBoundsWithTransform(_matrix);
-            var _width = Math.abs(bounds.xMax - bounds.xMin);
-            var xScale = width * _matrix[0] / _width;
-            if (Number.isNaN(xScale)) {
-                xScale = 0;
-            }
-            _matrix = this.getMatrix();
-            var matrix = cloneArray(_matrix);
-            matrix[0] = xScale;
+			var _matrix = this.getMatrix();
+			var bounds = this.getBoundsWithTransform(_matrix);
+			var _width = bounds.width;
+			var xScale = width * _matrix.a / _width;
+			if (Number.isNaN(xScale)) {
+				xScale = 0;
+			}
+			_matrix = this.getMatrix();
+			_matrix.a = xScale;
 			this.TRANSFORMED_BY_SCRIPT = true;
-            this.applyMatrix(matrix);
 		}
 		_setHeight(height) {
-            var _matrix = this.getMatrix();
-            var bounds = this.getBoundsWithTransform(_matrix);
-            var _height = Math.abs(bounds.yMax - bounds.yMin);
-            var yScale = height * _matrix[3] / _height;
-            if (Number.isNaN(yScale)) {
-                yScale = 0;
-            }
-            _matrix = this.getMatrix();
-            var matrix = cloneArray(_matrix);
-            matrix[3] = yScale;
+			var _matrix = this.getMatrix();
+			var bounds = this.getBoundsWithTransform(_matrix);
+			var _height = bounds.height;
+			var yScale = height * _matrix.d / _height;
+			if (Number.isNaN(yScale)) {
+				yScale = 0;
+			}
+			_matrix = this.getMatrix();
+			_matrix.d = yScale;
 			this.TRANSFORMED_BY_SCRIPT = true;
-            this.applyMatrix(matrix);
 		}
 		setWidth(width) {
 			this._setWidth(width * 20);
@@ -11209,20 +11858,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 		_setX(x) {
-			var _matrix = this.getMatrix();
-			var matrix = cloneArray(_matrix);
-			var changed = matrix[4] != x;
-			matrix[4] = x;
-			this.applyMatrix(matrix);
+			var matrix = this.getMatrix();
+			var changed = matrix.tx != x;
 			this.TRANSFORMED_BY_SCRIPT = true;
+			matrix.tx = x;
 			return changed;
 		}
 		_setY(y) {
-			var _matrix = this.getMatrix();
-			var matrix = cloneArray(_matrix);
-			var changed = matrix[5] != y;
-			matrix[5] = y;
-			this.applyMatrix(matrix);
+			var matrix = this.getMatrix();
+			var changed = matrix.ty != y;
+			matrix.ty = y;
 			this.TRANSFORMED_BY_SCRIPT = true;
 			return changed;
 		}
@@ -11244,17 +11889,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		_setXScale(xscale) {
 			if (this._viewXScale !== xscale) {
-				var _matrix = this.getMatrix();
-				var matrix = cloneArray(_matrix);
-				var radianX = Math.atan2(matrix[1], matrix[0]);
+				var matrix = this.getMatrix();
+				var radianX = Math.atan2(matrix.b, matrix.a);
 				if (radianX === -Math.PI) {
 					radianX = 0;
 				}
 				this._viewXScale = xscale;
 				xscale /= 100;
-				matrix[0] = xscale * Math.cos(radianX);
-				matrix[1] = xscale * Math.sin(radianX);
-				this.applyMatrix(matrix);
+				matrix.a = xscale * Math.cos(radianX);
+				matrix.b = xscale * Math.sin(radianX);
 			}
 		}
 		setXScale(xscale) {
@@ -11266,17 +11909,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		_setYScale(yscale) {
 			if (this._viewYScale !== yscale) {
-				var _matrix = this.getMatrix();
-				var matrix = cloneArray(_matrix);
-				var radianY = Math.atan2(-matrix[2], matrix[3]);
+				var matrix = this.getMatrix();
+				var radianY = Math.atan2(-matrix.c, matrix.d);
 				if (radianY === -Math.PI) {
 					radianY = 0;
 				}
 				this._viewYScale = yscale;
 				yscale /= 100;
-				matrix[2] = -yscale * Math.sin(radianY);
-				matrix[3] = yscale * Math.cos(radianY);
-				this.applyMatrix(matrix);
+				matrix.c = -yscale * Math.sin(radianY);
+				matrix.d = yscale * Math.cos(radianY);
 				this.TRANSFORMED_BY_SCRIPT = true;	
 			}
 		}
@@ -11293,7 +11934,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				return this._viewRotation * 180 / Math.PI;
 			}
 			var matrix = this.getMatrix();
-			var rotation = Math.atan2(matrix[1], matrix[0]) * 180 / Math.PI;
+			var rotation = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
 			switch (rotation) {
 				case -90.00000000000001:
 					rotation = -90;
@@ -11305,22 +11946,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return rotation;
 		}
 		_setRotation(rotation) {
-            var _matrix = this.getMatrix();
-            var matrix = cloneArray(_matrix);
-            var radianX = Math.atan2(matrix[1], matrix[0]);
-            var radianY = Math.atan2(-matrix[2], matrix[3]);
-            var ScaleX = Math.sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1]);
-            var ScaleY = Math.sqrt(matrix[2] * matrix[2] + matrix[3] * matrix[3]);
-            rotation *= Math.PI / 180;
-            radianY += rotation - radianX;
-            radianX = rotation;
-            matrix[0] = ScaleX * Math.cos(radianX);
-            matrix[1] = ScaleX * Math.sin(radianX);
-            matrix[2] = -ScaleY * Math.sin(radianY);
-            matrix[3] = ScaleY * Math.cos(radianY);
+			var matrix = this.getMatrix();
+			var radianX = Math.atan2(matrix.b, matrix.a);
+			var radianY = Math.atan2(-matrix.c, matrix.d);
+			var ScaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b);
+			var ScaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d);
+			rotation *= Math.PI / 180;
+			radianY += rotation - radianX;
+			radianX = rotation;
+			matrix.a = ScaleX * Math.cos(radianX);
+			matrix.b = ScaleX * Math.sin(radianX);
+			matrix.c = -ScaleY * Math.sin(radianY);
+			matrix.d = ScaleY * Math.cos(radianY);
 			this.TRANSFORMED_BY_SCRIPT = true;
-            this.applyMatrix(matrix);
-            this._viewRotation = rotation;
+			this._viewRotation = rotation;
 		}
 		setRotation(rotation) {
 			this._setRotation(rotation);
@@ -11335,12 +11974,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return alpha * 100;
 		}
 		_setAlpha(alpha) {
-            var _colorTransform = this.getColorTransform();
-            var colorTransform = cloneArray(_colorTransform);
-            colorTransform[3] = alpha / 100;
-            colorTransform[7] = 0;
+			var _colorTransform = this.getColorTransform();
+			var colorTransform = cloneArray(_colorTransform);
+			colorTransform[3] = alpha / 100;
+			colorTransform[7] = 0;
 			this.TRANSFORMED_BY_SCRIPT = true;
-            this.applyColorTransform(colorTransform);
+			this.applyColorTransform(colorTransform);
 		}
 		setAlpha(alpha) {
 			this._setAlpha(alpha);
@@ -11351,21 +11990,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		localMousePosition(context) {
 			let stage = context.stage;
-			let pixel_ratio = stage.view_matrix()[0];
-			let virtual_to_device = [pixel_ratio, 0, 0, pixel_ratio, 0, 0];
+			let pixel_ratio = stage.view_matrix().a;
+			let virtual_to_device = Matrix.scale(pixel_ratio, pixel_ratio);
 			let mouse_position = context.mousePosition;
-			let global_twips = [mouse_position[0], mouse_position[1]];
-			let global_device_twips = generateMatrix(global_twips, virtual_to_device);
-			let global_device_pixels = generateMatrix(global_device_twips, [1 / 20, 0, 0, 1 / 20, 0, 0]);
+			let global_twips = mouse_position.clone();
+			let global_device_twips = virtual_to_device.mulPoint(global_twips);
+			let global_device_pixels = Matrix.TWIPS_TO_PIXELS.mulPoint(global_device_twips);
 			let local_twips_to_global_twips = this.localToGlobalMatrix();
-			let twips_to_device_pixels = multiplicationMatrix(virtual_to_device, [1 / 20, 0, 0, 1 / 20, 0, 0]);
-			let local_twips_to_global_device_pixels = multiplicationMatrix(twips_to_device_pixels, local_twips_to_global_twips);
-			let global_device_pixels_to_local_twips = matrixUtils.invertMatrix(local_twips_to_global_device_pixels);
-			var res = generateMatrix(global_device_pixels, global_device_pixels_to_local_twips);
-			return {
-				x: res[0] / 20,
-				y: res[1] / 20
-			}
+			let twips_to_device_pixels = virtual_to_device.mul(Matrix.TWIPS_TO_PIXELS);
+			let local_twips_to_global_device_pixels = twips_to_device_pixels.mul(local_twips_to_global_twips);
+			let global_device_pixels_to_local_twips = local_twips_to_global_device_pixels.inverse() || Matrix.IDENTITY.clone();
+			return global_device_pixels_to_local_twips.mulPoint(global_device_pixels);
 		}
 		getPlaceFrame() {
 			return this.placeFrame;
@@ -11417,7 +12052,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		applyPlaceObject(context, placeObject) {
 			if (!this.TRANSFORMED_BY_SCRIPT) {
 				if ("matrix" in placeObject) {
-					this.applyMatrix(placeObject.matrix);
+					this.applyMatrix(Matrix.fromArray(placeObject.matrix));
 					var parent = this.getParent();
 					if (parent) {
 						parent.invalidateCachedBitmap();
@@ -11519,7 +12154,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		getBounds() {
-			return this.getBoundsWithTransform([1, 0, 0, 1, 0, 0]);
+			return this.getBoundsWithTransform(Matrix.IDENTITY);
 		}
 		localBounds() {
 			return this.getBoundsWithTransform(this.getMatrix());
@@ -11528,64 +12163,54 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return this.getBoundsWithTransform(this.localToGlobalMatrix());
 		}
 		getBoundsWithTransform(matrix) {
-			var bounds = this.boundsMatrix(this.selfBounds(), matrix);
+			var bounds = matrix.mulRectangle(this.selfBounds());
 			if (this.isContainer()) {
 				var children = this.iterRenderList();
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i];
-					var mat = matrixUtils.multiplicationMatrix(matrix, child.getMatrix());
-					var b = child.getBoundsWithTransform(mat);
-					var xMin = Math.min(bounds.xMin, b.xMin);
-					var xMax = Math.max(bounds.xMax, b.xMax);
-					var yMin = Math.min(bounds.yMin, b.yMin);
-					var yMax = Math.max(bounds.yMax, b.yMax);
-					bounds = { xMin, yMin, xMax, yMax };
+					var mat = matrix.mul(child.getMatrix());
+					bounds = bounds.union(child.getBoundsWithTransform(mat));
 				}
 			}
 			return bounds;
 		}
 		renderBoundsWithTransform(matrix, include_own_filters, view_matrix) {
-			var bounds = this.boundsMatrix(this.selfBounds(), matrix);
+			var bounds = matrix.mulRectangle(this.selfBounds());
 			if (this.isContainer()) {
 				var children = this.iterRenderList();
 				for (let i = 0; i < children.length; i++) {
 					const child = children[i];
-					var mat = matrixUtils.multiplicationMatrix(matrix, child.getMatrix());
-					var b = child.renderBoundsWithTransform(mat, true, view_matrix);
-					var xMin = Math.min(bounds.xMin, b.xMin);
-					var xMax = Math.max(bounds.xMax, b.xMax);
-					var yMin = Math.min(bounds.yMin, b.yMin);
-					var yMax = Math.max(bounds.yMax, b.yMax);
-					bounds = { xMin, yMin, xMax, yMax };
+					var mat = matrix.mul(child.getMatrix());
+					bounds = bounds.union(child.renderBoundsWithTransform(mat, true, view_matrix));
 				}
 			}
 			if (include_own_filters) {
 				var filters = this.getFilters();
 				for (let i = 0; i < filters.length; i++) {
 					const filter = filters[i].clone();
-					filter.scale(view_matrix[0], view_matrix[3]);
+					filter.scale(view_matrix.a, view_matrix.d);
 					bounds = filter.calculateDestRect(bounds);
 				}
 			}
 			return bounds;
 		}
 		selfBounds() {
-			return { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
+			return new Rectangle(0, 0, 0, 0);
 		}
 		hitTestShape(_context, point, options) {
 			return false;
 		}
 		hitTestObject(other) {
-			return rect_intersects(this.worldBounds(), other.worldBounds());
+			return this.worldBounds().intersects(other.worldBounds());
 		}
 		hitTestBounds(point) {
-			return rect_contains(this.worldBounds(), point);
+			return this.worldBounds().contains(point);
 		}
 		render(context) {
 			this.renderBase(context);
 		}
 		renderBase(context) {
-			context.transformStack.stackPush(this.getRenderTransform(context.useLastBound));
+			context.transformStack.stackPush(this.transform);
 			let blendMode = this.getBlendMode();
 			let originalCommands = (blendMode != "normal") ? context.commands.copy() : null; 
 			if (originalCommands) {
@@ -11601,28 +12226,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				filters = filters.filter((r) => !r.impotent());
 				if (this.cache) {
 					let stage_matrix = context.stage.view_matrix();
-					let width = Math.ceil(Math.abs(bounds.xMax - bounds.xMin) / 20);
-					let height = Math.ceil(Math.abs(bounds.yMax - bounds.yMin) / 20);
+					let width = Math.ceil(bounds.width / 20);
+					let height = Math.ceil(bounds.height / 20);
 					if (width <= 0xffff && height <= 0xffff) {
-						var filter_rect = {
-							xMin: 0,
-							xMax: width * 20,
-							yMin: 0,
-							yMax: height * 20
-						}
+						var filter_rect = new Rectangle(0, width * 20, 0, height * 20);
 						var resultFilters = [];
 						for (let i = 0; i < filters.length; i++) {
 							var filter = filters[i].clone();
-							filter.scale(stage_matrix[0], stage_matrix[3]);
+							filter.scale(stage_matrix.a, stage_matrix.d);
 							filter_rect = filter.calculateDestRect(filter_rect);
 							resultFilters.push(filter);
 						}
-						var filter_rect_result = {
-							xMin: Math.floor(filter_rect.xMin / 20),
-							xMax: Math.ceil(filter_rect.xMax / 20),
-							yMin: Math.floor(filter_rect.yMin / 20),
-							yMax: Math.ceil(filter_rect.yMax / 20)
-						}
+						var filter_rect_result = new Rectangle(
+							Math.floor(filter_rect.xMin / 20),
+							Math.ceil(filter_rect.xMax / 20),
+							Math.floor(filter_rect.yMin / 20),
+							Math.ceil(filter_rect.yMax / 20)
+						);
 						let draw_offset = [filter_rect_result.xMin, filter_rect_result.yMin];
 						if (this.cache.isDirty(base_transform.matrix, width, height)) {
 							this.cache.update(
@@ -11630,8 +12250,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 								base_transform.matrix,
 								width,
 								height,
-								Math.abs(filter_rect_result.xMax - filter_rect_result.xMin),
-								Math.abs(filter_rect_result.yMax - filter_rect_result.yMin),
+								filter_rect_result.width,
+								filter_rect_result.height,
 								draw_offset,
 								swf_version
 							);
@@ -11667,13 +12287,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				cache_info = _cache_info;
 			}
 			if (cache_info) {
-				let offset_x = ((cache_info.bounds.xMin - cache_info.base_transform.matrix[4]) | 0) + (cache_info.draw_offset[0] * 20);
-				let offset_y = ((cache_info.bounds.yMin - cache_info.base_transform.matrix[5]) | 0) + (cache_info.draw_offset[1] * 20);
+				let offset_x = ((cache_info.bounds.xMin - cache_info.base_transform.matrix.tx) | 0) + (cache_info.draw_offset[0] * 20);
+				let offset_y = ((cache_info.bounds.yMin - cache_info.base_transform.matrix.ty) | 0) + (cache_info.draw_offset[1] * 20);
 				if (cache_info.dirty) {
 					var transform_stack = new TransformStack();
 					var nx = -offset_x;
 					var ny = -offset_y;
-					transform_stack.stackPush(new Transform([cache_info.base_transform.matrix[0], cache_info.base_transform.matrix[1], cache_info.base_transform.matrix[2], cache_info.base_transform.matrix[3], nx, ny]));
+					transform_stack.stackPush(new Transform(new Matrix(cache_info.base_transform.matrix.a, cache_info.base_transform.matrix.b, cache_info.base_transform.matrix.c, cache_info.base_transform.matrix.d, nx, ny)));
 					var offscreen_context = new RenderContext({
 						library: context.library,
 						renderer: context.renderer,
@@ -11695,15 +12315,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					});
 				}
 				var t = context.transformStack.getTransform().clone();
-				var mx = (t.matrix[4] + offset_x) | 0;
-				var my = (t.matrix[5] + offset_y) | 0;
-				context.commands.renderBitmap(cache_info.handle, new Transform([1, 0, 0, 1, ((mx / 20) | 0) * 20, ((my / 20) | 0) * 20], cache_info.base_transform.colorTransform), true);
+				var mx = t.matrix.tx + offset_x;
+				var my = t.matrix.ty + offset_y;
+				context.commands.renderBitmap(cache_info.handle, new Transform(new Matrix(1, 0, 0, 1, ((mx / 20) | 0) * 20, ((my / 20) | 0) * 20), cache_info.base_transform.colorTransform), true, PixelSnapping.INSTANCE.Always);
 			} else {
 				var background = this.getOpaqueBackground();
 				if (background) {
 					var base_transform = context.transformStack.getTransform().clone();
 					var bounds = this.renderBoundsWithTransform(base_transform.matrix, true, context.stage.view_matrix());
-					context.commands.drawRect(background, [Math.abs(bounds.xMax - bounds.xMin) / 20, 0, 0, Math.abs(bounds.yMax - bounds.yMin) / 20, bounds.xMin, bounds.yMin]);
+					context.commands.drawRect(background, [bounds.width / 20, 0, 0, bounds.height / 20, bounds.xMin, bounds.yMin]);
 				}
 				this.renderSelf(context);
 			}
@@ -11721,87 +12341,27 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		allowAsMask() {
 			return true;
 		}
-		debugSetLastBound(player, isSet, b) {
-			if (isSet) {
-				this._debug_boundsLast.xMin = b.xMin;
-				this._debug_boundsLast.yMin = b.yMin;
-				this._debug_boundsLast.xMax = b.xMax;
-				this._debug_boundsLast.yMax = b.yMax;  
-			} else {
-				var val = (player.wth == 1) ? 0.04 : player.getTickForFrameRate();
-				var dt = Math.min(val, 1);
-				this._debug_boundsLast.xMin += (b.xMin - this._debug_boundsLast.xMin) * dt;
-				this._debug_boundsLast.yMin += (b.yMin - this._debug_boundsLast.yMin) * dt;
-				this._debug_boundsLast.xMax += (b.xMax - this._debug_boundsLast.xMax) * dt;
-				this._debug_boundsLast.yMax += (b.yMax - this._debug_boundsLast.yMax) * dt;    
-			}
-		}
-		debugSetLastMC(player, isSet, m, c) {
-			if (isSet) {
-				if (player.wth == 1) {
-					this._debug_matrix[0] = Math.random();
-					this._debug_matrix[1] = Math.random();
-					this._debug_matrix[2] = Math.random();
-					this._debug_matrix[3] = Math.random();
-					this._debug_matrix[4] = m[4];
-					this._debug_matrix[5] = m[5];
-				} else {
-					this._debug_matrix[0] = m[0];
-					this._debug_matrix[1] = m[1];
-					this._debug_matrix[2] = m[2];
-					this._debug_matrix[3] = m[3];
-					this._debug_matrix[4] = m[4];
-					this._debug_matrix[5] = m[5];
-				}
-				this._debug_colorTransform[0] = c[0];
-				this._debug_colorTransform[1] = c[1];
-				this._debug_colorTransform[2] = c[2];
-				this._debug_colorTransform[3] = c[3];
-				this._debug_colorTransform[4] = c[4];
-				this._debug_colorTransform[5] = c[5];
-				this._debug_colorTransform[6] = c[6];
-				this._debug_colorTransform[7] = c[7];
-			} else {
-				var val = (player.wth == 1) ? (0.04 * (player.interpolation ? (player.speed / 2) : (45 / player.frameRate))) : player.getTickForFrameRate();
-				var dt = Math.min(val, 1);
-				this._debug_colorTransform[0] += ((c[0] - this._debug_colorTransform[0]) * dt);
-				this._debug_colorTransform[1] += ((c[1] - this._debug_colorTransform[1]) * dt);
-				this._debug_colorTransform[2] += ((c[2] - this._debug_colorTransform[2]) * dt);
-				this._debug_colorTransform[3] += ((c[3] - this._debug_colorTransform[3]) * dt);
-				this._debug_colorTransform[4] += ((c[4] - this._debug_colorTransform[4]) * dt);
-				this._debug_colorTransform[5] += ((c[5] - this._debug_colorTransform[5]) * dt);
-				this._debug_colorTransform[6] += ((c[6] - this._debug_colorTransform[6]) * dt);
-				this._debug_colorTransform[7] += ((c[7] - this._debug_colorTransform[7]) * dt);
-				if (player.wth == 2) return;
-				this._debug_matrix[0] += ((m[0] - this._debug_matrix[0]) * dt);
-				this._debug_matrix[1] += ((m[1] - this._debug_matrix[1]) * dt);
-				this._debug_matrix[2] += ((m[2] - this._debug_matrix[2]) * dt);
-				this._debug_matrix[3] += ((m[3] - this._debug_matrix[3]) * dt);
-				this._debug_matrix[4] += ((m[4] - this._debug_matrix[4]) * dt);
-				this._debug_matrix[5] += ((m[5] - this._debug_matrix[5]) * dt);
-			}
-		}
 		debugRender(context, player) {
-			player.debugTransformStack.stackPush(this.getRenderTransform(player.useLastBound));
+			player.debugTransformStack.stackPush(this.transform);
 			var oa = null;
 			var hgfh = player.debugTransformStack.getTransform();
 			var bm = this.renderBoundsWithTransform(hgfh.matrix, true, context.stage.view_matrix());
 			var b = this.getBounds();
 			var coll = this._debug_colorDisplayType;
 			var collC = [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0];
-			var collM = [((b.xMax - b.xMin) / 2000) * 1, 0, 0, ((b.yMax - b.yMin) / 2000) * 1, b.xMin, b.yMin];
+			var collM = new Matrix((b.width / 2000) * 1, 0, 0, (b.height / 2000) * 1, b.xMin, b.yMin);
 			context.transformStack.stackPush(hgfh);
 			context.transformStack.stackPush(new Transform(collM, collC));
 			oa = context.transformStack.getTransform();
 			context.commands.renderShape(player.debugRectLineShapeRender, oa);
 			context.transformStack.stackPop();
 			context.transformStack.stackPop();
-			context.transformStack.stackPush(new Transform([1, 0, 0, 1, 0, 0], hgfh.colorTransform));
-			context.transformStack.stackPush(new Transform([(bm.xMax - bm.xMin) / 2000, 0, 0, (bm.yMax - bm.yMin) / 2000, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]));
+			context.transformStack.stackPush(new Transform(Matrix.IDENTITY, hgfh.colorTransform));
+			context.transformStack.stackPush(new Transform(new Matrix(bm.width / 2000, 0, 0, bm.height / 2000, bm.xMin, bm.yMin), [0, 0, 0, 1, 0, 0, 0, 0]));
 			oa = context.transformStack.getTransform();
 			context.commands.renderShape(player.debugRectLineShapeRender, oa);
 			context.transformStack.stackPop();
-			context.transformStack.stackPush(new Transform([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]));
+			context.transformStack.stackPush(new Transform(Matrix.IDENTITY, [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]));
 			player.drawTextW(context, bm.xMin, (bm.yMin - (75 * player.getScaleBoundsText())), 0.25 * player.getScaleBoundsText(), this.getDisplayName());
 			context.transformStack.stackPop();
 			context.transformStack.stackPop();
@@ -11866,6 +12426,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			this.AVM1_REMOVED = true;
 		}
+		constructFrame() {
+
+		}
+		onConstructionComplete(context) {
+			
+		}
+		frameConstructed(context) {
+
+		}
+		runFrameScripts(context) {
+			if (this.isContainer()) {
+
+			}
+		}
+		exitFrame(context) {
+
+		}
 		setState() {
 		}
 		getDisplayName() {
@@ -11874,7 +12451,33 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		mousePickAvm1() {
 			return null;
 		}
+		downgrade() {
+			if (this instanceof MovieClip) {
+				return new DisplayObjectWeak(DisplayObjectWeak.MovieClip, this);
+			} else if (this instanceof Bitmap) {
+				return new DisplayObjectWeak(DisplayObjectWeak.Bitmap, this);
+			} else {
+				console.log("Downgrade not yet implemented for", this);
+			}
+		}
 	}
+	class DisplayObjectWeak {
+		constructor(type, data) {
+			this.type = type;
+			this.data = data;
+		}
+		upgrade() {
+			switch (this.type) {
+				case DisplayObjectWeak.MovieClip:
+				case DisplayObjectWeak.LoaderDisplay:
+				case DisplayObjectWeak.Bitmap:
+					return this.data;
+			}
+		}
+	}
+	DisplayObjectWeak.MovieClip = 1;
+	DisplayObjectWeak.LoaderDisplay = 2;
+	DisplayObjectWeak.Bitmap = 3;
 	class InteractiveObject extends DisplayObject {
 		constructor() {
 			super();
@@ -12184,7 +12787,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			child.setPlaceFrame(0);
 			child.setDepth(depth);
 			if (removed_child) {
-                removed_child.avm1Unload(context);
+				removed_child.avm1Unload(context);
 				removed_child.setParent(context, null);
 			}
 			this.invalidateCachedBitmap();
@@ -12205,12 +12808,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			should_delay_removal = ChildContainer.shouldDelayRemoval(activation, child);
 			if (should_delay_removal) {
 				var raw_container = this.container;
-                raw_container.removeChildFromDepthList(child);
+				raw_container.removeChildFromDepthList(child);
 				ChildContainer.queueRemoval(child, context);
 				raw_container.setPendingRemovals(true);
 				raw_container.insertChildIntoDepthList(child.getDepth(), child);
 				this.invalidateCachedBitmap();
-                return;
+				return;
 			}
 			this.removeChildDirectly(context, child);
 		}
@@ -12264,7 +12867,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 		debugRender(context, player) {
-			player.debugTransformStack.stackPush(this.getRenderTransform(player.useLastBound));
+			player.debugTransformStack.stackPush(this.transform);
 			var children = this.iterRenderList();
 			for (let i = 0; i < children.length; i++) {
 				const child = children[i];
@@ -12276,11 +12879,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var h = player.debugTransformStack.getTransform();
 				var bm = this.renderBoundsWithTransform(h.matrix, true, context.stage.view_matrix());
 				var coll = this._debug_colorDisplayType;
-				context.transformStack.stackPush(new Transform([1, 0, 0, 1, 0, 0], h.colorTransform));
-				context.transformStack.stackPush(new Transform([1, 0, 0, 1, 0, 0], [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]));
+				context.transformStack.stackPush(new Transform(Matrix.IDENTITY, h.colorTransform));
+				context.transformStack.stackPush(new Transform(Matrix.IDENTITY, [coll[0] / 255, coll[1] / 255, coll[2] / 255, coll[3], 0, 0, 0, 0]));
 				player.drawTextW(context, bm.xMin, bm.yMin - (320 * player.getScaleBoundsText()), (0.25 * player.getScaleBoundsText()), this.getDisplayName());
 				context.transformStack.stackPop();
-				context.transformStack.stackPush(new Transform([(bm.xMax - bm.xMin) / 2000, 0, 0, (bm.yMax - bm.yMin) / 2000, bm.xMin, bm.yMin], [0, 0, 0, 1, 0, 0, 0, 0]));
+				context.transformStack.stackPush(new Transform(new Matrix(bm.width / 2000, 0, 0, bm.height / 2000, bm.xMin, bm.yMin), [0, 0, 0, 1, 0, 0, 0, 0]));
 				context.commands.renderShape(player.debugRectLineShapeRender, context.transformStack.getTransform());
 				context.transformStack.stackPop();
 				context.transformStack.stackPop();
@@ -12329,8 +12932,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		hitTestShape(_context, point, options) {
 			var _m = this.globalToLocalMatrix();
+			if (!_m) return false;
 			var data = this.shapeData.data;
-			return shapeUtils.shapeHitTest(data, matrixUtils.generateMatrix(point, _m), _m);
+			return shapeUtils.shapeHitTest(data, _m.mulPoint(point), _m);
 		}
 		renderSelf(context) {
 			var shapeRender = this.shapeData.getShape(context);
@@ -12342,13 +12946,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.movie = movie;
 			this.data = data;
 			this.characterId = data.id;
-			this.bounds = data.bounds;
+			this.bounds = Rectangle.fromObject(data.bounds);
 			this.shapeRender = null;
 		}
 		getShape(context) {
 			if (!this.shapeRender) {
 				var resultShape = shapeUtils.shapeToRendererInfo(shapeUtils.convert(this.data, "shape"));
-				this.shapeRender = context.renderer.registerShape(resultShape, this.movie.library);
+				this.shapeRender = context.renderer.registerShape(resultShape, new MovieLibrarySource(this.movie.library));
 			}
 			return this.shapeRender;
 		}
@@ -12416,7 +13020,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var frame = this.getFrame(ratio);
 			if (!frame.shapeRender) {
 				var resultCache = shapeUtils.shapeToRendererInfo(shapeUtils.convert(frame.shape, "morphshape"));
-				frame.shapeRender = context.renderer.registerShape(resultCache, this.movie);
+				frame.shapeRender = context.renderer.registerShape(resultCache, new MovieLibrarySource(this.movie));
 			}
 			return frame.shapeRender;
 		}
@@ -12729,7 +13333,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			shape.shapeRecords = this.buildEdges(per);
 			var bounds = shapeUtils.calculateShapeBounds(shape.shapeRecords);
 			return {
-				bounds,
+				bounds: Rectangle.fromObject(bounds),
 				shape,
 				shapeRender: null
 			};
@@ -12739,6 +13343,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		constructor() {
 			super();
 			this.staticData = null;
+			this.renderSettings = null;
 		}
 		get displayType() {
 			return "StaticText";
@@ -12755,6 +13360,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		init(textData) {
 			if (!textData) return;
 			this.staticData = textData;
+			this.renderSettings = textData.settings;
 		}
 		replaceWith(context, characterId) {
 			var movie = this.getMovie();
@@ -12776,20 +13382,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var textHeight = 0;
 			var fontData = null;
 			context.transformStack.stackPush(new Transform(this.staticData.matrix, [1, 1, 1, 1, 0, 0, 0, 0]));
-			var glyphMatrix = [1, 0, 0, 1, 0, 0];
+			var glyphMatrix = Matrix.IDENTITY.clone();
 			var textBlocks = this.staticData.textBlocks;
 			for (var i = 0; i < textBlocks.length; i++) {
 				var record = textBlocks[i];
 				if ("fontId" in record) fontData = movie.library.getFont(record.fontId);
-				if ("x" in record) glyphMatrix[4] = record.x;
-				if ("y" in record) glyphMatrix[5] = record.y;
+				if ("x" in record) glyphMatrix.tx = record.x;
+				if ("y" in record) glyphMatrix.ty = record.y;
 				if ("textColor" in record) color = record.textColor;
 				if ("textHeight" in record) textHeight = record.textHeight;
 				var entries = record.entries;
 				if (fontData) {
 					var _scale = textHeight / fontData.scale;
-					glyphMatrix[0] = _scale;
-					glyphMatrix[3] = _scale;
+					glyphMatrix.a = _scale;
+					glyphMatrix.d = _scale;
 					for (var idx = 0; idx < entries.length; idx++) {
 						var entry = entries[idx];
 						var glyph = fontData.getGlyph(entry.index);
@@ -12799,7 +13405,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 								context.transformStack.stackPush(new Transform(glyphMatrix, [color[0] / 255, color[1] / 255, color[2] / 255, color[3], 0, 0, 0, 0]));
 								context.commands.renderShape(shapeRender, context.transformStack.getTransform());
 								context.transformStack.stackPop();
-								glyphMatrix[4] += entry.advance;
+								glyphMatrix.tx += entry.advance;
 							}
 						}
 					}
@@ -12808,38 +13414,44 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			context.transformStack.stackPop();
 		}
 		hitTestShape(context, point, _) {
-			var movie = this.getMovie();
-			var localMatrix = this.globalToLocalMatrix();
-			var textMatrix = matrixUtils.invertMatrix(this.staticData.matrix);
-			var _point = matrixUtils.generateMatrix(point, matrixUtils.multiplicationMatrix(textMatrix, localMatrix));
-			var fontData = null;
-			var textHeight = 0;
-			var glyphMatrix = [1, 0, 0, 1, 0, 0];
-			var textBlocks = this.staticData.textBlocks;
-			for (var i = 0; i < textBlocks.length; i++) {
-				var record = textBlocks[i];
-				if ("fontId" in record) fontData = movie.library.getFont(record.fontId);
-				if ("x" in record) glyphMatrix[4] = record.x;
-				if ("y" in record) glyphMatrix[5] = record.y;
-				if ("textHeight" in record) textHeight = record.textHeight;
-				var entries = record.entries;
-				if (fontData) {
-					var _scale = textHeight / fontData.scale;
-					glyphMatrix[0] = _scale;
-					glyphMatrix[3] = _scale;
-					for (var idx = 0; idx < entries.length; idx++) {
-						var entry = entries[idx];
-						var glyph = fontData.getGlyph(entry.index);
-						if (glyph) {
-							var commands = glyph.commands;
-							var matrix = matrixUtils.invertMatrix(glyphMatrix);
-							var __point = matrixUtils.generateMatrix(_point, matrix);
-							if (shapeUtils.drawCommandFillHitTest(commands, __point)) { // matrixUtils.generateMatrix(__point, localMatrix)
-								return true;
+			if (this.getVisible() && this.worldBounds().contains(point)) {
+				if (this.renderSettings.isAdvanced()) return true;
+				var movie = this.getMovie();
+				var localMatrix = this.globalToLocalMatrix();
+				if (!localMatrix) return false;
+				var textMatrix = this.staticData.matrix.inverse();
+				if (!textMatrix) return false;
+				var _point = textMatrix.mul(localMatrix).mulPoint(point);
+				var fontData = null;
+				var textHeight = 0;
+				var glyphMatrix = Matrix.IDENTITY.clone();
+				var textBlocks = this.staticData.textBlocks;
+				for (var i = 0; i < textBlocks.length; i++) {
+					var record = textBlocks[i];
+					if ("fontId" in record) fontData = movie.library.getFont(record.fontId);
+					if ("x" in record) glyphMatrix.tx = record.x;
+					if ("y" in record) glyphMatrix.ty = record.y;
+					if ("textHeight" in record) textHeight = record.textHeight;
+					var entries = record.entries;
+					if (fontData) {
+						var _scale = textHeight / fontData.scale;
+						glyphMatrix.a = _scale;
+						glyphMatrix.d = _scale;
+						for (var idx = 0; idx < entries.length; idx++) {
+							var entry = entries[idx];
+							var glyph = fontData.getGlyph(entry.index);
+							if (glyph) {
+								var commands = glyph.commands;
+								var matrix = glyphMatrix.inverse();
+								if (!matrix) return false;
+								var __point = matrix.mulPoint(_point);
+								if (shapeUtils.drawCommandFillHitTest(commands, __point)) { // matrixUtils.generateMatrix(__point, localMatrix)
+									return true;
+								}
+								glyphMatrix.tx += entry.advance;
 							}
-							glyphMatrix[4] += entry.advance;
-						}
-					}	
+						}	
+					}
 				}
 			}
 			return false;
@@ -12851,21 +13463,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.movie = movie;
 			this.data = data;
 			this.characterId = data.id;
-			this.settings = null;
+			this.settings = TextRenderSettings.createNew();
 	
-			this.bounds = null;
-			this.matrix = [1, 0, 0, 1, 0, 0];
+			this.bounds = new Rectangle(0, 0, 0, 0);
+			this.matrix = Matrix.IDENTITY.clone();
 			this.textBlocks = [];
 	
 			this.init();
 		}
 		init() {
-			this.bounds = this.data.bounds;
-			this.matrix = this.data.matrix;
+			this.bounds = Rectangle.fromObject(this.data.bounds);
+			this.matrix = Matrix.fromArray(this.data.matrix);
 			this.textBlocks = this.data.records;
 		}
 		setRenderSettings(settings) {
-			this.settings = settings;
+			this.settings = TextRenderSettings.fromSwfTag(settings);
 		}
 		instantiate() {
 			var d = new StaticText();
@@ -12914,7 +13526,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		init(sd) {
 			this.staticData = sd;
 			var textInfo = sd.data;
-			this.text_bounds = textInfo.bounds;
+			this.text_bounds = Rectangle.fromObject(textInfo.bounds);
 			if (textInfo.border) this.HAS_BACKGROUND = true;
 			this.__text = ("initialText" in textInfo) ? this.getMovie().encoding.decode(textInfo.initialText) : "";
 			if (textInfo.HTML) this.__text = "";
@@ -12961,12 +13573,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var renderer = context.renderer;
 			var rrr = 0;
 			var sc = this.fontHeight / font.scale;
-			context.transformStack.stackPush(new Transform([1, 0, 0, 1, 0, 0], [this.textColor[0] / 255, this.textColor[1] / 255, this.textColor[2] / 255, this.textColor[3], 0, 0, 0, 0]));
+			context.transformStack.stackPush(new Transform(Matrix.IDENTITY, [this.textColor[0] / 255, this.textColor[1] / 255, this.textColor[2] / 255, this.textColor[3], 0, 0, 0, 0]));
 			for (var i = 0; i < text.length; i++) {
 				var glyph = font.getGlyphForChar(text.charCodeAt(i));
 				if (glyph) {
 					var shapeHandle = glyph.getShapeHandle(renderer);
-					context.transformStack.stackPush(new Transform([sc, 0, 0, sc, x + rrr, y], [1, 1, 1, 1, 0, 0, 0, 0]));
+					context.transformStack.stackPush(new Transform(new Matrix(sc, 0, 0, sc, x + rrr, y), [1, 1, 1, 1, 0, 0, 0, 0]));
 					context.commands.renderShape(shapeHandle, context.transformStack.getTransform());
 					context.transformStack.stackPop();
 					rrr += glyph.advance * sc;
@@ -12989,7 +13601,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return t;
 		}
 		setRenderSettings(settings) {
-			this.settings = settings;
+			this.settings = TextRenderSettings.fromSwfTag(settings);
 		}
 	}
 	class VideoDisplay extends DisplayObject {
@@ -13042,12 +13654,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.seek(context, starting_seek);
 		}
 		selfBounds() {
-			return {
-				xMin: 0,
-				yMin: 0,
-				xMax: this.__size[0] * 20,
-				yMax: this.__size[1] * 20,
-			};
+			return new Rectangle(0, this.__size[0] * 20, 0, this.__size[1] * 20);
 		}
 		setRatio(ratio) {
 			this.seek(ratio);
@@ -13124,7 +13731,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		renderSelf(context) {
 			if (this.decoded_frame && this.decoded_frame[1]) {
-				context.commands.renderBitmap(this.decoded_frame[1], context.transformStack.getTransform(), this.isSmoothed);	
+				context.commands.renderBitmap(this.decoded_frame[1], context.transformStack.getTransform(), this.isSmoothed, PixelSnapping.INSTANCE.Never);	
 			}
 		}
 	}
@@ -13149,9 +13756,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	class BitmapGraphic extends DisplayObject {
-		constructor() {
+		constructor(id, bitmap, swf) {
 			super();
-			this.staticBitmap = null;
+			this.movie = swf;
+			this.__id = id;
+			this.staticBitmap = bitmap;
+			this.pixelSnapping = new PixelSnapping(PixelSnapping.Auto);
 		}
 		get displayType() {
 			return "Bitmap";
@@ -13159,61 +13769,26 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		get _debug_colorDisplayType() {
 			return [255, 155, 0, 1];
 		}
-		static createStatic(movie, id) {
-			return new BitmapGraphicData(movie, id);
+		getId() {
+			return this.__id;
+		}
+		static createNew(id, bitmap, swf) {
+			return new BitmapGraphic(id, bitmap, swf);
 		}
 		getMovie() {
-			return this.staticBitmap.movie;
+			return this.movie;
 		}
 		postInstantiation(context, initObject, instantiatedBy, runFrame) {
 			context.avm1.addExecuteList(this);
 		}
 		selfBounds() {
-			if (this.staticBitmap) {
-				return this.staticBitmap.getBounds();
-			} else {
-				return DisplayObject.prototype.selfBounds.call(this);
-			}
+			return new Rectangle(0, this.staticBitmap.width * 20, 0, this.staticBitmap.height * 20);
 		}
 		renderSelf(context) {
-			if (this.staticBitmap) {
-				var renderer = context.renderer;
-				var tex = this.staticBitmap.getTexture(renderer);
-				if (tex) {
-					context.commands.renderBitmap(tex, context.transformStack.getTransform(), false);
-				}
+			if (!this.handle) {
+				this.handle = context.renderer.registerBitmap(this.staticBitmap);
 			}
-		}
-	}
-	class BitmapGraphicData {
-		constructor(movie, id) {
-			this.movie = movie;
-			this.characterId = id;
-			this.image = null;
-			this.texture = null;
-		}
-		setBitmap(image) {
-			this.image = image;
-		}
-		instantiate() {
-			var d = new BitmapGraphic();
-			d.staticBitmap = this;
-			return d;
-		}
-		getTexture(renderer) {
-			if (!this.texture) {
-				var tex = renderer.registerBitmap(this.image);
-				this.texture = tex;
-			}
-			return this.texture;
-		}
-		getBounds() {
-			return {
-				xMin: 0,
-				yMin: 0,
-				xMax: this.image.width * 20,
-				yMax: this.image.height * 20,
-			};
+			context.commands.renderBitmap(this.handle, context.transformStack.getTransform(), false, this.pixelSnapping);
 		}
 	}
 	const typeButton = {
@@ -13302,7 +13877,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						child.setDepth(record.depth);
 						children.push([record.depth, child]);
 					}
-					child.applyMatrix(record.matrix);
+					child.applyMatrix(Matrix.fromArray(record.matrix));
 					if ("colorTransform" in record) {
 						child.applyColorTransform(record.colorTransform);
 					} else {
@@ -13345,10 +13920,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var child = c[1];
 				child.postInstantiation(context, null, null, false);
 				child.runFrameAvm1(context);
-				if (context.player.useLastBound) {
-					child.debugSetLastMC(context.player, true, child.getMatrix(), child.getColorTransform());
-					child.debugSetLastBound(context.player, true, child.getBounds());
-				}
 				this.replaceAtDepth(context, child, depth);
 			}
 			if (this._recordColorTransforms) {
@@ -13385,7 +13956,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					if (record.buttonStateHitTest) {
 						var child = movie.library.instantiateById(record.characterId);
 						if (child) {
-							child.applyMatrix(record.matrix);
+							child.applyMatrix(Matrix.fromArray(record.matrix));
 							child.setParent(context, this);
 							child.setDepth(record.depth);
 							new_children.push([child, record.depth]);
@@ -13562,27 +14133,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 	}
-	const tagUtils_decodeTags = function(reader, callback) {
-		while (reader.pos < reader.tags.length) {
-			var c = callback(reader.tags[reader.pos]);
-			reader.pos++;
-			if (c == "exit") {
-				break;
-			}
-		}
-	}
-	class SwfTagStream {
-		constructor(pos, tags) {
-			this.pos = pos;
-			this.tags = tags;
-		}
-		toSwfTag() {
-			return {
-				pos: this.pos,
-				tags: this.tags
-			}
-		}
-	}
 	class GotoPlaceObject {
 		constructor(frame, place, isRewind, index) {
 			this.frame = frame;
@@ -13728,13 +14278,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						if (runFrame) {
 							this.runFrameAvm1(context);
 						}
-						
 						avm1_constructor.constructOnExisting(activation, object, []);
 					}
 					return;
 				}
 				var object = Avm1Object.createNewWithNative(context.avm1.prototypes.movieclip, new Avm1NativeObject(Avm1NativeObject.MovieClip, this));
 				this.___object = object;
+				if (runFrame) {
+					this.runFrameAvm1(context);
+				}
+				if (initObject) {
+					var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Init]"), this);
+					var keys = initObject.getKeys(activation, false);
+					for (let i = 0; i < keys.length; i++) {
+						var key = keys[i];
+						var value = initObject.get(key, activation);
+						object.set(key, value, activation);
+					}
+				}
 				var events = [];
 				for (let i = 0; i < this.clipEventHandlers.length; i++) {
 					const event_handler = this.clipEventHandlers[i];
@@ -13750,12 +14311,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				context.actionQueue.queueAction(this, {
 					type: "construct",
-                    constructor: avm1_constructor,
-                    events,
+					constructor: avm1_constructor,
+					events,
 				}, false);
-				if (runFrame) {
-					this.runFrameAvm1(context);
-				}
 			} else if (runFrame) {
 				this.runFrameAvm1(context);
 			}
@@ -13784,13 +14342,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var actions = [];
 			if ((frame > 0) && (frame <= this.getTotalBytes())) {
 				var cur_frame = 1;
-				var reader = new SwfTagStream(0, this.staticData.tags);
+				var reader = this.staticData.swf.readFrom(0);
 				while(cur_frame <= frame) {
-					let tagCallback = (tag) => {
-						switch (tag.tagcode) {
+					let tagCallback = (reader, tagCode, tagLen) => {
+						switch (tagCode) {
 							case 12:
 								if (cur_frame == frame) {
-									actions.push(tag.action);
+									actions.push(reader.byteStream.readBytes(tagLen));
 								}
 								break;
 							case 1:
@@ -13799,7 +14357,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						}
 						return "continue";
 					};
-					tagUtils_decodeTags(reader, tagCallback);
+					decode_tags(reader, tagCallback);
 				}
 			}
 			return actions;
@@ -13852,7 +14410,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				return "same";
 			}
 		}
-		runIntervalFrame(context, runDisplayAction, runSounds) {
+		runIntervalFrame(context, runDisplayAction, runSounds, is_action_script_3) {
 			let nextFrame = this.determineNextFrame();
 			switch (nextFrame) {
 				case "next":
@@ -13868,52 +14426,56 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					this.stop(context);
 					break;
 			}
-			var reader = new SwfTagStream(this.tagStreamPos, this.staticData.tags);
-			let tagCallback = (tag) => {
-				switch (tag.tagcode) {
+			var data = this.staticData.swf;
+			var reader = data.readFrom(this.tagStreamPos);
+			let tagCallback = (reader, tagCode, tagLength) => {
+				switch (tagCode) {
 					case 4:
+						if (runDisplayAction) this.placeObject(context, reader, 1, tagLength);
+						break;
 					case 26:
+						if (runDisplayAction) this.placeObject(context, reader, 2, tagLength);
+						break;
 					case 70:
+						if (runDisplayAction) this.placeObject(context, reader, 3, tagLength);
+						break;
 					case 94:
-						if (runDisplayAction) {
-							this.placeObject(context, tag);
-						}
+						if (runDisplayAction) this.placeObject(context, reader, 4, tagLength);
 						break;
 					case 5:
+						if (runDisplayAction) this.removeObject(context, reader, 1);
+						break;
 					case 28:
-						if (runDisplayAction) {
-							this.removeObject(context, tag);
-						}
+						if (runDisplayAction) this.removeObject(context, reader, 2);
 						break;
 					case 15:
 					case 89:
-						if (runSounds) {
-							this.startSound(context, tag);
-						}
+						if (runSounds) this.startSound1(context, reader);
 						break;
 					case 19:
-						if (runSounds) {
-							this.soundStreamBlock(context, reader.toSwfTag());
-						}
+						if (runSounds) this.soundStreamBlock(context);
 						break;
 					case 12:
-						this.doAction(context, tag);
+						this.doAction(context, reader, tagLength);
 						break;
 					case 9:
-						context.stage.setBackgroundColor(tag.rgb);
+						this.setBackgroundColor(context, reader);
 						break;
 					case 1:
-						return "exit";
+						return true;
 				}
-				return "continue";
+				return false;
 			};
-			tagUtils_decodeTags(reader, tagCallback);
-			this.tagStreamPos = reader.pos;
+			decode_tags(reader, tagCallback)
+			this.tagStreamPos = reader.byteStream.byte_offset;
 			if (this.audioStream) {
 				if (!context.isSoundPlaying(this.audioStream)) {
 					this.audioStream = null;
 				}
 			}
+		}
+		setBackgroundColor(context, reader) {
+			context.stage.setBackgroundColor(reader.rgb());
 		}
 		runGoto(context, frame, isImplicit) {
 			let frameBeforeRewind = this.currentFrame;
@@ -13932,30 +14494,42 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var index = 0;
 			let clamped_frame = Math.min(frame, Math.max(this.getFramesloaded(), 0));
 			var removed_frame_scripts = [];
-			var reader = new SwfTagStream(this.tagStreamPos, this.staticData.tags);
-			var frame_pos = reader.pos;
-			while (this.currentFrame < clamped_frame) {
+			var data = this.staticData.swf;
+			var reader = data.readFrom(this.tagStreamPos);
+			var frame_pos = reader.byteStream.byte_offset;
+			while (this.currentFrame < clamped_frame && !reader.isEmpty()) {
 				this.currentFrame++;
-				frame_pos = reader.pos;
-				let tagCallback = function (tag) {
-					switch (tag.tagcode) {
+				frame_pos = reader.byteStream.byte_offset;
+				let tagCallback = (reader, tagcode, tagLen) => {
+					switch (tagcode) {
 						case 4:
+							index++;
+							this.gotoPlaceObject(reader, 1, tagLen, gotoCommands, isRewind, index);
+							break;
 						case 26:
+							index++;
+							this.gotoPlaceObject(reader, 2, tagLen, gotoCommands, isRewind, index);
+							break;
 						case 70:
+							index++;
+							this.gotoPlaceObject(reader, 3, tagLen, gotoCommands, isRewind, index);
+							break;
 						case 94:
 							index++;
-							this.gotoPlaceObject(tag, gotoCommands, isRewind, index);
+							this.gotoPlaceObject(reader, 4, tagLen, gotoCommands, isRewind, index);
 							break;
 						case 5:
+							this.gotoRemoveObject(reader, 1, context, gotoCommands, isRewind, fromFrame, removed_frame_scripts);
+							break;
 						case 28:
-							this.gotoRemoveObject(context, tag, gotoCommands, isRewind, fromFrame, removed_frame_scripts);
+							this.gotoRemoveObject(reader, 2, context, gotoCommands, isRewind, fromFrame, removed_frame_scripts);
 							break;
 						case 1:
-							return "exit";
+							return true;
 					}
-					return "continue";
+					return false;
 				};
-				tagUtils_decodeTags(reader, tagCallback.bind(this));
+				decode_tags(reader, tagCallback);
 			}
 			let hitTargetFrame = this.currentFrame == frame;
 			if (isRewind) {
@@ -14005,7 +14579,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (hitTargetFrame) {
 				this.currentFrame--;
 				this.tagStreamPos = frame_pos;
-				this.runIntervalFrame(context, false, frame != frameBeforeRewind);
+				this.runIntervalFrame(context, false, frame != frameBeforeRewind, this.getMovie().isActionScript3());
 			} else {
 				this.currentFrame = clamped_frame;
 			}
@@ -14015,7 +14589,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				run_goto_command(goto)
 			});
 		}
-		gotoPlaceObject(place, gotoCommands, isRewind, index) {
+		gotoPlaceObject(reader, version, tagLen, gotoCommands, isRewind, index) {
+			var place = reader.parsePlaceObject(version, tagLen);
 			var depth = place.depth;
 			var gotoPlace = new GotoPlaceObject(this.currentFrame, place, isRewind, index);
 			var j = false;
@@ -14031,7 +14606,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				gotoCommands.push(gotoPlace);
 			}
 		}
-		gotoRemoveObject(context, place, gotoCommands, isRewind, fromFrame, removed_frame_scripts) {
+		gotoRemoveObject(reader, version, context, gotoCommands, isRewind, fromFrame, removed_frame_scripts) {
+			var place = reader.parseRemoveObject(version);
 			var depth = place.depth;
 			for (let i = 0; i < gotoCommands.length; i++) {
 				const gc = gotoCommands[i];
@@ -14083,13 +14659,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.LOOP_QUEUED = false;
 		}
 		frameLabelToNumber(label, context) {
-			for (let i = 0; i < this.staticData.frameLabels.length; i++) {
-				const frameLabel = this.staticData.frameLabels[i];
-				if (frameLabel[1] == label) {
-					return frameLabel[0];
-				}
+			if (this.getMovie().isActionScript3()) {
+				return this.staticData.frameLabelsMap.get(label);
+			} else {
+				return this.staticData.frameLabelsMap.get(label.toLowerCase());
 			}
-			return null;
 		}
 		renderSelf(context) {
 			this.renderChildren(context);
@@ -14103,7 +14677,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				this.eventDispatch(context, new ClipEvent(ClipEvent.EnterFrame));
 			}
 			if (this.isPlaying) {
-				this.runIntervalFrame(context, true, true);
+				this.runIntervalFrame(context, true, true, false);
 			}
 			var initActions = this.staticData.initActions;
 			var a;
@@ -14136,10 +14710,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				child.postInstantiation(context, null, null, false);
 				child.enterFrame(context);
 				child.runFrameAvm1(context);
-				if (context.player.useLastBound) {
-					child.debugSetLastMC(context.player, true, child.getMatrix(), child.getColorTransform());
-					child.debugSetLastBound(context.player, true, child.getBounds());    
-				}
 			} else {
 				log.error("Unable to instantiate display node id, reason being");
 			}
@@ -14157,6 +14727,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			if (skipFrame) {
 				this.setSkipNextEnterFrame(false);
+				return;
+			}
+			if (this.getMovie().isActionScript3()) {
+				/*let is_playing = this.isPlaying;
+				if (is_playing) {
+					this.runIntervalFrame(context, true, true, true);
+				}*/
 			}
 		}
 		setClipEventHandlers(clipActions) {
@@ -14205,7 +14782,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return this.staticData.swf.end - this.staticData.swf.start;
 		}
 		isButtonMode(context) {
-            let object = this.___object;
+			let object = this.___object;
 			for (let i = 0; i < this.clipEventHandlers.length; i++) {
 				const c = this.clipEventHandlers[i];
 				if (c.events.release || c.events.press) {
@@ -14250,17 +14827,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return null;
 		}
-		doAction(context, tag) {
+		doAction(context, reader, tagLen) {
 			if (this.getMovie().isActionScript3()) {
 				log.warn("DoAction tag in AVM2 movie");
 				return;	
 			}
+			var tag = reader.parseDoAction(tagLen);
 			context.actionQueue.queueAction(this, {
 				type: "normal",
 				bytecode: tag.action
 			}, false);
 		}
-		placeObject(context, place) {
+		placeObject(context, reader, version, tagLen) {
+			var place = reader.parsePlaceObject(version, tagLen);
 			if ("characterId" in place) {
 				if (place.isMove) {
 					var child = this.childByDepth(place.depth);
@@ -14279,7 +14858,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 			}
 		}
-		removeObject(context, re) {
+		removeObject(context, reader, version) {
+			var re = reader.parseRemoveObject(version);
 			var child = this.childByDepth(re.depth);
 			if (child) {
 				if (!child.PLACED_BY_SCRIPT) {
@@ -14289,16 +14869,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 			}
 		}
-		soundStreamBlock(context, tag) {
+		soundStreamBlock(context) {
 			if (this.isPlaying) {
 				var stream_info = this.staticData.audioStreamInfo;
 				if (stream_info && !this.audioStream) {
-					var audioStream = context.startStream(this, this.currentFrame, tag, stream_info);
+					let slice = this.staticData.swf.toStartAndEnd(this.tagStreamPos, this.tagStreamLen());
+					var audioStream = context.startStream(this, this.currentFrame, slice, stream_info);
 					this.audioStream = audioStream;
 				}
 			}
 		}
-		startSound(context, tag) {
+		startSound1(context, reader) {
+			var tag = reader.parseStartSound(1);
 			var movie = this.getMovie();
 			var sound = movie.library.getSound(tag.id);
 			if (sound) {
@@ -14328,14 +14910,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	class MovieClipStatic {
 		constructor() {
-			this.tags = [];
 			this.totalframes = 0;
 			this.characterId = 0;
 			this.audioStreamInfo = null;
 			this.exportedName = null;
 			this.frameLabels = [];
+			this.frameLabelsMap = new Map();
 			this.initActions = [];
 			this.preloadProgress = new PreloadProgress();
+			this.symbolclassNames = new Map();
+			this.abcTags = new Map();
 		}
 		static withData(id, swf, totalFrames) {
 			var mcs = new MovieClipStatic();
@@ -14353,7 +14937,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return this.swf.movie;
 		}
 		preload(context, chunkLimit) {
-			var timelineTags = this.tags;
 			const preloadProgress = this.preloadProgress;
 			var nextPreloadChunk = preloadProgress.nextPreloadChunk;
 			var curPreloadSymbol = preloadProgress.curPreloadSymbol;
@@ -14375,28 +14958,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						return true;
 					case 1:
 						preloadProgress.curPreloadFrame += 1;
-						var tag = reader.parseTagWithCode(tagCode, tagLength);
-						tag.tagcode = tagCode;
-						timelineTags.push(tag);
-						break;
-					case 9:
-					case 4:
-					case 26:
-					case 70:
-					case 94:
-					case 5:
-					case 28:
-					case 15:
-					case 89:
-					case 12:
-					case 19:
-						var tag = reader.parseTagWithCode(tagCode, tagLength);
-						tag.tagcode = tagCode;
-						timelineTags.push(tag);
 						break;
 					case 72:
-					case 76:
 					case 82:
+						this.preloadBytecodeTag(tagCode, reader, context, preloadProgress.curPreloadFrame - 1, tagLength);
+						break;
+					case 76:
+						this.preloadSymbolClass(reader, context, preloadProgress.curPreloadFrame - 1);
 						break;
 					case 43:
 						this.frameLabel(reader, preloadProgress.curPreloadFrame, context, tagLength);
@@ -14521,10 +15089,41 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return is_finished;
 		}
+		preloadBytecodeTag(tagCode, reader, context, cur_frame, tagLength) {
+			var tag = reader.parseTagWithCode(tagCode, tagLength);
+			tag.tagcode = tagCode;
+			this.abcTags.set(cur_frame, tag);
+			/*var r = new Avm2Reader(tag.abc);
+			console.time("Avm2:read");
+			var res = r.read();
+			console.timeEnd("Avm2:read");
+			console.log(res);*/
+		}
+		preloadSymbolClass(reader, context, cur_frame) {
+			let byteStream = reader.byteStream;
+			let num_symbols = byteStream.readUint16();
+			var symbolclass_names = [];
+			this.symbolclassNames.set(cur_frame, symbolclass_names);
+			for (let i = 0; i < num_symbols; i++) {
+				var id = byteStream.readUint16();
+				var str = reader.getEncoding().decode(byteStream.readBytesNullTerminated());
+				symbolclass_names.push([id, str]);
+			}
+		}
 		frameLabel(reader, cur_frame, context, tagLength) {
+			var movie = this.getMovie();
 			var frame_label = reader.parseFrameLabel(tagLength);
 			var label = reader.getEncoding().decode(frame_label.label);
+			if (!movie.isActionScript3()) {
+				label = label.toLowerCase();
+			}
 			this.frameLabels.push([cur_frame, label]);
+			var g = this.frameLabelsMap.get(label);
+			if (g) {
+				console.log("Movie clip " + this.characterId + " Duplicated frame label");
+			} else {
+				this.frameLabelsMap.set(label, cur_frame);
+			}
 		}
 		defineFont(reader, version, tagLength) {
 			var movie = this.getMovie();
@@ -14550,22 +15149,27 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var movie = this.getMovie();
 			var tag1 = reader.parseDefineBits(version, tagLength);
 			var rr = movie.library.jpegTables;
-			var tag = BitmapGraphic.createStatic(movie, tag1.id);
 			var jpegTables = (version == 1) ? rr : null;
 			var data = tag1.data;
 			var bitmadA = tag1.alphaData;
 			var _JPEGData = glueTablesToJpeg(data, jpegTables);
-			var img = decodeDefineBitsJpeg(_JPEGData, bitmadA);
-			if (img) tag.setBitmap(img);
-			movie.library.registerCharacter(tag1.id, new Character(Character.Bitmap, tag));
+			movie.library.registerCharacter(tag1.id, new Character(Character.Bitmap, {
+				compressed: new CompressedBitmap(CompressedBitmap.Jpeg, {
+					data: _JPEGData,
+					alpha: bitmadA
+				}),
+				handle: null,
+				avm2BitmapDataClass: null,
+			}));
 		}
 		defineLossless(reader, version, tagLength) {
 			var movie = this.getMovie();
 			var bitmapInfo = reader.parseDefineBitsLossLess(version, tagLength);
-			var canvas = decodeDefineBitsLossless(bitmapInfo);
-			var rg = BitmapGraphic.createStatic(movie, bitmapInfo.id);
-			rg.setBitmap(canvas);
-			movie.library.registerCharacter(bitmapInfo.id, new Character(Character.Bitmap, rg));
+			movie.library.registerCharacter(bitmapInfo.id, new Character(Character.Bitmap, {
+				compressed: new CompressedBitmap(CompressedBitmap.Lossless, bitmapInfo),
+				handle: null,
+				avm2BitmapDataClass: null,
+			}));
 		}
 		defineSound(context, reader, tagLength) {
 			var movie = this.getMovie();
@@ -14759,7 +15363,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.display_state = fullscreen ? "full_screen" : "normal";
 			this.background_color = null;
 			this.movie_size = [0, 0];
-			this.viewport_matrix = [1, 0, 0, 1, 0, 0];
+			this.viewport_matrix = Matrix.IDENTITY.clone();
 			this.stage_size = [0, 0];
 			this.scale_mode = new StageScaleMode(StageScaleMode.ShowAll);
 			this.setIsRoot(true);
@@ -14779,12 +15383,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.stage_size[1] = this.movie_size[1];
 		}
 		selfBounds() {
-			return {
-				xMin: 0,
-				yMin: 0,
-				xMax: 0,
-				yMax: 0
-			}
+			return new Rectangle(0, 0, 0, 0);
 		}
 		getQuality() {
 			return this.quality;
@@ -15040,12 +15639,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 			}
 			if ((prim_self.type == Avm1Value.String) && (prim_other.type == Avm1Value.String)) {
-                let a = prim_self.value + "";
-                let b = prim_other.value + "";
+				let a = prim_self.value + "";
+				let b = prim_other.value + "";
 				return Avm1Value.fromBoolean(a < b);
 			} else {
-                let a = prim_self.primitiveAsNumber(activation);
-                let b = prim_other.primitiveAsNumber(activation);
+				let a = prim_self.primitiveAsNumber(activation);
+				let b = prim_other.primitiveAsNumber(activation);
 				return (Number.isNaN(a) || Number.isNaN(b)) ? Avm1Value.INSTANCE.Undefined : Avm1Value.fromBoolean(a < b);
 			}
 		}
@@ -15339,7 +15938,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		setData(name, value, activation) {
 			var h = this.properties.get(name, activation.is_case_sensitive());
 			if (h) {
-                h.setData(value);
+				h.setData(value);
 			} else {
 				this.properties.insert(name, Avm1Property.newStored(value, new Avm1Attribute()), activation.is_case_sensitive());
 			}
@@ -15433,7 +16032,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			let setter;
 			var h = this.properties.get(name, activation.is_case_sensitive());
 			if (h) {
-                h.setData(value);
+				h.setData(value);
 				setter = h.setter;
 			} else {
 				
@@ -15774,7 +16373,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			let _arguments = Avm1ArrayBuilder.createNew(frame).with(args);
 			_arguments.defineValue("callee", (frame.callee ? Avm1Value.fromObject(frame.callee) : Avm1Value.INSTANCE.Undefined), new Avm1Attribute().dontEnum());
-			_arguments.defineValue("caller", (frame.caller ? Avm1Value.fromObject(frame.caller) : Avm1Value.INSTANCE.Undefined), new Avm1Attribute().dontEnum());
+			_arguments.defineValue("caller", (caller ? Avm1Value.fromObject(caller) : Avm1Value.INSTANCE.Null), new Avm1Attribute().dontEnum());
 			var __arguments = Avm1Value.fromObject(_arguments);
 			if (preload) {
 				frame.setLocalRegister(preload_r, __arguments);
@@ -16069,14 +16668,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	Avm1ColorTransformObject.IDENTITY = new Avm1ColorTransformObject({
-        red_multiplier: 1,
-        green_multiplier: 1,
-        blue_multiplier: 1,
-        alpha_multiplier: 1,
-        red_offset: 0,
-        green_offset: 0,
-        blue_offset: 0,
-        alpha_offset: 0
+		red_multiplier: 1,
+		green_multiplier: 1,
+		blue_multiplier: 1,
+		alpha_multiplier: 1,
+		red_offset: 0,
+		green_offset: 0,
+		blue_offset: 0,
+		alpha_offset: 0
 	});
 	class Avm1TransformObject {
 		constructor(clip) {
@@ -16357,10 +16956,29 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 		function _apply(activation, func, myargs) {
-			return Avm1Value.INSTANCE.Undefined;
+			var _this;
+			var a = myargs[0] || Avm1Value.INSTANCE.Undefined;
+			if (a.type == Avm1Value.Undefined || a.type == Avm1Value.Null) {
+				_this = activation.context.avm1.globalObject();
+			} else {
+				_this = a.coerceToObject(activation);
+			}
+			let args_object = myargs[1] || Avm1Value.INSTANCE.Undefined;
+			let length = 0;
+			if (args_object.type == Avm1Value.Object) {
+				length = args_object.value.getLength(activation);
+			}
+			var child_args = [];
+			while(child_args.length < length) {
+				let args = args_object.coerceToObject(activation);
+				let next_arg = args.get(child_args.length + "", activation);
+				child_args.push(next_arg);
+			}
+			var exec = func.asExecutable();
+			return exec ? exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Anonymous]"), activation, _this, 1, child_args, new Avm1ExecutionReason(Avm1ExecutionReason.FunctionCall), func) : Avm1Value.INSTANCE.Undefined;
 		}
 		function _constructor(activation, _this, args) {
-			return args[0] || _this;
+			return args[0] || Avm1Value.fromObject(_this);
 		}
 		function _function(activation, _this, args) {
 			return args[0] || Avm1Value.fromObject(Avm1Object.createNew(null));
@@ -16425,7 +17043,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return Avm1Value.fromNumber(value);
 		}
 		function to_string(activation, _this, args) {
-    		let number;
+			let number;
 			if (_this.native.type == Avm1NativeObject.Number) {
 				number = _this.native.data;
 			} else {
@@ -16443,7 +17061,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			number: number,
 			create_number_object: function(number_proto, fn_proto) {
 				let _number = Avm1FunctionObject.createConstructor(number, number_function, fn_proto, number_proto);
-    			avm1_define_properties_on(OBJECT_DECLS, _number, fn_proto);
+				avm1_define_properties_on(OBJECT_DECLS, _number, fn_proto);
 				return _number;
 			},
 			create_proto: function(proto, fn_proto) {
@@ -16468,7 +17086,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		};
 		const OBJECT_DECLS = {};
 		function to_string_value_of(activation, _this, args) {
-    		let string;
+			let string;
 			if (_this.native.type == Avm1NativeObject.String) {
 				string = _this.native.data;
 			} else {
@@ -16490,7 +17108,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			string: string,
 			create_string_object: function(string_proto, fn_proto) {
 				let _string = Avm1FunctionObject.createConstructor(string, string_function, fn_proto, string_proto);
-    			avm1_define_properties_on(OBJECT_DECLS, _string, fn_proto);
+				avm1_define_properties_on(OBJECT_DECLS, _string, fn_proto);
 				return _string;
 			},
 			create_proto: function(string_proto, fn_proto) {
@@ -16514,7 +17132,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			},
 		};
 		function to_string(activation, _this, args) {
-    		let string;
+			let string;
 			if (_this.native.type == Avm1NativeObject.Bool) {
 				string = _this.native.data ? "true" : "false";
 			} else {
@@ -17015,7 +17633,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function play(movie_clip, activation, args) {
-    		movie_clip.play(activation.context);
+			movie_clip.play(activation.context);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function hit_test(movie_clip, activation, args) {
@@ -17027,7 +17645,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					shape = shape.asBool(activation.swfVersion);
 				}
 				if (Number.isFinite(x) && Number.isFinite(y)) {
-					let local = [x * 20, y * 20];
+					let local = new Point(x * 20, y * 20);
 					let point = movie_clip.getAvm1RootNoLock().localToGlobal(local);
 					var ret;
 					if (shape) {
@@ -17046,7 +17664,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return Avm1Value.fromBoolean(false);
 		}
 		function stop(movie_clip, activation, args) {
-    		movie_clip.stop(activation.context);
+			movie_clip.stop(activation.context);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function goto_and_play(movie_clip, activation, args) {
@@ -17116,10 +17734,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (x.type == Avm1Value.Number || y.type == Avm1Value.Number) {
 					x = x.value;
 					y = y.value;
-					var local = [x * 20, y * 20];
+					var local = new Point(x * 20, y * 20);
 					let global = movie_clip.localToGlobal(local);
-					point.set("x", Avm1Value.fromNumber(global[0] / 20), activation);
-					point.set("y", Avm1Value.fromNumber(global[1] / 20), activation);
+					point.set("x", Avm1Value.fromNumber(global.x / 20), activation);
+					point.set("y", Avm1Value.fromNumber(global.y / 20), activation);
 				}
 			}
 			return Avm1Value.INSTANCE.Undefined;
@@ -17133,10 +17751,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (x.type == Avm1Value.Number || y.type == Avm1Value.Number) {
 					x = x.value;
 					y = y.value;
-					var local = [x * 20, y * 20];
+					var local = new Point(x * 20, y * 20);
 					let global = movie_clip.globalToLocal(local);
-					point.set("x", Avm1Value.fromNumber(global[0] / 20), activation);
-					point.set("y", Avm1Value.fromNumber(global[1] / 20), activation);
+					if (global) {
+						point.set("x", Avm1Value.fromNumber(global.x / 20), activation);
+						point.set("y", Avm1Value.fromNumber(global.y / 20), activation);
+					}
 				}
 			}
 			return Avm1Value.INSTANCE.Undefined;
@@ -17162,12 +17782,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (movie_clip === target) {
 					out_bounds = bounds;
 				} else {
-					out_bounds = {
-						xMin: 0x8000000,
-						xMax: 0x8000000,
-						yMin: 0x8000000,
-						yMax: 0x8000000,
-					}
+					out_bounds = new Rectangle(0x8000000, 0x8000000, 0x8000000, 0x8000000);
 				}
 				let out = Avm1Object.createNew(activation.context.avm1.prototypes.object);
 				out.set("xMin", Avm1Value.fromNumber(out_bounds.xMin / 20), activation);
@@ -17229,7 +17844,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			parent.replaceAtDepth(context, new_clip, depth);
 			new_clip.applyMatrix(movie_clip.getMatrix());
 			new_clip.applyColorTransform(movie_clip.getColorTransform());
-			// new_clip.set_clip_event_handlers(context.gc(), movie_clip.clip_actions().to_vec());
+			new_clip.clipEventHandlers = movie_clip.clipEventHandlers;
 			new_clip.postInstantiation(context, init_object, "avm1", true);
 			return new_clip;
 		}
@@ -17268,7 +17883,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				if (depth != movie_clip.getDepth()) {
 					parent.swapAtDepth(activation.context, movie_clip, depth);
-            		movie_clip.TRANSFORMED_BY_SCRIPT = true;
+					movie_clip.TRANSFORMED_BY_SCRIPT = true;
 				}
 			}
 			return Avm1Value.INSTANCE.Undefined;
@@ -17445,7 +18060,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			},
 			"setPan": {
 				type: "method",
-				fn: avm1_globals.todo("Sound:setPan"),
+				fn: set_pan,
 				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
 			},
 			"loadSound": {
@@ -17455,7 +18070,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			},
 			"getPan": {
 				type: "method",
-				fn: avm1_globals.todo("Sound:getPan"),
+				fn: get_pan,
 				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
 			},
 			"getDuration": {
@@ -17595,6 +18210,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		function set_transform(activation, _this, args) {
 			console.log("set_transform");
+			return Avm1Value.INSTANCE.Undefined;
+		}
+		function get_pan(activation, _this, args) {
+			return Avm1Value.INSTANCE.Undefined;
+		}
+		function set_pan(activation, _this, args) {
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function constructor(activation, _this, args) {
@@ -17791,12 +18412,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			},
 		};
 		function apply_matrix_to_object(matrix, object, activation) {
-			object.set("a", Avm1Value.fromNumber(matrix[0]), activation);
-			object.set("b", Avm1Value.fromNumber(matrix[1]), activation);
-			object.set("c", Avm1Value.fromNumber(matrix[2]), activation);
-			object.set("d", Avm1Value.fromNumber(matrix[3]), activation);
-			object.set("tx", Avm1Value.fromNumber(matrix[4] / 20), activation);
-			object.set("ty", Avm1Value.fromNumber(matrix[5] / 20), activation);
+			object.set("a", Avm1Value.fromNumber(matrix.a), activation);
+			object.set("b", Avm1Value.fromNumber(matrix.b), activation);
+			object.set("c", Avm1Value.fromNumber(matrix.c), activation);
+			object.set("d", Avm1Value.fromNumber(matrix.d), activation);
+			object.set("tx", Avm1Value.fromNumber(matrix.tx / 20), activation);
+			object.set("ty", Avm1Value.fromNumber(matrix.ty / 20), activation);
 		}
 		function object_to_matrix(object, activation) {
 			let a = object.get("a", activation).coerceToNumber(activation);
@@ -17805,7 +18426,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			let d = object.get("d", activation).coerceToNumber(activation);
 			let tx = object.get("tx", activation).coerceToNumber(activation) * 20;
 			let ty = object.get("ty", activation).coerceToNumber(activation) * 20;
-			return [a, b, c, d, tx, ty];
+			return new Matrix(a, b, c, d, tx, ty);
 		}
 		function value_to_matrix(value, activation) {
 			let a = value.coerceToObject(activation).get("a", activation).coerceToNumber(activation);
@@ -17814,16 +18435,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			let d = value.coerceToObject(activation).get("d", activation).coerceToNumber(activation);
 			let tx = value.coerceToObject(activation).get("tx", activation).coerceToNumber(activation) * 20;
 			let ty = value.coerceToObject(activation).get("ty", activation).coerceToNumber(activation) * 20;
-			return [a, b, c, d, tx, ty];
+			return new Matrix(a, b, c, d, tx, ty);
 		}
 		function matrix_to_value(matrix, activation) {
 			let args = [
-				Avm1Value.fromNumber(matrix[0]),
-				Avm1Value.fromNumber(matrix[1]),
-				Avm1Value.fromNumber(matrix[2]),
-				Avm1Value.fromNumber(matrix[3]),
-				Avm1Value.fromNumber(matrix[4] / 20),
-				Avm1Value.fromNumber(matrix[5] / 20),
+				Avm1Value.fromNumber(matrix.a),
+				Avm1Value.fromNumber(matrix.b),
+				Avm1Value.fromNumber(matrix.c),
+				Avm1Value.fromNumber(matrix.d),
+				Avm1Value.fromNumber(matrix.tx / 20),
+				Avm1Value.fromNumber(matrix.ty / 20)
 			];
 			let _constructor = activation.context.avm1.prototypes.matrix_constructor;
 			let cloned = _constructor.construct(activation, args);
@@ -17837,26 +18458,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var d = args[3];
 				var tx = args[4];
 				var ty = args[5];
-				if (a) {
-					_this.set("a", a, activation);
-				}
-				if (b) {
-					_this.set("b", b, activation);
-				}
-				if (c) {
-					_this.set("c", c, activation);
-				}
-				if (d) {
-					_this.set("d", d, activation);
-				}
-				if (tx) {
-					_this.set("tx", tx, activation);
-				}
-				if (ty) {
-					_this.set("ty", ty, activation);
-				}
+				if (a) _this.set("a", a, activation);
+				if (b) _this.set("b", b, activation);
+				if (c) _this.set("c", c, activation);
+				if (d) _this.set("d", d, activation);
+				if (tx) _this.set("tx", tx, activation);
+				if (ty) _this.set("ty", ty, activation);
 			} else {
-				apply_matrix_to_object([1, 0, 0, 1, 0, 0], _this, activation);
+				apply_matrix_to_object(Matrix.IDENTITY, _this, activation);
 			}
 			return Avm1Value.INSTANCE.Undefined;
 		}
@@ -17876,7 +18485,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				_this.get("c", activation),
 				_this.get("d", activation),
 				_this.get("tx", activation),
-				_this.get("ty", activation),
+				_this.get("ty", activation)
 			];
 			let _constructor = activation.context.avm1.prototypes.matrix_constructor;
 			let cloned = _constructor.construct(activation, args);
@@ -17885,28 +18494,36 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		function scale(activation, _this, args) {
 			let scale_x = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
 			let scale_y = (args[1] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
-			apply_matrix_to_object(multiplicationMatrix([scale_x, 0, 0, scale_y, 0, 0], object_to_matrix(_this, activation)), _this, activation);
+			var matrix = Matrix.scale(scale_x, scale_y);
+			matrix = matrix.mul(object_to_matrix(_this, activation));
+			apply_matrix_to_object(matrix, _this, activation);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function rotate(activation, _this, args) {
 			let angle = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
-			apply_matrix_to_object(multiplicationMatrix(matrixUtils.rotate(angle), object_to_matrix(_this, activation)), _this, activation);
+			var matrix = Matrix.rotate(angle);
+			matrix = matrix.mul(object_to_matrix(_this, activation));
+			apply_matrix_to_object(matrix, _this, activation);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function translate(activation, _this, args) {
 			let translate_x = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
 			let translate_y = (args[1] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
-			apply_matrix_to_object(multiplicationMatrix([1, 0, 0, 1, (translate_x * 20) | 0, (translate_y * 20) | 0], object_to_matrix(_this, activation)), _this, activation);
+			var matrix = Matrix.translate((translate_x * 20) | 0, (translate_y * 20) | 0);
+			matrix = matrix.mul(object_to_matrix(_this, activation));
+			apply_matrix_to_object(matrix, _this, activation);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function concat(activation, _this, args) {
 			var matrix = object_to_matrix(_this, activation);
 			let other = value_to_matrix(args[0] || Avm1Value.INSTANCE.Undefined, activation);
-			apply_matrix_to_object(multiplicationMatrix(other, matrix), _this, activation);
+			matrix = other.mul(matrix);
+			apply_matrix_to_object(matrix, _this, activation);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		function invert(activation, _this, args) {
-			apply_matrix_to_object(matrixUtils.invertMatrix(object_to_matrix(_this, activation)), _this, activation);
+			var matrix = object_to_matrix(_this, activation).inverse() || Matrix.IDENTITY;
+			apply_matrix_to_object(matrix, _this, activation);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 		return {
@@ -18223,11 +18840,44 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				fn: set_timeout,
 				attributes: ["DONT_ENUM"]
 			},
+			"escape": {
+				type: "method",
+				fn: _escape,
+				attributes: ["DONT_ENUM"]
+			},
+			"unescape": {
+				type: "method",
+				fn: _unescape,
+				attributes: ["DONT_ENUM"]
+			},
 			"NaN": {
 				type: "property",
 				getter: get_nan,
 				attributes: ["DONT_ENUM"]
+			},
+			"Infinity": {
+				type: "property",
+				getter: get_infinity,
+				attributes: ["DONT_ENUM"]
 			}
+		}
+		function _escape(activation, _this, args) {
+			var s;
+			if (args[0]) {
+				s = args[0].coerceToString(activation);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+			return Avm1Value.fromString(s);
+		}
+		function _unescape(activation, _this, args) {
+			var s;
+			if (args[0]) {
+				s = args[0].coerceToString(activation);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+			return Avm1Value.fromString(s);
 		}
 		function trace(activation, _this, args) {
 			let out = args[0] || Avm1Value.INSTANCE.Undefined;
@@ -18315,7 +18965,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return Avm1Value.fromNumber(id);
 		}
 		function get_nan(activation, _this, args) {
-			return Avm1Value.fromNumber(NaN);
+			if (activation.swfVersion > 4) {
+				return Avm1Value.fromNumber(NaN);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+		}
+		function get_infinity(activation, _this, args) {
+			if (activation.swfVersion > 4) {
+				return Avm1Value.fromNumber(Infinity);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
 		}
 	}());
 
@@ -18682,8 +19343,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			_this.setName(n);
 		}
 		function url(activation, _this) {
-			console.log("url");
-			return Avm1Value.fromNumber(0);
+			return Avm1Value.fromString("pinkfie/movie.swf");
 		}
 		function high_quality(activation, _this) {
 			console.log("high_quality");
@@ -18718,11 +19378,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		function x_mouse(activation, _this) {
 			let local = _this.localMousePosition(activation.context);
-			return Avm1Value.fromNumber(local.x);
+			return Avm1Value.fromNumber(local.x / 20);
 		}
 		function y_mouse(activation, _this) {
 			let local = _this.localMousePosition(activation.context);
-			return Avm1Value.fromNumber(local.y);
+			return Avm1Value.fromNumber(local.y / 20);
 		}
 		function drop_target() {
 			console.log("drop_target");
@@ -19151,7 +19811,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						} else if (_ == ".") {
 							if (!is_slash_path) break;
 						} else if (_ == "/") {
-                            is_slash_path = true;
+							is_slash_path = true;
 							break;
 						}
 						pos++;
@@ -19162,7 +19822,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 						val = this.thisObject;
 					} else if (first_element && (name == "_root")) {
 						val = this.rootObject();
-						console.log(val);
 					} else {
 						var child = null;
 						var d = object.asDisplayObject();
@@ -19419,17 +20078,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (actionCode == undefined) {
 				return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
 			}
-			var actionFunc = Avm1Activation.actionLibrary[actionCode];
+			var actionFunc = avm1Callback[actionCode];
 			if (actionFunc) {
-				var actionType = actionFunc.actionType;
-				if (config.debug) {
-					console.log(actionType);
-				}
 				var result = actionFunc.call(this, aScript, reader);
 				if (result) {
 					return result;
 				} else {
-					console.log(actionType);
+					console.log("Avm1:" + actionCode);
 					return null;
 				}
 			} else {
@@ -19441,14 +20096,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			return SwfEncoding.encodingForVersion(this.swfVersion);
 		}
 	}
-	Avm1Activation.actionLibrary = [];
-	const actionLibrary = Avm1Activation.actionLibrary;
-	actionLibrary[0x00] = function() { // ActionEnd
+	const avm1Callback = [];
+	avm1Callback[0x00] = function() { // ActionEnd
 		return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
 	}
-	actionLibrary[0x00].actionType = "ActionEnd";
-	// SWFv3
-	actionLibrary[0x81] = function(aScript) { // ActionGotoFrame
+	avm1Callback[0x81] = function(aScript) { // ActionGotoFrame
 		var clip = this.target_clip;
 		if (clip) {
 			if (clip instanceof MovieClip) {
@@ -19457,13 +20109,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x81].actionType = "ActionGotoFrame";
-	actionLibrary[0x83] = function(aScript) { // ActionGetURL
-		console.log(aScript);
+	avm1Callback[0x83] = function(aScript) { // ActionGetURL
+		var encoding = this.getEncoding();
+		var target = encoding.decode(aScript.target);
+		var url = encoding.decode(aScript.url);
+		console.log(target);
+		console.log(url);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x83].actionType = "ActionGetURL";
-	actionLibrary[0x04] = function(aScript) { // ActionNextFrame
+	avm1Callback[0x04] = function(aScript) { // ActionNextFrame
 		var clip = this.target_clip;
 		if (clip) {
 			if (clip instanceof MovieClip) {
@@ -19472,8 +20126,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x04].actionType = "ActionNextFrame";
-	actionLibrary[0x05] = function(aScript) { // ActionPreviousFrame
+	avm1Callback[0x05] = function(aScript) { // ActionPreviousFrame
 		var clip = this.target_clip;
 		if (clip) {
 			if (clip instanceof MovieClip) {
@@ -19482,8 +20135,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x05].actionType = "ActionPreviousFrame";
-	actionLibrary[0x06] = function() { // ActionPlay
+	avm1Callback[0x06] = function() { // ActionPlay
 		var clip = this.target_clip;
 		if (clip) {
 			if (clip instanceof MovieClip) {
@@ -19492,8 +20144,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x06].actionType = "ActionPlay";
-	actionLibrary[0x07] = function() { // ActionStop
+	avm1Callback[0x07] = function() { // ActionStop
 		var clip = this.target_clip;
 		if (clip) {
 			if (clip instanceof MovieClip) {
@@ -19502,18 +20153,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x07].actionType = "ActionStop";
-	actionLibrary[0x08] = function(aScript) { // ActionToggleQuality
+	avm1Callback[0x08] = function(aScript) { // ActionToggleQuality
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x08].actionType = "ActionToggleQuality";
-	actionLibrary[0x09] = function(aScript) { // ActionStopSounds
+	avm1Callback[0x09] = function(aScript) { // ActionStopSounds
 		this.context.stopAllSounds();
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x09].actionType = "ActionStopSounds";
-	actionLibrary[0x8A] = function(aScript, r) { // ActionWaitForFrame
-        let frame_num = aScript.frame;
+	avm1Callback[0x8A] = function(aScript, r) { // ActionWaitForFrame
+		let frame_num = aScript.frame;
 		var loaded;
 		if (frame_num > 16000) {
 			loaded = false;
@@ -19531,15 +20179,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x8A].actionType = "ActionWaitForFrame";
-	actionLibrary[0x8B] = function(aScript) { // ActionSetTarget
+	avm1Callback[0x8B] = function(aScript) { // ActionSetTarget
 		let target = this.getEncoding().decode(aScript.target);
 		return this.setTarget(target);
 	}
-	actionLibrary[0x8B].actionType = "ActionSetTarget";
 	
 	// SWFv4
-	actionLibrary[0x96] = function(aScript) { // ActionPush
+	avm1Callback[0x96] = function(aScript) { // ActionPush
 		var values = aScript.values;
 		for (let i = 0; i < values.length; i++) {
 			const val = values[i];
@@ -19582,92 +20228,80 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x96].actionType = "ActionPush";
-	actionLibrary[0x17] = function(aScript) { // ActionPop
+	avm1Callback[0x17] = function(aScript) { // ActionPop
 		this.pop();
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x17].actionType = "ActionPop";
-	actionLibrary[0x0A] = function(aScript) { // ActionAdd
+	avm1Callback[0x0A] = function(aScript) { // ActionAdd
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
 		var result = b + a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0A].actionType = "ActionAdd";
-	actionLibrary[0x0B] = function(aScript) { // ActionSubtract
+	avm1Callback[0x0B] = function(aScript) { // ActionSubtract
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
 		var result = b - a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0B].actionType = "ActionSubtract";
-	actionLibrary[0x0C] = function(aScript) { // ActionMultiply
+	avm1Callback[0x0C] = function(aScript) { // ActionMultiply
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
 		var result = b * a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0C].actionType = "ActionMultiply";
-	actionLibrary[0x0D] = function(aScript) { // ActionDivide
+	avm1Callback[0x0D] = function(aScript) { // ActionDivide
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
 		var result = ((a == 0) && (this.swfVersion < 5)) ? Avm1Value.fromString("#ERROR#") : Avm1Value.fromNumber(b / a);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0D].actionType = "ActionDivide";
-	actionLibrary[0x0E] = function(aScript) { // ActionEquals
+	avm1Callback[0x0E] = function(aScript) { // ActionEquals
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
 		var result = b == a;
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0E].actionType = "ActionEquals";
-	actionLibrary[0x0F] = function(aScript) { // ActionLess
-        let a = this.pop();
-        let b = this.pop();
-        let result = b.coerceToNumber(this) < a.coerceToNumber(this);
+	avm1Callback[0x0F] = function(aScript) { // ActionLess
+		let a = this.pop();
+		let b = this.pop();
+		let result = b.coerceToNumber(this) < a.coerceToNumber(this);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x0F].actionType = "ActionLess";
-	actionLibrary[0x10] = function(aScript) { // ActionAnd
+	avm1Callback[0x10] = function(aScript) { // ActionAnd
 		var a = this.pop();
 		var b = this.pop();
 		var result = b.asBool(this.swfVersion) && a.asBool(this.swfVersion);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x10].actionType = "ActionAnd";
-	actionLibrary[0x11] = function(aScript) { // ActionOr
+	avm1Callback[0x11] = function(aScript) { // ActionOr
 		var a = this.pop();
 		var b = this.pop();
 		var result = b.asBool(this.swfVersion) || a.asBool(this.swfVersion);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x11].actionType = "ActionOr";
-	actionLibrary[0x12] = function(aScript) { // ActionNot
+	avm1Callback[0x12] = function(aScript) { // ActionNot
 		var a = this.pop();
 		var result = !a.asBool(this.swfVersion);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x12].actionType = "ActionNot";
-	actionLibrary[0x13] = function(aScript) { // ActionStringEquals
+	avm1Callback[0x13] = function(aScript) { // ActionStringEquals
 		var a = this.pop().coerceToString(this);
 		var b = this.pop().coerceToString(this);
 		var result = b == a;
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x13].actionType = "ActionStringEquals";
-	actionLibrary[0x14] = function(aScript) { // ActionStringLength
+	avm1Callback[0x14] = function(aScript) { // ActionStringLength
 		// AS1 strlen
 		// In SWF6+, this is the same as String.length (returns number of UTF-16 code units).
 		// TODO: In SWF5, this returns the byte length, even though the encoding is locale dependent.
@@ -19675,8 +20309,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromNumber(val.length));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x14].actionType = "ActionStringLength";
-	actionLibrary[0x21] = function(aScript) { // ActionStringAdd
+	avm1Callback[0x21] = function(aScript) { // ActionStringAdd
 		// SWFv4 string concatenation
 		// TODO(Herschel): Result with non-string operands?
 		var a = this.pop().coerceToString(this);
@@ -19685,69 +20318,62 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromString(s));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x21].actionType = "ActionStringAdd";
-	actionLibrary[0x15] = function(aScript) { // ActionStringExtract
-		console.log("ActionStringExtract");
+	avm1Callback[0x15] = function(aScript) { // ActionStringExtract
+		var count = this.pop().coerceToI32(this);
+		var index = this.pop().coerceToI32(this);
+		var string = this.pop().coerceToString(this);
+		let result = (count < 0) ? string.substr(index) : string.substr(index, count);
+		this.push(Avm1Value.fromString(result));
+		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x15].actionType = "ActionStringExtract";
-	actionLibrary[0x29] = function(aScript) { // ActionStringLess
+	avm1Callback[0x29] = function(aScript) { // ActionStringLess
 		var a = this.pop().coerceToString(this);
 		var b = this.pop().coerceToString(this);
 		var result = b < a;
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x29].actionType = "ActionStringLess";
-	actionLibrary[0x31] = function(aScript) { // ActionMBStringLength
+	avm1Callback[0x31] = function(aScript) { // ActionMBStringLength
 		var val = this.pop();
 		var len = val.coerceToString(this).length;
 		this.push(Avm1Value.fromNumber(len));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x31].actionType = "ActionMBStringLength";
-	actionLibrary[0x35] = function(aScript) { // ActionMBStringExtract
+	avm1Callback[0x35] = function(aScript) { // ActionMBStringExtract
 		console.log("ActionMBStringExtract");
 	}
-	actionLibrary[0x35].actionType = "ActionMBStringExtract";
-	actionLibrary[0x18] = function(aScript) { // ActionToInteger
+	avm1Callback[0x18] = function(aScript) { // ActionToInteger
 		var val = this.pop();
 		var result = val.coerceToI32(this);
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x18].actionType = "ActionToInteger";
-	actionLibrary[0x32] = function(aScript) { // ActionCharToAscii
+	avm1Callback[0x32] = function(aScript) { // ActionCharToAscii
 		console.log("ActionCharToAscii");
 	}
-	actionLibrary[0x32].actionType = "ActionCharToAscii";
-	actionLibrary[0x33] = function(aScript) { // ActionAsciiToChar
+	avm1Callback[0x33] = function(aScript) { // ActionAsciiToChar
 		console.log("ActionAsciiToChar");
 	}
-	actionLibrary[0x33].actionType = "ActionAsciiToChar";
-	actionLibrary[0x36] = function(aScript) { // ActionCharToAscii
+	avm1Callback[0x36] = function(aScript) { // ActionCharToAscii
 		console.log("ActionCharToAscii");
 	}
-	actionLibrary[0x36].actionType = "ActionCharToAscii";
-	actionLibrary[0x37] = function(aScript) { // ActionAsciiToChar
+	avm1Callback[0x37] = function(aScript) { // ActionAsciiToChar
 		console.log("ActionAsciiToChar");
 	}
-	actionLibrary[0x37].actionType = "ActionAsciiToChar";
-	actionLibrary[0x99] = function(aScript, reader) { // ActionJump
+	avm1Callback[0x99] = function(aScript, reader) { // ActionJump
 		reader.seek(aScript.offset);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x99].actionType = "ActionJump";
-	actionLibrary[0x9D] = function(aScript, reader) { // ActionIf
+	avm1Callback[0x9D] = function(aScript, reader) { // ActionIf
 		var val = this.pop();
 		if (val.asBool(this.swfVersion)) {
 			reader.seek(aScript.offset);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x9D].actionType = "ActionIf";
-	actionLibrary[0x9E] = function(aScript) { // ActionCall
-        let arg = this.pop();
-        let target = this.target_clip_or_root();
+	avm1Callback[0x9E] = function(aScript) { // ActionCall
+		let arg = this.pop();
+		let target = this.target_clip_or_root();
 		var call_frame = null;
 		if (arg.type == Avm1Value.Number) {
 			if (target.displayType == "MovieClip") {
@@ -19785,16 +20411,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x9E].actionType = "ActionCall";
-	actionLibrary[0x1C] = function(aScript) { // ActionGetVariable
+	avm1Callback[0x1C] = function(aScript) { // ActionGetVariable
 		var var_path_val = this.pop();
 		var path = var_path_val.coerceToString(this);
 		var value = this.getVariable(path).getValue();
-        this.stackPush(value);
+		this.stackPush(value);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x1C].actionType = "ActionGetVariable";
-	actionLibrary[0x1D] = function(aScript) { // ActionSetVariable
+	avm1Callback[0x1D] = function(aScript) { // ActionSetVariable
 		// Flash 4-style variable
 		var value = this.pop();
 		var var_path_val = this.pop();
@@ -19802,18 +20426,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.setVariable(var_path, value);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x1D].actionType = "ActionSetVariable";
-	actionLibrary[0x9A] = function(aScript) { // ActionGetURL2
-        let target_val = this.pop();
-        let target = target_val.coerceToString(this);
-        let url_val = this.pop();
-        let url = url_val.coerceToString(this);
+	avm1Callback[0x9A] = function(aScript) { // ActionGetURL2
+		let target_val = this.pop();
+		let target = target_val.coerceToString(this);
+		let url_val = this.pop();
+		let url = url_val.coerceToString(this);
 		console.log(url);
 		console.log(target);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x9A].actionType = "ActionGetURL2";
-	actionLibrary[0x9F] = function(aScript) { // ActionGoToFrame2
+	avm1Callback[0x9F] = function(aScript) { // ActionGoToFrame2
 		var clip = this.target_clip_or_root();
 		if (clip) {
 			if (clip.displayType == "MovieClip") {
@@ -19823,10 +20445,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x9F].actionType = "ActionGoToFrame2";
-	actionLibrary[0x20] = function(aScript) { // ActionSetTarget2
-        let target = this.pop();
-        let base_clip = this.base_clip;
+	avm1Callback[0x20] = function(aScript) { // ActionSetTarget2
+		let target = this.pop();
+		let base_clip = this.base_clip;
 		if (base_clip.AVM1_REMOVED) {
 			this.setTargetClip(null);
 			return Avm1FrameControl.objContinue;
@@ -19863,10 +20484,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x20].actionType = "ActionSetTarget2";
-	actionLibrary[0x22] = function(aScript) { // ActionGetProperty
+	avm1Callback[0x22] = function(aScript) { // ActionGetProperty
 		let prop_index = this.pop().coerceToNumber(this);
-        let path = this.pop();
+		let path = this.pop();
 		let clip;
 		if (this.target_clip) {
 			clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
@@ -19889,14 +20509,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		} else {
 			result = Avm1Value.INSTANCE.Undefined;
 		}
-        this.stackPush(result);
+		this.stackPush(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x22].actionType = "ActionGetProperty";
-	actionLibrary[0x23] = function(aScript) { // ActionSetProperty
-        let prop_value = this.pop();
+	avm1Callback[0x23] = function(aScript) { // ActionSetProperty
+		let prop_value = this.pop();
 		let prop_index = this.pop().coerceToNumber(this);
-        let path = this.pop();
+		let path = this.pop();
 		let clip;
 		if (this.target_clip) {
 			clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
@@ -19925,13 +20544,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x23].actionType = "ActionSetProperty";
-	actionLibrary[0x24] = function(aScript) { // ActionCloneSprite
+	avm1Callback[0x24] = function(aScript) { // ActionCloneSprite
 		let depth = this.pop().coerceToI32(this);
-        let target = this.pop().coerceToString(this);
-        let source = this.pop();
-        let start_clip = this.target_clip_or_root();
-        let source_clip = this.resolveTargetDisplayObject(start_clip, source, true);
+		let target = this.pop().coerceToString(this);
+		let source = this.pop();
+		let start_clip = this.target_clip_or_root();
+		let source_clip = this.resolveTargetDisplayObject(start_clip, source, true);
 		var movie_clip;
 		if (source_clip) {
 			if (source_clip instanceof MovieClip) {
@@ -19945,11 +20563,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x24].actionType = "ActionCloneSprite";
-	actionLibrary[0x25] = function(aScript) { // ActionRemoveSprite
-        let target = this.pop();
-        let start_clip = this.target_clip_or_root();
-        let target_clip = this.resolveTargetDisplayObject(start_clip, target, true);
+	avm1Callback[0x25] = function(aScript) { // ActionRemoveSprite
+		let target = this.pop();
+		let start_clip = this.target_clip_or_root();
+		let target_clip = this.resolveTargetDisplayObject(start_clip, target, true);
 		if (target_clip) {
 			avm1_remove_display_object(target_clip, this);
 		} else {
@@ -19957,19 +20574,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x25].actionType = "ActionRemoveSprite";
-	actionLibrary[0x27] = function(aScript) { // ActionStartDrag
-        let target = this.pop();
-        let start_clip = this.target_clip_or_root();
+	avm1Callback[0x27] = function(aScript) { // ActionStartDrag
+		let target = this.pop();
+		let start_clip = this.target_clip_or_root();
 		let display_object = this.resolveTargetDisplayObject(start_clip, target, true);
 		let lock_center = this.pop().coerceToI32(this) == 1;
 		let constrain = this.pop().coerceToI32(this) == 1;
 		let constraint_args;
 		if (constrain) {
-            let y_max = self.context.avm1.pop().coerceToNumber(this);
-            let x_max = self.context.avm1.pop().coerceToNumber(this);
-            let y_min = self.context.avm1.pop().coerceToNumber(this);
-            let x_min = self.context.avm1.pop().coerceToNumber(this);
+			let y_max = this.pop().coerceToNumber(this);
+			let x_max = this.pop().coerceToNumber(this);
+			let y_min = this.pop().coerceToNumber(this);
+			let x_min = this.pop().coerceToNumber(this);
 			constraint_args = [x_min, y_min, x_max, y_max];
 		} else {
 			constraint_args = null;
@@ -19981,45 +20597,52 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x27].actionType = "ActionStartDrag";
-	actionLibrary[0x28] = function(aScript) { // ActionEndDrag
+	avm1Callback[0x28] = function(aScript) { // ActionEndDrag
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x28].actionType = "ActionEndDrag";
-	actionLibrary[0x8D] = function(aScript) { // ActionWaitForFrame2
+	avm1Callback[0x8D] = function(aScript) { // ActionWaitForFrame2
 		console.log("ActionWaitForFrame2");
 	}
-	actionLibrary[0x8D].actionType = "ActionWaitForFrame2";
-	actionLibrary[0x26] = function(aScript) { // ActionTrace
+	avm1Callback[0x26] = function(aScript) { // ActionTrace
 		let val = this.pop();
 		let out = (val.type == Avm1Value.Undefined) ? "undefined" : val.coerceToString(this);
 		this.context.avm_trace(out);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x26].actionType = "ActionTrace";
-	actionLibrary[0x34] = function(aScript) { // ActionGetTime
+	avm1Callback[0x34] = function(aScript) { // ActionGetTime
 		let result = Date.now() - this.context.startTime;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x34].actionType = "ActionGetTime";
-	actionLibrary[0x30] = function(aScript) { // ActionRandomNumber
+	avm1Callback[0x30] = function(aScript) { // ActionRandomNumber
 		let max = this.pop().coerceToNumber(this) | 0;
 		let result = (max > 0) ? ((Math.random() * max) | 0) : 0;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x30].actionType = "ActionRandomNumber";
+	avm1Callback[0x8C] = function(aScript) { // GotoLabel
+		let label = this.getEncoding().decode(aScript.label);
+		var clip = this.target_clip;
+		if (clip) {
+			if (clip.displayType == "MovieClip") {
+				var frame = clip.frameLabelToNumber(label, this.context);
+				if (frame != null) {
+					clip.gotoFrame(this.context, frame, true);
+				}
+			}
+		}
+		return Avm1FrameControl.objContinue;
+	}
 	
 	// SWFv5
-	actionLibrary[0x3d] = function(aScript) { // ActionCallFunction
-        let fn_name_value = this.pop();
+	avm1Callback[0x3d] = function(aScript) { // ActionCallFunction
+		let fn_name_value = this.pop();
 		let fn_name = fn_name_value.coerceToString(this);
 		let num_args = this.pop().coerceToU32(this);
 		num_args = Math.min(num_args, this.stackLen());
 		var args = [];
 		for (let i = 0; i < num_args; i++) {
-            let arg = this.pop();
+			let arg = this.pop();
 			if (arg.type == Avm1Value.MovieClip) {
 				args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
 			} else {
@@ -20028,18 +20651,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		let variable = this.getVariable(fn_name);
 		let result = variable.call_with_default_this(this.target_clip_or_root().getObject().coerceToObject(this), fn_name, this, args);
-        this.stackPush(result);
-        return this.continue_if_base_clip_exists();
+		this.stackPush(result);
+		return this.continue_if_base_clip_exists();
 	}
-	actionLibrary[0x3d].actionType = "ActionCallFunction";
-	actionLibrary[0x52] = function(aScript) { // ActionCallMethod
-        let method_name = this.pop();
-        let object_val = this.pop();
+	avm1Callback[0x52] = function(aScript) { // ActionCallMethod
+		let method_name = this.pop();
+		let object_val = this.pop();
 		let num_args = this.pop().coerceToU32(this);
 		num_args = Math.min(num_args, this.stackLen());
 		var args = [];
 		for (let i = 0; i < num_args; i++) {
-            let arg = this.pop();
+			let arg = this.pop();
 			if (arg.type == Avm1Value.MovieClip) {
 				args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
 			} else {
@@ -20050,7 +20672,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.push(Avm1Value.INSTANCE.Undefined);
 			return Avm1FrameControl.objContinue;
 		}
-        let object = object_val.coerceToObject(this);
+		let object = object_val.coerceToObject(this);
 		var _method_name = (method_name.type == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
 		var result;
 		if (_method_name) {
@@ -20058,11 +20680,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		} else {
 			result = object.call("[Anonymous]", this, Avm1Value.INSTANCE.Undefined, args);
 		}
-        this.stackPush(result);
-        return this.continue_if_base_clip_exists();
+		this.stackPush(result);
+		return this.continue_if_base_clip_exists();
 	}
-	actionLibrary[0x52].actionType = "ActionCallMethod";
-	actionLibrary[0x88] = function(aScript) { // ActionConstantPool
+	avm1Callback[0x88] = function(aScript) { // ActionConstantPool
 		var encoding = this.getEncoding();
 		var result = [];
 		var strings = aScript.strings;
@@ -20073,14 +20694,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.setConstantPool(this.context.avm1.constantPool);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x88].actionType = "ActionConstantPool";
-	actionLibrary[0x8e] = function(aScript) { // ActionDefineFunction
+	avm1Callback[0x8e] = function(aScript) { // ActionDefineFunction
 		let swf_version = this.swfVersion;
-        let constant_pool = this.constantPool;
+		let constant_pool = this.constantPool;
 		var func = new Avm1Function(swf_version, aScript.actions, aScript, this.scope, constant_pool, this.base_clip);
-        let name = func.name;
+		let name = func.name;
 		let prototype = Avm1Object.createNew(this.context.avm1.prototypes.object);
-		let func_obj = Avm1FunctionObject.createFunction(func, this.context.avm1.prototypes.object, prototype);
+		let func_obj = Avm1FunctionObject.createFunction(func, this.context.avm1.prototypes.function, prototype);
 		if (name.length) {
 			this.defineLocal(name, Avm1Value.fromObject(func_obj));
 		} else {
@@ -20088,18 +20708,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x8e].actionType = "ActionDefineFunction";
-	actionLibrary[0x3c] = function(aScript) { // ActionDefineLocal
+	avm1Callback[0x3c] = function(aScript) { // ActionDefineLocal
 		var value = this.pop();
 		var name_val = this.pop();
 		var name = name_val.coerceToString(this);
 		this.defineLocal(name, value);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x3c].actionType = "ActionDefineLocal";
-	actionLibrary[0x41] = function(aScript) { // ActionDefineLocal2
+	avm1Callback[0x41] = function(aScript) { // ActionDefineLocal2
 		let name_val = this.pop();
-        let name = name_val.coerceToString(this);
+		let name = name_val.coerceToString(this);
 		if (!this.in_local_scope() && ((name.indexOf(":") >= 0) || (name.indexOf(".") >= 0))) {
 			var a = this.getVariable(name);
 			if (a.type == Avm1CallableValue.UnCallable) {
@@ -20112,11 +20730,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x41].actionType = "ActionDefineLocal2";
-	actionLibrary[0x3a] = function(aScript) { // ActionDelete
-        let name_val = this.pop();
+	avm1Callback[0x3a] = function(aScript) { // ActionDelete
+		let name_val = this.pop();
 		let name = name_val.coerceToString(this);
-        let object = this.pop();
+		let object = this.pop();
 		let success;
 		if (object.type == Avm1Value.Object) {
 			success = object.value.delete(this, name);
@@ -20129,18 +20746,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromBoolean(success));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x3a].actionType = "ActionDelete";
-	actionLibrary[0x3b] = function(aScript) { // ActionDelete2
-        let name_val = this.pop();
+	avm1Callback[0x3b] = function(aScript) { // ActionDelete2
+		let name_val = this.pop();
 		let name = name_val.coerceToString(this);
-        let success = this.scope.delete(this, name);
+		let success = this.scope.delete(this, name);
 		this.push(Avm1Value.fromBoolean(success));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x3b].actionType = "ActionDelete2";
-	actionLibrary[0x46] = function(aScript) { // ActionEnumerate
-        let name_value = this.pop();
-        let name = name_value.coerceToString(this);
+	avm1Callback[0x46] = function(aScript) { // ActionEnumerate
+		let name_value = this.pop();
+		let name = name_value.coerceToString(this);
 		let object = this.getVariable(name).getValue();
 		this.push(Avm1Value.INSTANCE.Undefined);
 		if (object.type == Avm1Value.MovieClip) {
@@ -20162,26 +20777,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x46].actionType = "ActionEnumerate";
-	actionLibrary[0x49] = function(aScript) { // ActionEquals2
-        let a = this.pop();
-        let b = this.pop();
+	avm1Callback[0x49] = function(aScript) { // ActionEquals2
+		let a = this.pop();
+		let b = this.pop();
 		let result = b.abstract_eq(a, this);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x49].actionType = "ActionEquals2";
-	actionLibrary[0x4e] = function(aScript) { // ActionGetMember
-        let name_val = this.pop();
-        let name = name_val.coerceToString(this);
-        let object_val = this.pop();
+	avm1Callback[0x4e] = function(aScript) { // ActionGetMember
+		let name_val = this.pop();
+		let name = name_val.coerceToString(this);
+		let object_val = this.pop();
 		let object = object_val.coerceToObject(this);
 		let result = object.get_non_slash_path(name, this);
 		this.stackPush(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4e].actionType = "ActionGetMember";
-	actionLibrary[0x42] = function(aScript) { // ActionInitArray
+	avm1Callback[0x42] = function(aScript) { // ActionInitArray
 		let num_elements = this.pop().coerceToNumber(this);
 		let result;
 		if (num_elements < 0.0 || num_elements > 0x7fffffff) {
@@ -20193,11 +20805,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			result = Avm1Value.fromObject(Avm1ArrayBuilder.createNew(this).with(elements));
 		}	
-        this.push(result);
+		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x42].actionType = "ActionInitArray";
-	actionLibrary[0x43] = function(aScript) { // ActionInitObject
+	avm1Callback[0x43] = function(aScript) { // ActionInitObject
 		var num_props = this.pop().coerceToNumber(this);
 		var result;
 		if (num_props < 0) {
@@ -20215,15 +20826,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x43].actionType = "ActionInitObject";
-	actionLibrary[0x53] = function(aScript) { // ActionNewMethod
-        let method_name = this.pop();
-        let object_val = this.pop();
+	avm1Callback[0x53] = function(aScript) { // ActionNewMethod
+		let method_name = this.pop();
+		let object_val = this.pop();
 		let num_args = this.pop().coerceToU32(this);
 		num_args = Math.min(num_args, this.stackLen());
 		var args = [];
 		for (let i = 0; i < num_args; i++) {
-            let arg = this.pop();
+			let arg = this.pop();
 			if (arg.type == Avm1Value.MovieClip) {
 				args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
 			} else {
@@ -20233,7 +20843,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		if (object_val.type == Avm1Value.Undefined || object_val.type == Avm1Value.Null) {
 			return Avm1FrameControl.objContinue;
 		}
-        let object = object_val.coerceToObject(this);
+		let object = object_val.coerceToObject(this);
 		var _method_name = (method_name.type == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
 		let result;
 		if (_method_name) {
@@ -20247,18 +20857,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		} else {
 			result = object.construct(this, args);
 		}
-        this.stackPush(result);
+		this.stackPush(result);
 		return this.continue_if_base_clip_exists();
 	}
-	actionLibrary[0x53].actionType = "ActionNewMethod";
-	actionLibrary[0x40] = function(aScript) { // ActionNewObject
-        let fn_name_val = this.pop();
+	avm1Callback[0x40] = function(aScript) { // ActionNewObject
+		let fn_name_val = this.pop();
 		let fn_name = fn_name_val.coerceToString(this);
 		let num_args = this.pop().coerceToU32(this);
 		num_args = Math.min(num_args, this.stackLen());
 		var args = [];
 		for (let i = 0; i < num_args; i++) {
-            let arg = this.pop();
+			let arg = this.pop();
 			if (arg.type == Avm1Value.MovieClip) {
 				args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
 			} else {
@@ -20268,20 +20877,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		let name_value = this.resolve(fn_name).getValue();
 		let constructor = name_value.coerceToObject(this);
 		let result = constructor.construct(this, args);
-        this.stackPush(result);
+		this.stackPush(result);
 		return this.continue_if_base_clip_exists();
 	}
-	actionLibrary[0x40].actionType = "ActionNewObject";
-	actionLibrary[0x4f] = function(aScript) { // ActionSetMember
-        let value = this.pop();
-        let name_val = this.pop();
+	avm1Callback[0x4f] = function(aScript) { // ActionSetMember
+		let value = this.pop();
+		let name_val = this.pop();
 		let name = name_val.coerceToString(this);
 		let object = this.pop().coerceToObject(this);
 		object.set(name, value, this);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4f].actionType = "ActionSetMember";
-	actionLibrary[0x45] = function(aScript) { // ActionTargetPath
+	avm1Callback[0x45] = function(aScript) { // ActionTargetPath
 		let param = this.pop().coerceToObject(this);
 		var display_object = param.asDisplayObject();
 		var result = null;
@@ -20293,10 +20900,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x45].actionType = "ActionTargetPath";
-	actionLibrary[0x94] = function(aScript) { // ActionWith
+	avm1Callback[0x94] = function(aScript) { // ActionWith
 		let code = aScript.actions;
-        let value = this.pop();
+		let value = this.pop();
 		switch(value.type) {
 			case Avm1Value.Undefined:
 			case Avm1Value.Null:
@@ -20314,28 +20920,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 		}
 	}
-	actionLibrary[0x94].actionType = "ActionWith";
-	actionLibrary[0x4a] = function(aScript) { // ActionToNumber
+	avm1Callback[0x4a] = function(aScript) { // ActionToNumber
 		var val = this.pop();
 		var result = val.coerceToNumber(this);
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4a].actionType = "ActionToNumber";
-	actionLibrary[0x4b] = function(aScript) { // ActionToString
+	avm1Callback[0x4b] = function(aScript) { // ActionToString
 		var val = this.pop();
 		var string = val.coerceToString(this);
 		this.push(Avm1Value.fromString(string));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4b].actionType = "ActionToString";
-	actionLibrary[0x44] = function(aScript) { // ActionTypeOf
+	avm1Callback[0x44] = function(aScript) { // ActionTypeOf
 		let type_of = this.pop().typeOf(this);
 		this.push(Avm1Value.fromString(type_of));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x44].actionType = "ActionTypeOf";
-	actionLibrary[0x47] = function(aScript) { // ActionAdd2
+	avm1Callback[0x47] = function(aScript) { // ActionAdd2
 		let a = this.pop().toPrimitive(this);
 		let b = this.pop().toPrimitive(this);
 		var a_type = a.type;
@@ -20355,16 +20957,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x47].actionType = "ActionAdd2";
-	actionLibrary[0x48] = function(aScript) { // ActionLess2
-        let a = this.pop();
-        let b = this.pop();
-        let result = b.abstract_lt(a, this);
+	avm1Callback[0x48] = function(aScript) { // ActionLess2
+		let a = this.pop();
+		let b = this.pop();
+		let result = b.abstract_lt(a, this);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x48].actionType = "ActionLess2";
-	actionLibrary[0x3f] = function(aScript) { // ActionModulo
+	avm1Callback[0x3f] = function(aScript) { // ActionModulo
 		// TODO: Wrong operands?
 		var a = this.pop().coerceToNumber(this);
 		var b = this.pop().coerceToNumber(this);
@@ -20372,40 +20972,35 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x3f].actionType = "ActionModulo";
-	actionLibrary[0x60] = function(aScript) { // ActionBitAnd
+	avm1Callback[0x60] = function(aScript) { // ActionBitAnd
 		var a = this.pop().coerceToI32(this);
 		var b = this.pop().coerceToI32(this);
 		var result = a & b;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x60].actionType = "ActionBitAnd";
-	actionLibrary[0x63] = function(aScript) { // ActionBitLShift
+	avm1Callback[0x63] = function(aScript) { // ActionBitLShift
 		var a = this.pop().coerceToI32(this) & 0b11111;
 		var b = this.pop().coerceToI32(this);
 		var result = b << a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x63].actionType = "ActionBitLShift";
-	actionLibrary[0x61] = function(aScript) { // ActionBitOr
+	avm1Callback[0x61] = function(aScript) { // ActionBitOr
 		var a = this.pop().coerceToI32(this);
 		var b = this.pop().coerceToI32(this);
 		var result = a | b;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x61].actionType = "ActionBitOr";
-	actionLibrary[0x64] = function(aScript) { // ActionBitRShift
+	avm1Callback[0x64] = function(aScript) { // ActionBitRShift
 		var a = this.pop().coerceToU32(this) & 0b11111;
 		var b = this.pop().coerceToI32(this);
 		var result = b >> a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x64].actionType = "ActionBitRShift";
-	actionLibrary[0x65] = function(aScript) { // ActionBitURShift
+	avm1Callback[0x65] = function(aScript) { // ActionBitURShift
 		// TODO
 		var a = this.pop().coerceToU32(this) & 0b11111;
 		var b = this.pop().coerceToU32(this);
@@ -20413,59 +21008,51 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x65].actionType = "ActionBitURShift";
-	actionLibrary[0x62] = function(aScript) { // ActionBitXor
+	avm1Callback[0x62] = function(aScript) { // ActionBitXor
 		var a = this.pop().coerceToI32(this);
 		var b = this.pop().coerceToI32(this);
 		var result = b ^ a;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x62].actionType = "ActionBitXor";
-	actionLibrary[0x51] = function(aScript) { // ActionDecrement
+	avm1Callback[0x51] = function(aScript) { // ActionDecrement
 		var a = this.pop().coerceToNumber(this);
 		let result = a - 1;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x51].actionType = "ActionDecrement";
-	actionLibrary[0x50] = function(aScript) { // ActionIncrement
+	avm1Callback[0x50] = function(aScript) { // ActionIncrement
 		var a = this.pop().coerceToNumber(this);
 		let result = a + 1;
 		this.push(Avm1Value.fromNumber(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x50].actionType = "ActionIncrement";
-	actionLibrary[0x4c] = function(aScript) { // ActionPushDuplicate
+	avm1Callback[0x4c] = function(aScript) { // ActionPushDuplicate
 		var val = this.pop();
 		this.push(val);
 		this.push(val);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4c].actionType = "ActionPushDuplicate";
-	actionLibrary[0x3e] = function(aScript) { // ActionReturn
+	avm1Callback[0x3e] = function(aScript) { // ActionReturn
 		let return_value = this.pop();
 		return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.explicit, return_value));
 	}
-	actionLibrary[0x3e].actionType = "ActionReturn";
-	actionLibrary[0x4d] = function(aScript) { // ActionStackSwap
+	avm1Callback[0x4d] = function(aScript) { // ActionStackSwap
 		var a = this.pop();
 		var b = this.pop();
 		this.push(a);
 		this.push(b);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x4d].actionType = "ActionStackSwap";
-	actionLibrary[0x87] = function(aScript) { // ActionStoreRegister
-        let val = this.pop();
+	avm1Callback[0x87] = function(aScript) { // ActionStoreRegister
+		let val = this.pop();
 		this.push(val);
-        this.setCurrentRegister(aScript.register, val);
+		this.setCurrentRegister(aScript.register, val);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x87].actionType = "ActionStoreRegister";
 	
 	// SWFv6
-	actionLibrary[0x54] = function(aScript) { // ActionInstanceOf
+	avm1Callback[0x54] = function(aScript) { // ActionInstanceOf
 		let constr = this.pop().coerceToObject(this);
 		let obj = this.pop();
 		let result;
@@ -20483,8 +21070,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x54].actionType = "ActionInstanceOf";
-	actionLibrary[0x55] = function(aScript) { // ActionEnumerate2
+	avm1Callback[0x55] = function(aScript) { // ActionEnumerate2
 		let value = this.pop();
 		this.push(Avm1Value.INSTANCE.Undefined);
 		if (value.type == Avm1Value.MovieClip) {
@@ -20506,41 +21092,36 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x55].actionType = "ActionEnumerate2";
-	actionLibrary[0x66] = function(aScript) { // ActionStrictEquals
+	avm1Callback[0x66] = function(aScript) { // ActionStrictEquals
 		var a = this.pop();
 		var b = this.pop();
 		var result  = a.eq(b);
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x66].actionType = "ActionStrictEquals";
-	actionLibrary[0x67] = function(aScript) { // ActionGreater
+	avm1Callback[0x67] = function(aScript) { // ActionGreater
 		var a = this.pop();
 		var b = this.pop();
 		let result = a.abstract_lt(b, this);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x67].actionType = "ActionGreater";
-	actionLibrary[0x68] = function(aScript) { // ActionStringGreater
+	avm1Callback[0x68] = function(aScript) { // ActionStringGreater
 		var a = this.pop().coerceToString(this);
 		var b = this.pop().coerceToString(this);
 		var result = b > a;
 		this.push(Avm1Value.fromBoolean(result));
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x68].actionType = "ActionStringGreater";
 	
 	// SWFv7
-	actionLibrary[0x9b] = actionLibrary[0x8e]; // ActionDefineFunction2
-	actionLibrary[0x69] = function(aScript) { // ActionExtends
+	avm1Callback[0x9b] = avm1Callback[0x8e]; // ActionDefineFunction2
+	avm1Callback[0x69] = function(aScript) { // ActionExtends
 		console.log("ActionExtends");
 	}
-	actionLibrary[0x69].actionType = "ActionExtends";
-	actionLibrary[0x2b] = function(aScript) { // ActionCastOp
-        let obj = this.pop();
-        let constr = this.pop().coerceToObject(this);
+	avm1Callback[0x2b] = function(aScript) { // ActionCastOp
+		let obj = this.pop();
+		let constr = this.pop().coerceToObject(this);
 		let is_instance_of;
 		if (obj.type == Avm1Value.Object) {
 			let prototype = constr.get("prototype", this).coerceToObject(this);
@@ -20556,36 +21137,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.push(result);
 		return Avm1FrameControl.objContinue;
 	}
-	actionLibrary[0x2b].actionType = "ActionCastOp";
-	actionLibrary[0x2c] = function(aScript) { // ActionImplementsOp
+	avm1Callback[0x2c] = function(aScript) { // ActionImplementsOp
 		console.log("ActionImplementsOp");
 	}
-	actionLibrary[0x2c].actionType = "ActionImplementsOp";
-	actionLibrary[0x8f] = function(aScript) { // ActionTry
+	avm1Callback[0x8f] = function(aScript) { // ActionTry
 		console.log("ActionTry");
 	}
-	actionLibrary[0x8f].actionType = "ActionTry";
-	actionLibrary[0x2a] = function(aScript) { // ActionThrow
+	avm1Callback[0x2a] = function(aScript) { // ActionThrow
 		var value = this.pop();
 		throw new Avm1Error(value);
 	}
-	actionLibrary[0x2a].actionType = "ActionThrow";
-
-	// SWF
-	actionLibrary[0x8C] = function(aScript) { // GotoLabel
-		let label = this.getEncoding().decode(aScript.label);
-		var clip = this.target_clip;
-		if (clip) {
-			if (clip.displayType == "MovieClip") {
-				var frame = clip.frameLabelToNumber(label, this.context);
-				if (frame != null) {
-                    clip.gotoFrame(this.context, frame, true);
-				}
-			}
-		}
-		return Avm1FrameControl.objContinue;
-	}
-	actionLibrary[0x8C].actionType = "GotoLabel";
 
 	class Avm1 {
 		constructor() {
@@ -20677,6 +21238,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.removePending(context);
 			var prev = null;
 			var next = this.clipExecList;
+			context.framePhase.set(new FramePhase(FramePhase.Idle));
 			while (true) {
 				var clip = next;
 				if (!clip) {
@@ -20695,9 +21257,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					prev = clip;
 				}
 			}
+			context.framePhase.set(new FramePhase(FramePhase.Idle));
 		}
 		addExecuteList(clip) {
-			// Adding while iterating is safe, as this does not modify any active nodes.
 			if (!clip.nextAvm1Clip) {
 				clip.nextAvm1Clip = this.clipExecList;
 				this.clipExecList = clip;
@@ -20751,32 +21313,392 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			reader.readAction();
 		}
 	}
+	////////// Avm2Property //////////
+	class Avm2Property {
+		constructor(type, data) {
+			this.type = type;
+			this.data = data;
+		}
+		static newMethod(disp_id) {
+			return new Avm2Property(Avm2Property.Method, disp_id);
+		}
+		static newGetter(disp_id) {
+			return new Avm2Property(Avm2Property.Virtual, {get:disp_id,set:null});
+		}
+		static newSetter(disp_id) {
+			return new Avm2Property(Avm2Property.Virtual, {get:null,set:disp_id});
+		}
+		static newSlot(slot_id) {
+			return new Avm2Property(Avm2Property.Slot, slot_id);
+		}
+		static newConstSlot(slot_id) {
+			return new Avm2Property(Avm2Property.ConstSlot, slot_id);
+		}
+	}
+	Avm2Property.Virtual = 1;
+	Avm2Property.Method = 2;
+	Avm2Property.Slot = 3;
+	Avm2Property.ConstSlot = 4;
+	////////// Avm2PropertyMap //////////
+	class Avm2PropertyMap {
+		constructor() {
+			this.properties = Object.create(null);
+		}
+		get(name) {
+
+		}
+		getForMultiname(name) {
+
+		}
+		get_with_ns_for_multiname(name) {
+
+		}
+		contains_key(name) {
+
+		}
+		insert(name, value) {
+			
+		}
+		insert_with_namespace(ns, name, value) {
+
+		}
+		remove(name) {
+
+		}
+	}
+	////////// Value //////////
 	class Avm2ValueHint {
 		constructor(type) {
 			this.type = type;
 		}
 	}
+	Avm2ValueHint.String = 1;
+	Avm2ValueHint.Number = 2;
 	class Avm2Value {
 		constructor() {
-			this.type = arguments[0];
+			this.a = arguments[0];
 			if (arguments.length > 1) {
-				this.value;
+				this.b = arguments[1];
 			}
 		}
+		get type() {
+			return this.a;
+		}
+		get value() {
+			return this.b;
+		}
+		static fromString(value) {
+			return new Avm2Value(Avm2Value.String, value);
+		}
+		static fromNumber(value) {
+			return new Avm2Value(Avm2Value.Number, value);
+		}
+		static fromBoolean(value) {
+			return new Avm2Value(Avm2Value.Bool, value);
+		}
 		eq(other) {
+			var ot = other.type;
 
 		}
 	}
 	Avm2Value.Undefined = 1;
-    Avm2Value.Null = 2;
-    Avm2Value.Bool = 3;
-    Avm2Value.Number = 4;
-    Avm2Value.Integer = 5;
-    Avm2Value.String = 6;
-    Avm2Value.Object = 7;
+	Avm2Value.Null = 2;
+	Avm2Value.Bool = 3;
+	Avm2Value.Number = 4;
+	Avm2Value.Integer = 5;
+	Avm2Value.String = 6;
+	Avm2Value.Object = 7;
+	Avm2Value.INSTANCE = {
+		Undefined: new Avm2Value(Avm2Value.Undefined),
+		Null: new Avm2Value(Avm2Value.Null)
+	}
+	function valid_orphan(_dobj) {
+		var dobj = _dobj.upgrade();
+		if (dobj) {
+			if (!dobj.getParent()) {
+				return dobj;
+			}	
+		}
+		return null;
+	}
+	////////// Script //////////
+	class Avm2TranslationUnit {
+		constructor(movie, abc, name) {
+			this.domain = null;
+			this.name = name;
+			this.abc = abc;
+			this.classes = [];
+			this.methods = [];
+			this.scripts = [];
+			this.strings = [];
+			this.namespaces = [];
+			this.multinames = [];
+			this.movie = movie;
+		}
+		static fromABC(abc, domain, name, movie) {
+			var r = new Avm2TranslationUnit(movie, abc, name);
+			
+			return r;
+		}
+		loadClasses(activation) {
+
+		}
+		setClass(index, _class) {
+			this.classes[index] = _class;
+		}
+		loadMethod(method_index, is_function, activation) {
+
+		}
+		loadClass(class_index, activation) {
+
+		}
+		loadScript(script_index, activation) {
+
+		}
+	}
+	class Avm2Script {
+		constructor() {
+			this._globals = null;
+			this._domain = null;
+			this._init = null;
+			this.initialized = false;
+			this.translationUnit = null;
+		}
+		static create_globals_object(unit, script, domain, activation) {
+
+		}
+		init() {
+			return [this._init, this._globals, this._domain];
+		}
+		globals(context) {
+			if (!this.initialized) {
+				this.initialized = true;
+				Avm2.runScriptInitializer(this, context);
+			}
+			return this._globals;
+		}
+	}
+	////////// Scope //////////
+	class Avm2Scope {
+		constructor(values, _with) {
+			this.values = 0;
+			this.with = _with;
+		}
+		static createNew(values) {
+			return new Avm2Scope(values, false);
+		}
+		static newWith(values) {
+			return new Avm2Scope(values, true);
+		}
+	}
+	class Avm2ScopeContainer {
+		constructor(scopes, cache) {
+			this.scopes = scopes;
+			this.cache = cache;
+		}
+		static createNew(scopes) {
+			var r = new Avm2ScopeContainer(scopes, false);
+
+			return r;
+		}
+		get(index) {
+			return this.scopes[index];
+		}
+		get_unchecked(index) {
+			return this.scopes[index];
+		}
+		is_empty() {
+			return !this.scopes.length;
+		}
+	}
+	class Avm2ScopeChain {
+		constructor(container, domain) {
+			this.container = container;
+			this.domain = domain;
+		}
+		static createNew(domain) {
+			return new ScopeChain(null, domain);
+		}
+		
+	}
+	////////// Domain //////////
+	class Avm2Domain {
+		constructor() {
+			this.defs = new Avm2PropertyMap();
+			this.classes = new Avm2PropertyMap();
+			this.parent = null;
+			this.domainMemory = null;
+			this.defaultDomainMemory = null;
+			this.children = [];
+		}
+		static uninitializedDomain(parent) {
+			let domain = new Avm2Domain();
+			domain.parent = parent;
+			return domain;
+		}
+	}
+	////////// Activation //////////
+	class Avm2Activation {
+		constructor(context) {
+			this.numLocals = 0;
+			this.callerDomain = null;
+			this.callerMovie = null;
+			this.boundSuperclassObject = null;
+			this.boundClass = null;
+			this.stackDepth = null;
+			this.scopeDepth = null;
+			this.context = context;
+		}
+		static fromNothing(context) {
+			var n = new Avm2Activation(context);
+			return n;
+		}
+		static fromScript(context, script) {
+			var [method, global_object, domain] = script.init();
+			let body = method.body;
+
+		}
+		runActions(method) {
+
+		}
+	}
+
+	////////// Avm2 //////////
 	class Avm2 {
 		constructor() {
-			
+			let playerglobals_domain = Avm2Domain.uninitializedDomain(null);
+			let stage_domain = Avm2Domain.uninitializedDomain(playerglobals_domain);
+			this.playerVersion = null;
+			this.systemClasses = null;
+			this.stack = [];
+			this.scopeStack = [];
+			this.playerglobals_domain = playerglobals_domain;
+			this.stage_domain = stage_domain;
+			this.orphanObjects = [];
+		}
+		add_orphan_obj(dobj) {
+			this.orphanObjects.push(dobj.downgrade());
+		}
+		static each_orphan_obj(context, callback) {
+			let orphan_objs = context.avm2.orphanObjects;
+			for (let i = 0; i < orphan_objs.length; i++) {
+				const orphan = orphan_objs[i];
+				var dobj = valid_orphan(orphan);
+				if (dobj) {
+					callback(dobj, context);
+				}
+			}
+		}
+		static cleanup_dead_orphans(context) {
+			var r = context.avm2.orphanObjects;
+			var a = [];
+			for (let i = 0; i < r.length; i++) {
+				const element = r[i];
+				var dobj = valid_orphan(element);
+				if (dobj) {
+					if (dobj.PLACED_BY_SCRIPT) {
+						a.push(element);
+					}
+				}
+			}
+			r.length = 0;
+			for (let i = 0; i < a.length; i++) {
+				r.push(a[i]);
+			}
+		}
+		push_internal(value) {
+			this.stack.push(value);
+		}
+		push(value) { 
+			this.push_internal(value);
+		}
+		pop() {
+			let value = this.stack.pop();
+			return value;
+		}
+		static runScriptInitializer(script, context) {
+			var init_activation = Avm2Activation.fromScript(context, script);
+			var [method, _globals, _domain] = script.init();
+
+		}
+	}
+	class FramePhase {
+		constructor(type) {
+			this.type = type;
+		}
+		set(other) {
+			this.type = other.type;
+		}
+	}
+	FramePhase.Enter = 1;
+	FramePhase.Construct = 1;
+	FramePhase.FrameScripts = 1;
+	FramePhase.Exit = 1;
+	FramePhase.Idle = 1;
+	function run_all_phases_avm2(context) {
+		let stage = context.stage;
+		if (stage.movie.isActionScript3()) return;
+		context.framePhase.type = FramePhase.Enter;
+		Avm2.each_orphan_obj(context, function(orphan, context) {
+			orphan.enterFrame(context);
+		});
+		stage.enterFrame(context);
+		context.framePhase.type = FramePhase.Construct;
+		Avm2.each_orphan_obj(context, function(orphan, context) {
+			orphan.constructFrame(context);
+		});
+		stage.constructFrame(context);
+		stage.frameConstructed(context);
+		context.framePhase.type = FramePhase.FrameScripts;
+		Avm2.each_orphan_obj(context, function(orphan, context) {
+			orphan.runFrameScripts(context);
+		});
+		stage.runFrameScripts(context);
+		context.framePhase.type = FramePhase.Exit;
+		stage.exitFrame(context);
+		Avm2.cleanup_dead_orphans(context);
+		context.framePhase.type = FramePhase.Idle;
+	}
+	function run_inner_goto_frame(context, removed_frame_scripts, initial_clip) {
+		if (initial_clip.swfVersion() <= 9 && initial_clip.getMovie().isActionScript3()) {
+			initial_clip.constructFrame(context);
+			initial_clip.setSkipNextEnterFrame(true);
+	   		return;
+		}
+		let stage = context.stage;
+		let old_phase = context.framePhase.type;
+		context.framePhase.type = FramePhase.Construct;
+		Avm2.each_orphan_obj(context, function(orphan, context) {
+			orphan.constructFrame(context);
+		});
+		stage.constructFrame(context);
+		stage.frameConstructed(context);
+		context.framePhase.type = FramePhase.FrameScripts;
+		stage.runFrameScripts(context);
+		Avm2.each_orphan_obj(context, function(orphan, context) {
+			orphan.runFrameScripts(context);
+		});
+		for (let i = 0; i < removed_frame_scripts.length; i++) {
+			const child = removed_frame_scripts[i];
+			child.runFrameScripts(context);
+		}
+		context.framePhase.type = FramePhase.Exit;
+		stage.exitFrame(context);
+		Avm2.cleanup_dead_orphans(context);
+		context.framePhase.type = old_phase;
+	}
+	function catchup_display_object_to_frame(context, dobj) {
+		if (!dobj.getMovie().isActionScript3()) {
+	   		return;
+		}
+		switch (context.framePhase.type) {
+			case FramePhase.Enter:
+				dobj.enterFrame(context);
+				break;
+			case FramePhase.Construct:
+				dobj.enterFrame(context);
+				dobj.constructFrame(context);
+				break;
 		}
 	}
 	function scaleMat(mat, sx, sy) {
@@ -20885,15 +21807,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	const F = 11025;
 	const J = 1024;
 	class AudioBackend extends AudioMixerBackend {
-		constructor(audioContext) {
+		constructor() {
 			super();
-			this.audioContext = audioContext;
-			this.node = this.audioContext.createGain();
-			this.node.connect(this.audioContext.destination);
+			this.node = audioContext.createGain();
+			this.node.connect(audioContext.destination);
 			this.node.gain.value = 0;
 			this.left = new Float32Array(F);
 			this.right = new Float32Array(F);
-			this.source = this.audioContext.createScriptProcessor(J, 2, 2);
+			this.source = audioContext.createScriptProcessor(J, 2, 2);
 			this.source.onaudioprocess = (e) => { 
 				this.writeSampleData(e);
 			};
@@ -20904,13 +21825,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.kgbk = 0;
 			var jhgjhg = [];
 			for (var i = 0; i < J; i++) {
-				jhgjhg[i] = [0, 0];
+				jhgjhg[i] = new Float32Array([0, 0]);
 			}
 			this.jhgjhg = jhgjhg;
-			this.mixer = new AudioMixer(this.audioContext.sampleRate);
-		}
-		setSpeed(speed) {
-			this.mixer.outputSampleRate = this.audioContext.sampleRate / speed;
+			this.mixer = new AudioMixer(audioContext.sampleRate);
 		}
 		getPlayingCompressSound() {
 			var soundInstances = this.mixer.soundInstances;
@@ -20941,7 +21859,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.mixer.volume = value / 100;
 		}
 		getTime() {
-			return ((this.cur_time / this.audioContext.sampleRate) * 1000) | 0;
+			return ((this.cur_time / audioContext.sampleRate) * 1000) | 0;
 		}
 		stopSource() {
 			if (this._source) {
@@ -20951,7 +21869,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		startSource() {
 			this.stopSource();
-			this._source = this.audioContext.createBufferSource();
+			this._source = audioContext.createBufferSource();
 			this._source.connect(this.source);
 			this._source.start();
 		}
@@ -20982,7 +21900,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				output.fill(0);
 				return;
 			}
-			var rg = (this.audioContext.sampleRate / 44100) * 1200;
+			var rg = (audioContext.sampleRate / 44100) * 1200;
 			var time = this.kgbk;
 			var max4 = output.length / 2;
 			for (let i = 0; i < output.length; i += 2) {
@@ -20993,22 +21911,40 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		tick() {}
 	}
+	class MouseData {
+		constructor() {
+			this.hovered = null;
+			this.pressed = null;
+			this.right_pressed = null;
+			this.middle_pressed = null;
+		}
+	}
+	class PlayerEvent {
+		constructor(type, data) {
+			this.type = type;
+			this.data = data;
+		}
+	}
+	PlayerEvent.KeyDown = 1;
+	PlayerEvent.KeyUp = 2;
+	PlayerEvent.MouseMove = 3;
+	PlayerEvent.MouseUp = 4;
+	PlayerEvent.MouseDown = 5;
+	PlayerEvent.MouseLeave = 6;
 	class Player {
-		constructor(audioContext) {
-			this.audioContext = audioContext;
+		constructor() {
 			this.onload = null;
 			this.onerror = null;
 			this.onprogress = null;
 			this._width = 0;
 			this._height = 0;
-			this.speed = 1;
 			this.useBitmapCache = false;
 			this.width = 0;
 			this.height = 0;
 			this.version = 0;
 			this.frameRate = 5;
-			this.mousePosition = [0, 0];
-			this.mousePressed = false;
+			this.mousePosition = new Point(0, 0);
+			this.mouseData = new MouseData();
 			this.needsRender = false;
 			this.scale = 1;
 			this.playing = false;
@@ -21032,13 +21968,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.root.appendChild(this.canvas);
 			this.canvas.tabIndex = 0;
 			this.canvas.style.outline = 'none';
-			this.audio = new AudioBackend(audioContext);
+			this.audio = new AudioBackend();
 			this.audioManager = new AudioManager();
 			this.avm1 = new Avm1();
+			this.avm2 = new Avm2();
 			this.video = new VideoBackend();
+			this.framePhase = new FramePhase(FramePhase.Idle);
 			this.useLastBound = false;
 			this.wth = false;
-			this.interpolation = false;
 			this._unloop = false;
 			this.transformStack = new TransformStack();
 			this.debugTransformStack = new TransformStack();
@@ -21050,8 +21987,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.last_time = 0;
 			this.startTime = null;
 			this.timers = new Timers();
-			this.mouse_over_object = null;
-			this.mouse_down_object = null;
 			this.stage = new Stage(false, null);
 			this.renderType = "render";
 			this.time_til_next_timer = 0;
@@ -21078,9 +22013,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this._unloop = value;
 			this.clipSetLoop(!value);
 		}
-		static createAudioBackend(audioContext) {
-			return new AudioBackend(audioContext);
-		}
 		getQuality() {
 			return this.stage.getQuality().toString();
 		}
@@ -21097,6 +22029,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			document.addEventListener('touchstart', this._ontouchstart, { passive: false });
 			document.addEventListener('touchend', this._ontouchend);
 			document.addEventListener('touchmove', this._ontouchmove);
+			this.root.addEventListener('keyup', this._onkeyup.bind(this));
+			this.root.addEventListener('keydown', this._onkeydown.bind(this));
 		}
 		removeEventListeners() {
 			document.removeEventListener('mousedown', this._onmousedown);
@@ -21109,19 +22043,35 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		registerDeviceFont(definition) {
 			this.library.registerDeviceFont(definition);
 		}
+		_onkeyup(e) {
+			e.stopPropagation();
+			if (e.target === this.canvas) {
+				e.preventDefault();
+			}
+		}
+		_onkeydown(e) {
+			e.stopPropagation();
+			if (e.target === this.canvas) {
+				e.preventDefault();
+			}
+		}
 		_onmousedown(e) {
+			if (hasTouch) return;
 			if (e.target === this.canvas) {
 				this.updateMouse(e);
 				this.updateMouseDown(e);
 				e.preventDefault();
+				this.canvas.focus();
 			}
 		}
 		_onmouseup(e) {
+			if (hasTouch) return;
 			this.updateMouseUp(e);
 			if (e.target === this.canvas)
 				e.preventDefault();
 		}
 		_onmousemove(e) {
+			if (hasTouch) return;
 			this.updateMouse(e);
 		}
 		_ontouchstart(e) {
@@ -21146,11 +22096,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		_ontouchmove(e) {
 			for (var i = 0; i < e.changedTouches.length; i++) {
 				const t = e.changedTouches[i];
-				if (e.target === this.canvas) 
+				if (e.target === this.canvas) {
 					this.updateMouse(t);
+				}
 			}
 		}
-		updateMouse(e) {
+		getMousePoint(e) {
 			var rect = this.canvas.getBoundingClientRect();
 			var xm = e.clientX - rect.left;
 			var ym = e.clientY - rect.top;
@@ -21159,16 +22110,42 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var y = ((ym / g[7]) - g[3]) / g[5];
 			var wx = Math.round(x * this.width);
 			var wy = Math.round(y * this.height);
-			this.mouseMove(wx, wy);
+			return [wx, wy];
+		}
+		updateMouse(e) {
+			this.handleInputEvent(new PlayerEvent(PlayerEvent.MouseMove, this.getMousePoint(e)));
 		}
 		updateMouseDown(e) {
-			this.mouseDown();
+			this.handleInputEvent(new PlayerEvent(PlayerEvent.MouseDown, this.getMousePoint(e)));
 		}
-		updateMouseUp() {
-			this.mouseUp();
+		updateMouseUp(e) {
+			this.handleInputEvent(new PlayerEvent(PlayerEvent.MouseUp, this.getMousePoint(e)));
 		}
 		getInstanceCounter() {
 			return this.instanceCounter;
+		}
+		handleInputEvent(event) {
+			this.mutateWithUpdateContext((context) => {
+				switch (event.type) {
+					case PlayerEvent.MouseDown:
+					case PlayerEvent.MouseUp:
+					case PlayerEvent.MouseMove:
+						this.mousePosition.x = event.data[0] * 20;
+						this.mousePosition.y = event.data[1] * 20;
+						break;
+				}
+				switch (event.type) {
+					case PlayerEvent.MouseDown:
+						this.mousePick(context, "down");
+						break;
+					case PlayerEvent.MouseUp:
+						this.mousePick(context, "up");
+						break;
+					case PlayerEvent.MouseMove:
+						this.mousePick(context, "move");
+						break;
+				}
+			});
 		}
 		clipIsPlaying() {
 			var clip = this.getRootClip();
@@ -21293,17 +22270,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return [x, y, w, h];
 		}
-		hitStageMouse() {
-			return true;
-		}
-		getTickForFrameRate() {
-			return Math.min(1, ((1 - (10 * (1 / this.frameRate))) * this.speed) * (1 * this.speed));
-		}
 		getPlayingAudioCount() {
 			return this.audio.getPlayingAudioCount();
 		}
 		stopAllSounds() {
-			this.audio.stopAllSounds(false);
+			this.mutateWithUpdateContext((context) => {
+				context.stopAllSounds();
+			});
 		}
 		getScaleRender() {
 			var tx = 0;
@@ -21353,14 +22326,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					this.frame_accumulator += 10;
 				}
 				let frame_rate = this.frameRate;
-				let frame_time = (1000 / frame_rate) / this.speed;
+				let frame_time = 1000 / frame_rate;
 				var startTime = Date.now();
 				var frame = 0;
 				while ((((Date.now() - startTime) < 50) && (frame < 5)) && (this.frame_accumulator >= 0)) {
-					if (this.useLastBound && !this.interpolation) {
-						this.updateDebugLast();
-						if (this.interpolation) this.needsRender = true;
-					}
 					this.runFrame();
 					this.frame_accumulator -= frame_time;
 					frame++;
@@ -21373,14 +22342,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					this.audioManager.audioSkewTime(this.audio, 0);
 					audioSkewTime = true;
 				}
-				this.mutateWithUpdateContext((context) => {
-					this.mousePick(context, "move");
-				});
-				if (this.useLastBound && this.interpolation) {
-					this.updateDebugLast();
-					if (this.interpolation) this.needsRender = true;
-				}
-				var tgs = (this.cursor > 0) && this.hitStageMouse();
+				var tgs = this.cursor > 0;
 				if (tgs) {
 					this.canvas.style.cursor = "pointer";
 				} else {
@@ -21388,7 +22350,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				this.update_timers(10);
 				if (audioSkewTime) this.audio.resume();
-				else this.audio.tick();
+				this.audio.tick();
 			} else {
 				this.last_time = 0;
 				this.time_offset = this.getTime();
@@ -21406,6 +22368,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				audioManager: this.audioManager,
 				swf: this.swf,
 				avm1: this.avm1,
+				avm2: this.avm2,
+				framePhase: this.framePhase,
 				video: this.video,
 				stage: this.stage,
 				actionQueue: this.actionQueue,
@@ -21429,23 +22393,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				this.runActions(context);
 			});
-		}
-		updateDebugLast() {
-			var parent = this.getRootClip();
-			if (parent) {
-				this.updateDebugLastChild(parent);
-			}
-		}
-		updateDebugLastChild(child) {
-			if (child.isContainer()) {
-				var children = child.iterRenderList();
-				for (var i = 0; i < children.length; i++) {
-					var c = children[i];
-					this.updateDebugLastChild(c);
-				}
-			}
-			child.debugSetLastMC(this, false, child.getMatrix(), child.getColorTransform());
-			child.debugSetLastBound(this, false, child.getBounds());
 		}
 		getChildrenTypes() {
 			var clip = this.getRootClip();
@@ -21472,57 +22419,41 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			types.push(child);
 			return types;
 		}
-		mouseMove(x, y) {
-			this.mousePosition = [x * 20, y * 20];
-		}
-		mouseDown() {
-			this.mousePressed = true;
-			this.mutateWithUpdateContext((context) => {
-				this.mousePick(context, "down");
-			});
-		}
-		mouseUp() {
-			this.mousePressed = false;
-			this.mutateWithUpdateContext((context) => {
-				this.mousePick(context, "up");
-				this.mousePick(context, "move");
-			});
-		}
 		mousePick(context, type) {
 			var clip = this.getRootClip();
 			if (clip) {
-				if ((type == "move") && !this.mouse_down_object) {
-					var button = clip.mousePickAvm1(context, [this.mousePosition[0], this.mousePosition[1]], false);
+				if ((type == "move") && !this.mouseData.pressed) {
+					var button = clip.mousePickAvm1(context, this.mousePosition, false);
 					if (button) {
-						if (this.mouse_over_object !== button) {
-							if (this.mouse_over_object) {
-								this.mouse_over_object.eventDispatch(context, new ClipEvent(ClipEvent.RollOut));
+						if (this.mouseData.hovered !== button) {
+							if (this.mouseData.hovered) {
+								this.mouseData.hovered.eventDispatch(context, new ClipEvent(ClipEvent.RollOut));
 							}
 							button.eventDispatch(context, new ClipEvent(ClipEvent.RollOver));
-							this.mouse_over_object = button;
+							this.mouseData.hovered = button;
 						}
 						this.openCursor();
 					} else {
-						if (this.mouse_over_object) {
-							this.mouse_over_object.eventDispatch(context, new ClipEvent(ClipEvent.RollOut));
-							this.mouse_over_object = null;
+						if (this.mouseData.hovered) {
+							this.mouseData.hovered.eventDispatch(context, new ClipEvent(ClipEvent.RollOut));
+							this.mouseData.hovered = null;
 						}
 						this.closeCursor();
 					}
 				} else if (type == "down") {
-					if (this.mouse_over_object) {
-						this.mouse_down_object = this.mouse_over_object;
-						this.mouse_over_object = null;
-						this.mouse_down_object.eventDispatch(context, new ClipEvent(ClipEvent.Press));
+					if (this.mouseData.hovered) {
+						this.mouseData.pressed = this.mouseData.hovered;
+						this.mouseData.hovered = null;
+						this.mouseData.pressed.eventDispatch(context, new ClipEvent(ClipEvent.Press));
 					}
 				} else if (type == "up") {
-					if (this.mouse_down_object) {
-						this.mouse_down_object.eventDispatch(context, new ClipEvent(ClipEvent.Release));
-						this.mouse_over_object = this.mouse_down_object;
-						this.mouse_down_object = null;
-						this.closeCursor();
+					if (this.mouseData.pressed) {
+						this.mouseData.pressed.eventDispatch(context, new ClipEvent(ClipEvent.Release));
+						this.mouseData.hovered = this.mouseData.pressed;
+						this.mouseData.pressed = null;
 					}
 				}
+				this.runActions(context);
 			}
 		}
 		preload(executionLimit) {
@@ -21532,13 +22463,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				did_finish = root.preload(context, executionLimit);
 				return did_finish;
 			});
-		}
-		stopSounds() {
-			this.audio.stopAllSounds();
-		}
-		setSpeed(speed) {
-			this.speed = speed;
-			this.audio.setSpeed(speed);
 		}
 		debugInfo() {
 			var result = "# Player Info\n";
@@ -21609,6 +22533,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		runFrame() {
 			this.update((context) => {
+				run_all_phases_avm2(context);
 				this.avm1.runFrame(context);
 				this.audioManager.updateSounds(context);
 			});
@@ -21630,7 +22555,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					this.executeVCamById(_parent, resultVcamId, useScaleStage);
 				}
 			} else {
-				_parent.applyMatrix([1, 0, 0, 1, 0, 0]);
+				_parent.applyMatrix(Matrix.IDENTITY);
 				_parent.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);
 			}
 		}
@@ -21660,7 +22585,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (!activeVCam) {
 					console.log("DESACTIVE VCAM", clip);
 					clip.hasClipVCam = false;
-					clip.applyMatrix([1, 0, 0, 1, 0, 0]);
+					clip.applyMatrix(Matrix.IDENTITY);
 					clip.applyColorTransform([1, 1, 1, 1, 0, 0, 0, 0]);  
 				}
 			} else {
@@ -21677,8 +22602,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var c = vCam.getColorTransform();
 				vCam.setVisible(!!this.vCamShow);
 				var bounds = vCam.getBounds();
-				var camW = Math.abs(bounds.xMax - bounds.xMin) / 20;
-				var camH = Math.abs(bounds.yMax - bounds.yMin) / 20;
+				var camW = bounds.width / 20;
+				var camH = bounds.height / 20;
 				var sw = this.width;
 				var sh = this.height;
 				if (useScaleStage) {
@@ -21689,7 +22614,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var h = camH * vCam.getYScale();
 				var _scaleX = sw / w;
 				var _scaleY = sh / h;
-				var matrix = JSON.parse(JSON.stringify(vCam.getMatrix()));
+				var matrix = vCam.getMatrix().toArray();
 				matrix[4] /= 20;
 				matrix[5] /= 20;
 				invertMat(matrix);
@@ -21698,7 +22623,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				scaleMat(matrix, _scaleX, _scaleY);
 				matrix[4] *= 20;
 				matrix[5] *= 20;
-				_parent.applyMatrix(matrix);
+				_parent.applyMatrix(Matrix.fromArray(matrix));
 				_parent.applyColorTransform([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]);
 			}
 		}
@@ -21788,12 +22713,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				stage: this.stage
 			});
 			let [scaleX, scaleY, tx, ty] = this.getScaleRender();
-			this.stage.viewport_matrix[0] = scaleX;
-			this.stage.viewport_matrix[1] = 0;
-			this.stage.viewport_matrix[2] = 0;
-			this.stage.viewport_matrix[3] = scaleY;
-			this.stage.viewport_matrix[4] = tx * 20;
-			this.stage.viewport_matrix[5] = ty * 20;
+			this.stage.viewport_matrix.a = scaleX;
+			this.stage.viewport_matrix.d = scaleY;
+			this.stage.viewport_matrix.tx = tx * 20;
+			this.stage.viewport_matrix.ty = ty * 20;
 			if (isR) this.stage.render(context);
 			if (isB) this.stage.debugRender(context, this);
 			this.renderer.submitFrame(backgroundColor, context.commands, cacheDraws);
@@ -21809,7 +22732,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				var glyph = deviceFont.getGlyphForChar(txt.charCodeAt(i));
 				if (glyph) {
 					var shapeHandle = glyph.getShapeHandle(renderer);
-					context.transformStack.stackPush(new Transform([sc / fontScale, 0, 0, sc / fontScale, (x + (rrr * sc)), y + (40 * scal)], [1, 1, 1, 1, 0, 0, 0, 0]));
+					context.transformStack.stackPush(new Transform(new Matrix(sc / fontScale, 0, 0, sc / fontScale, (x + (rrr * sc)), y + (40 * scal)), [1, 1, 1, 1, 0, 0, 0, 0]));
 					context.commands.renderShape(shapeHandle, context.transformStack.getTransform());
 					context.transformStack.stackPop();
 					rrr += glyph.advance / 20;
@@ -22227,25 +23150,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			while((s >= 0) && (j.charAt(s) != "/")) {
 				s--;
 			}
-			return j.slice(s + 1, o);
+			return decodeURIComponent(j.slice(s + 1, o));
 		} catch(e) {
-			return url;
+			return null;
 		}
 	}
-	/*Renderer: WebGL 2.0
-	Adapter Name: ANGLE (AMD, Radeon RX550/550 Series (0x0000699F) Direct3D11 vs_5_0 ps_5_0, D3D11)
-	Adapter Vendor: WebKit
-	Adapter Renderer: WebKit WebGL
-	Adapter Version: WebGL 2.0 (OpenGL ES 3.0 Chromium)
-	Surface samples: x4
-	Surface size: 556x400*/
-	const PinkFie_Version = "1.3.8";
-	const PinkFie_Create = "2025-05-10";
 	class PinkFiePlayer {
 		constructor(options = {}) {
-			this.version = PinkFie_Version;
-			this.built = PinkFie_Create;
-			this.audioContext = new AudioContext();
+			this.version = "1.3.8";
+			this.built = "2025-05-20";
 			this.onload = new Slot();
 			this.onstartload = new Slot();
 			this.oncleanup = new Slot();
@@ -22312,9 +23225,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			this.handleError = this.handleError.bind(this);
 			this.resize(640, 400);
 			setInterval(this.tick.bind(this), 10);
-		}
-		static createAudioBackend(a) {
-			return Player.createAudioBackend(a);
 		}
 		addNAS3() {
 			this.nas3 = document.createElement('div');
@@ -22556,17 +23466,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				this.setVolume(rrj4.value);
 			});
 			this._rrj4 = rrj4;
-			var rrj3o = document.createElement('label');
-			rrj3o.innerHTML = "speed:";
-			var rrj4o = document.createElement('select');
-			rrj4o.innerHTML = '<option value="0.25">0.25x<option value="0.33">0.33x<option value="0.5">0.5x<option value="0.67">0.67x<option value="0.75">0.75x<option value="0.85">0.85x<option value="0.9">0.9x<option value="1">1x<option value="1.15">1.15x<option value="1.25">1.25x<option value="1.5">1.5x<option value="1.75">1.75x<option value="2">2x<option value="2.5">2.5x<option value="3">3x<option value="4">4x';
-			rrj4o.value = 1;
-			rrj4o.addEventListener('input', () => {
-				this.setOptions({ speed: +rrj4o.value });
-			});
-			this._rrj4o = rrj4o;
+
 			var _fdfj = document.createElement('div');
 			var fdfj = document.createElement('input');
+			fdfj.style.width = "180px";
 			fdfj.type = 'range';
 			fdfj.value = 1;
 			fdfj.min = 1;
@@ -22578,26 +23481,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			});
 			this.__fdfj = fdfj;
 			var a = document.createElement("label");
-			a.innerHTML = 'Seek Frame';
+			a.innerHTML = 'Frame';
 			var a2 = document.createElement("label");
 			a2.innerHTML = '1/1';
 			this.__a2 = a2;
 			_fdfj.appendChild(a);
 			_fdfj.appendChild(fdfj);
 			_fdfj.appendChild(a2);
-			this.__agdfdf = _fdfj;
-			this.controlVertical.appendChild(rrj2);
-			this.controlVertical.appendChild(rrj3);
-			this.controlVertical.appendChild(rrj4);
-			this.controlVertical.appendChild(rrj3o);
-			this.controlVertical.appendChild(rrj4o);
-			this.controlVertical.appendChild(document.createElement('br'));
-			this.controlVertical.appendChild(_fdfj);
 			var di3 = document.createElement('a');
 			di3.innerHTML = "View Stats";
 			di3.style.margin = "4px";
 			di3.onclick = this.viewStats.bind(this);
+			this.__agdfdf = _fdfj;
+			this.controlVertical.appendChild(rrj2);
+			this.controlVertical.appendChild(rrj3);
+			this.controlVertical.appendChild(rrj4);
 			this.controlVertical.appendChild(di3);
+			this.controlVertical.appendChild(document.createElement('br'));
+			this.controlVertical.appendChild(_fdfj);
 			var fdgdf2 = document.createElement("a");
 			fdgdf2.innerHTML = "Stop Sounds";
 			fdgdf2.style.margin = "4px";
@@ -22702,9 +23603,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				return n.join(".");
 			} else {
-				var swf = this.stage.swf;
-				return "pinkfie_" + swf.header.compression + "_" + swf.header.version + "_" + swf.header.uncompressedLength + "_fps" + swf.movieInfo.frameRate + "_frames" + swf.movieInfo.numFrames;
+				return this.getSwfMetadataName();
 			}
+		}
+		getSwfMetadataName() {
+			var swf = this.stage.swf;
+			return "pinkfie_" + swf.header.compression + "_" + swf.header.version + "_" + swf.header.uncompressedLength + "_fps" + swf.movieInfo.frameRate + "_frames" + swf.movieInfo.numFrames;
 		}
 		hasStage() {
 			return !!this.stage;
@@ -22758,7 +23662,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			text += "\n";
 			text += "\n# Browser Info";
 			text += "\nUser Agent: " + navigator.userAgent;
-			text += "\nHas touch support: " + ("ontouchstart" in window) + "\n";
+			text += "\nHas touch support: " + hasTouch + "\n";
 			text += "\n# PinkFie Info";
 			text += "\nVersion: " + this.version;
 			text += "\nBuilt: " + this.built;
@@ -22798,7 +23702,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				this.applyOptionsToStage();
 			}
 			this._rrj4.value = this.options.volume;
-			this._rrj4o.value = this.options.speed;
 			if (this.__rrj8) {
 				this.__rrj8.value = this.options.quality;
 			}
@@ -22898,7 +23801,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			var _this = this;
 			_this.currentLoaderSwfUrl = null;
 			_this.currentLoader = loader;
-			loader.audioContext = this.audioContext;
 			loader.onprogress = function (fs) {
 				var r = fs[1];
 				_this.onprogress.emit(r);
@@ -22959,9 +23861,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		reload() {
 			var swfData = this.swfData;
 			if (swfData) {
+				var swfTitle = this.swfTitle;
+				var swfUrl = this.swfUrl;
 				var a = this.__fdgdf.style.display;
 				this.beginLoadingSWF();
 				this.swfData = swfData;
+				this.swfTitle = swfTitle;
+				this.swfUrl = swfUrl;
 				var loader = new Loader(swfData);
 				this.__fdgdf.style.display = a;
 				this.loadLoader(loader);	
@@ -23054,13 +23960,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		applyOptionsToStage() {
 			if (this.stage) {
 				this.stage.audio.setVolume(this.options.volume);
-				this.stage.setSpeed(this.options.speed);
 				this.stage.vCamId = this.options.vCamId;
 				this.stage.vCamShow = this.options.vCamShow;
 				this.stage.wth = this.options.wth;
-				this.stage.interpolation = this.options.interpolation;
 				this.stage.clipSetLoop(!this.options.unloop);
-				this.stage.useLastBound = this.stage.wth ? true : this.options.interpolation;
 				var renderDirty = false;
 				var q = this.stage.getQuality();
 				if (q != this.options.quality) {
@@ -23263,28 +24166,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		autoplayPolicy: 'if-audio-playable',
 		volume: 100,
 		fullscreenMode: 'full',
-		speed: 1,
 		quality: "high",
 		rendermode: "render",
 		vCamId: 0,
 		vCamShow: false,
-		wth: false,
 		unloop: false,
-		interpolation: false,
 		renderscalemode: 0,
 		useBitmapCache: false
 	}
 	return {
-		SwfInput,
-		SwfDecompress,
-		shapeUtils,
 		Player: PinkFiePlayer,
-		H263Decoder,
-		ScreenVideoDecoder,
-		Vp6Decoder,
-		decodeDefineBitsJpeg,
-		glueTablesToJpeg,
-		decodeDefineBitsLossless,
 		config
 	}
 }());
