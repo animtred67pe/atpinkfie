@@ -39,16 +39,17 @@
 					<a id="viewbbb3">Settings</a>
 					<a id="viewbbb2">Controls</a>
 					<a id="viewbbb1">Copy Debug Info</a>
+					<a id="viewbbb4">Reload SWF</a>
 				</div>
 			</div>
 			<div id="demo" style="display: none;"></div>
 			<div id="pinkfiemenu">
 				<a class="dropdown">SWF Examples<select value="" id="sampleSWFpkf"><option value="" style="display: none;"></option></select></a>
-				<div id="swfeArea"></div>
 				<ul>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
-					<li><a href="about.html">credits</a></li>
+					<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
+					<li><a href="about.html">About PinkFie</a></li>
 				</ul>
 				<label>Enable WebGL Renderer:</label>
 				<input type="checkbox" id="enwebgla">
@@ -73,6 +74,9 @@
 
     			var initialTitle = document.title;
 
+				var swfTitle = "";
+				var oTitle = null;
+
 				var player = new PinkFie.Player();
 
 				player.menuSettingControls(false);
@@ -88,6 +92,9 @@
 				var viewbbb2 = document.getElementById('viewbbb2');
 				var viewbbb3 = document.getElementById('viewbbb3');
 				var viewbbb1 = document.getElementById('viewbbb1');
+				var viewbbb4 = document.getElementById('viewbbb4');
+				viewbbb4.style.display = "none";
+
 				var ssag2 = document.getElementById('ssag2');
 				var playerArea = document.getElementById('pinkfieplayerarea');
 
@@ -156,36 +163,54 @@
 				viewbbb1.onclick = function () {
 					player.copyDebugInfo();
 				}
+				viewbbb4.onclick = function () {
+					player.reload();
+				}
+
 				function oohid() {
+					viewbbb4.style.display = "none";
 					document.title = initialTitle;
 					pinkfiestage.style.display = "none";
-					demo.innerHTML = '';
 					demo.style.display = "none";
 					pinkfiemenu.style.display = "";
-					ggtitle5.textContent = "";
-					player.cleanup();
 					ssag2.style.display = "none";
+					ggtitle5.textContent = "";
 				}
 				ssag2.onclick = function () {
-					oohid();
+					oTitle = null;
+					swfTitle = "";
+					player.cleanup();
 				}
 				//setNextFrame
 				player.onload.subscribe(function() {
+					viewbbb4.style.display = "";
 					showSwf();
 				})
 				player.onerror.subscribe(function(e) {
 					
 				});
+				player.oncleanup.subscribe(function() {
+					oohid();
+				});
+				player.onstartload.subscribe(function() {
+					if (oTitle) document.title = oTitle;
+					pinkfiestage.style.display = "";
+					pinkfiemenu.style.display = "none";
+					ssag2.style.display = "";
+					demo.style.display = "none";
+					ggtitle5.textContent = swfTitle;
+				});
 				
 				function dropHandler(ev) {
 					ev.preventDefault();
 					if (ev.dataTransfer.items) {
-						[...ev.dataTransfer.items].forEach((item, i) => {
-						if (item.kind === 'file') {
-							const file = item.getAsFile();
-							loadSwfFile(file);
+						var item = ev.dataTransfer.items[0];
+						if (item) {
+							if (item.kind === 'file') {
+								var file = item.getAsFile();
+								loadSwfFile(file);
+							}
 						}
-						});
 					}
 				}
 				function dragOverHandler(ev) {
@@ -196,33 +221,19 @@
 				window.ondragover = dragOverHandler;
 
 				function loadSwfFile(file) {
-					document.title = initialTitle;
-					pinkfiestage.style.display = "";
-					pinkfiemenu.style.display = "none";
-					ssag2.style.display = "";
-					demo.innerHTML = '';
-					demo.style.display = "none";
 					var gGs = (file.name || "").split(".");
 					var typS = gGs.pop();
-					ggtitle5.textContent = (gGs.join(".")).slice(0, 65) + "." + typS;
-
+					swfTitle = (gGs.join(".")).slice(0, 65) + "." + typS;
 					player.loadSwfFromFile(file);
 				}
 
 				function loadSwfURL(url) {
-					document.title = initialTitle;
-					pinkfiestage.style.display = "";
-					pinkfiemenu.style.display = "none";
-					ssag2.style.display = "";
-					demo.style.display = "none";
-					demo.innerHTML = '';
-					ggtitle5.textContent = "";
-
 					player.loadSwfFromURL(url);
 				}
 
 				function loadSampleSWF(infoSample) {
 					var name = infoSample.name;
+					oTitle = name + ' - PinkFie';
 					if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
 					if (infoSample.md5) {
 						loadSwfURL(infoSample.md5.split("_"));
@@ -231,7 +242,6 @@
 					} else if (infoSample.file) {
 						loadSwfFile(infoSample.file);
 					}
-              		document.title = name + ' - PinkFie';
 				}
 
 				function getDefaultDarkMode() {
@@ -301,6 +311,7 @@
 
 				sampleSWFpkf.addEventListener("change", () => {
 					var Bval = sampleSWFpkf.value;
+					swfTitle = Bval.slice(0, 60);
 					if (Bval) {
 						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
 							const gd = pinkfieSampleSWF[k];
@@ -311,7 +322,6 @@
 						}
 					}
 					sampleSWFpkf.value = "";
-					ggtitle5.textContent = Bval.slice(0, 60);
 				});
 
 				for (let i = 0; i < pinkfieSampleSWF.length; i++) {

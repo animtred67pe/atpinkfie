@@ -41,6 +41,29 @@ a:hover{
     background-color: #fff;
     color: #000;
 }
+ul{
+    list-style-type: none;
+    padding: 0px 2px;
+}
+ul li {
+    margin: 12px 14px;
+}
+ul li a:hover {
+    margin: 12px 8px;
+    transition: 0.2s;
+}
+ul li a {
+    text-decoration: none;
+    padding: 4px 6px;
+    font-size: 12px;
+    background-color: #ddd;
+    border-radius: 8px;
+    color: #111;
+}
+.dark ul li a{
+    background-color: #333;
+    color: #fff;
+}
 /* Theme changer */
 .theme-select {
     position: absolute;
@@ -63,6 +86,7 @@ a:hover{
 .dark {
     background-color: #111;
     color: #ddd;
+    text-shadow: 0px 0px 5px rgba(255, 255, 255, 0.25);
 }
 .dark .app {
     color: #ddd;

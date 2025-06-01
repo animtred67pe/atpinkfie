@@ -238,12 +238,13 @@
 				function dropHandler(ev) {
 					ev.preventDefault();
 					if (ev.dataTransfer.items) {
-						[...ev.dataTransfer.items].forEach((item, i) => {
-						if (item.kind === 'file') {
-							const file = item.getAsFile();
-							loadSwfFile(file);
+						var item = ev.dataTransfer.items[0];
+						if (item) {
+							if (item.kind === 'file') {
+								var file = item.getAsFile();
+								loadSwfFile(file);
+							}
 						}
-						});
 					}
 				}
 				function dragOverHandler(ev) {

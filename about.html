@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>PinkFie - Credits</title>
+		<title>PinkFie - About</title>
 		<link rel="stylesheet" type="text/css" href="pinkfie.css">
 		<style>
 			body{
@@ -25,15 +25,22 @@
 		<a href="./" style="position:absolute;top: 10px;left: 10px;">back</a>
 		<div class="app">
 			<section style="text-align: center;">
-				<h1>Credits</h1>
+				<h1>About</h1>
 				<p>PinkFie A Flash Player Emulator in JavaScript ES6</p>
+				<p id="demo"></p>
+				<p>Release Date: Apr 21, 2024</p>
 				<p>Made By <a href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>	
-				<a href="#" id="downloadoldpinkfie">Download PinkFie versions</a>
+			</section>
+			<section>
+				<h3>Downloads</h3>
+				<a href="#" id="downloadoldpinkfie">PinkFie versions</a>
+				<br>
+				<a href="#" id="downloadoldpinkfie2">PinkFie for javascript(ES5)</a>
 			</section>
 			<section>
 				<h3>Milestones</h3>
 				<h3>--Interative Animation--</h3>
-				<p>AVM1: 70%</p>
+				<p>AVM1: 80%</p>
 				<p>AVM2: 0%</p>
 				<h3>--Image Decoder--</h3>
 				<p>JPEG: 75%</p>
@@ -62,22 +69,37 @@
 			<p style="color: #999999;">(c) 2025 Anim Tred Studio</p>
 			<script src="pinkfie.js"></script>
 			<script>
-				function downloadPinkFieOldVersions() {
+				var demo = document.getElementById("demo");
+				var player = new PinkFie.Player();
+				demo.textContent = "Version: " + player.version + " (" + player.built + ")";
+				document.getElementById("downloadoldpinkfie").onclick = function() {
 					var xhr = new XMLHttpRequest();
 					xhr.onload = function() {
 						var uint8 = new Uint8Array(xhr.response, 0x2c);
 						var zipblob = new Blob([uint8]);
 						var a = document.createElement("a");
 						a.href = URL.createObjectURL(zipblob);
-						a.download = "pinkfie versions.zip";
+						a.download = "pinkfie_versions.zip";
 						a.click();
 					}
 					xhr.responseType = "arraybuffer";
 					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/ee50ea95809fa6588ad48b66c6551b83.wav/get/");
 					xhr.send();
 				}
-				var downloadPinkFieOldButton = document.getElementById("downloadoldpinkfie");
-				downloadPinkFieOldButton.onclick = downloadPinkFieOldVersions;
+				document.getElementById("downloadoldpinkfie2").onclick = function() {
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function() {
+						var uint8 = new Uint8Array(xhr.response, 0x2c);
+						var zipblob = new Blob([uint8]);
+						var a = document.createElement("a");
+						a.href = URL.createObjectURL(zipblob);
+						a.download = "pinkfie_js_es5.zip";
+						a.click();
+					}
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/4b7bbc2932e9e14ed5aaaa5cf6787619.wav/get/");
+					xhr.send();
+				}
 			</script>
 		</div>
 	</body>
