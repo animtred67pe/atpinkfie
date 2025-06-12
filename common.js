@@ -36,6 +36,7 @@ var Common = (function() {
   var swfMd5 = URLsearchParams("swfmd5");
 
   if (!swfUrl) {
+    if (URLsearchParams("test_avm1", true)) swfUrl = ["a46120d23088f66476c315cceb7c6d45"];
     if (URLsearchParams("apology", true)) swfUrl = ["50f0d850bca885ee5e6196597cf3964c"];
     if (URLsearchParams("gotta_catch_em_all_again", true)) swfUrl = ["c09da91a1b96cb3f061dd634605b5c15"];
     if (URLsearchParams("guardian", true)) swfUrl = ["200cb9d6fbf02a30add188244e6c69a1","7e383a22fb070f0afaa8400770e35f6b"];

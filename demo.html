@@ -25,18 +25,16 @@
 				float: left;
 			}
 			#pkfcontrols .pkfcontrolB {
-				margin: 3px;
+				margin: 2px;
 				padding: 5px;
 				background-color: #080;
 				color: #ffffff;
 				border-radius: 8px;
 				text-decoration-line: none;
-				transition: 0.2s;
 			}
 			#pkfcontrols .pkfcontrolB:hover {
 				background-color: #fff;
 				color: #000000;
-				transition: 0.2s;
 			}
 			.pinkfie-root {
 				margin: 0;
@@ -65,7 +63,7 @@
 	<body>
 		<div id="pkfcontrols">
 			<a href="https://animtred67pe.github.io/atpinkfie/" class="pinkfielogo"></a>
-			<div style="height: 20px; margin: 12px; position: absolute; left: 50%; transform: translate(-50%, 0);">
+			<div style="height: 20px; margin: 11px; position: absolute; left: 50%; transform: translate(-50%, 0);">
 				<a class="pkfcontrolB" id="loadswffile">Select File</a>
 				<label id="ggtitle5">No file selected.</label>
 				<label> </label>
@@ -76,7 +74,7 @@
 			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
 		</div>
 		<div id="pinkswf">
-			<div id="pinkswfmetadata" style="width: 0px; overflow: hidden; transition: 0.2s;">
+			<div id="pinkswfmetadata" style="width: 0px; overflow: hidden;">
 				<div style="margin: 0 15px;">
 					<div id="pinkswfmetadataResult"></div>
 				</div>
@@ -114,7 +112,7 @@
 					}
 				}
 
-				const SC = {
+				var SC = {
 					"FWS": "Uncompressed",
 					"CWS": "ZLib",
 					"ZWS": "LZMA",
@@ -267,10 +265,10 @@
 					}
 					document.title = name + " - PinkFie";
 				}
-				sampleSWFpkf.addEventListener("change", () => {
+				sampleSWFpkf.addEventListener("change", function() {
 					if (sampleSWFpkf.value) {
-						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
-							const gd = pinkfieSampleSWF[k];
+						for (var k = 0; k < pinkfieSampleSWF.length; k++) {
+							var gd = pinkfieSampleSWF[k];
 							if (gd.name == sampleSWFpkf.value) {
 								loadSampleSWF(gd);
 								break;
@@ -278,8 +276,8 @@
 						}
 					}
 				});
-				for (let i = 0; i < pinkfieSampleSWF.length; i++) {
-					const element = pinkfieSampleSWF[i];
+				for (var i = 0; i < pinkfieSampleSWF.length; i++) {
+					var element = pinkfieSampleSWF[i];
 					var name = element.name;
 					var g = document.createElement('option');
 					g.value = name;

@@ -38,26 +38,23 @@
 			players.push(new PinkFie.Player());
 			players.push(new PinkFie.Player());
 			players.push(new PinkFie.Player());
-			for (let i = 0; i < players.length; i++) {
-				const ply = players[i];
+			for (var i = 0; i < players.length; i++) {
+				var ply = players[i];
 				ply.resize(580, 400);
 				ply.setOptions(Common.playerOptions);
 				ply.onload.subscribe(function() {
-					ply.setOptions({
-						autoplayPolicy: 'never'
-					});  
 				});
 				playlistarea.appendChild(ply.root);
 			}
 			function loadSwfFile(file) {
-				for (let i = 0; i < players.length; i++) {
-					const ply = players[i];
+				for (var i = 0; i < players.length; i++) {
+					var ply = players[i];
 					ply.loadSwfFromFile(file);
 				}
 			}
 			playswf.onclick = function() {
-				for (let i = 0; i < players.length; i++) {
-					const ply = players[i];
+				for (var i = 0; i < players.length; i++) {
+					var ply = players[i];
 					ply.toggleRunning();
 				}
 			}
@@ -75,8 +72,11 @@
 				}, false);
 				sa.click();
 			}
-			for (let i = 0; i < players.length; i++) {
-				const ply = players[i];
+			for (var i = 0; i < players.length; i++) {
+				var ply = players[i];
+				ply.setOptions({
+					autoplayPolicy: 'never'
+				});
 				ply.loadSwfFromURL(["6c5bf868415fe30b9e190e6a8969e212"]);
 			}
 		</script>

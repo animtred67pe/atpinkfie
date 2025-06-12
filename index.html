@@ -251,7 +251,7 @@
 				/** Dark Mode **/
 				function getLocalDarkMode() {
 					try {
-						const value = localStorage.getItem('userPrefersDark');
+						var value = localStorage.getItem('userPrefersDark');
 						if (!value) {
 						// value is undefined or null
 							return getDefaultDarkMode();
@@ -309,12 +309,12 @@
 					PinkFie.config.useWebGL = e.target.checked;
 				});
 
-				sampleSWFpkf.addEventListener("change", () => {
+				sampleSWFpkf.addEventListener("change", function() {
 					var Bval = sampleSWFpkf.value;
 					swfTitle = Bval.slice(0, 60);
 					if (Bval) {
-						for (let k = 0; k < pinkfieSampleSWF.length; k++) {
-							const gd = pinkfieSampleSWF[k];
+						for (var k = 0; k < pinkfieSampleSWF.length; k++) {
+							var gd = pinkfieSampleSWF[k];
 							if (gd.name == Bval) {
 								loadSampleSWF(gd);
 								break;
@@ -324,8 +324,8 @@
 					sampleSWFpkf.value = "";
 				});
 
-				for (let i = 0; i < pinkfieSampleSWF.length; i++) {
-					const element = pinkfieSampleSWF[i];
+				for (var i = 0; i < pinkfieSampleSWF.length; i++) {
+					var element = pinkfieSampleSWF[i];
 					var name = element.name;
 					var g = document.createElement('option');
 					g.value = name;

@@ -36,11 +36,19 @@
 				<a href="#" id="downloadoldpinkfie">PinkFie versions</a>
 				<br>
 				<a href="#" id="downloadoldpinkfie2">PinkFie for javascript(ES5)</a>
+				<br>
+				<a href="#" id="downloadoldpinkfie3">Desktop PinkFie for Windows XP 32 Bit (43.7MB)</a>
+				<br>
+				<a href="#" id="downloadoldpinkfie4">eswf41.flv</a>
+			</section>
+			<section>
+				<h3>Compatibility</h3>
+				<p>Chrome 41</p>
 			</section>
 			<section>
 				<h3>Milestones</h3>
 				<h3>--Interative Animation--</h3>
-				<p>AVM1: 80%</p>
+				<p>AVM1: 82%</p>
 				<p>AVM2: 0%</p>
 				<h3>--Image Decoder--</h3>
 				<p>JPEG: 75%</p>
@@ -69,6 +77,113 @@
 			<p style="color: #999999;">(c) 2025 Anim Tred Studio</p>
 			<script src="pinkfie.js"></script>
 			<script>
+				var LoaderSwfUrl = function(url, callback, callback2) {
+					this.url = url;
+					this.callback = callback;
+					this.callback2 = callback2;
+				}
+				LoaderSwfUrl.prototype.cancel = function() {
+					this.callback = null;
+					this.callback2 = null;
+				}
+				LoaderSwfUrl.prototype.fetchSwfMd5 = function(md5, callback, callbackProgress) {
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function () {
+						if (xhr.status == 200) {
+							callback(new Uint8Array(xhr.response, 0x2c));
+						} else {
+							callback(null, xhr.status);
+						}
+					};
+					xhr.onprogress = function (e) {
+						if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
+					};
+					xhr.onerror = function () {
+						callback(null, "");
+					};
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
+					xhr.send();
+				}
+				LoaderSwfUrl.prototype.fetchSwfUrl = function(url, callback, callbackProgress) {
+					var _this = this;
+					if (Array.isArray(url)) {
+						var result = [];
+						var id_md5 = 0;
+						function _excgfd() {
+							if (result.length > 1) {
+								var len = 0;
+								for (var i = 0; i < result.length; i++) {
+									len += result[i].length;
+								}
+								var res = new Uint8Array(len);
+								var offest = 0;
+								for (var i = 0; i < result.length; i++) {
+									res.set(result[i], offest);
+									offest += result[i].length;
+								}
+								callback(new Blob([res]), null);
+							} else {
+								callback(new Blob([result[0]]), null);
+							}
+						}
+						function _next() {
+							_this.fetchSwfMd5(url[id_md5], function(res, status) {
+								if (!res) {
+									callback(null, "failed md5: " + status, "");
+									return;
+								}
+								id_md5++;
+								result.push(res);
+								if (id_md5 >= url.length) {
+									_excgfd();
+								} else {
+									_next();
+								}
+							}, function(_p, l, t) {
+								if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length), l, t);
+							});
+						}
+						_next();
+					} else {
+						var xhr = new XMLHttpRequest();
+						xhr.onload = function () {
+							var dat = new Uint8Array(xhr.response);
+							if (xhr.status !== 200) {
+								log.log(url + " -> " + (xhr.statusText || xhr.status));
+								var mh = "";
+								try {
+									if (dat.length < 125) {
+										mh = new TextDecoder().decode(dat);
+										log.log(mh);
+									}
+								} catch(e) {
+								}
+								callback(null, xhr.status, mh || xhr.statusText);
+							} else {
+								callback(new Blob([dat]), null);
+							}
+						};
+						xhr.onprogress = function (e) {
+							if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
+						};
+						xhr.onerror = function () {
+							callback(null, "unknown");
+						};
+						xhr.responseType = "arraybuffer";
+						xhr.open("GET", url);
+						xhr.send();
+					}
+				}
+				LoaderSwfUrl.prototype.load = function() {
+					var _this = this;
+					var url = this.url;
+					this.fetchSwfUrl(url, function() {
+						if (_this.callback) _this.callback.apply(null, arguments);
+					}, function() {
+						if (_this.callback2) _this.callback2.apply(null, arguments);
+					});
+				}
 				var demo = document.getElementById("demo");
 				var player = new PinkFie.Player();
 				demo.textContent = "Version: " + player.version + " (" + player.built + ")";
@@ -98,6 +213,31 @@
 					}
 					xhr.responseType = "arraybuffer";
 					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/4b7bbc2932e9e14ed5aaaa5cf6787619.wav/get/");
+					xhr.send();
+				}
+				document.getElementById("downloadoldpinkfie3").onclick = function() {
+					var l = new LoaderSwfUrl(["8e12d47fa5a7e52c62c7743c58c1e3d4", "e0fe73cf8a14f44619ea5378dfbaff28", "bbd69dfc54a97706635ac2166d8d9cdf", "b0265020bd6de6383b3b0d901e7afa46", "a8416fa390d441642bf1040ddc10622e", "941a26e33fcacb1bd17db0766746f58c"], function(e) {
+						if (e) {
+							var a = document.createElement("a");
+							a.href = URL.createObjectURL(e);
+							a.download = "pinkfie_winxp32.zip";
+							a.click();	
+						}
+					});
+					l.load();
+				}
+				document.getElementById("downloadoldpinkfie4").onclick = function() {
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function() {
+						var uint8 = new Uint8Array(xhr.response, 0x2c);
+						var zipblob = new Blob([uint8]);
+						var a = document.createElement("a");
+						a.href = URL.createObjectURL(zipblob);
+						a.download = "eswf41.flv";
+						a.click();
+					}
+					xhr.responseType = "arraybuffer";
+					xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/e7d75900dccaed966bd2482d92f7b3fa.wav/get/");
 					xhr.send();
 				}
 			</script>
