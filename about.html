@@ -1,22 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html class="dark">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" type="text/css" href="index.css">
 		<title>PinkFie - About</title>
 		<style>
-			body{
-				font-family: monospace;
-				background-color: #111;
-				color: #ddd;
-			}
-			a {
-				color: #ddd;
-			}
-			.app {
-				width: 510px;
-				height: auto;
-				margin: auto;
+			ul li {
+				margin: 2px;
+				float: left;
 			}
 		</style>
 	</head>
@@ -24,11 +16,25 @@
 		<a href="./" style="position:absolute;top: 10px;left: 10px;">back</a>
 		<div class="app">
 			<section style="text-align: center;">
-				<h1>About</h1>
-				<p>PinkFie A Flash Player Emulator in JavaScript ES6</p>
+				<h1>About - PinkFie</h1>
+				<p>A Flash Player Emulator in JavaScript ES6</p>
 				<p id="demo"></p>
 				<p>Release Date: Apr 21, 2024</p>
-				<p>Made By <a href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>	
+				<p>Made By <a href="https://scratch.mit.edu/users/atfsmedia25/" target="_blank">atfsmedia25</a></p>
+				<p>On the next version: More Avm1 Globals</p>
+			</section>
+			<ul>
+				<li><a href="demo.html">Player</a></li>
+				<li><a href="app.html">app.html</a></li>
+				<li><a href="desktop.html">Desktop Player</a></li>
+				<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
+				<li><a href="https://github.com/animtred67pe/atpinkfie/issues">Feedback</a></li>
+			</ul>
+			<br>
+			<section>
+				<h3>Desktop</h3>
+				<img width="640" id="previewd">
+				<a href="#" id="downloadoldpinkfie5">Download PinkFie Desktop</a>
 			</section>
 			<section>
 				<h3>Downloads</h3>
@@ -36,43 +42,66 @@
 				<br>
 				<a href="#" id="downloadoldpinkfie2">PinkFie for javascript(ES5)</a>
 				<br>
-				<a href="#" id="downloadoldpinkfie3">Desktop PinkFie for Windows XP 32 Bit (43.7MB)</a>
+				<a href="#" id="downloadoldpinkfie3">PinkFie v1.3.9 Desktop for Windows XP 32 Bit (43.7MB)</a>
 				<br>
 				<a href="#" id="downloadoldpinkfie4">eswf41.flv</a>
 			</section>
-			<section>
-				<h3>Milestones</h3>
-				<h3>--Interative Animation--</h3>
-				<p>AVM1: 85%</p>
-				<p>AVM2: 0%</p>
-				<h3>--Image Decoder--</h3>
-				<p>JPEG: 75%</p>
-				<p>PNG: 0%</p>
-				<p>GIF: 100%</p>
-				<h3>--Video Codec--</h3>
-				<p>H.263: 95%</p>
-				<p>SreenVideo: 50%</p>
-				<p>VP6: 90%</p>
-				<p>H.264: 0%</p>
-				<h3>--Sound Compression--</h3>
-				<p>ADPCM: 100%</p>
-				<p>MP3: 100%</p>
-				<p>Uncompressed: 100%</p>
-				<p>Nellymoser: 100%</p>
-				<p>AAC: 0%</p>
-				<p>Speex: 0%</p>
-				<h3>--Filters--</h3>
-				<p>Blend Mode: 95%</p>
-				<p>Filters: 60%</p>
-				<p>Video Deblocking: 0%</p>
-				<h3>--Compression--</h3>
-				<p>ZLIB: 100%</p>
-				<p>LZMA: 100%</p>
-			</section>
+			<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
 			<p><a style="color: #888; text-decoration-line: none;" href="https://animtred67pe.github.io/animtred67pe/">(c) Anim Tred Studio</a></p>
 			<script src="pinkfie.js"></script>
 			<script>
+				var previewd = document.getElementById("previewd");
+
+				var xml = new XMLHttpRequest();
+				xml.onload = function() {
+					previewd.src = URL.createObjectURL(new Blob([new Uint8Array(xml.response)]));
+				}
+				xml.responseType = "arraybuffer";
+				xml.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/3511c6c31788cc3594b0768bc705aa8b.jpg/get/");
+				xml.send();
+
 				// DerpFie?
+				function loadfiletext(url, callback) {
+					var xml = new XMLHttpRequest();
+					xml.onload = function() {
+						callback(new Uint8Array(xml.response));
+					}
+					xml.responseType = "arraybuffer";
+					xml.open("GET", url);
+					xml.send();
+				}
+				function downloadpinkfiedesktop() {
+					var xml = new XMLHttpRequest();
+					xml.onload = function() {
+						var j = new TextDecoder().decode(new Uint8Array(xml.response, 0x2c));
+						var f = new Function(j);
+						var r = f();
+						var nameP = "PinkFie v" + player.version + " (" + player.built + ")";
+						var jsz = new JSZip();
+						loadfiletext("pinkfie.js", function(pinkfiejs) {
+							loadfiletext("desktop.html", function(indexhtml) {
+								loadfiletext("https://assets.scratch.mit.edu/internalapi/asset/9a1900e032e4ed065acf16f2aa07aa52.png/get/", function(iconpng) {
+									jsz.file(nameP + "/index.html", indexhtml);
+									jsz.file(nameP + "/icon.png", iconpng);
+									jsz.file(nameP + "/pinkfie.js", pinkfiejs);
+									jsz.generateAsync({
+										type: 'blob',
+										compression: 'DEFLATE',
+									}, function(metadata) {}).then(function(d) {
+										var bb = new Blob([d]);
+										var aaa = document.createElement('a');
+										aaa.href = URL.createObjectURL(bb);
+										aaa.download = nameP + '.zip';
+										aaa.click();
+									});
+								});
+							});
+						});
+					}
+					xml.responseType = "arraybuffer";
+					xml.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/29c334ca6e4b3bcd84326e26f087c8a8.wav/get/");
+					xml.send();
+				}
 
 				var LoaderSwfUrl = function(url, callback, callback2) {
 					this.url = url;
@@ -223,6 +252,7 @@
 					});
 					l.load();
 				}
+				document.getElementById("downloadoldpinkfie5").onclick = downloadpinkfiedesktop;
 				document.getElementById("downloadoldpinkfie4").onclick = function() {
 					var xhr = new XMLHttpRequest();
 					xhr.onload = function() {

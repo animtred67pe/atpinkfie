@@ -47,6 +47,10 @@ var PinkFie = (function() {
 		}
 		return out;
 	}
+	BTreeMap.prototype.highest = function() {
+		var o = this.lists[this.lists.length - 1];
+		return o ? o[0] : null;
+	}
 	BTreeMap.prototype.get = function(idx) {
 		for (var i = 0; i < this.lists.length; i++) {
 			var list = this.lists[i];
@@ -161,7 +165,6 @@ var PinkFie = (function() {
 					return i;
 				}
 			}
-			
 		}
 		return null;
 	}
@@ -11344,7 +11347,7 @@ var AT_NIHAV_VP6 = (function() {
 			]);
 	}
 	CommandList.prototype.drawRect = function(color, matrix) {
-		this.commandLists.push(["draw_rect", color.slice(0), matrix.slice(0)]);
+		this.commandLists.push(["draw_rect", color.slice(0), matrix.toArray()]);
 	}
 	CommandList.prototype.pushMask = function() {
 		if (this.maskersInProgress == 0) this.commandLists.push(["push_mask"]);
@@ -15886,6 +15889,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.ascent = 0;
 		this.descent = 0;
 		this.leading = 0;
+		this.hasLayout = false;
 	}
 	FlashFont.fromSwfTag = function(tag, encoding) {
 		var descriptor = FontDescriptor.fromSwfTag(tag, encoding);
@@ -15898,6 +15902,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		var ascent = 0;
 		var descent = 0;
 		var leading = 0;
+		var hasLayout = false;
 		if (glyphs) {
 			for (var i = 0; i < glyphs.length; i++) {
 				var g = new Glyph(shapeUtils.convertWithCacheCodes(glyphs[i]));
@@ -15916,6 +15921,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				for (var i = 0; i < advanceTable.length; i++) {
 					glyphsResult[i].advance = advanceTable[i];
 				}
+				hasLayout = true;
 			}
 		}
 		var f = new FlashFont();
@@ -15925,6 +15931,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		f.descent = descent;
 		f.leading = leading;
 		f.glyphs = new GlyphSourceMemory(glyphsResult, codePointToGlyph, kerningPairs);
+		f.hasLayout = hasLayout;
 		return f;
 	}
 	FlashFont.prototype.getGlyphForChar = function(c) {
@@ -16100,46 +16107,134 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 	}
-	function parseHTML(html) {
-		var reader = new HTMLReader(html);
-		var events = [];
-		while(true) {
-			try {
-				var result = reader.readEvent();
-				if (result) {
-					events.push(result);
-				} else {
-					break;
-				}
-			} catch(e) {
-				console.log("Error while parsing HTML", e);
-				break;
-			}
+	var TextSpanFont = function() {
+		this.face = "";
+		this.size = 12;
+		this.color = [0, 0, 0, 0];
+		this.kerning = false;
+		this.letter_spacing = 0;
+	}
+	TextSpanFont.with_format = function(tf) {
+		var data = new TextSpanFont();
+		data.set_text_format(tf);
+		return data;
+	}
+	TextSpanFont.prototype.set_text_format = function(tf) {
+		var font = tf.font;
+		var size = tf.size;
+		var color = tf.color;
+		var kerning = tf.kerning;
+		var letter_spacing = tf.letterSpacing;
+		if (font != null) {
+			
 		}
-		return events;
+		if (size != null) {
+			this.size = size;
+		}
+		if (color != null) {
+			this.color = color;
+		}
+		if (kerning != null) {
+			this.kerning = kerning;
+		}
+		if (letter_spacing != null) {
+			this.letter_spacing = letter_spacing;
+		}
+	}
+	TextSpanFont.prototype.clone = function() {
+		var c = new TextSpanFont();
+		c.face = this.face;
+		c.size = this.size;
+		c.color = this.color.slice(0);
+		c.kerning = this.kerning;
+		c.letter_spacing = this.letter_spacing;
+		return c;
+	}
+	var TextSpanStyle = function() {
+		this.bold = false;
+		this.italic = false;
+		this.underline = false;
 	}
 	var TextSpan = function() {
-
+		this.span_length = 0;
+		this.font = new TextSpanFont();
+		this.style = new TextSpanStyle();
+		this.align = "left";
+		this.left_margin = 0;
+		this.right_margin = 0;
+		this.indent = 0;
+		this.block_indent = 0;
+		this.leading = 0;
+		this.tab_stops = [];
+		this.bullet = false;
+		this.url = "";
+		this.target = "";
+		this.display = "block";
 	}
-	var FormatSpans = function() {
-		this.text = "";
-		this.displayedText = "";
-		this.spans = [];
-		this.defaultFormat = null;
+	TextSpan.with_length_and_format = function(length, tf) {
+		var data = new TextSpan();
+		data.span_length = length;
+		data.set_text_format(tf);
+		return data;
 	}
-	FormatSpans.fromHTML = function(html, defaultFormat, isMultiline, swfVersion) {
-		var h = parseHTML(html);
-		console.log(h);
-
-		var r = new FormatSpans();
-		r.defaultFormat = defaultFormat;
-		return r;
-	}
-	FormatSpans.fromText = function(text, format) {
-		var r = new FormatSpans();
-		r.text = text;
-		r.defaultFormat = format;
-		return r;
+	TextSpan.prototype.set_text_format = function(tf) {
+		var align = tf.align;
+		var bold = tf.bold;
+		var italic = tf.italic;
+		var underline = tf.underline;
+		var left_margin = tf.leftMargin;
+		var right_margin = tf.rightMargin;
+		var indent = tf.indent;
+		var block_indent = tf.blockIndent;
+		var leading = tf.leading;
+		var tab_stops = tf.tabStops;
+		var bullet = tf.bullet;
+		var url = tf.url;
+		var target = tf.target;
+		var display = tf.display;
+		if (align != null) {
+			this.align = align;
+		}
+		if (bold != null) {
+			this.style.bold = bold;
+		}
+		if (italic != null) {
+			this.style.italic = italic;
+		}
+		if (underline != null) {
+			this.style.underline = underline;
+		}
+		if (left_margin != null) {
+			this.left_margin = left_margin;
+		}
+		if (right_margin != null) {
+			this.right_margin = right_margin;
+		}
+		if (indent != null) {
+			this.indent = indent;
+		}
+		if (block_indent != null) {
+			this.block_indent = block_indent;
+		}
+		if (leading != null) {
+			this.leading = leading;
+		}
+		if (tab_stops != null) {
+			this.tab_stops = tab_stops;
+		}
+		if (bullet != null) {
+			this.bullet = bullet;
+		}
+		if (url != null) {
+			this.url = url;
+		}
+		if (target != null) {
+			this.target = target;
+		}
+		if (display != null) {
+			this.display = display;
+		}
+		this.font.set_text_format(tf);
 	}
 	var TextFormat = function() {
 		this.font = null;
@@ -16160,6 +16255,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.bullet = null;
 		this.url = null;
 		this.target = null;
+		this.display = null;
 	}
 	TextFormat.fromSwfTag = function(movie, tag) {
 		var tf = new TextFormat();
@@ -16201,6 +16297,279 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		c.url = this.url;
 		c.target = this.target;
 		return c;
+	}
+	function getAttribute(attribute, name) {
+		for (var i = 0; i < attribute.length; i++) {
+			var a = attribute[i];
+			if (a[0].toLowerCase() == name.toLowerCase()) {
+				return a[1];
+			}
+		}
+		return null;
+	}
+	var HTML_NEWLINE = "\r";
+	var FormatSpans = function() {
+		this.text = "";
+		this.displayedText = "";
+		this.spans = [];
+		this.defaultFormat = null;
+	}
+	FormatSpans.fromHTML = function(html, defaultFormat, style_sheet, isMultiline, condense_white, swfVersion) {
+		var is_multiline = isMultiline || (swfVersion <= 6);
+		var format_stack = [defaultFormat.clone()];
+		var text = "";
+		var spans = [];
+		var opened_buffer = [];
+		var opened_starts = [];
+		var last_closed_font = null;
+		var p_open = false;
+		function apply_style(style_sheet, format, selector) {
+			if (style_sheet) {
+
+			} else {
+				return format;
+			}
+
+		}
+		var reader = new HTMLReader(html);
+		while (true) {
+			var event;
+			try {
+				event = reader.readEvent();
+			} catch(error) {
+				console.log("Error while parsing HTML", error);
+				return new FormatSpans();
+			}
+			if (event) {
+				switch(event.type) {
+					case "start":
+						var tag_name = event.tagName.toLowerCase();
+						var attributes = event.attributes;
+						var format = format_stack[format_stack.length - 1];
+						var k = true;
+						if (tag_name == "br") { 
+							if (is_multiline) {
+								text += HTML_NEWLINE;
+								spans.push(TextSpan.with_length_and_format(1, format));
+							}
+							k = false;
+						} else if (tag_name == "sbr") {
+							text += HTML_NEWLINE;
+							spans.push(TextSpan.with_length_and_format(1, format));
+							k = false;
+						} else if (tag_name == "p") {
+                            p_open = true;
+							format = apply_style(style_sheet, format, "p");
+							var _class = getAttribute(attributes, "class");
+							if (_class != null) {
+								format = apply_style(style_sheet, format, "p");
+							}
+							var align = getAttribute(attributes, "align");
+							if (align != null) {
+								align = align.toLowerCase();
+								if (align == "left") {
+									format.align = "left";
+								} else if (align == "center") {
+									format.align = "center";
+								} else if (align == "right") {
+									format.align = "right";
+								} else if (align == "justify") {
+									format.align = "justify";
+								}
+							}
+						} else if (tag_name == "a") {
+							var href = getAttribute(attributes, "href");
+							if (href != null) {
+								format.url = href;
+							}
+							var target = getAttribute(attributes, "target");
+							if (target != null) {
+								format.target = target;
+							}
+							format = apply_style(style_sheet, format, "a");
+							var _class = getAttribute(attributes, "class");
+							if (_class != null) {
+								format = apply_style(style_sheet, format, "a");
+							}
+						} else if (tag_name == "font") {
+							var face = getAttribute(attributes, "face");
+							if (face != null) {
+								format.font = face;
+							}
+							var size = getAttribute(attributes, "size");
+							if (size != null) {
+								format.size = +size;
+							}
+							var color = getAttribute(attributes, "color");
+							if (color != null) {
+								if (color[0] == "#") {
+									var rval = +("0x" + color.slice(1, 3));
+									var gval = +("0x" + color.slice(3, 5));
+									var bval = +("0x" + color.slice(5, 7));
+									if (Number.isFinite(rval) && Number.isFinite(gval) && Number.isFinite(bval)) {
+										format.color = [rval, gval, bval, 0];
+									}
+								}
+							}
+							var letter_spacing = getAttribute(attributes, "letterSpacing");
+							if (letter_spacing != null) {
+								format.letterSpacing = !(+letter_spacing);
+							}
+							var kerning = getAttribute(attributes, "kerning");
+							if (kerning != null) {
+								if (kerning == "1" && swfVersion >= 8) {
+									format.letterSpacing = true;
+								} else {
+									format.letterSpacing = false;
+								}
+							}
+						} else if (tag_name == "b") {
+							format.bold = true;
+						} else if (tag_name == "i") {
+							format.italic = true;
+						} else if (tag_name == "u") {
+							format.underline = true;
+						} else if (tag_name == "li") {
+							format = apply_style(style_sheet, format, "li");
+							var is_last_nl = text[text.length - 1] == HTML_NEWLINE;
+							if (is_multiline && !is_last_nl && text) {
+								text += HTML_NEWLINE;
+								spans.push(TextSpan.with_length_and_format(1, format_stack[format_stack.length - 1]));
+							}
+							format.bullet = true;
+						} else if (tag_name == "textformat") {
+							var left_margin = getAttribute(attributes, "leftmargin");
+							if (left_margin != null) {
+								format.leftMargin = +left_margin;
+							}
+							var right_margin = getAttribute(attributes, "rightmargin");
+							if (right_margin != null) {
+								format.rightMargin = +right_margin;
+							}
+							var indent = getAttribute(attributes, "indent");
+							if (indent != null) {
+								format.indent = +indent;
+							}
+							var block_indent = getAttribute(attributes, "indent");
+							if (block_indent != null) {
+								format.blockIndent = +block_indent;
+							}
+							var leading = getAttribute(attributes, "leading");
+							if (leading != null) {
+								format.leading = +leading;
+							}
+							var tab_stops = getAttribute(attributes, "tabstops");
+							if (tab_stops != null) {
+								var h = tab_stops.split(",");
+								format.tabStops = [];
+								for (var _ = 0; _ < h.length; _++) {
+									format.tabStops = +h[_];
+								}
+							}
+						} else if (tag_name == "span") {
+							var _class = getAttribute(attributes, "class");
+							if (_class != null) {
+								format = apply_style(style_sheet, format, "span");
+							}
+						} else {
+							format = apply_style(style_sheet, format, tag_name);
+						}
+						if (k) {
+							opened_starts.push(opened_buffer.length);
+							opened_buffer.push(tag_name);
+							format_stack.push(format);
+						}
+						break;
+					case "text":
+						var e = event.text;
+						if (e) {
+							var format = format_stack[format_stack.length - 1];
+							text += e;	
+							spans.push(TextSpan.with_length_and_format(e.length, format));
+						}
+						break;
+					case "end":
+						var k = true;
+						var tag_name = event.tagName.toLowerCase();
+						var start = opened_starts[opened_starts.length - 1];
+						if (start != null) {
+							if (tag_name != opened_buffer[start]) {
+								continue;
+							} else {
+								var hhd = [];
+								var gg = Math.min(start, opened_buffer.length);
+								for (var l = 0; l < gg; l++) {
+									hhd.push(opened_buffer[l]);
+								}
+								opened_buffer = hhd;
+								opened_starts.pop();
+							}
+						} else {
+							continue;
+						}
+						if (tag_name == "br" || tag_name == "sbr") {
+							
+						} else {
+							if (tag_name == "li") {
+								if (is_multiline) {
+									text += HTML_NEWLINE;
+									spans.push(TextSpan.with_length_and_format(1, format_stack[format_stack.length - 1]));	
+								}
+							} else if (tag_name == "p") {
+								if (is_multiline) {
+									p: {
+										if (!p_open) {
+											break p;
+										}
+										p_open = false;
+										text += HTML_NEWLINE;
+										var span = TextSpan.with_length_and_format(1, format_stack[format_stack.length - 1]);
+										span.style = new TextSpanStyle();
+										span.url = "";
+										span.target = "";
+										if (last_closed_font) {
+											span.font = last_closed_font.clone();
+										} else {
+											span.font = TextSpanFont.with_format(defaultFormat);
+										}
+										spans.push(span);
+									}
+								}
+							} else if (tag_name == "font") {
+								var tf = format_stack[format_stack.length - 1];
+								last_closed_font = TextSpanFont.with_format(tf);
+							}
+                   			format_stack.pop();
+						}
+						break;
+				}
+			} else {
+				break;
+			}
+		}
+		var ret = new FormatSpans();
+		ret.text = text;
+		ret.spans = spans;
+		ret.defaultFormat = defaultFormat;
+		if (condense_white && swfVersion >= 8) {
+			ret.condense_white_swf8();
+		}
+		ret.normalize();
+		return ret;
+	}
+	FormatSpans.fromText = function(text, format) {
+		var len = text.length;
+		var r = new FormatSpans();
+		r.text = text;
+		r.defaultFormat = format;
+		r.spans = [TextSpan.with_length_and_format(len, format)];
+		return r;
+	}
+	FormatSpans.prototype.condense_white_swf8 = function() {
+		
+	}
+	FormatSpans.prototype.normalize = function() {
+		
 	}
 	var SwfMovie = function(data, header, movieInfo, fileAttributes, encoding) {
 		this.isMovie = true;
@@ -16751,7 +17120,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			console.log(`Failed to decode bitmap character ${id}: ${e}`);
 			return null;
 		}
-		if (!decoded) return null;
+		if (!decoded) {
+			decoded = new Bitmap(320, 240, Bitmap.RGBA, new Uint8Array(4));
+		}
 		var new_handle = backend.registerBitmap(decoded);
 		b.handle = new_handle;
 		return new_handle;
@@ -17826,7 +18197,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (background) {
 				var base_transform = context.transformStack.getTransform().clone();
 				var bounds = this.renderBoundsWithTransform(base_transform.matrix, true, context.stage.view_matrix());
-				context.commands.drawRect(background, [bounds.width / 20, 0, 0, bounds.height / 20, bounds.xMin, bounds.yMin]);
+				context.commands.drawRect(background, new Matrix(bounds.width / 20, 0, 0, bounds.height / 20, bounds.xMin, bounds.yMin));
 			}
 			this.apply_standard_mask_and_scroll(context, this.renderSelf.bind(this));
 		}
@@ -17916,6 +18287,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	DisplayObject.prototype.getAvm1Root = function() {
 		var root = this;
 		while(true) {
+			if (root.LOCK_ROOT) {
+				break;
+			}
 			var parent = root.getAvm1Parent();
 			if (parent) {
 				root = parent;
@@ -18218,6 +18592,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	ChildContainer.prototype.getDepth = function(depth) {
 		return this.depthList.get(depth);
 	}
+	ChildContainer.prototype.getHighestDepth = function() {
+		return this.depthList.highest() || 0;
+	}
 	ChildContainer.prototype.swapAtDepth = function(context, parent, child, depth) {
 		var prev_depth = child.getDepth();
 		child.setDepth(depth);
@@ -18358,6 +18735,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			removed_child.setParent(context, null);
 		}
 		this.invalidateCachedBitmap();
+	}
+	DisplayObjectContainer.prototype.getHighestDepth = function() {
+		return this.container.getHighestDepth();
 	}
 	DisplayObjectContainer.prototype.childByDepth = function(depth) {
 		return this.container.getDepth(depth);
@@ -19027,16 +19407,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	var TextField = function() {
 		InteractiveObject.call(this);
-		this.text_bounds = { xMin: 0, yMin: 0, yMax: 0, xMax: 0 };
+		this.text_bounds = null;
 		this.__backgroundColor = [255, 255, 255, 1];
 		this.__border_color = [0, 0, 0, 1];
 		this.__text = "";
 		this.___object = null;
+		this.___font = null;
 		this._variable = null;
 		this.avm1_text_field_bindings = [];
 		this.textColor = [0, 0, 0, 1];
 		this.fontHeight = 0;
 		this.bound_display_object = null;
+		this.textSpans = null;
 		this.staticData = null;
 		this.FIRING_VARIABLE_BINDING = false;
 		this.HAS_BACKGROUND = false;
@@ -19057,16 +19439,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	TextField.prototype.displayType = "TextField";
 	TextField.prototype._debug_colorDisplayType = [255, 255, 0, 1];
 	TextField.fromSwfTag = function(movie, tag) {
-		var defaultFormat = TextFormat.fromSwfTag(movie, tag);
-
-		var text = ("initialText" in tag) ? tag.initialText : "";
-		
-		//var text_spans = tag.HTML ? FormatSpans.fromHTML(text, default_format, false, movie.getVersion()) : FormatSpans.fromText(text, default_format);
-
 		var r = new EditTextStatic(movie);
 		r.data = tag;
 		r.characterId = tag.id;
-		r.textFormat = defaultFormat;
 		return r;
 	}
 	TextField.prototype.getMovie = function() {
@@ -19091,14 +19466,33 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	TextField.prototype.setIsHTML = function(b) {
 		this.HTML = b;
 	}
+	TextField.prototype.parseHTML = function(text) {
+		var defaultFormat = this.textSpans.defaultFormat.clone();
+		this.textSpans = FormatSpans.fromHTML(text, defaultFormat, null, false, false, this.staticData.movie);
+		return null;
+	}
 	TextField.prototype.init = function(sd) {
 		this.staticData = sd;
 		var textInfo = sd.data;
 		this.text_bounds = Rectangle.fromObject(textInfo.bounds);
 		if (textInfo.border) this.HAS_BACKGROUND = true;
-		this.__text = ("initialText" in textInfo) ? this.getMovie().encoding.decode(textInfo.initialText) : "";
+		var movie = this.getMovie();
+		var defaultFormat = TextFormat.fromSwfTag(movie, textInfo);
+		var encoding = movie.encoding;
+		var text = ("initialText" in textInfo) ? encoding.decode(textInfo.initialText) : "";
+		var text_spans = textInfo.HTML ? FormatSpans.fromHTML(text, defaultFormat, null, textInfo.isMultiline, false, movie.version) : FormatSpans.fromText(text, defaultFormat);
+		var resultText = text_spans.text;
+		this.textSpans = text_spans;
+		this.__text = resultText;
+		this.HAS_BACKGROUND = !!textInfo.border;
+
+		if ("fontID" in textInfo) {
+			var r = movie.library.getFont(textInfo.fontID);
+			//console.log(r);
+			this.___font = r;
+		}
+
 		if (textInfo.HTML) {
-			this.__text = "";
 			this.HTML = false;
 		} else {
 			this.HTML = false;
@@ -19226,9 +19620,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	TextField.prototype.runFrameAvm1 = function(context) {}
 	TextField.prototype.renderSelf = function(context) {
 		var font = context.library.deviceFont;
+		if (this.___font) {
+			if (this.___font.hasLayout) {
+				font = this.___font;
+			}
+		}
 		var sc = this.fontHeight / font.scale;
 		var xMin = this.text_bounds.xMin;
 		var yMin = this.text_bounds.yMin;
+		if (this.HAS_BACKGROUND) {
+			var r = new Matrix(this.text_bounds.width / 20, 0, 0, this.text_bounds.height / 20, xMin, yMin);
+			context.transformStack.stackPush(new Transform(r, [1, 1, 1, 1, 0, 0, 0, 0]));
+			context.commands.drawRect(this.__backgroundColor, context.transformStack.getTransform().matrix);
+			context.transformStack.stackPop();	
+		}
 		var lists = this.__text.split("\r");
 		var x = xMin;
 		var y = yMin;
@@ -21366,6 +21771,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					val = this.b.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
 				}
 				return val;
+			case Avm1Value.MovieClip:
+				var object = this.coerceToObject(activation);
+				var res = object.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
+				return (res.a == Avm1Value.Undefined) ? Avm1Value.fromString(this.coerceToString(activation)) : res;
 			default:
 				return this;
 		}
@@ -21382,8 +21791,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		var type = this.a;
 		switch (type) {
 			case Avm1Value.Object:
-			case Avm1Value.MovieClip:
 				return this.toPrimitiveNum(activation).primitiveAsNumber(activation);
+			case Avm1Value.MovieClip:
+				return Avm1Value.fromObject(this.coerceToObject(activation)).toPrimitiveNum(activation).primitiveAsNumber(activation);
 			default:
 				return this.primitiveAsNumber(activation);
 		}
@@ -21448,7 +21858,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			case Avm1Value.Object:
 				return this.b;
 			case Avm1Value.MovieClip:
-				return this.b.coerceToObject(activation);
+				var hf = this.b.coerceToObject(activation);
+				if (hf) {
+					return hf;
+				} else {
+					value = Avm1Value.INSTANCE.Undefined;
+					proto = null;
+				}
 			case Avm1Value.Null:
 			case Avm1Value.Undefined:
 				value = this;
@@ -21656,11 +22072,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	Avm1PropertyMap.prototype.insert = function(key, value, case_sensitive) {
 		this.properties[case_sensitive ? key : key.toLowerCase()] = new Avm1PropertyMapEntry(key, value);
 	}
+	Avm1PropertyMap.prototype.insertA = function(key, value) {
+		this.properties[key] = new Avm1PropertyMapEntry(key, value);
+	}
 	Avm1PropertyMap.prototype.get = function(key, case_sensitive) {
 		var p = this.properties[case_sensitive ? key : key.toLowerCase()];
 		if (!p && !case_sensitive) {
 			p = this.properties[key];
 		}
+		return p ? p.data : null;
+	}
+	Avm1PropertyMap.prototype.getA = function(key) {
+		var p = this.properties[key];
 		return p ? p.data : null;
 	}
 	Avm1PropertyMap.prototype.remove = function(key, case_sensitive) {
@@ -21898,11 +22321,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	Avm1Object.prototype.addProperty = function(name, getter, setter, attributes) {
 		if (this.asSuperObject()) return;
-		var property = this.properties.get(name, false);
+		var property = this.properties.getA(name, false);
 		if (property) {
 			property.setVirtual(getter, setter);
 		} else {
-			this.properties.insert(name, Avm1Property.newVirtual(getter, setter, attributes), false);
+			this.properties.insertA(name, Avm1Property.newVirtual(getter, setter, attributes), false);
 		}
 	}
 	Avm1Object.prototype.addPropertyWithCase = function(activation, name, getter, setter, attributes) {
@@ -22236,6 +22659,36 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 		return false;
 	}
+	function avm1_search_prototype(proto, name, activation, _this, is_slash_path) {
+		var depth = 0;
+		var _proto = proto;
+		var orig_proto = _proto; 
+		while(true) {
+			var p = (_proto.a == Avm1Value.Object) ? _proto.b : null;
+			if (p) {
+				if (depth == 255) {
+					throw new Error("Error::PrototypeRecursionLimit");
+				}
+				var getter = p.getter(name, activation);
+				if (getter) {
+					var exec = getter.asExecutable();
+					if (exec) {
+						var result = exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Getter]"), activation, Avm1Value.fromObject(_this), 1, [], Avm1ExecutionReason.INSTANCE.Special, getter);
+						return [result, depth];
+					}
+				}
+				var b = p.getLocalStored(name, activation, is_slash_path);
+				if (b) {
+					return [b, depth];
+				}
+				_proto = p.getProto(activation);
+				depth += 1;
+			} else {
+				break;
+			}
+		}
+		return null;
+	}
 	var Avm1SuperObject = function(thisObject, depth) {
 		this.thisObject = thisObject;
 		this.depth = depth;
@@ -22281,36 +22734,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		} else {
 			return method.call(name, activation, Avm1Value.fromObject(_this), args);
 		}
-	}
-	function avm1_search_prototype(proto, name, activation, _this, is_slash_path) {
-		var depth = 0;
-		var _proto = proto;
-		var orig_proto = _proto;
-		while(true) {
-			var p = (_proto.a == Avm1Value.Object) ? _proto.b : null;
-			if (p) {
-				if (depth == 255) {
-					throw new Error("Error::PrototypeRecursionLimit");
-				}
-				var getter = p.getter(name, activation);
-				if (getter) {
-					var exec = getter.asExecutable();
-					if (exec) {
-						var result = exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Getter]"), activation, Avm1Value.fromObject(_this), 1, [], Avm1ExecutionReason.INSTANCE.Special, getter);
-						return [result, depth];
-					}
-				}
-				var b = p.getLocalStored(name, activation, is_slash_path);
-				if (b) {
-					return [b, depth];
-				}
-				_proto = p.getProto(activation);
-				depth += 1;
-			} else {
-				break;
-			}
-		}
-		return null;
 	}
 	var Avm1Function = function(swf_version, actions, swf_function, scope, constant_pool, base_clip) {
 		var encoding = SwfEncoding.encodingForVersion(swf_version);
@@ -22681,7 +23104,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					clip = arg.b;
 					break;
 				case Avm1Value.Object:
-					clip = Avm1MovieClipReference.tryFromStagePbject(arg.b);
+					clip = Avm1MovieClipReference.tryFromStagePbject(activation, arg.b);
 					break;
 				default:
 					return null;
@@ -22692,7 +23115,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	Avm1TransformObject.prototype.getClip = function(activation) {
-		return this.clip ? this.clip.object : null;
+		var clip = this.clip;
+		if (clip) {
+			var res = clip.resolveReference(activation);
+			return res ? res[2] : null;
+		} else {
+			return null;
+		}
 	}
 	function avm1_define_properties_on(decls, _this, fn_proto) {
 		for (var name in decls) {
@@ -22758,8 +23187,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		return Avm1Value.INSTANCE.Undefined;
 	}
 	var avm1_remove_display_object = function(_this, activation) {
-		var depth = _this.getDepth() << 16 >> 16;
-		if (depth >= AVM1_DEPTH_BIAS && depth < AVM1_MAX_REMOVE_DEPTH && !_this.AVM1_REMOVED) {
+		var depth = _this.getDepth();
+		if ((depth >= AVM1_DEPTH_BIAS) && (depth < AVM1_MAX_REMOVE_DEPTH) && !_this.AVM1_REMOVED) {
 			var parent = _this.getAvm1Parent();
 			if (parent) {
 				if (parent instanceof MovieClip) {
@@ -22770,7 +23199,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	avm1_globals.todo = function(n) {
 		return function(a, b, c) {
-			console.log("TODO:" + n);
+			console.log("TODO:" + n, b, c);
 			return Avm1Value.INSTANCE.Undefined;
 		}
 	}
@@ -23091,8 +23520,69 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				fn: to_string_value_of,
 				attributes: ["DONT_ENUM", "DONT_DELETE"]
 			},
+			"charAt": {
+				type: "method",
+				fn: char_at,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"charCodeAt": {
+				type: "method",
+				fn: char_code_at,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"concat": {
+				type: "method",
+				fn: concat,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"indexOf": {
+				type: "method",
+				fn: index_of,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"lastIndexOf": {
+				type: "method",
+				fn: last_index_of,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"slice": {
+				type: "method",
+				fn: slice,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"split": {
+				type: "method",
+				fn: split,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"substr": {
+				type: "method",
+				fn: substr,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"substring": {
+				type: "method",
+				fn: substring,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"toLowerCase": {
+				type: "method",
+				fn: to_lower_case,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"toUpperCase": {
+				type: "method",
+				fn: to_upper_case,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			}
 		};
-		var OBJECT_DECLS = {};
+		var OBJECT_DECLS = {
+			"fromCharCode": {
+				type: "method",
+				fn: from_char_code,
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			}
+		};
 		function to_string_value_of(activation, _this, args) {
 			var string;
 			var native = _this.getNative();
@@ -23112,6 +23602,171 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		function string_function(activation, _this, args) {
 			var value = ("0" in args) ? args[0].coerceToString(activation) : "";
 			return Avm1Value.fromString(value);
+		}
+		function concat(activation, _this, args) {
+			var ret = Avm1Value.fromObject(_this).coerceToString(activation);
+			for (var i = 0; i < args.length; i++) {
+				var s = args[i].coerceToString(activation);
+				ret += s;
+			}
+			return Avm1Value.fromString(ret);
+		}
+		function char_at(activation, _this, args) {
+			var this_val = Avm1Value.fromObject(_this);
+			var str = this_val.coerceToString(activation);
+			var i = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToI32(activation);
+			var ret = str[i] || "";
+			return Avm1Value.fromString(ret);
+		}
+		function char_code_at(activation, _this, args) {
+			var this_val = Avm1Value.fromObject(_this);
+			var str = this_val.coerceToString(activation);
+			var i = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToI32(activation);
+			var is_swf5 = activation.swfVersion == 5;
+			if (i >= 0) {
+				var ret = str.charCodeAt(i);
+				return Avm1Value.fromNumber(Number.isFinite(ret) ? ret : (is_swf5 ? 0 : NaN));
+			} else {
+				return Avm1Value.fromNumber(NaN);
+			}
+		}
+		function index_of(activation, _this, args) {
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			var pattern = args[0];
+			if (pattern) {
+				pattern = pattern.coerceToString(activation);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+			var start_index = args[1];
+			if (start_index) {
+				if (start_index.a == Avm1Value.Undefined) {
+					start_index = 0;
+				} else {
+					start_index = Math.max(start_index.coerceToI32(activation), 0);
+				}
+			} else {
+				start_index = 0;
+			}
+			var res = str.slice(start_index).indexOf(pattern);
+			return Avm1Value.fromNumber((res >= 0) ? (res + start_index) : -1);
+		}
+		function last_index_of(activation, _this, args) {
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			var pattern = args[0];
+			if (pattern) {
+				pattern = pattern.coerceToString(activation);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+			var start_index = args[1];
+			if (start_index) {
+				if (start_index.a == Avm1Value.Undefined) {
+					start_index = 0;
+				} else {
+					start_index = start_index.coerceToI32(activation);
+					if (start_index >= 0) {
+						
+					} else {
+						return Avm1Value.fromNumber(-1);
+					}
+				}
+			} else {
+				start_index = 0;
+			}
+			var res = str.slice(0, start_index).lastIndexOf(pattern);
+			return Avm1Value.fromNumber((res >= 0) ? res : -1);
+		}
+		function string_wrapping_index(i, len) {
+			if (i < 0) {
+				var offset = -i;
+				return Math.max(len - offset, 0);
+			} else {
+				return Math.min(i, len);
+			}
+		}
+		function slice(activation, _this, args) {
+			if (!args.length) return Avm1Value.INSTANCE.Undefined;
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			var start_index = string_wrapping_index((args[0] || Avm1Value.INSTANCE.Undefined).coerceToI32(activation), str.length);
+			var end_index = args[1];
+			if (end_index) {
+				if (end_index.a == Avm1Value.Undefined) {
+					end_index = str.length;
+				} else {
+					end_index = string_wrapping_index(end_index.coerceToI32(activation), str.length);
+				}
+			} else {
+				end_index = str.length;
+			}
+			if (start_index < end_index) {
+				return Avm1Value.fromString(str.slice(start_index, end_index));
+			} else {
+				return Avm1Value.fromString("");
+			}
+		}
+		function substr(activation, _this, args) {
+			if (!args.length) return Avm1Value.INSTANCE.Undefined;
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			var start_index = string_wrapping_index((args[0] || Avm1Value.INSTANCE.Undefined).coerceToI32(activation), str.length);
+			var len = args[1];
+			if (len) {
+				if (len.a == Avm1Value.Undefined) {
+					len = str.length;
+				} else {
+					len = len.coerceToI32(activation);
+				}
+			} else {
+				len = str.length;
+			}
+			var end_index = string_wrapping_index(start_index + len, str.length);
+			if (start_index < end_index) {
+				return Avm1Value.fromString(str.slice(start_index, end_index));
+			} else {
+				return Avm1Value.fromString("");
+			}
+		}
+		function substring(activation, _this, args) {
+			if (!args.length) return Avm1Value.INSTANCE.Undefined;
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			var start_index = string_wrapping_index((args[0] || Avm1Value.INSTANCE.Undefined).coerceToI32(activation), str.length);
+			var end_index = args[1];
+			if (end_index) {
+				if (end_index.a == Avm1Value.Undefined) {
+					end_index = str.length;
+				} else {
+					end_index = string_wrapping_index(end_index.coerceToI32(activation), str.length);
+				}
+			} else {
+				end_index = str.length;
+			}
+			if (end_index < start_index) {
+				var a = end_index;
+				var b = start_index;
+				end_index = b;
+				start_index = a;
+			}
+			return Avm1Value.fromString(str.slice(start_index, end_index));
+		}
+		function split(activation, _this, args) {
+			return Avm1Value.INSTANCE.Undefined;
+		}
+		function to_lower_case(activation, _this, args) {
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			return Avm1Value.fromString(str.toLowerCase());
+		}
+		function to_upper_case(activation, _this, args) {
+			var str = Avm1Value.fromObject(_this).coerceToString(activation);
+			return Avm1Value.fromString(str.toUpperCase());
+		}
+		function from_char_code(activation, _this, args) {
+			var out = "";
+			for (var i = 0; i < args.length; i++) {
+				var s = args[i].coerceToI32(activation) << 16 >>> 16;
+				if (s == 0) break;
+				out += String.fromCharCode(s);
+			}
+			return Avm1Value.fromString(out);
 		}
 		return {
 			string: string,
@@ -23561,6 +24216,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				fn: wrap_std(Math.log),
 				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
 			},
+			"atan2": {
+				type: "method",
+				fn: atan2,
+				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
+			},
+			"pow": {
+				type: "method",
+				fn: pow,
+				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
+			},
 			"max": {
 				type: "method",
 				fn: max,
@@ -23581,6 +24246,32 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				fn: round,
 				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
 			},
+		}
+		function atan2(activation, _this, args) {
+			var y = args[0];
+			if (y) {
+				var x = args[1];
+				if (x) {
+					return Avm1Value.fromNumber(Math.atan2(y.coerceToNumber(activation), x.coerceToNumber(activation)));
+				} else {
+					return Avm1Value.fromNumber(Math.atan2(y.coerceToNumber(activation), 0));
+				}
+			}
+			return Avm1Value.fromNumber(NaN);
+		}
+		function pow(activation, _this, args) {
+			var y = args[0];
+			if (y) {
+				var x = args[1];
+				if (x) {
+					x = x.coerceToNumber(activation);
+					if (Number.isNaN(x)) {
+						return Avm1Value.fromNumber(NaN);
+					}
+					return Avm1Value.fromNumber(Math.pow(y.coerceToNumber(activation), x));
+				}
+			}
+			return Avm1Value.fromNumber(NaN);
 		}
 		function max(activation, _this, args) {
 			var a = args[0];
@@ -23750,6 +24441,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			"getDepth": {
 				type: "method",
 				fn: avm1_get_depth,
+				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
+			},
+			"getInstanceAtDepth": {
+				type: "method",
+				fn: mc_method(get_instance_at_depth),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"getNextHighestDepth": {
+				type: "method",
+				fn: mc_method(get_next_highest_depth),
 				attributes: ["DONT_ENUM", "DONT_DELETE"]
 			},
 			"removeMovieClip": {
@@ -23776,6 +24477,101 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			"setMask": {
 				type: "method",
 				fn: mc_method(set_mask),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"beginFill": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:beginFill"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"beginBitmapFill": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:beginBitmapFill"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"beginGradientFill": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:beginGradientFill"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"clear": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:clear"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"curveTo": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:curveTo"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"endFill": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:endFill"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"lineGradientStyle": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:lineGradientStyle"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"lineStyle": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:lineStyle"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"lineTo": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:lineTo"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"loadMovie": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:loadMovie"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"loadVariables": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:loadVariables"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"moveTo": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:moveTo"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"startDrag": {
+				type: "method",
+				fn: mc_method(start_drag),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"stopDrag": {
+				type: "method",
+				fn: mc_method(stop_drag),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"unloadMovie": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:unloadMovie"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"attachAudio": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:attachAudio"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"attachBitmap": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:attachBitmap"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"getSWFVersion": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:getSWFVersion"),
+				attributes: ["DONT_ENUM", "DONT_DELETE"]
+			},
+			"getURL": {
+				type: "method",
+				fn: avm1_globals.todo("MovieClip:getURL"),
 				attributes: ["DONT_ENUM", "DONT_DELETE"]
 			},
 			"enabled": {
@@ -23825,7 +24621,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 					shape = shape.asBool(activation.swfVersion);
 				}
 				if (Number.isFinite(x) && Number.isFinite(y)) {
-					var local = new Point(x * 20, y * 20);
+					var local = new Point((x * 20) | 0, (y * 20) | 0);
 					var point = movie_clip.getAvm1RootNoLock().localToGlobal(local);
 					var ret;
 					if (shape) {
@@ -23930,7 +24726,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (x.a == Avm1Value.Number || y.a == Avm1Value.Number) {
 					x = x.b;
 					y = y.b;
-					var local = new Point(x * 20, y * 20);
+					var local = new Point((x * 20) | 0, (y * 20) | 0);
 					var global = movie_clip.localToGlobal(local);
 					point.set("x", Avm1Value.fromNumber(global.x / 20), activation);
 					point.set("y", Avm1Value.fromNumber(global.y / 20), activation);
@@ -23947,7 +24743,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				if (x.a == Avm1Value.Number || y.a == Avm1Value.Number) {
 					x = x.b;
 					y = y.b;
-					var local = new Point(x * 20, y * 20);
+					var local = new Point((x * 20) | 0, (y * 20) | 0);
 					var global = movie_clip.globalToLocal(local);
 					if (global) {
 						point.set("x", Avm1Value.fromNumber(global.x / 20), activation);
@@ -24014,6 +24810,38 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return new_clip ? new_clip.getObject() : Avm1Value.INSTANCE.Undefined;
 		}
+		function get_instance_at_depth(movie_clip, activation, args) {
+			if (activation.swfVersion >= 7) {
+				var depth = args[0];
+				if (depth) {
+					depth = (depth.coerceToI32(activation) + AVM1_DEPTH_BIAS) | 0;
+				} else {
+					console.log("MovieClip.get_instance_at_depth: Too few parameters");
+					return Avm1Value.INSTANCE.Undefined;
+				}
+				var child = movie_clip.childByDepth(depth);
+				if (child) {
+					var obj = child.getObject();
+					if (obj.a == Avm1Value.Undefined) {
+						return movie_clip.getObject();
+					} else {
+						return obj;
+					}
+				} else {
+					return Avm1Value.INSTANCE.Undefined;
+				}
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+		}
+		function get_next_highest_depth(movie_clip, activation, _args) {
+			if (activation.swfVersion >= 7) {
+				var depth = Math.max((movie_clip.getHighestDepth() - AVM1_DEPTH_BIAS - 1) | 0, 0);
+				return Avm1Value.fromNumber(depth);
+			} else {
+				return Avm1Value.INSTANCE.Undefined;
+			}
+		}
 		function clone_sprite(movie_clip, context, target, depth, init_object) {
 			var parent = movie_clip.getAvm1Parent();
 			if (parent) {
@@ -24049,7 +24877,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (movie_clip.AVM1_REMOVED) return Avm1Value.INSTANCE.Undefined;
 			var parent = movie_clip.getAvm1Parent();
 			if (parent) {
+				if (parent instanceof MovieClip) {
 
+				} else {
+					return Avm1Value.INSTANCE.Undefined;
+				}
 			} else {
 				return Avm1Value.INSTANCE.Undefined;
 			}
@@ -24151,10 +24983,28 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return Avm1Value.fromBoolean(true);
 		}
+		function start_drag(movie_clip, activation, args) {
+			var lock_center = args[0] ? args[0].asBool(activation.swfVersion) : false;
+			var constraint_args = null;
+			if (args.length > 1) {
+				var x_min = (args[1] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
+				var y_min = (args[2] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
+				var x_max = (args[3] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
+				var y_max = (args[4] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
+				constraint_args = [x_min, y_min, x_max, y_max];
+			}
+			start_drag_impl(movie_clip, activation, lock_center, constraint_args);
+			return Avm1Value.INSTANCE.Undefined;
+		}
+		function stop_drag(_movie_clip, activation, _args) {
+			Player.updateDrag(activation.context);
+			activation.context.setDragObject(null);
+			return Avm1Value.INSTANCE.Undefined;
+		}
 		return {
-			start_drag_impl,
-			goto_frame,
-			clone_sprite,
+			start_drag_impl: start_drag_impl,
+			goto_frame: goto_frame,
+			clone_sprite: clone_sprite,
 			create_proto: function(proto, fn_proto) {
 				var _proto = Avm1Object.createNew(proto);
 				avm1_define_properties_on(PROTO_DECLS, _proto, fn_proto);
@@ -24167,7 +25017,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			"enabled": {
 				type: "boolean",
 				boolean: true
-			}
+			},
+			"getDepth": {
+				type: "method",
+				fn: avm1_get_depth,
+				attributes: ["DONT_DELETE", "READ_ONLY"]
+			},
 		};
 		return {
 			create_proto: function(proto, fn_proto) {
@@ -24216,6 +25071,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 		var PROTO_DECLS = {
+			"getDepth": {
+				type: "method",
+				fn: avm1_get_depth,
+				attributes: ["DONT_ENUM", "DONT_DELETE", "READ_ONLY"]
+			},
 			"replaceSel": {
 				type: "method",
 				fn: tf_method(replace_sel)
@@ -24528,8 +25388,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 			return {
 				type: "property",
-				getter,
-				setter
+				getter: getter,
+				setter: setter
 			}
 		}
 		var PROTO_DECLS = {
@@ -26319,26 +27179,108 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	}
 	Avm1CallableValue.UnCallable = 1;
 	Avm1CallableValue.Callable = 2;
+	var MovieClipPath = function(path) {
+		var level = 0;
+		var parts = path.split(".");
+		if (parts[0] != null) {
+			if (parts[0] == "_level") {
+				var n = +parts[0].slice(6);
+				if (Number.isInteger(n)) {
+					level = n;
+				}
+			}
+		}
+		this.level = level;
+		this.path_segments = parts;
+		this.full_path = path;
+	}
 	var Avm1MovieClipReference = function(path, object) {
 		this._path = path;
-		this.object = object;
+		this.cached_object = object;
 	}
-	Avm1MovieClipReference.tryFromStagePbject = function(object) {
+	Avm1MovieClipReference.tryFromStagePbject = function(activation, object) {
 		var display_object = object.asDisplayObjectNoSuper();
-		if (display_object && (display_object.displayType == "MovieClip")) {
-			return new Avm1MovieClipReference(display_object.path(), display_object);
+		var path = null;
+		var cached = null;
+		if (display_object) {
+			if (display_object instanceof MovieClip) {
+				path = display_object.path();
+				cached = display_object.getObject();
+			} else if (activation.swfVersion <= 5) {
+				var d = Avm1MovieClipReference.process_swf5_references(activation, display_object);
+				path = d.path();
+				cached = d.getObject();
+			} else {
+				return null;
+			}
 		} else {
 			return null;
 		}
+		if (cached.a == Avm1Value.Object) {
+			cached = cached.b;
+		} else {
+			return null;
+		}
+		return new Avm1MovieClipReference(new MovieClipPath(path), cached);
+	}
+	Avm1MovieClipReference.process_swf5_references = function(activation, display_object) {
+		if (activation.swfVersion <= 5) {
+			while(!(display_object instanceof MovieClip)) {
+				var p = display_object.getAvm1Parent();
+				if (p) {
+					display_object = p;
+				} else {
+					return null;
+				}
+			}
+		}
+		return display_object;
 	}
 	Avm1MovieClipReference.prototype.coerceToObject = function(a) {
-		return this.object.getObject().coerceToObject(a);
+		var res = this.resolveReference(a);
+		return res ? res[1] : null;
 	}
 	Avm1MovieClipReference.prototype.coerceToString = function(a) {
-		return this._path;
+		var res = this.resolveReference(a);
+		if (res) {
+			if (res[0]) {
+				return res[2].path();
+			} else {
+				return this._path.full_path;
+			}
+		} else {
+			return "";
+		}
 	}
 	Avm1MovieClipReference.prototype.path = function() {
-		return this._path;
+		return this._path.full_path;
+	}
+	Avm1MovieClipReference.prototype.resolveReference = function(activation) {
+		var cache = this.cached_object;
+		if (cache) {
+			var display_object = cache.asDisplayObjectNoSuper();
+			if (display_object) {
+				if (!display_object.AVM1_REMOVED) {
+					var d = Avm1MovieClipReference.process_swf5_references(activation, display_object);
+					return [true, cache, d];
+				}
+			}
+		}
+		this.cached_object = null;
+		var start = activation.get_or_create_level(this._path.level);
+		for (var i = 0; i < this._path.path_segments.length; i++) {
+			var part = this._path.path_segments[i];
+			if (start) {
+				if (start instanceof DisplayObjectContainer) {
+					start = start.childByName(part, activation.is_case_sensitive());
+				}
+			}
+		}
+		if (start) {
+			var dd = Avm1MovieClipReference.process_swf5_references(activation, start);
+			return [false, dd.getObject().coerceToObject(activation), dd];
+		}
+		return null;
 	}
 	var Avm1RegisterSet = function(len) {
 		this.registers = [];
@@ -26483,7 +27425,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		while (path) {
 			path = string_trim_start_matches(path, ":");
 			var prefix = path.slice(0, Math.min(path.length, 3));
-			var val;
+			var val = null;
 			if (prefix == ".." || prefix == "../" || prefix == "..:") {
 				if (path[2] == "/") {
 					is_slash_path = true;
@@ -26551,7 +27493,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (val.a == Avm1Value.Object) {
 				resO = val.b;
 			} else if (val.a == Avm1Value.MovieClip) {
-				resO = val.b.coerceToObject(this);
+				resO = val.coerceToObject(this);
 			} else {
 				return null;
 			}
@@ -26584,6 +27526,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		var r = this.get_root_parent_container();
 		return r ? r.childByDepth(level_id) : null;
 	}
+	Avm1Activation.prototype.get_or_create_level = function(level_id) {
+		var level = this.get_level(level_id);
+		if (level) {
+			return level;
+		} else {
+			var mc = MovieClip.createNew(this.base_clip.getMovie());
+			mc.setDepth(level_id);
+			mc.setDefaultInstanceName(this.context);
+			var r = this.get_root_parent_container();
+			if (r) {
+				r.replaceAtDepth(this.context, mc, level_id);
+			}
+			return r;
+		}
+	}
 	Avm1Activation.prototype.setTargetClip = function(value) {
 		this.target_clip = value ? (!value.AVM1_REMOVED ? value : null) : null;
 	}
@@ -26606,7 +27563,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (clip) {
 				new_target_clip = clip;
 			} else {
-				console.log("SetTarget failed: " + target + " not found");
+				var path = base_clip.AVM1_REMOVED ? "?" : base_clip.path();
+				//console.log("SetTarget failed: " + target + " not found");
+				var message = "Target not found: Target=" + target + " Base=" + path;
+				this.context.avm_trace(message);
 				new_target_clip = null;
 			}
 		}
@@ -26747,7 +27707,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	Avm1Activation.prototype.stackPush = function(value) {
 		var _value;
 		if (value.a == Avm1Value.Object) {
-			var mc = Avm1MovieClipReference.tryFromStagePbject(value.b);
+			var mc = Avm1MovieClipReference.tryFromStagePbject(this, value.b);
 			_value = mc ? Avm1Value.fromMovieClip(mc) : value;
 		} else {
 			_value = value;
@@ -27166,7 +28126,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 				}
 				break;
 			case Avm1Value.MovieClip:
-				var clip = target.b.coerceToObject(this).asDisplayObject();
+				var clip = target.coerceToObject(this).asDisplayObject();
 				if (clip) {
 					this.setTargetClip(clip);
 				} else {
@@ -30291,8 +31251,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.resize(640, 400);
 		setInterval(this.tick.bind(this), 10);
 	}
-	PinkFiePlayer.prototype.version = "1.3.9";
-	PinkFiePlayer.prototype.built = "2025-06-14";
+	PinkFiePlayer.prototype.version = "1.3.10";
+	PinkFiePlayer.prototype.built = "2025-06-25";
+	PinkFiePlayer.prototype.isBeta = false;
 	PinkFiePlayer.prototype.addNAS3 = function() {
 		this.nas3 = document.createElement('div');
 		this.nas3.className = 'watcher-pinkfie-setting';
@@ -31198,6 +32159,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	PinkFiePlayer.prototype.cleanup = function() {
+		if (this.fullscreenEnabled) {
+			this.exitFullscreen();
+		}
 		this.swfTitle = null;
 		this.swfUrl = null;
 		this.swfData = null;
@@ -31246,8 +32210,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		renderscalemode: 0,
 		useBitmapCache: false
 	}
-	function enableFlashObject(){var S=null,E=[];function t(e) {E.push(e);var TS=new PinkFie.Player();TS.resize(+e.width, +e.height);TS.loadSwfFromURL(e.src);var SA=[];for (var i=0;i<e.parentNode.children.length;i++) {var o=e.parentNode.children[i];SA.push(o)};e.parentNode.insertBefore(TS.root, SA[SA.indexOf(e)]);e.remove()};function d() {var J=document.querySelectorAll('embed[src$=".swf"]');for (var p=0;p<J.length;p++) {var o=J[p];if(E.indexOf(o)==-1&&o.src)if (o.type=='application/x-shockwave-flash')t(o)}};S=setInterval(d,100)}
-	console.log("%c PinkFie %c v1.3.9 %c", "color: #fff; background: #5f5f5f", "color: #fff; background: #4bc729", "");
+	function enableFlashObject(){var S=null,E=[];function t(e){E.push(e);var TS=new PinkFie.Player();TS.resize(+e.width, +e.height);TS.loadSwfFromURL(e.src);var SA=[];for(var i=0;i<e.parentNode.children.length;i++){var o=e.parentNode.children[i];SA.push(o)};e.parentNode.insertBefore(TS.root, SA[SA.indexOf(e)]);e.remove()};function d(){var J=document.querySelectorAll('embed[src$=".swf"]');for(var p=0;p<J.length;p++){var o=J[p];if(E.indexOf(o)==-1&&o.src)if(o.type=='application/x-shockwave-flash')t(o)}};S=setInterval(d,100)}
+	console.log("%c PinkFie %c v1.3.10 %c", "color: #fff; background: #5f5f5f", "color: #fff; background: #4bc729", "");
 	return {
 		Player: PinkFiePlayer,
 		enableFlashObject: enableFlashObject,

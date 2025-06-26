@@ -31,10 +31,6 @@
 				border-radius: 8px;
 				text-decoration-line: none;
 			}
-			#pkfcontrols .pkfcontrolB:hover {
-				background-color: #fff;
-				color: #000000;
-			}
 			.pinkfie-root {
 				margin: 0;
 			}
@@ -57,6 +53,16 @@
 				background-image: url(pinkfie_logo_l.svg);
 				background-size: 87px 25px;
 			}
+			#pkfcontrols .pkfcontrolC {
+				float: right;
+				margin: 8px 8px;
+				width: 25px; height: 25px;
+				background-color: #080;
+				color: #ffffff;
+				border-radius: 50%;
+				text-decoration-line: none;
+				background-size: 50px 25px;
+			}
 		</style>
 	</head>
 	<body>
@@ -69,8 +75,8 @@
 				<label>Sample SWF:</label>
 				<select value="" id="sampleSWFpkf"></select>
 			</div>
-			<a class="pkfcontrolB" id="enswfreload" style="margin: 8px; float: right;">Reload SWF</a>
-			<a class="pkfcontrolB" id="enswfmetadata" style="margin: 8px; float: right;">SWF Metadata</a>
+			<a class="pkfcontrolC" title="SWF Reload" id="enswfreload" style="background-image: url(demo_icons.svg); background-position: 25px 0px;"></a>
+			<a class="pkfcontrolC" title="SWF Metadata" id="enswfmetadata" style="background-image: url(demo_icons.svg); margin: 8px 2px;"></a>
 		</div>
 		<div id="pinkswf">
 			<div id="pinkswfmetadata" style="width: 0px; overflow: hidden;">
@@ -79,6 +85,7 @@
 				</div>
 			</div>
 		</div>
+		<label style="color: #888; position:fixed; bottom: 10px; right: 10px; margin: 0px; z-index: 99;" id="verinfo"></label>
 		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
 		<script src="common.js"></script>
@@ -86,9 +93,14 @@
 			(function() {
 				var autoplayL = true;
 
+				var verinfo = document.getElementById("verinfo");
+
 				var player = new PinkFie.Player();
 
 				var initialTitle = document.title;
+
+				var verinfo = document.getElementById("verinfo");
+				if (player.isBeta) verinfo.innerHTML = "Version " + player.version + (player.isBeta ? " Beta" : "") + "<br>Built: " + player.built;
 
 				player.setOptions(Common.playerOptions);
 
@@ -239,6 +251,7 @@
 						if (item) {
 							if (item.kind === 'file') {
 								var file = item.getAsFile();
+								sampleSWFpkf.value = '';
 								loadSwfFile(file);
 							}
 						}

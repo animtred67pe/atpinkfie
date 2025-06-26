@@ -47,6 +47,7 @@
 				<ul>
 					<li><a href="demo.html">Player</a></li>
 					<li><a href="app.html">app.html</a></li>
+					<li><a href="desktop.html">Desktop Player</a></li>
 					<li><a href="fierainbow.html">F_I_E R_A_I_N_B_O_W</a></li>
 					<li><a href="https://github.com/animtred67pe/atpinkfie/issues">Feedback</a></li>
 					<li><a href="about.html">About PinkFie</a></li>
@@ -58,6 +59,7 @@
 				<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
 				<p><a style="color: #888; text-decoration-line: none;" href="https://animtred67pe.github.io/animtred67pe/">(c) Anim Tred Studio</a></p>
 			</section>
+			<label style="color: #888; position:fixed; bottom: 10px; right: 10px; margin: 0px; z-index: 99;" id="verinfo"></label>
 		</div>
 		<script src="pinkfie.js"></script>
 		<script src="pinkfie_logo.js"></script>
@@ -71,6 +73,8 @@
 					}
 					return el;
 				}
+
+				var verinfo = document.getElementById("verinfo");
 
     			var initialTitle = document.title;
 
@@ -332,8 +336,10 @@
 					g.textContent = name;
 					sampleSWFpkf.appendChild(g);
 				}
-				
-                document.querySelector(".version").textContent = "v" + player.version;
+
+				if (player.isBeta) verinfo.innerHTML = "Version " + player.version + (player.isBeta ? " Beta" : "") + "<br>Built: " + player.built;
+
+				document.querySelector(".version").textContent = "v" + player.version;
 			}());
 		</script>
     </body>
