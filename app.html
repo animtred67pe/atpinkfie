@@ -12,13 +12,6 @@
                 background-color: #000;
                 color: #fff;
             }
-			#loadedegfdg {
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				font-size: 40px;
-			}
 			#pkfcontrols {
 				background-color: rgb(92, 206, 92);
 				height: 30px;
@@ -47,12 +40,15 @@
 	</head>
 	<body>
 		<div id="pinkswf"></div>
-        <p id="loadedegfdg"></p>
+		<label style="color: #888; position:fixed; bottom: 10px; right: 10px; margin: 0px; z-index: 99;" id="verinfo"></label>
 		<script src="pinkfie.js"></script>
 		<script src="common.js"></script>
 		<script>
 			(function() {
-				var player = new PinkFie.Player();
+				var verinfo = document.getElementById("verinfo");
+				verinfo.innerHTML = "Version " + PinkFie.version + (PinkFie.isBeta ? " Beta" : "") + "<br>Built: " + PinkFie.built;
+
+				var player = new PinkFie();
 				window.player = player;
 				var playerArea = document.getElementById('pinkswf');
 				playerArea.appendChild(player.root);
@@ -76,6 +72,7 @@
 						if (item) {
 							if (item.kind === 'file') {
 								var file = item.getAsFile();
+								verinfo.style.display = "none";
 								loadSwfFile(file);
 							}
 						}
@@ -93,6 +90,7 @@
 							autoplayPolicy: 'never'
 						});
 					}
+					verinfo.style.display = "none";
 					loadSwfURL(Common.swfUrl);
 				} else {
 					if (!Common.autoplay) {

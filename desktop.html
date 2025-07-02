@@ -148,7 +148,7 @@
 			(function() {
                 var pinkfieblack = document.getElementById('pinkfieblack');
 
-                var player = new PinkFie.Player();
+                var player = new PinkFie();
 				window.player = player;
 
 				var playerArea = document.getElementById('pinkfieArea');
@@ -306,7 +306,7 @@
 					PinkFie.config.useWebGL = e.target.checked;
 				});
 
-                document.title = "PinkFie Player " + player.version + ":" + player.built;
+                document.title = "PinkFie Player " + PinkFie.version + ":" + PinkFie.built;
             }());
         </script>
     </body>

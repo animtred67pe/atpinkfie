@@ -93,14 +93,12 @@
 			(function() {
 				var autoplayL = true;
 
-				var verinfo = document.getElementById("verinfo");
-
-				var player = new PinkFie.Player();
+				var player = new PinkFie();
 
 				var initialTitle = document.title;
 
 				var verinfo = document.getElementById("verinfo");
-				if (player.isBeta) verinfo.innerHTML = "Version " + player.version + (player.isBeta ? " Beta" : "") + "<br>Built: " + player.built;
+				if (PinkFie.isBeta) verinfo.innerHTML = "Version " + PinkFie.version + (PinkFie.isBeta ? " Beta" : "") + "<br>Built: " + PinkFie.built;
 
 				player.setOptions(Common.playerOptions);
 
