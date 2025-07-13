@@ -1,7 +1,7 @@
 /*
  * PinkFie A Flash Player Emulator in JavaScript ES6
  * 
- * Made By Anim Tred
+ * Made By Anim Tred (THIS CHANNEL IS REMOVED BECAUSE MY CHANNEL GOT TERMINATED DUE TO CIRCUMVENTION POLICY)
  */
 
 var PinkFie = (function() {
@@ -226,6 +226,7 @@ var PinkFie = (function() {
 			for (var i = start; i < end; i++) {
 				this[i] = _;
 			}
+			return this;
 		}
 		var array_slice = function(a, b) {
 			var length = this.length;
@@ -28964,6 +28965,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		}
 	}
 	////////// Avm2Property //////////
+	var Avm2PropertyClass = function(type, data) {
+		this.type = type;
+		this.data = data;
+	}
+	Avm2PropertyClass.Any = 1;
+	Avm2PropertyClass.Class = 2;
+	Avm2PropertyClass.Name = 3;
+	Avm2PropertyClass.create_name = function(name, unit) {
+		
+	}
+	Avm2PropertyClass.prototype.coerce = function(activation, value) {
+		
+	}
+	Avm2PropertyClass.prototype.get_class = function(activation) {
+		
+	}
+	Avm2PropertyClass.prototype.get_name = function() {
+		
+	}
 	var Avm2Property = function(type, data) {
 		this.type = type;
 		this.data = data;
@@ -29019,6 +29039,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	Avm2Value.fromBoolean = function(value) {
 		return new Avm2Value(Avm2Value.Bool, value);
 	}
+	Avm2Value.fromObject = function(value) {
+		return new Avm2Value(Avm2Value.Object, value);
+	}
 	Avm2Value.Undefined = 1;
 	Avm2Value.Null = 2;
 	Avm2Value.Bool = 3;
@@ -29030,6 +29053,511 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		Undefined: new Avm2Value(Avm2Value.Undefined),
 		Null: new Avm2Value(Avm2Value.Null)
 	}
+	Avm2Value.string_to_int = function(s, radix, strict) {
+		return (+s) | 0;
+	}
+	Avm2Value.string_to_f64 = function(s, swf_version, strict) {
+		return +s;
+	}
+	Avm2Value.abc_default_value = function(translation_unit, _default, activation) {
+		
+	}
+	Avm2Value.prototype.eq = function(other) {
+		if ((this.a == Avm2Value.Undefined) && (other.a == Avm2Value.Undefined)) {
+			return true;
+		} else if ((this.a == Avm2Value.Null) && (other.a == Avm2Value.Null)) {
+			return true;
+		} else if ((this.a == Avm2Value.Bool) && (other.a == Avm2Value.Bool)) {
+			return this.b == other.b;
+		} else if ((this.a == Avm2Value.Number) && (other.a == Avm2Value.Number)) {
+			return this.b == other.b;
+		} else if ((this.a == Avm2Value.Number) && (other.a == Avm2Value.Integer)) {
+			return this.b == other.b;
+		} else if ((this.a == Avm2Value.Integer) && (other.a == Avm2Value.Number)) {
+			return this.b == other.b;
+		} else if ((this.a == Avm2Value.String) && (other.a == Avm2Value.String)) {
+			return this.b == other.b;
+		} else if ((this.a == Avm2Value.Object) && (other.a == Avm2Value.Object)) {
+			return this.b === other.b;
+		} else {
+			return false;
+		}
+	}
+	Avm2Value.prototype.as_namespace = function() {
+		
+	}
+	Avm2Value.prototype.as_f64 = function() {
+		
+	}
+	Avm2Value.prototype.as_i32 = function() {
+		
+	}
+	Avm2Value.prototype.as_u32 = function() {
+		
+	}
+	Avm2Value.prototype.is_primitive = function() {
+		
+	}
+	Avm2Value.prototype.coerce_to_boolean = function() {
+		
+	}
+	Avm2Value.prototype.coerce_to_primitive = function(hint, activation) {
+		
+	}
+	Avm2Value.prototype.coerce_to_number = function(activation) {
+		
+	}
+	Avm2Value.prototype.coerce_to_u32 = function(activation) {
+		
+	}
+	Avm2Value.prototype.coerce_to_i32 = function(activation) {
+		
+	}
+	Avm2Value.prototype.coerce_to_string = function(activation) {
+		
+	}
+	Avm2Value.prototype.null_check = function() {
+		
+	}
+	Avm2Value.prototype.as_object = function() {
+		
+	}
+	Avm2Value.prototype.get_property = function(multiname, activation) {
+		
+	}
+	Avm2Value.prototype.get_public_property = function(name, activation) {
+		
+	}
+	Avm2Value.prototype.set_property = function(multiname, value, activation) {
+		
+	}
+	Avm2Value.prototype.set_public_property = function(name, value, activation) {
+		
+	}
+	Avm2Value.prototype.init_property = function(multiname, value, activation) {
+		
+	}
+	Avm2Value.prototype.call_property = function(multiname, _arguments, activation) {
+		
+	}
+	Avm2Value.prototype.call_public_property = function(name, _arguments, activation) {
+		
+	}
+	Avm2Value.prototype.call_method = function(id, _arguments, activation) {
+		
+	}
+	Avm2Value.prototype.call_method_with_args = function(id, _arguments, activation) {
+		
+	}
+	Avm2Value.prototype.delete_property = function(activation, multiname) {
+		
+	}
+	Avm2Value.prototype.has_trait = function(activation, name) {
+		
+	}
+	Avm2Value.prototype.has_own_property = function(activation, name) {
+		
+	}
+	Avm2Value.prototype.has_public_property = function(name, activation) {
+		
+	}
+	Avm2Value.prototype.call = function(activation, receiver, args) {
+		
+	}
+	Avm2Value.prototype.construct = function(activation, args) {
+		
+	}
+	Avm2Value.prototype.coerce_to_type = function(activation, _class) {
+		
+	}
+	Avm2Value.prototype.is_number = function() {
+		
+	}
+	Avm2Value.prototype.is_u32 = function() {
+		
+	}
+	Avm2Value.prototype.is_i32 = function() {
+		
+	}
+	Avm2Value.prototype.is_of_type = function(activation, type_class) {
+		
+	}
+	Avm2Value.prototype.vtable = function(activation) {
+		
+	}
+	Avm2Value.prototype.instance_class = function(activation) {
+		
+	}
+	Avm2Value.prototype.getProto = function(activation) {
+		
+	}
+	Avm2Value.prototype.instance_of_class_name = function(activation) {
+		
+	}
+	Avm2Value.prototype.is_instance_of = function(activation, class_or_function_object) {
+		
+	}
+	Avm2Value.prototype.strict_eq = function(other) {
+		
+	}
+	Avm2Value.prototype.abstract_eq = function(other, activation) {
+		
+	}
+	Avm2Value.prototype.abstract_lt = function(other, activation) {
+		
+	}
+
+	// Avm2 Object
+
+	var Avm2Object = function(data) {
+		this.data = data;
+	}
+	Avm2Object.prototype.gc_base = function() {
+		return this.data;
+	}
+	Avm2Object.prototype.base = function() {
+		return new Avm1ScriptObjectWrapper(this.gc_base());
+	}
+	Avm2Object.prototype.get_property_local = function(name, activation) {
+		
+	}
+	Avm2Object.prototype.get_string_property_local = function(name, activation) {
+		
+	}
+	Avm2Object.prototype.get_index_property = function(_index) {
+		
+	}
+	Avm2Object.prototype.set_property_local = function(name, value, activation) {
+		
+	}
+	Avm2Object.prototype.set_string_property_local = function(name, value, activation) {
+		
+	}
+	Avm2Object.prototype.init_property_local = function(name, value, activation) {
+		
+	}
+	Avm2Object.prototype.call_property_local = function(multiname, _arguments, activation) {
+		
+	}
+	Avm2Object.prototype.get_slot = function(id) {
+		
+	}
+	Avm2Object.prototype.set_slot = function(id, value, activation) {
+		
+	}
+	Avm2Object.prototype.set_slot_no_coerce = function(id, value) {
+		
+	}
+	Avm2Object.prototype.has_property_via_in = function(_activation, name) {
+		
+	}
+	Avm2Object.prototype.has_property = function(name) {
+		
+	}
+	Avm2Object.prototype.has_own_property = function(name) {
+		
+	}
+	Avm2Object.prototype.has_own_property_string = function(name, activation) {
+		
+	}
+	Avm2Object.prototype.has_trait = function(name) {
+		
+	}
+	Avm2Object.prototype.delete_property_local = function(activation, name) {
+		
+	}
+	Avm2Object.prototype.delete_string_property_local = function(name, activation) {
+		
+	}
+	Avm2Object.prototype.getProto = function() {
+		
+	}
+	Avm2Object.prototype.setProto = function(proto) {
+		
+	}
+	Avm2Object.prototype.get_next_enumerant = function(last_index, _activation) {
+		
+	}
+	Avm2Object.prototype.get_enumerant_name = function(index, _activation) {
+		
+	}
+	Avm2Object.prototype.get_enumerant_value = function(index, activation) {
+		
+	}
+	Avm2Object.prototype.property_is_enumerable = function(name) {
+		
+	}
+	Avm2Object.prototype.set_local_property_is_enumerable = function(name, is_enumerable) {
+		
+	}
+	Avm2Object.prototype.install_bound_method = function(disp_id, _function) {
+		
+	}
+	Avm2Object.prototype.apply = function(activation, _params) {
+		
+	}
+	Avm2Object.prototype.default_hint = function() {
+		
+	}
+	Avm2Object.prototype.to_string = function() {
+		
+	}
+	Avm2Object.prototype.public_vtable_properties = function(activation) {
+		
+	}
+	Avm2Object.prototype.is_of_type = function(test_class) {
+		
+	}
+	Avm2Object.prototype.vtable = function() {
+		
+	}
+	Avm2Object.prototype.get_bound_method = function(id) {
+		
+	}
+	Avm2Object.prototype.instance_class = function() {
+		
+	}
+	Avm2Object.prototype.instance_of_class_name = function() {
+		
+	}
+	Avm2Object.prototype.set_vtable = function(vtable) {
+		
+	}
+	Avm2Object.prototype.as_class_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_function_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_namespace = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_namespace_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_qname_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_loader_info_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_array_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_array_storage = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_bytearray = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_bytearray_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_bytearray_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_array_storage_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_vector_storage = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_vector_storage_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_display_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.init_application_domain = function() {
+		console.log("Tried to init an application domain on a non-ApplicationDomain object!");
+	}
+	Avm2Object.prototype.as_application_domain = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_event_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_event = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_event_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_dispatch = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_dispatch_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_regexp_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_regexp = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_font = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_regexp_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_sound_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_sound_channel = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_bitmap_data = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_shader_data = function() {
+		return null;
+	}
+	Avm2Object.prototype.init_bitmap_data = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_date_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_dictionary_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_text_format = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_text_format_mut = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_error_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_xml_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_xml_list_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.xml_descendants = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_context_3d = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_index_buffer = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_vertex_buffer = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_program_3d = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_stage_3d = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_texture = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_netstream = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_responder = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_net_connection = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_socket = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_local_connection_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_file_reference = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_shared_object = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_sound_transform = function() {
+		return null;
+	}
+	Avm2Object.prototype.as_style_sheet = function() {
+		return null;
+	}
+
+	// Avm1 ScriptObject
+
+	var Avm1ScriptObjectWrapper = function(data) {
+		this.data = data;
+	}
+	Avm1ScriptObjectWrapper.prototype.values = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.bound_methods = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.get_property_local = function(multiname, activation) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.set_property_local = function(multiname, value, activation) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.init_property_local = function(multiname, value, activation) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.delete_property_local = function(multiname) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.get_slot = function(id) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.set_slot = function(id, value) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.get_bound_method = function(id) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.has_own_dynamic_property = function(name) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.has_own_property = function(name) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.getProto = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.setProto = function(proto) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.get_next_enumerant = function(last_index) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.get_enumerant_name = function(index) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.property_is_enumerable = function(name) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.set_local_property_is_enumerable = function(name, is_enumerable) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.install_bound_method = function(disp_id, _function) {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.instance_class = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.vtable = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.is_sealed = function() {
+		
+	}
+	Avm1ScriptObjectWrapper.prototype.set_vtable = function(vtable) {
+		
+	}
+
 	function valid_orphan(_dobj) {
 		var dobj = _dobj.upgrade();
 		if (dobj) {
@@ -29079,11 +29607,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.initialized = false;
 		this.translationUnit = null;
 	}
+	Avm2Script.from_abc_index = function(unit, script_index, domain, activation) {
+		
+	}
 	Avm2Script.create_globals_object = function(unit, script, domain, activation) {
 		
 	}
 	Avm2Script.prototype.init = function() {
 		return [this._init, this._globals, this._domain];
+	}
+	Avm2Script.prototype.domain = function() {
+		return this._domain;
+	}
+	Avm2Script.prototype.global_class = function() {
+		return this._globals.instance_class();
 	}
 	Avm2Script.prototype.globals = function() {
 		if (!this.initialized) {
@@ -29158,8 +29695,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		return n;
 	}
 	Avm2Activation.fromScript = function(context, script) {
-		//var [method, global_object, domain] = script.init();
-		//var body = method.body;
+		var a = script.init();
+		var method = a[0], global_object = a[1], domain = a[2];
+		var body = method.body;
 
 	}
 	Avm2Activation.prototype.runActions = function(method) {
@@ -30347,6 +30885,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		});
 	}
 	Player.prototype.runFrame = function() {
+		var root = this.getRootClip();
+		var preload_finished = this.preload(new ExecutionLimit(500000));
+		if ((root.getFramesloaded() < 1) && !preload_finished) {
+			return;
+		}
 		this.update(function(context) {
 			run_all_phases_avm2(context);
 			this.avm1.runFrame(context);
@@ -30717,18 +31260,29 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			if (!_this.aborted) {
 				var movie = SwfMovie.from(result);
 				stage.setRootMovie(movie);
-				_this.interval = setInterval(function() {
-					var g = stage.preload(new ExecutionLimit(500000));
-					if (g) {
-						_this.cancelInterval();
-						if (!_this.aborted) calllback(stage);
-					} else {
-						var root = stage.getRootClip();
-						var l = root.getLoadedBytes();
-						var r = root.getTotalBytes();
-						_this.emitProgress([1, l / r], l, r);
-					}
-				}, 10);
+				//_this.cancelInterval();
+				if (!_this.aborted) calllback(stage);
+
+				//while(true) {
+				//	var g = stage.preload(new ExecutionLimit(1000000));
+				//	if (g) {
+				//		if (!_this.aborted) calllback(stage);
+				//		break;
+				//	}
+				//}
+
+				//_this.interval = setInterval(function() {
+				//	var g = stage.preload(new ExecutionLimit(500000));
+				//	if (g) {
+				//		_this.cancelInterval();
+				//		if (!_this.aborted) calllback(stage);
+				//	} else {
+				//		var root = stage.getRootClip();
+				//		var l = root.getLoadedBytes();
+				//		var r = root.getTotalBytes();
+				//		_this.emitProgress([1, l / r], l, r);
+				//	}
+				//}, 10);
 			}
 			_this.swfdecompress = null;
 		};
@@ -31123,6 +31677,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		this.currentLoader = null;
 		this.currentLoaderSwfUrl = null;
 		this.fullscreenEnabled = false;
+		this.fullscreenButton = null;
 		this.clickToPlayContainer = null;
 		this.width = 0;
 		this.height = 0;
@@ -31176,8 +31731,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		setInterval(this.tick.bind(this), 10);
 	}
 	PinkFiePlayer.version = "1.3.10";
-	PinkFiePlayer.built = "2025-07-2";
-	PinkFiePlayer.isBeta = false;
+	PinkFiePlayer.built = "2025-07-13";
+	PinkFiePlayer.isBeta = true;
 	PinkFiePlayer.prototype.addNAS3 = function() {
 		this.nas3 = document.createElement('div');
 		this.nas3.className = 'watcher-pinkfie-setting';
@@ -31203,12 +31758,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 	PinkFiePlayer.prototype.addMenuVerticals = function() {
 		this.MenuVertical = document.createElement('div');
 		this.MenuVertical.className = 'watcher-pinkfie-menu-vertical';
-		this.movie_playPause = this._createE('Pause', function(e) {
+		this.playPauseButton = this._createE('Pause', function(e) {
 			e.preventDefault();
 			this.toggleRunning();
 			this.MenuVertical.style.display = 'none';
 		});
-		this.MenuVertical.appendChild(this.movie_playPause);
+		this.MenuVertical.appendChild(this.playPauseButton);
 		var controlsMC = [];
 		this.movie_playStop = this._createE('Stop', function(e) {
 			e.preventDefault();
@@ -31616,8 +32171,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 		text += "\nUser Agent: " + navigator.userAgent;
 		text += "\nHas touch support: " + hasTouchEvents + "\n";
 		text += "\n# PinkFie Info";
-		text += "\nVersion: " + this.version;
-		text += "\nBuilt: " + this.built;
+		text += "\nVersion: " + PinkFiePlayer.version;
+		text += "\nBuilt: " + PinkFiePlayer.built;
 		return text;
 	}
 	PinkFiePlayer.prototype.isPlayMovie = function() {
@@ -31996,9 +32551,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
 			}
 		}
 		if (this.hasStage() && this.stage.playing) {
-			this.movie_playPause.innerHTML = "Pause";
+			this.playPauseButton.innerHTML = "Pause";
 		} else {
-			this.movie_playPause.innerHTML = "Resume";
+			this.playPauseButton.innerHTML = "Resume";
 		}
 		this.render();
 	}
