@@ -1,6 +1,6 @@
 html {
     font-family: monospace;
-    background-color: #fff;
+    background-color: #0d0;
 }
 a {
   cursor: pointer;
@@ -28,12 +28,12 @@ ul li a {
     text-decoration: none;
     padding: 4px 6px;
     font-size: 12px;
-    background-color: #ddd;
+    background-color: #0f0;
+    color: #fff;
     border-radius: 8px;
-    color: #111;
 }
 .dark ul li a{
-    background-color: #333;
+    background-color: #080;
     color: #fff;
 }
 
@@ -51,20 +51,20 @@ ul li a {
 .app{
     width: 640px;
     margin: auto;
-    color: #000;
+    color: #050;
 }
 .app a{
-    color: #000;
+    color: #050;
 }
 .dark {
-    background-color: #111;
-    color: #ddd;
+    background-color: #020;
+    color: #dfd;
 }
 .dark .app {
-    color: #ddd;
+    color: #dfd;
 }
 .dark a {
-    color: #ddd;
+    color: #dfd;
 }
 #pinkfie-player{
     width: 640px;
