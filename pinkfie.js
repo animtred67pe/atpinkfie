@@ -1,5 +1,7 @@
 /*
- * PinkFie A Flash Player Emulator in JavaScript ES6
+ * PinkFie A Flash Player Emulator in javscript(ES6)
+ *
+ * Made By EddyAlonspAyalaQuispe2007
  */
 
 var PinkFie = (function() {
@@ -48,9 +50,22 @@ var PinkFie = (function() {
     }
     return out;
   }
+  BTreeMap.prototype.containsKey = function(key) {
+    for (var i = 0; i < this.lists.length; i++) {
+      var element = this.lists[i];
+      if (element[0] == key) return true;
+    }
+    return false;
+  }
   BTreeMap.prototype.highest = function() {
-    var o = this.lists[this.lists.length - 1];
-    return o ? o[0] : null;
+    var result = 0;
+    for (var i = 0; i < this.lists.length; i++) {
+      var list = this.lists[i];
+      if (list[0] > result) {
+        result = list[0];
+      }
+    }
+    return result;
   }
   BTreeMap.prototype.get = function(idx) {
     for (var i = 0; i < this.lists.length; i++) {
@@ -107,122 +122,50 @@ var PinkFie = (function() {
     }
     return null;
   }
-  function multiplicationColor(a, b) {
-    return [
-      a[0] * b[0],
-      a[1] * b[1],
-      a[2] * b[2],
-      a[3] * b[3],
-      a[0] * b[4] + a[4],
-      a[1] * b[5] + a[5],
-      a[2] * b[6] + a[6],
-      a[3] * b[7] + a[7]
-    ];
+  function multiplicationColor(a,b){return[a[0]*b[0],a[1]*b[1],a[2]*b[2],a[3]*b[3],a[0]*b[4]+a[4],a[1]*b[5]+a[5],a[2]*b[6]+a[6],a[3]*b[7]+a[7]]}
+  function multiplicationMatrix(a,b){return[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]]}
+  function eq_ignore_case(a,b){return a.toLowerCase()==b.toLowerCase()}
+  function eq_with_case(a,b,c){return c?(a==b):eq_ignore_case(a,b)}
+  function clampToI32(_){return((_>=-2147483648)&&_<=2147483647)?(_|0):-2147483648}
+  function parse_array_index(_){var a=+_;return Number.isInteger(a)?(a|0):null}
+  
+  function number_round_ties_even(_) {
+    if (_ == 0) return 0;
+    var z = _ < 0;
+    var a = Math.abs(_);
+    var b = (a / 2) | 0;
+    var c = a % 2;
+    var result = 0;
+    if (c > 0.5) {
+      result = 1;
+      if (c >= 1.5) {
+        result = 2;
+      }
+    }
+    return (result + (b * 2)) * (z ? -1 : 1);
   }
-  function multiplicationMatrix(a, b) {
-    return [
-      a[0] * b[0] + a[2] * b[1],
-      a[1] * b[0] + a[3] * b[1],
-      a[0] * b[2] + a[2] * b[3],
-      a[1] * b[2] + a[3] * b[3],
-      a[0] * b[4] + a[2] * b[5] + a[4],
-      a[1] * b[4] + a[3] * b[5] + a[5]
-    ];
-  }
-  function eq_ignore_case(n1, n2) {
-    return n1.toLowerCase() == n2.toLowerCase();
-  }
-  function clampToI32(n) {
-    return Math.max(Math.min(n, 2147483647), -2147483648) | 0;
-  }
-  function parse_array_index(name) {
-    var a = +name;
-    if (Number.isInteger(a)) {
-      return a;
-    } else {
-      return null;
+  
+  function f64_to_degrees(a){return a*(180/Math.PI)}
+  function f64_to_radians(a){return a*(Math.PI/180)}
+  function inherits(a,b){a.prototype=Object.create(b.prototype);a.prototype.constructor=a}
+  function string_trim_start_matches(a,b){var p=false;for(var i=0;i<a.length;i++){var c=a[i];if(c==b)p=true;else{if(p)return a.slice(i)}}return a}
+  function string_rfind(_,a){for (var i=_.length-1;i>=0;i--){var c=_[i];for(var j=0;j<a.length;j++){if(c==a[j])return i}}return null}
+  function SATURATE(_){return(_>255)?255:((_<0)?0:_)}
+  function yuv420_to_rgba(y,u,v,yw){var yh=(y.length/yw)|0,cw=((yw+1)/2)|0,rgba=new Uint8Array(y.length*4);for(var h=0;h<yh;h++){for(var w=0;w<yw;w++){var i=w+h*yw,j=(w>>1)+(h>>1)*cw;var a=y[i]-16,b=u[j]-128,c=v[j]-128;var op=w*4+yw*h*4;rgba[op]=SATURATE(1.164*a+1.596*c);rgba[op+1]=SATURATE(1.164*a-0.813*c-0.391*b);rgba[op+2]=SATURATE(1.164*a+2.018*b);rgba[op+3]=255}}return rgba}
+  function checkImageColorTransform(_){return (_[0]!==1)||(_[1]!==1)||(_[2]!==1)||_[4]||_[5]||_[6]}
+  function generateColorTransform(a,b){return[Math.max(0,Math.min((a[0]*b[0])+b[4],255))|0,Math.max(0,Math.min((a[1]*b[1])+b[5],255))|0,Math.max(0,Math.min((a[2]*b[2])+b[6],255))|0,Math.max(0,Math.min((a[3]*255*b[3])+b[7],255))/255]}
+  function object_assign(a,b){var r={};for(var i in a)r[i]=a[i];for(var j in b)r[j]=b[j];return r};
+  function objectCopy(_){var a={};for(var b in _)a[b]=_[b];return a}
+  function removeIdArray(_, i) {
+    if (_.length) {
+      if (i >= _.length) {
+        _.pop();
+      } else {
+        _.splice(i, 1);
+      }
     }
   }
 
-  function inherits(cla, sup) {
-    cla.prototype = Object.create(sup.prototype);
-    cla.prototype.constructor = cla;
-  }
-  
-  function string_trim_start_matches(str, pat) {
-    var pos = false;
-    for (var i = 0; i < str.length; i++) {
-      var c = str[i];
-      if (c == pat) {
-        pos = true;
-      } else {
-        if (pos) {
-          return str.slice(i);
-        }
-      }
-    }
-    return str;
-  }
-  function string_rfind(str, pats) {
-    for (var i = str.length - 1; i >= 0; i--) {
-      var c = str[i];
-      for (var j = 0; j < pats.length; j++) {
-        if (c == pats[j]) {
-          return i;
-        }
-      }
-    }
-    return null;
-  }
-  function SATURATE(_) {
-    return (_ > 255) ? 255 : ((_ < 0) ? 0 : _);
-  }
-  function yuv420_to_rgba(y, u, v, y_width) {
-    var y_height = (y.length / y_width) | 0;
-    var chroma_width = ((y_width + 1) / 2) | 0;
-    var rgba = new Uint8Array(y.length * 4);
-    for (var h = 0; h < y_height; h++) {
-      for (var w = 0; w < y_width; w++) {
-        var idx = w + h * y_width;
-        var chroma_idx = (w >> 1) + (h >> 1) * chroma_width;
-        var Y = y[idx] - 16;
-        var U = u[chroma_idx] - 128;
-        var V = v[chroma_idx] - 128;
-        var outputData_pos = w * 4 + y_width * h * 4;
-        rgba[outputData_pos] = SATURATE(1.164 * Y + 1.596 * V);
-        rgba[outputData_pos + 1] = SATURATE(1.164 * Y - 0.813 * V - 0.391 * U);
-        rgba[outputData_pos + 2] = SATURATE(1.164 * Y + 2.018 * U);
-        rgba[outputData_pos + 3] = 255;
-      }
-    }
-    return rgba;
-  }
-  function checkImageColorTransform(colorTransform) {
-    return (colorTransform[0] !== 1) || (colorTransform[1] !== 1) || (colorTransform[2] !== 1) || colorTransform[4] || colorTransform[5] || colorTransform[6];
-  }
-  function generateColorTransform(color, data) {
-    return [
-      Math.max(0, Math.min((color[0] * data[0]) + data[4], 255)) | 0,
-      Math.max(0, Math.min((color[1] * data[1]) + data[5], 255)) | 0,
-      Math.max(0, Math.min((color[2] * data[2]) + data[6], 255)) | 0,
-      Math.max(0, Math.min((color[3] * 255 * data[3]) + data[7], 255)) / 255
-    ];    
-  }
-  function cloneArray(src) {
-    var arr = [];
-    var length = src.length;
-    for (var i = 0; i < length; i++) 
-      arr[i] = src[i];
-    return arr;
-  }
-  function object_assign(a, b) {
-    var r = {};
-    for (var i in a) 
-      r[i] = a[i];
-    for (var j in b) 
-      r[j] = b[j];
-    return r;
-  };
   var Transform = function(matrix, colorTransform) {
     this.matrix = matrix || Matrix.IDENTITY.clone();
     this.colorTransform = colorTransform || [1, 1, 1, 1, 0, 0, 0, 0];
@@ -429,44 +372,10 @@ var PinkFie = (function() {
     return this.readSB(n) / 0x10000;
   }
   var LZMA = (function() {
-    function array_fill(array, _, a, b) {
-      var length = array.length;
-      var start = a || 0;
-      var end = (b == null) ? length : Math.min(b, length);
-      for (var i = start; i < end; i++) {
-        array[i] = _;
-      }
-      return array;
-    }
-    function __init(e) {
-      var t = [];
-      t.push(e[12], e[13], e[14], e[15], e[16], e[4], e[5], e[6], e[7]);
-      var s = 8;
-      for (var _e = 5; _e < 9; ++_e) {
-        if (t[_e] >= s) {
-          t[_e] = t[_e] - s | 0;
-          break
-        }
-        t[_e] = 256 + t[_e] - s | 0,s = 1
-      }
-      t.push(0, 0, 0, 0);
-      e.set(t, 4);
-      return e.subarray(4);
-    }
-    function __reverseDecode2(e, t, s, i) {
-      var r = 1, o = 0, d = 0;
-      for (; d < i; ++d) {
-        var _i = s.decodeBit(e, t + r);
-        r = r << 1 | _i,o |= _i << d
-      }
-      return o
-    }
-    function __decompress(e, t) {
-      var s = new Decoder, i = s.decodeHeader(e), r = i.uncompressedSize;
-      if (s.setProperties(i),!s.decodeBody(e, t, r))
-        throw new Error("Error in lzma data stream");
-      return t
-    }
+    function array_fill(_,q,w,e){var a=_.length,s=w||0,d=(e==null)?a:Math.min(e,a);for(var i=s;i<d;i++)_[i]=q;return _}
+    function __init(e){var t=[];t.push(e[12],e[13],e[14],e[15],e[16],e[4],e[5],e[6],e[7]);var s = 8;for(var _e=5;_e<9;++_e){if(t[_e]>=s){t[_e]=t[_e]-s|0;break}t[_e]=256+t[_e]-s|0,s=1}t.push(0,0,0,0);e.set(t,4);return e.subarray(4)}
+    function __reverseDecode2(e,t,s,i){var r=1,o=0,d=0;for (; d < i; ++d) {var _i=s.decodeBit(e,t+r);r=r<<1|_i,o|=_i<<d}return o}
+    function __decompress(e,t){var s=new Decoder,i=s.decodeHeader(e),r=i.uncompressedSize;if(s.setProperties(i),!s.decodeBody(e,t,r))throw new Error("Error in lzma data stream");return t}
     var OutWindow = function() {
       this._buffer = null,
       this._stream = null,
@@ -708,11 +617,17 @@ var PinkFie = (function() {
 var pako = (function(e,t){var _={};"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t(_);return _}(this,(function(e){var t=function(e,t,i,n){for(var a=65535&e|0,r=e>>>16&65535|0,o=0;0!==i;){i-=o=i>2e3?2e3:i;do{r=r+(a=a+t[n++]|0)|0}while(--o);a%=65521,r%=65521}return a|r<<16|0},i=new Uint32Array(function(){for(var e,t=[],i=0;i<256;i++){e=i;for(var n=0;n<8;n++)e=1&e?3988292384^e>>>1:e>>>1;t[i]=e}return t}()),n=function(e,t,n,a){var r=i,o=a+n;e^=-1;for(var s=a;s<o;s++)e=e>>>8^r[255&(e^t[s])];return-1^e},a=16209,r=function(e,t){var i,n,r,o,s,l,f,d,h,c,u,w,b,m,k,_,v,g,p,y,x,E,R,A,Z=e.state;i=e.next_in,R=e.input,n=i+(e.avail_in-5),r=e.next_out,A=e.output,o=r-(t-e.avail_out),s=r+(e.avail_out-257),l=Z.dmax,f=Z.wsize,d=Z.whave,h=Z.wnext,c=Z.window,u=Z.hold,w=Z.bits,b=Z.lencode,m=Z.distcode,k=(1<<Z.lenbits)-1,_=(1<<Z.distbits)-1;e:do{w<15&&(u+=R[i++]<<w,w+=8,u+=R[i++]<<w,w+=8),v=b[u&k];t:for(;;){if(u>>>=g=v>>>24,w-=g,0===(g=v>>>16&255))A[r++]=65535&v;else{if(!(16&g)){if(0==(64&g)){v=b[(65535&v)+(u&(1<<g)-1)];continue t}if(32&g){Z.mode=16191;break e}e.msg="invalid literal/length code",Z.mode=a;break e}p=65535&v,(g&=15)&&(w<g&&(u+=R[i++]<<w,w+=8),p+=u&(1<<g)-1,u>>>=g,w-=g),w<15&&(u+=R[i++]<<w,w+=8,u+=R[i++]<<w,w+=8),v=m[u&_];i:for(;;){if(u>>>=g=v>>>24,w-=g,!(16&(g=v>>>16&255))){if(0==(64&g)){v=m[(65535&v)+(u&(1<<g)-1)];continue i}e.msg="invalid distance code",Z.mode=a;break e}if(y=65535&v,w<(g&=15)&&(u+=R[i++]<<w,(w+=8)<g&&(u+=R[i++]<<w,w+=8)),(y+=u&(1<<g)-1)>l){e.msg="invalid distance too far back",Z.mode=a;break e}if(u>>>=g,w-=g,y>(g=r-o)){if((g=y-g)>d&&Z.sane){e.msg="invalid distance too far back",Z.mode=a;break e}if(x=0,E=c,0===h){if(x+=f-g,g<p){p-=g;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}}else if(h<g){if(x+=f+h-g,(g-=h)<p){p-=g;do{A[r++]=c[x++]}while(--g);if(x=0,h<p){p-=g=h;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}}}else if(x+=h-g,g<p){p-=g;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}for(;p>2;)A[r++]=E[x++],A[r++]=E[x++],A[r++]=E[x++],p-=3;p&&(A[r++]=E[x++],p>1&&(A[r++]=E[x++]))}else{x=r-y;do{A[r++]=A[x++],A[r++]=A[x++],A[r++]=A[x++],p-=3}while(p>2);p&&(A[r++]=A[x++],p>1&&(A[r++]=A[x++]))}break}}break}}while(i<n&&r<s);i-=p=w>>3,u&=(1<<(w-=p<<3))-1,e.next_in=i,e.next_out=r,e.avail_in=i<n?n-i+5:5-(i-n),e.avail_out=r<s?s-r+257:257-(r-s),Z.hold=u,Z.bits=w},o=15,s=new Uint16Array([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258,0,0]),l=new Uint8Array([16,16,16,16,16,16,16,16,17,17,17,17,18,18,18,18,19,19,19,19,20,20,20,20,21,21,21,21,16,72,78]),f=new Uint16Array([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0]),d=new Uint8Array([16,16,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,64,64]),h=function(e,t,i,n,a,r,h,c){var u,w,b,m,k,_,v,g,p,y=c.bits,x=0,E=0,R=0,A=0,Z=0,S=0,T=0,O=0,U=0,D=0,I=null,B=new Uint16Array(16),N=new Uint16Array(16),C=null;for(x=0;x<=o;x++)B[x]=0;for(E=0;E<n;E++)B[t[i+E]]++;for(Z=y,A=o;A>=1&&0===B[A];A--);if(Z>A&&(Z=A),0===A)return a[r++]=20971520,a[r++]=20971520,c.bits=1,0;for(R=1;R<A&&0===B[R];R++);for(Z<R&&(Z=R),O=1,x=1;x<=o;x++)if(O<<=1,(O-=B[x])<0)return-1;if(O>0&&(0===e||1!==A))return-1;for(N[1]=0,x=1;x<o;x++)N[x+1]=N[x]+B[x];for(E=0;E<n;E++)0!==t[i+E]&&(h[N[t[i+E]]++]=E);if(0===e?(I=C=h,_=20):1===e?(I=s,C=l,_=257):(I=f,C=d,_=0),D=0,E=0,x=R,k=r,S=Z,T=0,b=-1,m=(U=1<<Z)-1,1===e&&U>852||2===e&&U>592)return 1;for(;;){v=x-T,h[E]+1<_?(g=0,p=h[E]):h[E]>=_?(g=C[h[E]-_],p=I[h[E]-_]):(g=96,p=0),u=1<<x-T,R=w=1<<S;do{a[k+(D>>T)+(w-=u)]=v<<24|g<<16|p|0}while(0!==w);for(u=1<<x-1;D&u;)u>>=1;if(0!==u?(D&=u-1,D+=u):D=0,E++,0==--B[x]){if(x===A)break;x=t[i+h[E]]}if(x>Z&&(D&m)!==b){for(0===T&&(T=Z),k+=R,O=1<<(S=x-T);S+T<A&&!((O-=B[S+T])<=0);)S++,O<<=1;if(U+=1<<S,1===e&&U>852||2===e&&U>592)return 1;a[b=D&m]=Z<<24|S<<16|k-r|0}}return 0!==D&&(a[k+D]=x-T<<24|64<<16|0),c.bits=Z,0},c={Z_NO_FLUSH:0,Z_PARTIAL_FLUSH:1,Z_SYNC_FLUSH:2,Z_FULL_FLUSH:3,Z_FINISH:4,Z_BLOCK:5,Z_TREES:6,Z_OK:0,Z_STREAM_END:1,Z_NEED_DICT:2,Z_ERRNO:-1,Z_STREAM_ERROR:-2,Z_DATA_ERROR:-3,Z_MEM_ERROR:-4,Z_BUF_ERROR:-5,Z_NO_COMPRESSION:0,Z_BEST_SPEED:1,Z_BEST_COMPRESSION:9,Z_DEFAULT_COMPRESSION:-1,Z_FILTERED:1,Z_HUFFMAN_ONLY:2,Z_RLE:3,Z_FIXED:4,Z_DEFAULT_STRATEGY:0,Z_BINARY:0,Z_TEXT:1,Z_UNKNOWN:2,Z_DEFLATED:8},u=c.Z_FINISH,w=c.Z_BLOCK,b=c.Z_TREES,m=c.Z_OK,k=c.Z_STREAM_END,_=c.Z_NEED_DICT,v=c.Z_STREAM_ERROR,g=c.Z_DATA_ERROR,p=c.Z_MEM_ERROR,y=c.Z_BUF_ERROR,x=c.Z_DEFLATED,E=16180,R=16190,A=16191,Z=16192,S=16194,T=16199,O=16200,U=16206,D=16209,I=function(e){return(e>>>24&255)+(e>>>8&65280)+((65280&e)<<8)+((255&e)<<24)};function B(){this.strm=null,this.mode=0,this.last=!1,this.wrap=0,this.havedict=!1,this.flags=0,this.dmax=0,this.check=0,this.total=0,this.head=null,this.wbits=0,this.wsize=0,this.whave=0,this.wnext=0,this.window=null,this.hold=0,this.bits=0,this.length=0,this.offset=0,this.extra=0,this.lencode=null,this.distcode=null,this.lenbits=0,this.distbits=0,this.ncode=0,this.nlen=0,this.ndist=0,this.have=0,this.next=null,this.lens=new Uint16Array(320),this.work=new Uint16Array(288),this.lendyn=null,this.distdyn=null,this.sane=0,this.back=0,this.was=0}var N,C,z=function(e){if(!e)return 1;var t=e.state;return!t||t.strm!==e||t.mode<E||t.mode>16211?1:0},F=function(e){if(z(e))return v;var t=e.state;return e.total_in=e.total_out=t.total=0,e.msg="",t.wrap&&(e.adler=1&t.wrap),t.mode=E,t.last=0,t.havedict=0,t.flags=-1,t.dmax=32768,t.head=null,t.hold=0,t.bits=0,t.lencode=t.lendyn=new Int32Array(852),t.distcode=t.distdyn=new Int32Array(592),t.sane=1,t.back=-1,m},L=function(e){if(z(e))return v;var t=e.state;return t.wsize=0,t.whave=0,t.wnext=0,F(e)},M=function(e,t){var i;if(z(e))return v;var n=e.state;return t<0?(i=0,t=-t):(i=5+(t>>4),t<48&&(t&=15)),t&&(t<8||t>15)?v:(null!==n.window&&n.wbits!==t&&(n.window=null),n.wrap=i,n.wbits=t,L(e))},H=function(e,t){if(!e)return v;var i=new B;e.state=i,i.strm=e,i.window=null,i.mode=E;var n=M(e,t);return n!==m&&(e.state=null),n},j=!0,K=function(e){if(j){N=new Int32Array(512),C=new Int32Array(32);for(var t=0;t<144;)e.lens[t++]=8;for(;t<256;)e.lens[t++]=9;for(;t<280;)e.lens[t++]=7;for(;t<288;)e.lens[t++]=8;for(h(1,e.lens,0,288,N,0,e.work,{bits:9}),t=0;t<32;)e.lens[t++]=5;h(2,e.lens,0,32,C,0,e.work,{bits:5}),j=!1}e.lencode=N,e.lenbits=9,e.distcode=C,e.distbits=5},P=function(e,t,i,n){var a,r=e.state;return null===r.window&&(r.wsize=1<<r.wbits,r.wnext=0,r.whave=0,r.window=new Uint8Array(r.wsize)),n>=r.wsize?(r.window.set(t.subarray(i-r.wsize,i),0),r.wnext=0,r.whave=r.wsize):((a=r.wsize-r.wnext)>n&&(a=n),r.window.set(t.subarray(i-n,i-n+a),r.wnext),(n-=a)?(r.window.set(t.subarray(i-n,i),0),r.wnext=n,r.whave=r.wsize):(r.wnext+=a,r.wnext===r.wsize&&(r.wnext=0),r.whave<r.wsize&&(r.whave+=a))),0},Y={inflateReset:L,inflateReset2:M,inflateResetKeep:F,inflateInit:function(e){return H(e,15)},inflateInit2:H,inflate:function(e,i){var a,o,s,l,f,d,c,B,N,C,F,L,M,H,j,Y,G,X,W,q,J,Q,V,$,ee=0,te=new Uint8Array(4),ie=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]);if(z(e)||!e.output||!e.input&&0!==e.avail_in)return v;(a=e.state).mode===A&&(a.mode=Z),f=e.next_out,s=e.output,c=e.avail_out,l=e.next_in,o=e.input,d=e.avail_in,B=a.hold,N=a.bits,C=d,F=c,Q=m;e:for(;;)switch(a.mode){case E:if(0===a.wrap){a.mode=Z;break}for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(2&a.wrap&&35615===B){0===a.wbits&&(a.wbits=15),a.check=0,te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0),B=0,N=0,a.mode=16181;break}if(a.head&&(a.head.done=!1),!(1&a.wrap)||(((255&B)<<8)+(B>>8))%31){e.msg="incorrect header check",a.mode=D;break}if((15&B)!==x){e.msg="unknown compression method",a.mode=D;break}if(N-=4,J=8+(15&(B>>>=4)),0===a.wbits&&(a.wbits=J),J>15||J>a.wbits){e.msg="invalid window size",a.mode=D;break}a.dmax=1<<a.wbits,a.flags=0,e.adler=a.check=1,a.mode=512&B?16189:A,B=0,N=0;break;case 16181:for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(a.flags=B,(255&a.flags)!==x){e.msg="unknown compression method",a.mode=D;break}if(57344&a.flags){e.msg="unknown header flags set",a.mode=D;break}a.head&&(a.head.text=B>>8&1),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0,a.mode=16182;case 16182:for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.head&&(a.head.time=B),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,te[2]=B>>>16&255,te[3]=B>>>24&255,a.check=n(a.check,te,4,0)),B=0,N=0,a.mode=16183;case 16183:for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.head&&(a.head.xflags=255&B,a.head.os=B>>8),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0,a.mode=16184;case 16184:if(1024&a.flags){for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.length=B,a.head&&(a.head.extra_len=B),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0}else a.head&&(a.head.extra=null);a.mode=16185;case 16185:if(1024&a.flags&&((L=a.length)>d&&(L=d),L&&(a.head&&(J=a.head.extra_len-a.length,a.head.extra||(a.head.extra=new Uint8Array(a.head.extra_len)),a.head.extra.set(o.subarray(l,l+L),J)),512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,a.length-=L),a.length))break e;a.length=0,a.mode=16186;case 16186:if(2048&a.flags){if(0===d)break e;L=0;do{J=o[l+L++],a.head&&J&&a.length<65536&&(a.head.name+=String.fromCharCode(J))}while(J&&L<d);if(512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,J)break e}else a.head&&(a.head.name=null);a.length=0,a.mode=16187;case 16187:if(4096&a.flags){if(0===d)break e;L=0;do{J=o[l+L++],a.head&&J&&a.length<65536&&(a.head.comment+=String.fromCharCode(J))}while(J&&L<d);if(512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,J)break e}else a.head&&(a.head.comment=null);a.mode=16188;case 16188:if(512&a.flags){for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(4&a.wrap&&B!==(65535&a.check)){e.msg="header crc mismatch",a.mode=D;break}B=0,N=0}a.head&&(a.head.hcrc=a.flags>>9&1,a.head.done=!0),e.adler=a.check=0,a.mode=A;break;case 16189:for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}e.adler=a.check=I(B),B=0,N=0,a.mode=R;case R:if(0===a.havedict)return e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,_;e.adler=a.check=1,a.mode=A;case A:if(i===w||i===b)break e;case Z:if(a.last){B>>>=7&N,N-=7&N,a.mode=U;break}for(;N<3;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}switch(a.last=1&B,N-=1,3&(B>>>=1)){case 0:a.mode=16193;break;case 1:if(K(a),a.mode=T,i===b){B>>>=2,N-=2;break e}break;case 2:a.mode=16196;break;case 3:e.msg="invalid block type",a.mode=D}B>>>=2,N-=2;break;case 16193:for(B>>>=7&N,N-=7&N;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if((65535&B)!=(B>>>16^65535)){e.msg="invalid stored block lengths",a.mode=D;break}if(a.length=65535&B,B=0,N=0,a.mode=S,i===b)break e;case S:a.mode=16195;case 16195:if(L=a.length){if(L>d&&(L=d),L>c&&(L=c),0===L)break e;s.set(o.subarray(l,l+L),f),d-=L,l+=L,c-=L,f+=L,a.length-=L;break}a.mode=A;break;case 16196:for(;N<14;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(a.nlen=257+(31&B),B>>>=5,N-=5,a.ndist=1+(31&B),B>>>=5,N-=5,a.ncode=4+(15&B),B>>>=4,N-=4,a.nlen>286||a.ndist>30){e.msg="too many length or distance symbols",a.mode=D;break}a.have=0,a.mode=16197;case 16197:for(;a.have<a.ncode;){for(;N<3;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.lens[ie[a.have++]]=7&B,B>>>=3,N-=3}for(;a.have<19;)a.lens[ie[a.have++]]=0;if(a.lencode=a.lendyn,a.lenbits=7,V={bits:a.lenbits},Q=h(0,a.lens,0,19,a.lencode,0,a.work,V),a.lenbits=V.bits,Q){e.msg="invalid code lengths set",a.mode=D;break}a.have=0,a.mode=16198;case 16198:for(;a.have<a.nlen+a.ndist;){for(;Y=(ee=a.lencode[B&(1<<a.lenbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(G<16)B>>>=j,N-=j,a.lens[a.have++]=G;else{if(16===G){for($=j+2;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(B>>>=j,N-=j,0===a.have){e.msg="invalid bit length repeat",a.mode=D;break}J=a.lens[a.have-1],L=3+(3&B),B>>>=2,N-=2}else if(17===G){for($=j+3;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}N-=j,J=0,L=3+(7&(B>>>=j)),B>>>=3,N-=3}else{for($=j+7;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}N-=j,J=0,L=11+(127&(B>>>=j)),B>>>=7,N-=7}if(a.have+L>a.nlen+a.ndist){e.msg="invalid bit length repeat",a.mode=D;break}for(;L--;)a.lens[a.have++]=J}}if(a.mode===D)break;if(0===a.lens[256]){e.msg="invalid code -- missing end-of-block",a.mode=D;break}if(a.lenbits=9,V={bits:a.lenbits},Q=h(1,a.lens,0,a.nlen,a.lencode,0,a.work,V),a.lenbits=V.bits,Q){e.msg="invalid literal/lengths set",a.mode=D;break}if(a.distbits=6,a.distcode=a.distdyn,V={bits:a.distbits},Q=h(2,a.lens,a.nlen,a.ndist,a.distcode,0,a.work,V),a.distbits=V.bits,Q){e.msg="invalid distances set",a.mode=D;break}if(a.mode=T,i===b)break e;case T:a.mode=O;case O:if(d>=6&&c>=258){e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,r(e,F),f=e.next_out,s=e.output,c=e.avail_out,l=e.next_in,o=e.input,d=e.avail_in,B=a.hold,N=a.bits,a.mode===A&&(a.back=-1);break}for(a.back=0;Y=(ee=a.lencode[B&(1<<a.lenbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(Y&&0==(240&Y)){for(X=j,W=Y,q=G;Y=(ee=a.lencode[q+((B&(1<<X+W)-1)>>X)])>>>16&255,G=65535&ee,!(X+(j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}B>>>=X,N-=X,a.back+=X}if(B>>>=j,N-=j,a.back+=j,a.length=G,0===Y){a.mode=16205;break}if(32&Y){a.back=-1,a.mode=A;break}if(64&Y){e.msg="invalid literal/length code",a.mode=D;break}a.extra=15&Y,a.mode=16201;case 16201:if(a.extra){for($=a.extra;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.length+=B&(1<<a.extra)-1,B>>>=a.extra,N-=a.extra,a.back+=a.extra}a.was=a.length,a.mode=16202;case 16202:for(;Y=(ee=a.distcode[B&(1<<a.distbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(0==(240&Y)){for(X=j,W=Y,q=G;Y=(ee=a.distcode[q+((B&(1<<X+W)-1)>>X)])>>>16&255,G=65535&ee,!(X+(j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}B>>>=X,N-=X,a.back+=X}if(B>>>=j,N-=j,a.back+=j,64&Y){e.msg="invalid distance code",a.mode=D;break}a.offset=G,a.extra=15&Y,a.mode=16203;case 16203:if(a.extra){for($=a.extra;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.offset+=B&(1<<a.extra)-1,B>>>=a.extra,N-=a.extra,a.back+=a.extra}if(a.offset>a.dmax){e.msg="invalid distance too far back",a.mode=D;break}a.mode=16204;case 16204:if(0===c)break e;if(L=F-c,a.offset>L){if((L=a.offset-L)>a.whave&&a.sane){e.msg="invalid distance too far back",a.mode=D;break}L>a.wnext?(L-=a.wnext,M=a.wsize-L):M=a.wnext-L,L>a.length&&(L=a.length),H=a.window}else H=s,M=f-a.offset,L=a.length;L>c&&(L=c),c-=L,a.length-=L;do{s[f++]=H[M++]}while(--L);0===a.length&&(a.mode=O);break;case 16205:if(0===c)break e;s[f++]=a.length,c--,a.mode=O;break;case U:if(a.wrap){for(;N<32;){if(0===d)break e;d--,B|=o[l++]<<N,N+=8}if(F-=c,e.total_out+=F,a.total+=F,4&a.wrap&&F&&(e.adler=a.check=a.flags?n(a.check,s,F,f-F):t(a.check,s,F,f-F)),F=c,4&a.wrap&&(a.flags?B:I(B))!==a.check){e.msg="incorrect data check",a.mode=D;break}B=0,N=0}a.mode=16207;case 16207:if(a.wrap&&a.flags){for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(4&a.wrap&&B!==(4294967295&a.total)){e.msg="incorrect length check",a.mode=D;break}B=0,N=0}a.mode=16208;case 16208:Q=k;break e;case D:Q=g;break e;case 16210:return p;default:return v}return e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,(a.wsize||F!==e.avail_out&&a.mode<D&&(a.mode<U||i!==u))&&P(e,e.output,e.next_out,F-e.avail_out),C-=e.avail_in,F-=e.avail_out,e.total_in+=C,e.total_out+=F,a.total+=F,4&a.wrap&&F&&(e.adler=a.check=a.flags?n(a.check,s,F,e.next_out-F):t(a.check,s,F,e.next_out-F)),e.data_type=a.bits+(a.last?64:0)+(a.mode===A?128:0)+(a.mode===T||a.mode===S?256:0),(0===C&&0===F||i===u)&&Q===m&&(Q=y),Q},inflateEnd:function(e){if(z(e))return v;var t=e.state;return t.window&&(t.window=null),e.state=null,m},inflateGetHeader:function(e,t){if(z(e))return v;var i=e.state;return 0==(2&i.wrap)?v:(i.head=t,t.done=!1,m)},inflateSetDictionary:function(e,i){var n,a=i.length;return z(e)||0!==(n=e.state).wrap&&n.mode!==R?v:n.mode===R&&t(1,i,a,0)!==n.check?g:P(e,i,a,a)?(n.mode=16210,p):(n.havedict=1,m)},inflateInfo:"pako inflate (from Nodeca project)"};function G(e){return G="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},G(e)}var X=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},W=function(e){for(var t=Array.prototype.slice.call(arguments,1);t.length;){var i=t.shift();if(i){if("object"!==G(i))throw new TypeError(i+"must be non-object");for(var n in i)X(i,n)&&(e[n]=i[n])}}return e},q=function(e){for(var t=0,i=0,n=e.length;i<n;i++)t+=e[i].length;for(var a=new Uint8Array(t),r=0,o=0,s=e.length;r<s;r++){var l=e[r];a.set(l,o),o+=l.length}return a},J=!0;try{String.fromCharCode.apply(null,new Uint8Array(1))}catch(e){J=!1}for(var Q=new Uint8Array(256),V=0;V<256;V++)Q[V]=V>=252?6:V>=248?5:V>=240?4:V>=224?3:V>=192?2:1;Q[254]=Q[254]=1;var $=function(e){if("function"==typeof TextEncoder&&TextEncoder.prototype.encode)return(new TextEncoder).encode(e);var t,i,n,a,r,o=e.length,s=0;for(a=0;a<o;a++)55296==(64512&(i=e.charCodeAt(a)))&&a+1<o&&56320==(64512&(n=e.charCodeAt(a+1)))&&(i=65536+(i-55296<<10)+(n-56320),a++),s+=i<128?1:i<2048?2:i<65536?3:4;for(t=new Uint8Array(s),r=0,a=0;r<s;a++)55296==(64512&(i=e.charCodeAt(a)))&&a+1<o&&56320==(64512&(n=e.charCodeAt(a+1)))&&(i=65536+(i-55296<<10)+(n-56320),a++),i<128?t[r++]=i:i<2048?(t[r++]=192|i>>>6,t[r++]=128|63&i):i<65536?(t[r++]=224|i>>>12,t[r++]=128|i>>>6&63,t[r++]=128|63&i):(t[r++]=240|i>>>18,t[r++]=128|i>>>12&63,t[r++]=128|i>>>6&63,t[r++]=128|63&i);return t},ee=function(e,t){var i,n,a=t||e.length;if("function"==typeof TextDecoder&&TextDecoder.prototype.decode)return(new TextDecoder).decode(e.subarray(0,t));var r=new Array(2*a);for(n=0,i=0;i<a;){var o=e[i++];if(o<128)r[n++]=o;else{var s=Q[o];if(s>4)r[n++]=65533,i+=s-1;else{for(o&=2===s?31:3===s?15:7;s>1&&i<a;)o=o<<6|63&e[i++],s--;s>1?r[n++]=65533:o<65536?r[n++]=o:(o-=65536,r[n++]=55296|o>>10&1023,r[n++]=56320|1023&o)}}}return function(e,t){if(t<65534&&e.subarray&&J)return String.fromCharCode.apply(null,e.length===t?e:e.subarray(0,t));for(var i="",n=0;n<t;n++)i+=String.fromCharCode(e[n]);return i}(r,n)},te=function(e,t){(t=t||e.length)>e.length&&(t=e.length);for(var i=t-1;i>=0&&128==(192&e[i]);)i--;return i<0||0===i?t:i+Q[e[i]]>t?i:t},ie={2:"need dictionary",1:"stream end",0:"","-1":"file error","-2":"stream error","-3":"data error","-4":"insufficient memory","-5":"buffer error","-6":"incompatible version"};var ne=function(){this.input=null,this.next_in=0,this.avail_in=0,this.total_in=0,this.output=null,this.next_out=0,this.avail_out=0,this.total_out=0,this.msg="",this.state=null,this.data_type=2,this.adler=0};var ae=function(){this.text=0,this.time=0,this.xflags=0,this.os=0,this.extra=null,this.extra_len=0,this.name="",this.comment="",this.hcrc=0,this.done=!1},re=Object.prototype.toString,oe=c.Z_NO_FLUSH,se=c.Z_FINISH,le=c.Z_OK,fe=c.Z_STREAM_END,de=c.Z_NEED_DICT,he=c.Z_STREAM_ERROR,ce=c.Z_DATA_ERROR,ue=c.Z_MEM_ERROR;function we(e){this.options=W({chunkSize:65536,windowBits:15,to:""},e||{});var t=this.options;t.raw&&t.windowBits>=0&&t.windowBits<16&&(t.windowBits=-t.windowBits,0===t.windowBits&&(t.windowBits=-15)),!(t.windowBits>=0&&t.windowBits<16)||e&&e.windowBits||(t.windowBits+=32),t.windowBits>15&&t.windowBits<48&&0==(15&t.windowBits)&&(t.windowBits|=15),this.err=0,this.msg="",this.ended=!1,this.chunks=[],this.strm=new ne,this.strm.avail_out=0;var i=Y.inflateInit2(this.strm,t.windowBits);if(i!==le)throw new Error(ie[i]);if(this.header=new ae,Y.inflateGetHeader(this.strm,this.header),t.dictionary&&("string"==typeof t.dictionary?t.dictionary=$(t.dictionary):"[object ArrayBuffer]"===re.call(t.dictionary)&&(t.dictionary=new Uint8Array(t.dictionary)),t.raw&&(i=Y.inflateSetDictionary(this.strm,t.dictionary))!==le))throw new Error(ie[i])}function be(e,t){var i=new we(t);if(i.push(e),i.err)throw i.msg||ie[i.err];return i.result}we.prototype.push=function(e,t){var i,n,a,r=this.strm,o=this.options.chunkSize,s=this.options.dictionary;if(this.ended)return!1;for(n=t===~~t?t:!0===t?se:oe,"[object ArrayBuffer]"===re.call(e)?r.input=new Uint8Array(e):r.input=e,r.next_in=0,r.avail_in=r.input.length;;){for(0===r.avail_out&&(r.output=new Uint8Array(o),r.next_out=0,r.avail_out=o),(i=Y.inflate(r,n))===de&&s&&((i=Y.inflateSetDictionary(r,s))===le?i=Y.inflate(r,n):i===ce&&(i=de));r.avail_in>0&&i===fe&&r.state.wrap>0&&0!==e[r.next_in];)Y.inflateReset(r),i=Y.inflate(r,n);switch(i){case he:case ce:case de:case ue:return this.onEnd(i),this.ended=!0,!1}if(a=r.avail_out,r.next_out&&(0===r.avail_out||i===fe))if("string"===this.options.to){var l=te(r.output,r.next_out),f=r.next_out-l,d=ee(r.output,l);r.next_out=f,r.avail_out=o-f,f&&r.output.set(r.output.subarray(l,l+f),0),this.onData(d)}else this.onData(r.output.length===r.next_out?r.output:r.output.subarray(0,r.next_out));if(i!==le||0!==a){if(i===fe)return i=Y.inflateEnd(this.strm),this.onEnd(i),this.ended=!0,!0;if(0===r.avail_in)break}}return!0},we.prototype.onData=function(e){this.chunks.push(e)},we.prototype.onEnd=function(e){e===le&&("string"===this.options.to?this.result=this.chunks.join(""):this.result=q(this.chunks)),this.chunks=[],this.err=e,this.msg=this.strm.msg};var me=we,ke=be,_e=function(e,t){return(t=t||{}).raw=!0,be(e,t)},ve=be,ge=c,pe={Inflate:me,inflate:ke,inflateRaw:_e,ungzip:ve,constants:ge};e.Inflate=me,e.constants=ge,e.default=pe,e.inflate=ke,e.inflateRaw=_e,e.ungzip=ve,Object.defineProperty(e,"__esModule",{value:!0})})));
 
 /* 
- * ANIM TRED NELLYMOSER ASAO IN JAVASCRIPT ES5
+ * EAAQ2007
+ * 
+ * NELLYMOSER ASAO IN JAVASCRIPT ES5
  */
 var AT_ASAO=(function(){var _1=function(){this.bytePos=0,this.bitPos=0};_1.prototype.push=function(val,len,buf){if(this.bitPos==0)buf[this.bytePos]=val;else buf[this.bytePos]|=val<<this.bitPos;this.bitPos+=len;if(this.bitPos>=8){this.bytePos++,this.bitPos-=8;if(this.bitPos>0)buf[this.bytePos]=(val>>(len-this.bitPos))}},_1.prototype.pop=function(a,b){var c=(b[this.bytePos]&0xff)>>this.bitPos,d=8-this.bitPos;if(a>=d){this.bytePos++;if(a>d)c|=b[this.bytePos]<<d}this.bitPos=(this.bitPos+a)&7;return c&((1<<a)-1)};var _2=function(a){this.value=0,this.scale=0;if(a==0){this.value=a,this.scale=31;return}else if(a >=(1<<30)){this.value=0,this.scale=0;return}var v=a,s=0;if(v>0){do v<<=1,++s;while(v<(1<<30))}else{var b=1<<31;do v<<=1,++s;while(v>b+(1<<30))}this.value=v,this.scale=s},_o1=[0,2,4,6,8,10,12,14,16,18,21,24,28,32,37,43,49,56,64,73,83,95,109,124],_o2=[6,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,0,0,0,0,0,0,0,0,0],_t0=[2,2,2,2,2,2,2,2,2,3,3,4,4,5,6,6,7,8,9,10,12,14,15,0],_t1=[3134,5342,6870,7792,8569,9185,9744,10191,10631,11061,11434,11770,12116,12513,12925,13300,13674,14027,14352,14716,15117,15477,15824,16157,16513,16804,17090,17401,17679,17948,18238,18520,18764,19078,19381,19640,19921,20205,20500,20813,21162,21465,21794,22137,22453,22756,23067,23350,23636,23926,24227,24521,24819,25107,25414,25730,26120,26497,26895,27344,27877,28463,29426,31355],_t2=[-11725,-9420,-7910,-6801,-5948,-5233,-4599,-4039,-3507,-3030,-2596,-2170,-1774,-1383,-1016,-660,-329,-1,337,696,1085,1512,1962,2433,2968,3569,4314,5279,6622,8154,10076,12975],_t3=[0,-0.847256005,0.722470999,-1.52474797,-0.453148007,0.375360996,1.47178996,-1.98225796,-1.19293797,-0.582937002,-0.0693780035,0.390956998,0.906920016,1.486274,2.22154093,-2.38878703,-1.80675399,-1.41054201,-1.07736099,-0.799501002,-0.555810988,-0.333402008,-0.132449001,0.0568020009,0.254877001,0.477355003,0.738685012,1.04430604,1.39544594,1.80987501,2.39187598,-2.38938308,-1.98846805,-1.75140405,-1.56431198,-1.39221299,-1.216465,-1.04694998,-0.890510023,-0.764558017,-0.645457983,-0.52592802,-0.405954987,-0.302971989,-0.209690005,-0.123986997,-0.0479229987,0.025773,0.100134,0.173718005,0.258554012,0.352290004,0.456988007,0.576775014,0.700316012,0.842552006,1.00938797,1.18213499,1.35345602,1.53208196,1.73326194,1.97223496,2.39781404,-2.5756309,-2.05733204,-1.89849198,-1.77278101,-1.66626,-1.57421803,-1.49933195,-1.43166399,-1.36522806,-1.30009902,-1.22809303,-1.15885794,-1.09212506,-1.013574,-0.920284986,-0.828705013,-0.737488985,-0.644775987,-0.559094012,-0.485713989,-0.411031991,-0.345970005,-0.285115987,-0.234162003,-0.187058002,-0.144250005,-0.110716999,-0.0739680007,-0.0365610011,-0.00732900016,0.0203610007,0.0479039997,0.0751969963,0.0980999991,0.122038998,0.145899996,0.169434994,0.197045997,0.225243002,0.255686998,0.287010014,0.319709986,0.352582991,0.388906986,0.433492005,0.476945996,0.520482004,0.564453006,0.612204015,0.668592989,0.734165013,0.803215981,0.878404021,0.956620991,1.03970695,1.12937701,1.22111595,1.30802798,1.40248001,1.50568199,1.62277305,1.77249599,1.94308805,2.29039311,0],_t4=[0.999981225,0.999529421,0.998475611,0.996820271,0.994564593,0.991709828,0.988257587,0.984210074,0.979569793,0.974339426,0.968522072,0.962121427,0.955141187,0.947585583,0.939459205,0.930767,0.921513975,0.911705971,0.901348829,0.890448689,0.879012227,0.867046177,0.854557991,0.841554999,0.828045011,0.81403631,0.799537301,0.784556627,0.769103289,0.753186822,0.736816585,0.720002472,0.702754676,0.685083687,0.666999876,0.64851439,0.629638195,0.610382795,0.590759695,0.570780694,0.550458014,0.529803574,0.50883007,0.487550199,0.465976506,0.444122106,0.422000289,0.399624199,0.377007395,0.354163498,0.331106305,0.307849586,0.284407496,0.260794103,0.237023607,0.213110298,0.189068705,0.164913103,0.1406582,0.116318598,0.0919089988,0.0674438998,0.0429382995,0.0184067003],_t5=[0.125,0.124962397,0.124849401,0.124661297,0.124398097,0.124059901,0.123647101,0.123159699,0.122598201,0.121962801,0.1212539,0.120471999,0.119617499,0.118690997,0.117693,0.116624102,0.115484901,0.114276201,0.112998702,0.111653,0.110240199,0.108760901,0.107216097,0.105606697,0.103933699,0.102198102,0.100400902,0.0985433012,0.0966262966,0.094651103,0.0926188976,0.0905309021,0.0883883014,0.0861926004,0.0839449018,0.0816465989,0.0792991966,0.076903902,0.0744623989,0.0719759986,0.069446303,0.0668746978,0.0642627999,0.0616123006,0.0589246005,0.0562013984,0.0534444004,0.0506552011,0.0478353985,0.0449868999,0.0421111993,0.0392102003,0.0362856016,0.0333391018,0.0303725004,0.0273876991,0.0243862998,0.0213702004,0.0183412991,0.0153013002,0.0122520998,0.0091955997,0.00613350002,0.00306769996],_t6=[-0.00613590004,-0.0306748003,-0.0551952012,-0.0796824023,-0.104121603,-0.128498107,-0.152797207,-0.177004203,-0.201104596,-0.225083902,-0.248927593,-0.272621393,-0.296150893,-0.319501996,-0.342660695,-0.365613014,-0.388345003,-0.410843194,-0.433093786,-0.455083609,-0.47679919,-0.498227686,-0.519356012,-0.540171504,-0.560661614,-0.580814004,-0.600616515,-0.620057225,-0.639124393,-0.657806695,-0.676092684,-0.693971515,-0.711432219,-0.728464425,-0.745057821,-0.761202395,-0.77688849,-0.792106628,-0.806847572,-0.8211025,-0.834862888,-0.848120272,-0.860866904,-0.873094976,-0.884797096,-0.895966172,-0.906595707,-0.916679084,-0.926210225,-0.935183525,-0.943593502,-0.95143503,-0.958703518,-0.965394378,-0.971503913,-0.977028072,-0.981963873,-0.986308098,-0.990058184,-0.993211925,-0.995767415,-0.997723103,-0.999077678,-0.999830604],_t7=[0.00613590004,0.0184067003,0.0306748003,0.0429382995,0.0551952012,0.0674438998,0.0796824023,0.0919089988,0.104121603,0.116318598,0.128498107,0.1406582,0.152797207,0.164913103,0.177004203,0.189068705,0.201104596,0.213110298,0.225083902,0.237023607,0.248927593,0.260794103,0.272621393,0.284407496,0.296150893,0.307849586,0.319501996,0.331106305,0.342660695,0.354163498,0.365613014,0.377007395,0.388345003,0.399624199,0.410843194,0.422000289,0.433093786,0.444122106,0.455083609,0.465976506,0.47679919,0.487550199,0.498227686,0.50883007,0.519356012,0.529803574,0.540171504,0.550458014,0.560661614,0.570780694,0.580814004,0.590759695,0.600616515,0.610382795,0.620057225,0.629638195,0.639124393,0.64851439,0.657806695,0.666999876,0.676092684,0.685083687,0.693971515,0.702754676,0.711432219,0.720002472,0.728464425,0.736816585,0.745057821,0.753186822,0.761202395,0.769103289,0.77688849,0.784556627,0.792106628,0.799537301,0.806847572,0.81403631,0.8211025,0.828045011,0.834862888,0.841554999,0.848120272,0.854557991,0.860866904,0.867046177,0.873094976,0.879012227,0.884797096,0.890448689,0.895966172,0.901348829,0.906595707,0.911705971,0.916679084,0.921513975,0.926210225,0.930767,0.935183525,0.939459205,0.943593502,0.947585583,0.95143503,0.955141187,0.958703518,0.962121427,0.965394378,0.968522072,0.971503913,0.974339426,0.977028072,0.979569793,0.981963873,0.984210074,0.986308098,0.988257587,0.990058184,0.991709828,0.993211925,0.994564593,0.995767415,0.996820271,0.997723103,0.998475611,0.999077678,0.999529421,0.999830604,0.999981225],_t8=[32767,30840,29127,27594,26214,24966,23831,22795,21845,20972,20165,19418,18725,18079,17476,16913,16384,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],_t9=[0,0.0122715384,0.024541229,0.0368072242,0.0490676723,0.061320737,0.0735645667,0.0857973099,0.0980171412,0.110222213,0.122410677,0.134580716,0.146730468,0.158858135,0.170961887,0.183039889,0.195090324,0.207111374,0.219101235,0.231058106,0.242980182,0.254865646,0.266712755,0.27851969,0.290284693,0.302005947,0.313681751,0.32531029,0.336889863,0.348418683,0.359895051,0.371317178,0.382683426,0.393992037,0.405241311,0.416429549,0.427555084,0.438616246,0.449611336,0.460538715,0.471396744,0.482183784,0.492898196,0.50353837,0.514102757,0.524589658,0.534997642,0.545324981,0.555570245,0.565731823,0.575808167,0.585797846,0.59569931,0.605511069,0.615231574,0.624859512,0.634393275,0.643831551,0.653172851,0.662415802,0.671558976,0.680601001,0.689540565,0.698376238,0.707106769,0.715730846,0.724247098,0.732654274,0.740951121,0.749136388,0.757208824,0.765167296,0.773010433,0.780737221,0.78834641,0.795836926,0.803207517,0.81045723,0.817584813,0.824589312,0.831469595,0.838224709,0.84485358,0.851355195,0.857728601,0.863972843,0.870086968,0.876070082,0.881921232,0.887639642,0.893224299,0.898674488,0.903989315,0.909168005,0.914209783,0.919113874,0.923879504,0.928506076,0.932992816,0.937339008,0.941544056,0.945607305,0.949528158,0.953306019,0.956940353,0.960430503,0.963776052,0.966976464,0.970031261,0.972939968,0.975702107,0.97831738,0.980785251,0.983105481,0.985277653,0.987301409,0.989176512,0.990902662,0.992479503,0.993906975,0.99518472,0.996312618,0.997290432,0.998118103,0.99879545,0.999322355,0.999698818,0.999924719,1],_3=function(a){this.value=0,this.shift=0;if(a==124){this.value=4228,this.shift=19;return}else if(a==0){this.value=0,this.shift=0;return}var b=((~a>>>31)<<1)-1,c=a*b,d=-1;while((c&(1<<15))==0)c<<=1,d++;c>>=1;this.shift=27-d;var e=_t8[(c-0x3e00)>>10],f=c*e;f=(1<<30)-f,f+=(1<<14),f>>=15,f*=e,f+=(1<<14),f>>=15;var g=f;f*=c,f=(1<<29)-f,f+=(1<<14),f>>=15,f*=g,f+=(1<<13),f>>=14,f*=b;if(f>32767&&b==1)f=32767;else if(f<-32768&&b==-1)f=-32768;this.value=f},_f1=function(a,b,c,e,f){var d=0;if(c<=0)return d|0;var g=1<<(b-1);for(var i=0;i<c;++i){var h=a[i]-f;if(h<0)h=0;else h=(h+g)>>b;d+=Math.min(h,e)}return d|0},_f2=function(a,b,c,d){var e=0;for(var i=0;i<b;++i)if(a[i]>e)e=a[i];var f=0,g=new _2(e);f=g.scale-16;var h=new Int16Array(124);if(f<0)for(var i=0;i<b;++i)h[i]=(a[i]>>-f);else for(var i=0;i<b;++i)h[i]=(a[i]<<f);var k=new _3(b);for(var i=0;i<b;++i)h[i]=((h[i]*3)>>2);var l=0;for(var i=0;i<b;++i)l+=h[i];f+=11,l-=c<<f;var m=0,n=l-(c<<f);g=new _2(n),m=((n>>16)*k.value)>>15;var o=31-k.shift-g.scale;if(o>=0)m<<=o;else m>>=-o;var p=_f1(h,f,b,6,m);if(p!=c){var a1=(p-c),a2=0;if(a1<=0)for(;a1>=-16384;a1<<=1)a2++;else for(;a1<16384;a1<<=1)a2++;var a3=(a1*k.value)>>15;a2=f-(k.shift+a2-15);if(a2>=0)a3<<=a2;else a3>>=-a2;var a4=1,b1=0,b2=0;for(;;){b1=p,b2=m,m+=a3,p=_f1(h,f,b,6,m);if(++a4>19)break;if((p-c)*(b1-c)<=0)break};if(p!=c){var b3=0,b4=0,b5=0;if(p>c)b3=m,m=b2,b4=p,b5=b1;else b3=b2,b4=b1,b5=p;while(p!=c&&a4<20){var c1=(m+b3)>>1;p=_f1(h,f,b,6,c1);++a4;if(p>c)b3=c1,b4=p;else m=c1,b5=p}var c2=Math.abs((b4-c)|0),c3=Math.abs((b5-c)|0);if(c2<c3)m=b3,p=b4;else p=b5}}for(var i=0;i<b;++i){var d1=h[i]-m;if(d1>=0)d1=(d1+(1<<(f-1)))>>f;else d1=0;d[i]=Math.min(d1,6)}if(p>c){var i=0,d2=0;for(;d2<c;++i)d2+=d[i];d2-=d[i-1];d[i-1]=c-d2;p=c;for(;i<b;++i)d[i]=0}return(c-p)|0},_f3=function(a,b,c){var f=c<<1,j=1;for(var i=1;i<f;i+=2){if(i<j){var d=a[b+i];a[b+i]=a[b+j],a[b+j]=d;var e=a[b+i-1];a[b+i-1]=a[b+j-1],a[b+j-1]=e}var x=c;while(x>1&&x<j)j-=x,x>>=1;j+=x}},_f4=function(a,b,c){var d=1<<c,j=0;_f3(a,b,d);for(var i=(d>>1);i>0;--i,j+=4){var j0=a[b+j],j1=a[b+j+1],j2=a[b+j+2],j3=a[b+j+3];a[b+j]=j0+j2,a[b+j+1]=j1+j3,a[b+j+2]=j0-j2,a[b+j+3]=j1-j3};j=0;for(var i=(d>>2);i>0;--i,j+=8){var j0=a[b+j],j1=a[b+j+1],j2=a[b+j+2],j3=a[b+j+3],j4=a[b+j+4],j5=a[b+j+5],j6=a[b+j+6],j7=a[b+j+7];a[b+j]=j0+j4,a[b+j+1]=j1+j5,a[b+j+2]=j2+j7,a[b+j+3]=j3-j6,a[b+j+4]=j0-j4,a[b+j+5]=j1-j5,a[b+j+6]=j2-j7,a[b+j+7]=j3+j6}var i=0,x=(d>>3),y=64,z=4;for(var idx1=c-2;idx1>0;--idx1,z<<=1,y>>=1,x>>=1){j=0;for(var idx2=x;idx2!=0;--idx2,j+=z<<1){for(var idx3=z>>1;idx3>0;--idx3,j+=2,i+=y){var k=j+(z<<1),j0=a[b+j],j1=a[b+j+1],k0=a[b+k],k1=a[b+k+1];a[b+k]=(j0-(k0*_t9[128-i]+k1*_t9[i])),a[b+j]=(j0+(k0*_t9[128-i]+k1*_t9[i])),a[b+k+1]=(j1+(k0*_t9[i]-k1*_t9[128-i])),a[b+j+1]=(j1-(k0*_t9[i]-k1*_t9[128-i]))};for(var idx4=z>>1;idx4>0;--idx4,j+=2,i-=y){var k=j+(z<<1),j0=a[b+j],j1=a[b+j+1],k0=a[b+k],k1=a[b+k+1];a[b+k]=(j0+(k0*_t9[128-i]-k1*_t9[i])),a[b+j]=(j0-(k0*_t9[128-i]-k1*_t9[i])),a[b+k+1]=(j1+(k1*_t9[128-i]+k0*_t9[i])),a[b+j+1]=(j1-(k1*_t9[128-i]+k0*_t9[i]))}}}},_f5=function(a,b,c,d,e){var f=1<<c,g=(f>>1)-1,h=f>>2;for(var i=0;i<h;++i){var i2=i<<1,j=f-1-i2,k=j-1,in_i2=a[b+i2],in_i2_1=a[b+i2+1],in_j=a[b+j],in_k=a[b+k];d[e+i2]=(_t4[i]*in_i2-_t6[i]*in_j),d[e+i2+1]=(in_j*_t4[i]+in_i2*_t6[i]),d[e+k]=(_t4[g-i]*in_k-_t6[g-i]*in_i2_1),d[e+j]=(in_i2_1*_t4[g-i]+in_k*_t6[g-i])};_f4(d,e,c-1);var l=d[e+f-1],m=d[e+f-2];d[e]=_t5[0]*d[e],d[e+f-1]=d[e+1]*-_t5[0],d[e+f-2]=_t5[g]*d[e+f-2]+_t5[1]*l,d[e+1]=m*_t5[1]-l*_t5[g];var o=f-3,p=g,j=3;for(var i=1;i<h;++i,--p,o-=2,j+=2){var q=d[e+o],r=d[e+o-1],s=d[e+j],t=d[e+j-1];d[e+j-1]=(_t5[p]*s+_t5[(j-1)>>1]*t),d[e+j]=(r*_t5[(j+1)>>1]-q*_t5[p-1]),d[e+o]=(t*_t5[p]-s*_t5[(j-1)>>1]),d[e+o-1]=(_t5[(j+1)>>1]*q+_t5[p-1]*r)}},_f6=function(a,b,c,d,e){var f=1<<c,g=f>>2,y=f-1,x=f>>1,j=x-1,i=0;_f5(b,0,c,d,e);for(;i<g;++i,--j,++x,--y){var h=a[i],k=a[j],l=d[e+x],m=d[e+y];a[i]=-d[e+j],a[j]=-d[e+i],d[e+i]=(h*_t7[y]+l*_t7[i]),d[e+j]=(k*_t7[x]+m*_t7[j]),d[e+x]=(_t7[x]*-m+_t7[j]*k),d[e+y]=(_t7[y]*-l+_t7[i]*h)}},_f7=function(a,b,c){var d=new Uint8Array(124),e1=new Float32Array(128),e2=new Float32Array(124),e3=new Float32Array(124),f=new Int32Array(124),o=new _1;var g=o.pop(_o2[0],b);d[0]=g,e1[0]=_t1[g];for(var i=1;i<23;i++)g=o.pop(_o2[i],b),d[i]=g,e1[i]=e1[i-1]+_t2[g];for(var i=0;i<23;i++){var h=Math.pow(2.0,e1[i]*(0.5*0.0009765625)),k=_o1[i],l=_o1[i+1];for(;k<l;++k)e3[k]=e1[i],e2[k]=h}var m=_f2(e3,124,198,f);for(var n=0;n<256;n+=128){for(var i=0;i<124;++i){var h=f[i],k=e2[i];if(h>0){var l=1<<h;g=o.pop(h,b),d[i]=g,k*=_t3[l-1+g]}else{var p=Math.random()*4294967296.0;if(p<(1<<30)+(1<<14))k*=-0.707099974;else k*=0.707099974}e1[i]=k;};for(var i=124;i<128;++i)e1[i]=0;for(var i=m;i>0;i-=8){if(i>8)o.pop(8,b);else{o.pop(i,b);break}};_f6(a,e1,7,c,n)}},_f8=function(a,b,c,d){var e=0;var f=Math.abs(a-b[c]);for(var i=c;i<d;++i){var g=Math.abs(a-b[i]);if(g<f)f=g,e=i-c}return e},_f9=function(a,b,c,d){var e=c,f=d;do{var g=(e+f)>>1;if(a>b[g])e=g;else f=g} while(f-e>1);if(f!=d)if(a-b[e]>b[f]-a)e=f;return e-c},_f10=function(a,b,c,d,e,f){var g=1<<d,h=g>>2,y=g-1,x=g>>1,j=x-1,i=0;for(;i<h;++i,++x,--y,--j)e[f+x]=a[i],e[f+y]=a[j],e[f+i]=-b[c+j]*_t7[x]-b[c+x]*_t7[j],e[f+j]=-b[c+y]*_t7[i]-b[c+i]*_t7[y],a[i]=b[c+i]*_t7[i]-b[c+y]*_t7[y],a[j]=b[c+j]*_t7[j]-b[c+x]*_t7[x];_f5(e,f,d,e,f)},_f11=function(q,w,e){var c=new Float32Array(256),d=new Float32Array(23),f=new Float32Array(23),g=new Float32Array(124),h=new Float32Array(124),j=new Int32Array(124),k=new _1;_f10(q,w,0,7,c,0);_f10(q,w,128,7,c,128);for(var i=0;i<23;++i){var l=_o1[i],m=_o1[i+1],n=0.0;for(;l<m;++l){var a=c[l],b=c[l+128];n+=a*a+b*b};var o=Math.max(1.0,n/(_t0[i]<<1));d[i]=Math.round(Math.log(o)*(1.44269502*1024.0))};var r=_f8(d[0],_t1,0,64);f[0]=_t1[r];k.push(r,_o2[0],e);for(var i=1;i<23;++i){r=_f8(d[i]-f[i-1],_t2,0,32);f[i]=f[i-1]+_t2[r];k.push(r,_o2[i],e)};for(var i=0;i<23;++i)d[i]=(1.0/Math.pow(2.0,f[i]*(0.5*0.0009765625)));for(var i=0;i<23;++i){var l=_o1[i],m=_o1[i+1];for(;l<m;++l)g[l]=f[i],h[l]=d[i]}var s=_f2(g,124,198,j);for(var u=0;u<256;u+=128){for(var i=0;i<124;++i){var p=j[i];if(p>0){var t=1<<p;r=_f9(h[i]*c[u+i],_t3,t-1,(t<<1)-1);k.push(r,p,e)}}for(var i=s;i>0;i-=8){if(i>8)k.push(0,8,e);else{k.push(0,i,e);break}}}};return{decode:_f7,encode:_f11}}());
 
-// ANIM TRED MP3 IN JAVASCRIPT
+/*
+ * EAAQ2007
+ *
+ * MP3 IN JAVASCRIPT ES5
+ */ 
 var AT_MP3=(function(){
   var BitStream = function(vec) {
     this._end = 0;
@@ -3202,7 +3117,9 @@ var AT_MP3=(function(){
 var libtess = (function(){var n;function t(a,b){return a.b===b.b&&a.a===b.a}function u(a,b){return a.b<b.b||a.b===b.b&&a.a<=b.a}function v(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?d<e?b.a-a.a+d/(d+e)*(a.a-c.a):b.a-c.a+e/(d+e)*(c.a-a.a):0}function x(a,b,c){var d=b.b-a.b,e=c.b-b.b;return 0<d+e?(b.a-c.a)*d+(b.a-a.a)*e:0}function z(a,b){return a.a<b.a||a.a===b.a&&a.b<=b.b}function aa(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?d<e?b.b-a.b+d/(d+e)*(a.b-c.b):b.b-c.b+e/(d+e)*(c.b-a.b):0}function ba(a,b,c){var d=b.a-a.a,e=c.a-b.a;return 0<d+e?(b.b-c.b)*d+(b.b-a.b)*e:0}function ca(a){return u(a.b.a,a.a)}function da(a){return u(a.a,a.b.a)}function A(a,b,c,d){a=0>a?0:a;c=0>c?0:c;return a<=c?0===c?(b+d)/2:b+a/(a+c)*(d-b):d+c/(a+c)*(b-d)};function ea(a){var b=B(a.b);C(b,a.c);C(b.b,a.c);D(b,a.a);return b}function E(a,b){var c=!1,d=!1;a!==b&&(b.a!==a.a&&(d=!0,F(b.a,a.a)),b.d!==a.d&&(c=!0,G(b.d,a.d)),H(b,a),d||(C(b,a.a),a.a.c=a),c||(D(b,a.d),a.d.a=a))}function I(a){var b=a.b,c=!1;a.d!==a.b.d&&(c=!0,G(a.d,a.b.d));a.c===a?F(a.a,null):(a.b.d.a=J(a),a.a.c=a.c,H(a,J(a)),c||D(a,a.d));b.c===b?(F(b.a,null),G(b.d,null)):(a.d.a=J(b),b.a.c=b.c,H(b,J(b)));fa(a)}function K(a){var b=B(a),c=b.b;H(b,a.e);b.a=a.b.a;C(c,b.a);b.d=c.d=a.d;b=b.b;H(a.b,J(a.b));H(a.b,b);a.b.a=b.a;b.b.a.c=b.b;b.b.d=a.b.d;b.f=a.f;b.b.f=a.b.f;return b}function L(a,b){var c=!1,d=B(a),e=d.b;b.d!==a.d&&(c=!0,G(b.d,a.d));H(d,a.e);H(e,b);d.a=a.b.a;e.a=b.a;d.d=e.d=a.d;a.d.a=e;c||D(d,a.d);return d}function B(a){var b=new M,c=new M,d=a.b.h;c.h=d;d.b.h=b;b.h=a;a.b.h=c;b.b=c;b.c=b;b.e=c;c.b=b;c.c=c;return c.e=b}function H(a,b){var c=a.c,d=b.c;c.b.e=b;d.b.e=a;a.c=d;b.c=c}function C(a,b){var c=b.f,d=new N(b,c);c.e=d;b.f=d;c=d.c=a;do c.a=d,c=c.c;while(c!==a)}function D(a,b){var c=b.d,d=new ga(b,c);c.b=d;b.d=d;d.a=a;d.c=b.c;c=a;do c.d=d,c=c.e;while(c!==a)}function fa(a){var b=a.h;a=a.b.h;b.b.h=a;a.b.h=b}function F(a,b){var c=a.c,d=c;do d.a=b,d=d.c;while(d!==c);c=a.f;d=a.e;d.f=c;c.e=d}function G(a,b){var c=a.a,d=c;do d.d=b,d=d.e;while(d!==c);c=a.d;d=a.b;d.d=c;c.b=d};function ha(a){var b=0;Math.abs(a[1])>Math.abs(a[0])&&(b=1);Math.abs(a[2])>Math.abs(a[b])&&(b=2);return b};var O=4*1E150;function P(a,b){a.f+=b.f;a.b.f+=b.b.f}function ia(a,b,c){a=a.a;b=b.a;c=c.a;if(b.b.a===a)return c.b.a===a?u(b.a,c.a)?0>=x(c.b.a,b.a,c.a):0<=x(b.b.a,c.a,b.a):0>=x(c.b.a,a,c.a);if(c.b.a===a)return 0<=x(b.b.a,a,b.a);b=v(b.b.a,a,b.a);a=v(c.b.a,a,c.a);return b>=a}function Q(a){a.a.i=null;var b=a.e;b.a.c=b.c;b.c.a=b.a;a.e=null}function ja(a,b){I(a.a);a.c=!1;a.a=b;b.i=a}function ka(a){var b=a.a.a;do a=R(a);while(a.a.a===b);a.c&&(b=L(S(a).a.b,a.a.e),ja(a,b),a=R(a));return a}function la(a,b,c){var d=new ma;d.a=c;d.e=na(a.f,b.e,d);return c.i=d}function oa(a,b){switch(a.s){case 100130:return 0!==(b&1);case 100131:return 0!==b;case 100132:return 0<b;case 100133:return 0>b;case 100134:return 2<=b||-2>=b}return!1}function pa(a){var b=a.a,c=b.d;c.c=a.d;c.a=b;Q(a)}function T(a,b,c){a=b;for(b=b.a;a!==c;){a.c=!1;var d=S(a),e=d.a;if(e.a!==b.a){if(!d.c){pa(a);break}e=L(b.c.b,e.b);ja(d,e)}b.c!==e&&(E(J(e),e),E(b,e));pa(a);b=d.a;a=d}return b}function U(a,b,c,d,e,f){var g=!0;do la(a,b,c.b),c=c.c;while(c!==d);for(null===e&&(e=S(b).a.b.c);;){d=S(b);c=d.a.b;if(c.a!==e.a)break;c.c!==e&&(E(J(c),c),E(J(e),c));d.f=b.f-c.f;d.d=oa(a,d.f);b.b=!0;!g&&qa(a,b)&&(P(c,e),Q(b),I(e));g=!1;b=d;e=c}b.b=!0;f&&ra(a,b)}function sa(a,b,c,d,e){var f=[b.g[0],b.g[1],b.g[2]];b.d=null;b.d=a.o?a.o(f,c,d,a.c)||null:null;null===b.d&&(e?a.n||(V(a,100156),a.n=!0):b.d=c[0])}function ta(a,b,c){var d=[null,null,null,null];d[0]=b.a.d;d[1]=c.a.d;sa(a,b.a,d,[.5,.5,0,0],!1);E(b,c)}function ua(a,b,c,d,e){var f=Math.abs(b.b-a.b)+Math.abs(b.a-a.a),g=Math.abs(c.b-a.b)+Math.abs(c.a-a.a),h=e+1;d[e]=.5*g/(f+g);d[h]=.5*f/(f+g);a.g[0]+=d[e]*b.g[0]+d[h]*c.g[0];a.g[1]+=d[e]*b.g[1]+d[h]*c.g[1];a.g[2]+=d[e]*b.g[2]+d[h]*c.g[2]}function qa(a,b){var c=S(b),d=b.a,e=c.a;if(u(d.a,e.a)){if(0<x(e.b.a,d.a,e.a))return!1;if(!t(d.a,e.a))K(e.b),E(d,J(e)),b.b=c.b=!0;else if(d.a!==e.a){var c=a.e,f=d.a.h;if(0<=f){var c=c.b,g=c.d,h=c.e,k=c.c,l=k[f];g[l]=g[c.a];k[g[l]]=l;l<=--c.a&&(1>=l?W(c,l):u(h[g[l>>1]],h[g[l]])?W(c,l):va(c,l));h[f]=null;k[f]=c.b;c.b=f}else for(c.c[-(f+1)]=null;0<c.a&&null===c.c[c.d[c.a-1]];)--c.a;ta(a,J(e),d)}}else{if(0>x(d.b.a,e.a,d.a))return!1;R(b).b=b.b=!0;K(d.b);E(J(e),d)}return!0}function wa(a,b){var c=S(b),d=b.a,e=c.a,f=d.a,g=e.a,h=d.b.a,k=e.b.a,l=new N;x(h,a.a,f);x(k,a.a,g);if(f===g||Math.min(f.a,h.a)>Math.max(g.a,k.a))return!1;if(u(f,g)){if(0<x(k,f,g))return!1}else if(0>x(h,g,f))return!1;var r=h,p=f,q=k,y=g,m,w;u(r,p)||(m=r,r=p,p=m);u(q,y)||(m=q,q=y,y=m);u(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);u(q,p)?u(p,y)?(m=v(r,q,p),w=v(q,p,y),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,p.b)):(m=x(r,q,p),w=-x(r,y,p),0>m+w&&(m=-m,w=-w),l.b=A(m,q.b,w,y.b)):l.b=(q.b+p.b)/2;z(r,p)||(m=r,r=p,p=m);z(q,y)||(m=q,q=y,y=m);z(r,q)||(m=r,r=q,q=m,m=p,p=y,y=m);z(q,p)?z(p,y)?(m=aa(r,q,p),w=aa(q,p,y),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,p.a)):(m=ba(r,q,p),w=-ba(r,y,p),0>m+w&&(m=-m,w=-w),l.a=A(m,q.a,w,y.a)):l.a=(q.a+p.a)/2;u(l,a.a)&&(l.b=a.a.b,l.a=a.a.a);r=u(f,g)?f:g;u(r,l)&&(l.b=r.b,l.a=r.a);if(t(l,f)||t(l,g))return qa(a,b),!1;if(!t(h,a.a)&&0<=x(h,a.a,l)||!t(k,a.a)&&0>=x(k,a.a,l)){if(k===a.a)return K(d.b),E(e.b,d),b=ka(b),d=S(b).a,T(a,S(b),c),U(a,b,J(d),d,d,!0),!0;if(h===a.a){K(e.b);E(d.e,J(e));f=c=b;g=f.a.b.a;do f=R(f);while(f.a.b.a===g);b=f;f=S(b).a.b.c;c.a=J(e);e=T(a,c,null);U(a,b,e.c,d.b.c,f,!0);return!0}0<=x(h,a.a,l)&&(R(b).b=b.b=!0,K(d.b),d.a.b=a.a.b,d.a.a=a.a.a);0>=x(k,a.a,l)&&(b.b=c.b=!0,K(e.b),e.a.b=a.a.b,e.a.a=a.a.a);return!1}K(d.b);K(e.b);E(J(e),d);d.a.b=l.b;d.a.a=l.a;d.a.h=xa(a.e,d.a);d=d.a;e=[0,0,0,0];l=[f.d,h.d,g.d,k.d];d.g[0]=d.g[1]=d.g[2]=0;ua(d,f,h,e,0);ua(d,g,k,e,2);sa(a,d,l,e,!0);R(b).b=b.b=c.b=!0;return!1}function ra(a,b){for(var c=S(b);;){for(;c.b;)b=c,c=S(c);if(!b.b&&(c=b,b=R(b),null===b||!b.b))break;b.b=!1;var d=b.a,e=c.a,f;if(f=d.b.a!==e.b.a)a:{f=b;var g=S(f),h=f.a,k=g.a,l=void 0;if(u(h.b.a,k.b.a)){if(0>x(h.b.a,k.b.a,h.a)){f=!1;break a}R(f).b=f.b=!0;l=K(h);E(k.b,l);l.d.c=f.d}else{if(0<x(k.b.a,h.b.a,k.a)){f=!1;break a}f.b=g.b=!0;l=K(k);E(h.e,k.b);l.b.d.c=f.d}f=!0}f&&(c.c?(Q(c),I(e),c=S(b),e=c.a):b.c&&(Q(b),I(d),b=R(c),d=b.a));if(d.a!==e.a)if(d.b.a===e.b.a||b.c||c.c||d.b.a!==a.a&&e.b.a!==a.a)qa(a,b);else if(wa(a,b))break;d.a===e.a&&d.b.a===e.b.a&&(P(e,d),Q(b),I(d),b=R(c))}}function ya(a,b){a.a=b;for(var c=b.c;null===c.i;)if(c=c.c,c===b.c){var c=a,d=b,e=new ma;e.a=d.c.b;var f=c.f,g=f.a;do g=g.a;while(null!==g.b&&!f.c(f.b,e,g.b));var f=g.b,h=S(f),e=f.a,g=h.a;if(0===x(e.b.a,d,e.a))e=f.a,t(e.a,d)||t(e.b.a,d)||(K(e.b),f.c&&(I(e.c),f.c=!1),E(d.c,e),ya(c,d));else{var k=u(g.b.a,e.b.a)?f:h,h=void 0;f.d||k.c?(k===f?h=L(d.c.b,e.e):h=L(g.b.c.b,d.c).b,k.c?ja(k,h):(e=c,f=la(c,f,h),f.f=R(f).f+f.a.f,f.d=oa(e,f.f)),ya(c,d)):U(c,f,d.c,d.c,null,!0)}return}c=ka(c.i);e=S(c);f=e.a;e=T(a,e,null);if(e.c===f){var f=e,e=f.c,g=S(c),h=c.a,k=g.a,l=!1;h.b.a!==k.b.a&&wa(a,c);t(h.a,a.a)&&(E(J(e),h),c=ka(c),e=S(c).a,T(a,S(c),g),l=!0);t(k.a,a.a)&&(E(f,J(k)),f=T(a,g,null),l=!0);l?U(a,c,f.c,e,e,!0):(u(k.a,h.a)?d=J(k):d=h,d=L(f.c.b,d),U(a,c,d,d.c,d.c,!1),d.b.i.c=!0,ra(a,c))}else U(a,c,e.c,f,f,!0)}function za(a,b){var c=new ma,d=ea(a.b);d.a.b=O;d.a.a=b;d.b.a.b=-O;d.b.a.a=b;a.a=d.b.a;c.a=d;c.f=0;c.d=!1;c.c=!1;c.h=!0;c.b=!1;d=a.f;d=na(d,d.a,c);c.e=d};function Aa(a){this.a=new Ba;this.b=a;this.c=ia}function na(a,b,c){do b=b.c;while(null!==b.b&&!a.c(a.b,b.b,c));a=new Ba(c,b.a,b);b.a.c=a;return b.a=a};function Ba(a,b,c){this.b=a||null;this.a=b||this;this.c=c||this};function X(){this.d=Y;this.p=this.b=this.q=null;this.j=[0,0,0];this.s=100130;this.n=!1;this.o=this.a=this.e=this.f=null;this.m=!1;this.c=this.r=this.i=this.k=this.l=this.h=null}var Y=0;n=X.prototype;n.x=function(){Z(this,Y)};n.B=function(a,b){switch(a){case 100142:return;case 100140:switch(b){case 100130:case 100131:case 100132:case 100133:case 100134:this.s=b;return}break;case 100141:this.m=!!b;return;default:V(this,100900);return}V(this,100901)};n.y=function(a){switch(a){case 100142:return 0;case 100140:return this.s;case 100141:return this.m;default:V(this,100900)}return!1};n.A=function(a,b,c){this.j[0]=a;this.j[1]=b;this.j[2]=c};n.z=function(a,b){var c=b?b:null;switch(a){case 100100:case 100106:this.h=c;break;case 100104:case 100110:this.l=c;break;case 100101:case 100107:this.k=c;break;case 100102:case 100108:this.i=c;break;case 100103:case 100109:this.p=c;break;case 100105:case 100111:this.o=c;break;case 100112:this.r=c;break;default:V(this,100900)}};n.C=function(a,b){var c=!1,d=[0,0,0];Z(this,2);for(var e=0;3>e;++e){var f=a[e];-1E150>f&&(f=-1E150,c=!0);1E150<f&&(f=1E150,c=!0);d[e]=f}c&&V(this,100155);c=this.q;null===c?(c=ea(this.b),E(c,c.b)):(K(c),c=c.e);c.a.d=b;c.a.g[0]=d[0];c.a.g[1]=d[1];c.a.g[2]=d[2];c.f=1;c.b.f=-1;this.q=c};n.u=function(a){Z(this,Y);this.d=1;this.b=new Ca;this.c=a};n.t=function(){Z(this,1);this.d=2;this.q=null};n.v=function(){Z(this,2);this.d=1};n.w=function(){Z(this,1);this.d=Y;var a=this.j[0],b=this.j[1],c=this.j[2],d=!1,e=[a,b,c];if(0===a&&0===b&&0===c){for(var b=[-2*1E150,-2*1E150,-2*1E150],f=[2*1E150,2*1E150,2*1E150],c=[],g=[],d=this.b.c,a=d.e;a!==d;a=a.e)for(var h=0;3>h;++h){var k=a.g[h];k<f[h]&&(f[h]=k,g[h]=a);k>b[h]&&(b[h]=k,c[h]=a)}a=0;b[1]-f[1]>b[0]-f[0]&&(a=1);b[2]-f[2]>b[a]-f[a]&&(a=2);if(f[a]>=b[a])e[0]=0,e[1]=0,e[2]=1;else{b=0;f=g[a];c=c[a];g=[0,0,0];f=[f.g[0]-c.g[0],f.g[1]-c.g[1],f.g[2]-c.g[2]];h=[0,0,0];for(a=d.e;a!==d;a=a.e)h[0]=a.g[0]-c.g[0],h[1]=a.g[1]-c.g[1],h[2]=a.g[2]-c.g[2],g[0]=f[1]*h[2]-f[2]*h[1],g[1]=f[2]*h[0]-f[0]*h[2],g[2]=f[0]*h[1]-f[1]*h[0],k=g[0]*g[0]+g[1]*g[1]+g[2]*g[2],k>b&&(b=k,e[0]=g[0],e[1]=g[1],e[2]=g[2]);0>=b&&(e[0]=e[1]=e[2]=0,e[ha(f)]=1)}d=!0}g=ha(e);a=this.b.c;b=(g+1)%3;c=(g+2)%3;g=0<e[g]?1:-1;for(e=a.e;e!==a;e=e.e)e.b=e.g[b],e.a=g*e.g[c];if(d){e=0;d=this.b.a;for(a=d.b;a!==d;a=a.b)if(b=a.a,!(0>=b.f)){do e+=(b.a.b-b.b.a.b)*(b.a.a+b.b.a.a),b=b.e;while(b!==a.a)}if(0>e)for(e=this.b.c,d=e.e;d!==e;d=d.e)d.a=-d.a}this.n=!1;e=this.b.b;for(a=e.h;a!==e;a=d)if(d=a.h,b=a.e,t(a.a,a.b.a)&&a.e.e!==a&&(ta(this,b,a),I(a),a=b,b=a.e),b.e===a){if(b!==a){if(b===d||b===d.b)d=d.h;I(b)}if(a===d||a===d.b)d=d.h;I(a)}this.e=e=new Da;d=this.b.c;for(a=d.e;a!==d;a=a.e)a.h=xa(e,a);Ea(e);this.f=new Aa(this);za(this,-O);for(za(this,O);null!==(e=Fa(this.e));){for(;;){a:if(a=this.e,0===a.a)d=Ga(a.b);else if(d=a.c[a.d[a.a-1]],0!==a.b.a&&(a=Ga(a.b),u(a,d))){d=a;break a}if(null===d||!t(d,e))break;d=Fa(this.e);ta(this,e.c,d.c)}ya(this,e)}this.a=this.f.a.a.b.a.a;for(e=0;null!==(d=this.f.a.a.b);)d.h||++e,Q(d);this.f=null;e=this.e;e.b=null;e.d=null;this.e=e.c=null;e=this.b;for(a=e.a.b;a!==e.a;a=d)d=a.b,a=a.a,a.e.e===a&&(P(a.c,a),I(a));if(!this.n){e=this.b;if(this.m)for(a=e.b.h;a!==e.b;a=d)d=a.h,a.b.d.c!==a.d.c?a.f=a.d.c?1:-1:I(a);else for(a=e.a.b;a!==e.a;a=d)if(d=a.b,a.c){for(a=a.a;u(a.b.a,a.a);a=a.c.b);for(;u(a.a,a.b.a);a=a.e);b=a.c.b;for(c=void 0;a.e!==b;)if(u(a.b.a,b.a)){for(;b.e!==a&&(ca(b.e)||0>=x(b.a,b.b.a,b.e.b.a));)c=L(b.e,b),b=c.b;b=b.c.b}else{for(;b.e!==a&&(da(a.c.b)||0<=x(a.b.a,a.a,a.c.b.a));)c=L(a,a.c.b),a=c.b;a=a.e}for(;b.e.e!==a;)c=L(b.e,b),b=c.b}if(this.h||this.i||this.k||this.l)if(this.m)for(e=this.b,d=e.a.b;d!==e.a;d=d.b){if(d.c){this.h&&this.h(2,this.c);a=d.a;do this.k&&this.k(a.a.d,this.c),a=a.e;while(a!==d.a);this.i&&this.i(this.c)}}else{e=this.b;d=!!this.l;a=!1;b=-1;for(c=e.a.d;c!==e.a;c=c.d)if(c.c){a||(this.h&&this.h(4,this.c),a=!0);g=c.a;do d&&(f=g.b.d.c?0:1,b!==f&&(b=f,this.l&&this.l(!!b,this.c))),this.k&&this.k(g.a.d,this.c),g=g.e;while(g!==c.a)}a&&this.i&&this.i(this.c)}if(this.r){e=this.b;for(a=e.a.b;a!==e.a;a=d)if(d=a.b,!a.c){b=a.a;c=b.e;g=void 0;do g=c,c=g.e,g.d=null,null===g.b.d&&(g.c===g?F(g.a,null):(g.a.c=g.c,H(g,J(g))),f=g.b,f.c===f?F(f.a,null):(f.a.c=f.c,H(f,J(f))),fa(g));while(g!==b);b=a.d;a=a.b;a.d=b;b.b=a}this.r(this.b);this.c=this.b=null;return}}this.b=this.c=null};function Z(a,b){if(a.d!==b)for(;a.d!==b;)if(a.d<b)switch(a.d){case Y:V(a,100151);a.u(null);break;case 1:V(a,100152),a.t()}else switch(a.d){case 2:V(a,100154);a.v();break;case 1:V(a,100153),a.w()}}function V(a,b){a.p&&a.p(b,a.c)};function ga(a,b){this.b=a||this;this.d=b||this;this.a=null;this.c=!1};function M(){this.h=this;this.i=this.d=this.a=this.e=this.c=this.b=null;this.f=0}function J(a){return a.b.e};function Ca(){this.c=new N;this.a=new ga;this.b=new M;this.d=new M;this.b.b=this.d;this.d.b=this.b};function N(a,b){this.e=a||this;this.f=b||this;this.d=this.c=null;this.g=[0,0,0];this.h=this.a=this.b=0};function Da(){this.c=[];this.d=null;this.a=0;this.e=!1;this.b=new Ha}function Ea(a){a.d=[];for(var b=0;b<a.a;b++)a.d[b]=b;a.d.sort(function(a){return function(b,e){return u(a[b],a[e])?1:-1}}(a.c));a.e=!0;Ia(a.b)}function xa(a,b){if(a.e){var c=a.b,d=++c.a;2*d>c.f&&(c.f*=2,c.c=Ja(c.c,c.f+1));var e;0===c.b?e=d:(e=c.b,c.b=c.c[c.b]);c.e[e]=b;c.c[e]=d;c.d[d]=e;c.h&&va(c,d);return e}c=a.a++;a.c[c]=b;return-(c+1)}function Fa(a){if(0===a.a)return Ka(a.b);var b=a.c[a.d[a.a-1]];if(0!==a.b.a&&u(Ga(a.b),b))return Ka(a.b);do--a.a;while(0<a.a&&null===a.c[a.d[a.a-1]]);return b};function Ha(){this.d=Ja([0],33);this.e=[null,null];this.c=[0,0];this.a=0;this.f=32;this.b=0;this.h=!1;this.d[1]=1}function Ja(a,b){for(var c=Array(b),d=0;d<a.length;d++)c[d]=a[d];for(;d<b;d++)c[d]=0;return c}function Ia(a){for(var b=a.a;1<=b;--b)W(a,b);a.h=!0}function Ga(a){return a.e[a.d[1]]}function Ka(a){var b=a.d,c=a.e,d=a.c,e=b[1],f=c[e];0<a.a&&(b[1]=b[a.a],d[b[1]]=1,c[e]=null,d[e]=a.b,a.b=e,0<--a.a&&W(a,1));return f}function W(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f<<1;h<a.a&&u(d[c[h+1]],d[c[h]])&&(h+=1);var k=c[h];if(h>a.a||u(d[g],d[k])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}}function va(a,b){for(var c=a.d,d=a.e,e=a.c,f=b,g=c[f];;){var h=f>>1,k=c[h];if(0===h||u(d[k],d[g])){c[f]=g;e[g]=f;break}c[f]=k;e[k]=f;f=h}};function ma(){this.e=this.a=null;this.f=0;this.c=this.b=this.h=this.d=!1}function S(a){return a.e.c.b}function R(a){return a.e.a.b};var _={GluTesselator:X,windingRule:{GLU_TESS_WINDING_ODD:100130,GLU_TESS_WINDING_NONZERO:100131,GLU_TESS_WINDING_POSITIVE:100132,GLU_TESS_WINDING_NEGATIVE:100133,GLU_TESS_WINDING_ABS_GEQ_TWO:100134},primitiveType:{GL_LINE_LOOP:2,GL_TRIANGLES:4,GL_TRIANGLE_STRIP:5,GL_TRIANGLE_FAN:6},errorType:{GLU_TESS_MISSING_BEGIN_POLYGON:100151,GLU_TESS_MISSING_END_POLYGON:100153,GLU_TESS_MISSING_BEGIN_CONTOUR:100152,GLU_TESS_MISSING_END_CONTOUR:100154,GLU_TESS_COORD_TOO_LARGE:100155,GLU_TESS_NEED_COMBINE_CALLBACK:100156},gluEnum:{GLU_TESS_MESH:100112,GLU_TESS_TOLERANCE:100142,GLU_TESS_WINDING_RULE:100140,GLU_TESS_BOUNDARY_ONLY:100141,GLU_INVALID_ENUM:100900,GLU_INVALID_VALUE:100901,GLU_TESS_BEGIN:100100,GLU_TESS_VERTEX:100101,GLU_TESS_END:100102,GLU_TESS_ERROR:100103,GLU_TESS_EDGE_FLAG:100104,GLU_TESS_COMBINE:100105,GLU_TESS_BEGIN_DATA:100106,GLU_TESS_VERTEX_DATA:100107,GLU_TESS_END_DATA:100108,GLU_TESS_ERROR_DATA:100109,GLU_TESS_EDGE_FLAG_DATA:100110,GLU_TESS_COMBINE_DATA:100111}};X.prototype.gluDeleteTess=X.prototype.x;X.prototype.gluTessProperty=X.prototype.B;X.prototype.gluGetTessProperty=X.prototype.y;X.prototype.gluTessNormal=X.prototype.A;X.prototype.gluTessCallback=X.prototype.z;X.prototype.gluTessVertex=X.prototype.C;X.prototype.gluTessBeginPolygon=X.prototype.u;X.prototype.gluTessBeginContour=X.prototype.t;X.prototype.gluTessEndContour=X.prototype.v;X.prototype.gluTessEndPolygon=X.prototype.w;return _}());
   
 /*
- * AT H.263 in javscript(ES5)
+ * EAAQ2007
+ * 
+ * H.263 in javscript(ES5)
  */
 
 var AT_H263 = (function() {
@@ -5768,7 +5685,9 @@ var AT_H263 = (function() {
 }());
 
 /*
- * AT NIHAV VP6 in javscript(ES5)
+ * EAAQ2007
+ *
+ * NIHAV VP6 in javscript(ES5)
  */
 
 var AT_NIHAV_VP6 = (function() {
@@ -5810,10 +5729,10 @@ var AT_NIHAV_VP6 = (function() {
   }
   BitReader.prototype.peek = function(nbits) {
     var bytePos = this.bytePos
-  var bitPos = this.bitPos;
+    var bitPos = this.bitPos;
     var r = this.read(nbits);
-  this.bytePos = bytePos;
-  this.bitPos = bitPos;
+    this.bytePos = bytePos;
+    this.bitPos = bitPos;
     return r;
   }
   BitReader.prototype.skip = function(nbits) {
@@ -9800,13 +9719,22 @@ var AT_NIHAV_VP6 = (function() {
       if (obj.hasFill) {
         obj.fillType = this.fillStyle(shapeVersion);
       } else {
-        obj.color = this.rgba();
+        obj.fillType = {
+          type: 0,
+          color: this.rgba()
+        }
       }
     } else {
       if (shapeVersion >= 3) {
-        obj.color = this.rgba();
+        obj.fillType = {
+          type: 0,
+          color: this.rgba()
+        }
       } else {
-        obj.color = this.rgb();
+        obj.fillType = {
+          type: 0,
+          color: this.rgb()
+        }
       }
     }
     return obj;
@@ -10003,8 +9931,11 @@ var AT_NIHAV_VP6 = (function() {
     obj.startWidth = byteStream.readUint16();
     obj.endWidth = byteStream.readUint16();
     if (shapeVersion < 2) {
-      obj.startColor = this.rgba();
-      obj.endColor = this.rgba();
+      obj.fillType = {
+        type: 0,
+        startColor: this.rgba(),
+        endColor: this.rgba()
+      }
     } else {
       obj.startCapStyle = byteStream.readUB(2);
       obj.joinStyle = byteStream.readUB(2);
@@ -10021,8 +9952,11 @@ var AT_NIHAV_VP6 = (function() {
       if (obj.hasFill) {
         obj.fillType = this.morphFillStyle();
       } else {
-        obj.startColor = this.rgba();
-        obj.endColor = this.rgba();
+        obj.fillType = {
+          type: 0,
+          startColor: this.rgba(),
+          endColor: this.rgba()
+        }
       }
     }
     return obj;
@@ -10829,18 +10763,18 @@ var AT_NIHAV_VP6 = (function() {
     var byteStream = this.byteStream;
     var obj = {};
     var sceneCount = byteStream.readEncodedU32();
-    obj.sceneInfo = [];
+    obj.scenes = [];
     while (sceneCount--) {
-      obj.sceneInfo.push({
-        offset: byteStream.readEncodedU32(),
+      obj.scenes.push({
+        frameNum: byteStream.readEncodedU32(),
         name: byteStream.readBytesNullTerminated()
       });
     }
     var frameLabelCount = byteStream.readEncodedU32();
-    obj.frameInfo = [];
+    obj.frameLabels = [];
     while (frameLabelCount--) {
-      obj.frameInfo.push({
-        num: byteStream.readEncodedU32(),
+      obj.frameLabels.push({
+        frameNum: byteStream.readEncodedU32(),
         label: byteStream.readBytesNullTerminated()
       });
     }
@@ -12142,9 +12076,24 @@ var AT_NIHAV_VP6 = (function() {
     }
     return data;
   }());
+
   function round_to_i32(f) {
-    return Math.round(f) | 0;
+    if (Number.isFinite(f)) {
+      if (f < 2147483648) {
+        return number_round_ties_even(Math.fround(f)) | 0;
+      } else {
+        return -2147483648;
+      }
+    } else {
+      // NaN/Infinity goes to 0.
+      return 0;
+    }
   }
+
+  function assert_eq(a, b) {
+    console.log(a, b, a == b);
+  }
+
   var Point = function(x, y) {
     this.x = x;
     this.y = y;
@@ -12307,6 +12256,9 @@ var AT_NIHAV_VP6 = (function() {
       }
     }
   });
+  Matrix.prototype.eq = function(other) {
+    return (this.abcd[0] == other.abcd[0]) && (this.abcd[1] == other.abcd[1]) && (this.abcd[2] == other.abcd[2]) && (this.abcd[3] == other.abcd[3]) && (this.txy[0] == other.txy[0]) && (this.txy[1] == other.txy[1]);
+  }
   Matrix.prototype.toArray = function() {
     return [this.abcd[0], this.abcd[1], this.abcd[2], this.abcd[3], this.txy[0], this.txy[1]];
   }
@@ -12324,21 +12276,21 @@ var AT_NIHAV_VP6 = (function() {
   Matrix.prototype.mul = function(rhs) {
     var rhs_tx = rhs.txy[0];
     var rhs_ty = rhs.txy[1];
-    var out_tx = round_to_i32(this.a * rhs_tx + this.c * rhs_ty) + this.txy[0];
-    var out_ty = round_to_i32(this.b * rhs_tx + this.d * rhs_ty) + this.txy[1];
+    var out_tx = round_to_i32(Math.fround(this.a * rhs_tx) + Math.fround(this.c * rhs_ty)) + this.txy[0];
+    var out_ty = round_to_i32(Math.fround(this.b * rhs_tx) + Math.fround(this.d * rhs_ty)) + this.txy[1];
     return new Matrix(
-      this.a * rhs.a + this.c * rhs.b,
-      this.b * rhs.a + this.d * rhs.b,
-      this.a * rhs.c + this.c * rhs.d,
-      this.b * rhs.c + this.d * rhs.d,
+      Math.fround(this.a * rhs.a) + Math.fround(this.c * rhs.b),
+      Math.fround(this.b * rhs.a) + Math.fround(this.d * rhs.b),
+      Math.fround(this.a * rhs.c) + Math.fround(this.c * rhs.d),
+      Math.fround(this.b * rhs.c) + Math.fround(this.d * rhs.d),
       out_tx, out_ty
     );
   }
   Matrix.prototype.mulPoint = function(point) {
     var x = point.x;
     var y = point.y;
-    var out_x = round_to_i32(this.a * x + this.c * y) + this.tx;
-    var out_y = round_to_i32(this.b * x + this.d * y) + this.ty;
+    var out_x = round_to_i32(Math.fround(this.a * x) + Math.fround(this.c * y)) + this.tx;
+    var out_y = round_to_i32(Math.fround(this.b * x) + Math.fround(this.d * y)) + this.ty;
     return new Point(out_x, out_y);
   }
   Matrix.prototype.mulRectangle = function(rhs) {
@@ -12357,19 +12309,19 @@ var AT_NIHAV_VP6 = (function() {
     );
   }
   Matrix.prototype.determinant = function() {
-    return this.a * this.d - this.b * this.c;
+    return Math.fround(Math.fround(this.a * this.d) - Math.fround(this.b * this.c));
   }
   Matrix.prototype.inverse = function() {
     var tx = this.tx;
     var ty = this.ty;
     var det = this.determinant();
-    if (Math.abs(det) > Number.EPSILON) {
+    if (Math.abs(det) > Math.fround(Number.EPSILON)) {
       var a = this.d / det;
       var b = this.b / -det;
       var c = this.c / -det;
       var d = this.a / det;
-      var out_tx = round_to_i32((this.d * tx - this.c * ty) / -det);
-      var out_ty = round_to_i32((this.b * tx - this.a * ty) / det);
+      var out_tx = round_to_i32(Math.fround(Math.fround(this.d * tx) - Math.fround(this.c * ty)) / -det);
+      var out_ty = round_to_i32(Math.fround(Math.fround(this.b * tx) - Math.fround(this.a * ty)) / det);
       return new Matrix(a, b, c, d, out_tx, out_ty);
     } else {
       return null;
@@ -12647,7 +12599,7 @@ var AT_NIHAV_VP6 = (function() {
       return [{
         type: 0,
         path2d: shapes,
-        fill: {
+        style: {
           type: 0,
           color: [255, 255, 255, 1]
         }
@@ -12692,85 +12644,15 @@ var AT_NIHAV_VP6 = (function() {
     if (isLine) {
       return {
         type: 1,
-        width: obj.width,
+        isClosed: false,
         path2d: cmd,
-        fill: lineToInfo(obj),
+        style: obj,
       };
     } else {
       return {
         type: 0,
         path2d: cmd,
-        fill: fillToInfo(obj),
-      };
-    }
-  }
-  function fillToInfo(fill) {
-    var type = fill.type;
-    switch (type) {
-      case 0:
-        var color = fill.color;
-        return {
-          type: 0,
-          color: color
-        };
-      case 0x10:
-      case 0x12:
-      case 0x13:
-        var gradient = fill.gradient;
-        var gradientMatrix = gradient.matrix;
-        var isRadial = (type !== 16);
-        var focal = 0;
-        if (type == 19) {
-          focal = fill.focalPoint;
-        }
-        var records = gradient.records;
-        var css = [];
-        for (var rIdx = 0; rIdx < records.length; rIdx++) {
-          var record = records[rIdx];
-          var color = record.color;
-          var ratio = record.ratio;
-          css.push([color, ratio]);
-        }
-        var spreadMode = gradientSpread(gradient.spreadMode);
-        var repeatMode = 0;
-        if (spreadMode == "repeat") {
-          repeatMode = 1;
-        }
-        if (spreadMode == "reflect") {
-          repeatMode = 2;
-        }
-        return {
-          type: 1,
-          matrix: gradientMatrix,
-          focal: focal,
-          isRadial,
-          repeat: repeatMode,
-          records: css
-        };
-      case 0x40:
-      case 0x41:
-      case 0x42:
-      case 0x43:
-        var bitmapId = fill.bitmapId;
-        var bMatrix = fill.bitmapMatrix;
-        return {
-          type: 2,
-          matrix: bMatrix,
-          id: bitmapId,
-          isSmoothed: fill.isSmoothed,
-          isRepeating: fill.isRepeating,
-        };
-      default:
-        return null;
-    }
-  }
-  function lineToInfo(line) {
-    if ("fillType" in line) {
-      return fillToInfo(line.fillType);
-    } else {
-      return {
-        type: 0,
-        color: line.color
+        style: obj,
       };
     }
   }
@@ -12782,7 +12664,7 @@ var AT_NIHAV_VP6 = (function() {
       var sx = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b);
       var sy = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d);
       var scale = Math.max(sx, sy);
-      return scale;
+      return 20 * scale;
     }
     function winding_number_line(test_point, begin, end) {
       var d0 = { x: test_point.x - begin.x, y: test_point.y - begin.y };
@@ -13001,8 +12883,26 @@ var AT_NIHAV_VP6 = (function() {
       }
       return dist <= stroke_width_sq;
     }
+    function fill_rule_hit_test(shape, winding) {
+      if (shape.fillWindingRule) {
+        return (winding & 0b1) != 0;
+      } else {
+        return winding != 0;
+      }
+    }
+    var FillRule = function(shape) {
+      this.type = shape.fillWindingRule;
+    }
+    FillRule.prototype.hitTest = function(winding_number) {
+      if (this.type) {
+        return winding_number != 0;
+      } else {
+        return (winding_number & 0b1) != 0;
+      }
+    }
     function shapeHitTest(shape, test_point, local_matrix) {
       var cursor = { x: 0, y: 0 };
+      var fill_rule = new FillRule(shape);
       var winding = 0;
       var has_fill_style0 = false;
       var has_fill_style1 = false;
@@ -13013,7 +12913,7 @@ var AT_NIHAV_VP6 = (function() {
         var record = shape.shapeRecords[i];
         if (record.isChange) {
           if (record.stateNewStyles) {
-            if ((winding & 0b1) != 0) {
+            if (fill_rule.hitTest(winding)) {
               return true;
             }
             line_styles = record.lineStyles;
@@ -13034,7 +12934,7 @@ var AT_NIHAV_VP6 = (function() {
               var line_style = line_styles[record.lineStyle - 1];
               if (line_style) {
                 var width = line_style.width;
-                var scaled_width = 0.5 * width;
+                var scaled_width = 0.5 * Math.max(width, min_width);
                 stroke_width = [scaled_width, scaled_width * scaled_width];
               } else {
                 stroke_width = null;
@@ -13076,7 +12976,7 @@ var AT_NIHAV_VP6 = (function() {
           }
         }
       }
-      return (winding & 0b1) != 0;
+      return fill_rule.hitTest(winding);
     }
     function drawCommandFillHitTest(commands, test_point) {
       var cursor = { x: 0, y: 0 };
@@ -13104,56 +13004,52 @@ var AT_NIHAV_VP6 = (function() {
       }
       return (winding & 0b1) != 0;
     }
-    return {
-      shapeHitTest,
-      drawCommandFillHitTest,
-      shapeToRendererInfo,
-      calculateShapeBounds: function(shapeRecords) {
-        var xMin = Infinity;
-        var yMin = Infinity;
-        var xMax = -Infinity;
-        var yMax = -Infinity;
-        function dfgfd(x, y) {
-          if (x < xMin) xMin = x;
-          if (y < yMin) yMin = y;
-          if (x > xMax) xMax = x;
-          if (y > yMax) yMax = y;
-        }
-        var currentPosition = {x: 0, y: 0};
-        var hasShapeRecord = false;
-        for (var i = 0; i < shapeRecords.length; i++) {
-          var record = shapeRecords[i];
-          if (!record) continue;
-          hasShapeRecord = true;
-          if (record.isChange) {
-            if (record.stateMoveTo) {
-              currentPosition.x = record.moveX;
-              currentPosition.y = record.moveY;
-              dfgfd(currentPosition.x, currentPosition.y);
-            }
+    function calculateShapeBounds(shapeRecords) {
+      var xMin = Infinity;
+      var yMin = Infinity;
+      var xMax = -Infinity;
+      var yMax = -Infinity;
+      function dfgfd(x, y) {
+        if (x < xMin) xMin = x;
+        if (y < yMin) yMin = y;
+        if (x > xMax) xMax = x;
+        if (y > yMax) yMax = y;
+      }
+      var currentPosition = {x: 0, y: 0};
+      var hasShapeRecord = false;
+      for (var i = 0; i < shapeRecords.length; i++) {
+        var record = shapeRecords[i];
+        if (!record) continue;
+        hasShapeRecord = true;
+        if (record.isChange) {
+          if (record.stateMoveTo) {
+            currentPosition.x = record.moveX;
+            currentPosition.y = record.moveY;
+            dfgfd(currentPosition.x, currentPosition.y);
+          }
+        } else {
+          var isCurved = record.isCurved;
+          if (isCurved) {
+            var _controlX = currentPosition.x + record.controlDeltaX;
+            var _controlY = currentPosition.y + record.controlDeltaY;
+            currentPosition.x = _controlX + record.anchorDeltaX;
+            currentPosition.y = _controlY + record.anchorDeltaY;
+            dfgfd(_controlX, _controlY);
+            dfgfd(currentPosition.x, currentPosition.y);
           } else {
-            var isCurved = record.isCurved;
-            if (isCurved) {
-              var _controlX = currentPosition.x + record.controlDeltaX;
-              var _controlY = currentPosition.y + record.controlDeltaY;
-              currentPosition.x = _controlX + record.anchorDeltaX;
-              currentPosition.y = _controlY + record.anchorDeltaY;
-              dfgfd(_controlX, _controlY);
-              dfgfd(currentPosition.x, currentPosition.y);
-            } else {
-              currentPosition.x += record.deltaX;
-              currentPosition.y += record.deltaY;
-              dfgfd(currentPosition.x, currentPosition.y);
-            }
+            currentPosition.x += record.deltaX;
+            currentPosition.y += record.deltaY;
+            dfgfd(currentPosition.x, currentPosition.y);
           }
         }
-        if (hasShapeRecord) {
-          return {xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax};
-        } else {
-          return {xMin: 0, xMax: 0, yMin: 0, yMax: 0};
-        }
-      },
-      convertCurrentPosition: function(src) {
+      }
+      if (hasShapeRecord) {
+        return {xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax};
+      } else {
+        return {xMin: 0, xMax: 0, yMin: 0, yMax: 0};
+      }
+    }
+    function convertCurrentPosition(src) {
         var array = [];
         var currentPosition = {x: 0, y: 0};
         for (var i = 0; i < src.length; i++) {
@@ -13199,9 +13095,14 @@ var AT_NIHAV_VP6 = (function() {
         }
         array.push(null);
         return array;
-      },
+      }
+    return {
+      shapeHitTest,
+      drawCommandFillHitTest,
+      shapeToRendererInfo,
+      calculateShapeBounds,
       convertWithCacheCodes: function(shapeRecords) {
-        var records = this.convertCurrentPosition(shapeRecords);
+        var records = convertCurrentPosition(shapeRecords);
         var _cmd = [];
         for (var i = 0; i < records.length; i++) {
           var record = records[i];
@@ -13228,7 +13129,7 @@ var AT_NIHAV_VP6 = (function() {
         var isMorph = (type == "morphshape");
         var lineStyles = shapes.lineStyles || [];
         var fillStyles = shapes.fillStyles || [];
-        var records = this.convertCurrentPosition(shapes.shapeRecords);
+        var records = convertCurrentPosition(shapes.shapeRecords);
         var idx = 0;
         var obj = {};
         var cache = [];
@@ -14414,11 +14315,15 @@ var AT_NIHAV_VP6 = (function() {
   }
   RenderCanvas2d.prototype.shapeToCanvas = function(shape, library) {
     var isStroke = (shape.type == 1);
-    var width = twipsToNumber(shape.width);
-    var fillInfo = shape.fill;
+    var width = 0;
+    var fillInfo = shape.style;
+    if (isStroke) {
+      width = twipsToNumber(fillInfo.width);
+      fillInfo = fillInfo.fillType;
+    }
     if (!fillInfo) return;
     var cmdResult = this.buildCmd2dPath(shape.path2d);
-    if (fillInfo.type == 0) {
+    if (fillInfo.type == 0x00) {
       return {
         type: 0,
         cmd: cmdResult,
@@ -14426,25 +14331,45 @@ var AT_NIHAV_VP6 = (function() {
         isStroke: isStroke,
         width: width
       };
-    } else if (fillInfo.type == 1) {
+    } else if (
+      fillInfo.type == 0x10 ||
+      fillInfo.type == 0x12 ||
+      fillInfo.type == 0x13
+    ) {
+      var isRadial = fillInfo.type != 16;
+      var focal = fillInfo.focalPoint || 0;
+      var gradient = fillInfo.gradient;
+      var records = gradient.records;
+      var css = [];
+      for (var rIdx = 0; rIdx < records.length; rIdx++) {
+        var record = records[rIdx];
+        var color = record.color;
+        var ratio = record.ratio;
+        css.push([color, ratio]);
+      }
       return {
         type: 1,
         cmd: cmdResult,
-        isRadial: fillInfo.isRadial,
-        focal: fillInfo.focal,
-        matrix: fillInfo.matrix,
-        records: cloneObject(fillInfo.records),
+        isRadial: isRadial,
+        focal: focal,
+        matrix: gradient.matrix,
+        records: css,
         isStroke: isStroke,
         width: width
       };
-    } else if (fillInfo.type == 2) {
-      var id = fillInfo.id;
+    } else if (
+      fillInfo.type == 0x40 ||
+      fillInfo.type == 0x41 ||
+      fillInfo.type == 0x42 ||
+      fillInfo.type == 0x43
+    ) {
+      var id = fillInfo.bitmapId;
       var texture = library.bitmapHandle(id, this);
       return {
         type: 2,
         cmd: cmdResult,
-        matrix: fillInfo.matrix,
-        texture,
+        matrix: fillInfo.bitmapMatrix,
+        texture: texture,
         isSmoothed: fillInfo.isSmoothed,
         isRepeating: fillInfo.isRepeating,
         isStroke: isStroke,
@@ -16488,9 +16413,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     for (var _i = 0; _i < shapeCache.length; _i++) {
       var shape = shapeCache[_i];
       if (!shape) continue;
-      var fill = shape.fill;
+      var fill = shape.style;
       if (!fill) continue;
-      var r = (shape.type == 1) ? this.createStroke(shape.path2d, Math.max(shape.width / 20, 1)) : this.createFill(shape.path2d);
+      var isStroke = (shape.type == 1);
+      var r = isStroke ? this.createStroke(shape.path2d, Math.max(fill.width / 20, 1)) : this.createFill(shape.path2d);
+      if (isStroke) {
+        fill = fill.fillType;
+      }
       var num = r.length / 2;
       var bufferPos = this.gl.createBuffer();
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferPos);
@@ -16503,31 +16432,40 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           num: num,
           vao: bufferPos
         });
-      } else if (fill.type == 1) {
+      } else if (fill.type == 0x10 || fill.type == 0x12 || fill.type == 0x13) {
+        var gradient = fill.gradient;
         var ratios = [];
         var colors = [];
-        var re = fill.records;
+        var re = gradient.records;
         for (var i = 0; i < 16; i++) {
           var g = re[Math.min(i, re.length - 1)];
-          colors.push(g[0][0] / 255);
-          colors.push(g[0][1] / 255);
-          colors.push(g[0][2] / 255);
-          colors.push(g[0][3]);
-          ratios.push(g[1]);
+          colors.push(g.color[0] / 255);
+          colors.push(g.color[1] / 255);
+          colors.push(g.color[2] / 255);
+          colors.push(g.color[3]);
+          ratios.push(g.ratio);
+        }
+        var spreadMode = gradientSpread(gradient.spreadMode);
+        var repeatMode = 0;
+        if (spreadMode == "repeat") {
+          repeatMode = 1;
+        }
+        if (spreadMode == "reflect") {
+          repeatMode = 2;
         }
         result.push({
           type: 1,
           num: num,
           ratios: ratios,
           colors: colors,
-          focal: fill.focal || 0,
-          isRadial: fill.isRadial,
-          repeat: fill.repeat,
-          matrix: swf_to_gl_matrix(fill.matrix),
+          focal: fill.focalPoint || 0,
+          isRadial: fill.type != 16,
+          repeat: repeatMode,
+          matrix: swf_to_gl_matrix(gradient.matrix),
           vao: bufferPos
         });
-      } else if (fill.type == 2) {
-        var id = fill.id;
+      } else if (fill.type == 0x40 || fill.type == 0x41 || fill.type == 0x42 || fill.type == 0x43) {
+        var id = fill.bitmapId;
         var texture = library.bitmapHandle(id, this);
         result.push({
           type: 2,
@@ -16535,7 +16473,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           texture: texture.texture,
           isRepeating: fill.isRepeating,
           isSmoothed: fill.isSmoothed,
-          matrix: swf_bitmap_to_gl_matrix(fill.matrix, texture.width, texture.height),
+          matrix: swf_bitmap_to_gl_matrix(fill.bitmapMatrix, texture.width, texture.height),
           vao: bufferPos
         });
       }
@@ -16965,16 +16903,38 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.globalSoundTransform = new SoundTransform();
     this.transformsDirty = false;
   }
-  AudioManager.prototype.startSound = function(audio, sound, settings, display_object, avm1_object) {
+  AudioManager.performSoundEvent = function(display_object, context, character_id, sound_info) {
+    var movie = display_object.getMovie();
+    var sound = movie.library.getSound(character_id);
+    if (sound) {
+      switch (sound_info.event) {
+        case "event":
+          context.startSound(sound, sound_info, null, display_object, null);
+          break;
+        case "start":
+          if (!context.isSoundPlayingWithHandle(sound)) {
+            context.startSound(sound, sound_info, null, display_object, null);
+          }
+          break;
+        case "stop":
+          context.stopSoundsWithHandle(sound);
+          break;
+      }
+    }
+  }
+  AudioManager.prototype.startSound = function(audio, sound, settings, transform, display_object, avm1_object) {
     if (this.sounds.length < MAX_SOUND) {
       var handle = audio.startSound(sound, settings);
       var instance = {
-        sound,
+        sound: sound,
         instance: handle,
-        display_object,
+        display_object: display_object,
         transform: new SoundTransform(),
         stream_start_frame: null,
         avm1_object
+      }
+      if (transform) {
+        instance.transform = transform;
       }
       audio.setSoundTransform(handle, this.transformForSound(instance));
       this.sounds.push(instance);
@@ -17110,7 +17070,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   AudioManager.prototype.transformForSound = function(sound) {
     var transform = sound.transform.clone();
     var parent = sound.display_object;
-    if (parent) {
+    while (parent) {
       transform.concat(parent.soundTransform);
       parent = parent.getParent();
     }
@@ -17193,12 +17153,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   DByteReader.prototype.isEOF = function() {
     return this.bytePos >= this.data.length;
   }
+  var ADecoder = function() {}
+  ADecoder.prototype.next = function() {
+    return null;
+  }
+  ADecoder.prototype.reset = function() {}
+  ADecoder.prototype.seek_to_sample_frame = function(frame) {
+    this.reset();
+    for (var _ = 0; _ < frame; _++) {
+      this.next();
+    }
+  }
   var RawDecoder = function(inner, sample_rate, isStereo, is_16_bit) {
+    ADecoder.call(this);
     this.inner = inner;
     this.isStereo = isStereo;
     this.is_16_bit = is_16_bit;
     this._sample_rate = sample_rate;
   }
+  inherits(RawDecoder, ADecoder);
   RawDecoder.prototype.debugType = function() {
     return "Raw " + (this.is_16_bit ? 16 : 8) + " BIT";
   }
@@ -17213,11 +17186,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var right = this.isStereo ? this.read_sample() : left;
     return [left, right];
   }
-  RawDecoder.prototype.seek_to_sample_frame = function(frame) {
+  RawDecoder.prototype.reset = function() {
     this.inner.bytePos = 0;
-    for (var _ = 0; _ < frame; _++) {
-      this.next();
-    }
   }
   var DBitReader = function(vec) {
     this.vec = vec;
@@ -17252,36 +17222,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.sample_num = 0;
     this._sample_rate = sample_rate;
   }
+  inherits(AdpcmDecoder, ADecoder);
   AdpcmDecoder.INDEX_TABLE = [new Int16Array([-1, 2]), new Int16Array([-1, -1, 2, 4]), new Int16Array([-1, -1, -1, -1, 2, 4, 6, 8]), new Int16Array([-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16])];
   AdpcmDecoder.STEP_TABLE = new Uint16Array([7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767]);
-  AdpcmDecoder.SAMPLE_DELTA_CALCULATOR = [
-    function (a, b) {
-      var c = a >> 1;
-      if (b & 1) c += a;
-      return c;
-    },
-    function (a, b) {
-      var c = a >> 2;
-      if (b & 1) c += a >> 1;
-      if (b & 2) c += a;
-      return c;
-    },
-    function (a, b) {
-      var c = a >> 3;
-      if (b & 1) c += a >> 2;
-      if (b & 2) c += a >> 1;
-      if (b & 4) c += a;
-      return c;
-    },
-    function (a, b) {
-      var c = a >> 4;
-      if (b & 1) c += a >> 3;
-      if (b & 2) c += a >> 2;
-      if (b & 4) c += a >> 1;
-      if (b & 8) c += a;
-      return c;
-    },
-  ];
+  AdpcmDecoder.SAMPLE_DELTA_CALCULATOR = [function(a,b){var c=a>>1;if(b&1)c+=a;return c},function(a,b){var c=a>>2;if(b&1)c+=a>>1;if(b&2)c+=a;return c},function(a,b){var c=a>>3;if(b&1)c+=a>>2;if(b&2)c+=a>>1;if(b&4)c+=a;return c},function(a,b){var c=a>>4;if(b&1)c+=a>>3;if(b&2)c+=a>>2;if(b&4)c+=a>>1;if(b&8)c+=a;return c}];
   AdpcmDecoder.prototype.debugType = function() {
     return "ADPCM " + this.bits_per_sample + "-BIT";
   }
@@ -17311,16 +17255,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var r = s == 2 ? _[1].sample / 0x8000 : l;
     return [l, r];
   }
-  AdpcmDecoder.prototype.seek_to_sample_frame = function(frame) {
+  AdpcmDecoder.prototype.reset = function() {
     this.input.bytePos = 0;
     this.input.bitPos = 0;
     this.c = [{}, {}];
     this.bits_per_sample = this.input.readUB(2) + 2;
     this.decoder = AdpcmDecoder.SAMPLE_DELTA_CALCULATOR[this.bits_per_sample - 2];
     this.sample_num = 0;
-    for (var _ = 0; _ < frame; _++) {
-      this.next();
-    }
   }
   var MP3Decoder = function(inner) {
     this.stream_ended = true;
@@ -17346,6 +17287,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.decoder = new AT_MP3.Decoder();
     this.stream_ended = false;
   }
+  inherits(MP3Decoder, ADecoder);
   MP3Decoder.types = {
     1: "MPEG1",
     2: "MPEG2_LSF",
@@ -17389,8 +17331,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   MP3Decoder.prototype.getHeaders = function() {
     while (true) {
-      var isH = this.getHeader();
-      if (isH) {
+      var _ = this.getHeader();
+      if (_) {
         return true;
       } else {
         if (!this.reader.readData()) {
@@ -17422,6 +17364,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.samples--;
     return [l, r];
   }
+  MP3Decoder.prototype.reset = function() {
+    this.seek_to_sample_frame(0);
+  }
   MP3Decoder.prototype.seek_to_sample_frame = function(frame) {
     if (this.decoder) {
       this.stream_ended = false;
@@ -17445,6 +17390,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this._sample_rate = sample_rate;
     this.stream_ended = false;
   }
+  inherits(NellyMoserDecoder, ADecoder);
   NellyMoserDecoder.prototype.debugType = function() {
     return "nellymoser";
   }
@@ -17476,12 +17422,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var sample = this._next() / 32767;
     return [sample, sample];
   }
-  NellyMoserDecoder.prototype.seek_to_sample_frame = function(frame) {
+  NellyMoserDecoder.prototype.reset = function() {
     this.stream_ended = false;
     this.inner.bytePos = 0;
-    for (var _ = 0; _ < frame; _++) {
-      this.next();
-    }
   }
   var StreamTagReader = function(streamInfo, swf_data) {
     this.swf_data = swf_data;
@@ -17975,9 +17918,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.unbound_text_fields = data.unbound_text_fields;
     this.framePhase = data.framePhase;
   }
-  Object.defineProperty(UpdateContext.prototype, "startTime", {
-    get: function() {
-      return this.player.startTime;
+  Object.defineProperties(UpdateContext.prototype, {
+    "startTime": {
+      get: function() {
+        return this.player.startTime;
+      }
+    },
+    "needsRender": {
+      get: function() {
+        return this.player.needsRender;
+      },
+      set: function(val) {
+        this.player.needsRender = val;
+      },
     }
   });
   UpdateContext.prototype.getDragObject = function() {
@@ -17995,8 +17948,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   UpdateContext.prototype.startStream = function(movie_clip, frame, data, stream_info) {
     return this.audioManager.startStream(this.audio, movie_clip, frame, data, stream_info);
   }
-  UpdateContext.prototype.startSound = function(sound, settings, owner, avm1_object) {
-    return this.audioManager.startSound(this.audio, sound, settings, owner, avm1_object);
+  UpdateContext.prototype.startSound = function(sound, settings, transform, owner, avm1_object) {
+    return this.audioManager.startSound(this.audio, sound, settings, transform, owner, avm1_object);
   }
   UpdateContext.prototype.setSoundTransformsDirty = function() {
     this.audioManager.setSoundTransformsDirty();
@@ -18022,8 +17975,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   UpdateContext.prototype.addInstanceCounter = function() {
     return this.player.addInstanceCounter();
   }
-  UpdateContext.prototype.avm_trace = function(trace) {
-    this.log.avm_trace(trace.replace('\r', "\n"));
+  UpdateContext.prototype.avm_trace = function(message) {
+    this.log.avm_trace(message.replace('\r', "\n"));
+  }
+  UpdateContext.prototype.avm_warning = function(message) {
+    this.log.avm_warning(message);
   }
   var RenderContext = function(data) {
     this.library = data.library;
@@ -18619,7 +18575,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         event = reader.readEvent();
       } catch(error) {
         console.log("Error while parsing HTML", error);
-        return new FormatSpans();
+        break;
       }
       if (event) {
         switch(event.type) {
@@ -19600,10 +19556,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.renderHandle = null;
   }
   Drawing.prototype.setFillStyle = function(style) {
-    
+    this.newFill(style, this.defaultWindingRule);
   }
   Drawing.prototype.setFillRule = function(rule) {
-    
+    var style = this.currentFill;
+    this.newFill(style, rule);
   }
   Drawing.prototype.newFill = function(style, rule) {
     
@@ -19752,6 +19709,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return "normal";
     }
   }
+
+  ////////// DisplayObjects.js //////////
+
   var BitmapCache = function() {
     this.matrix_a = 0;
     this.matrix_b = 0;
@@ -19821,28 +19781,33 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.bitmap ? this.bitmap.handle : null;
   }
   var DisplayObject = function() {
-    this.transform = new Transform();
-    this.blendMode = "normal";
     this.filters = [];
+    this.cache = null;
     this.parent = null;
     this.placeFrame = 0;
     this.depth = 0;
+    this.ratio = 0;
     this.name = null;
     this.clipDepth = 0;
-    this.nextAvm1Clip = null;
-    this.soundTransform = new SoundTransform();
+    this.matrix = Matrix.IDENTITY.clone();
+    this.colorTransform = [1, 1, 1, 1, 0, 0, 0, 0];
+    this.rotation = f64_to_degrees(0);
+    this.scaleX = 100;
+    this.scaleY = 100;
+    this.skew = 0;
     this.masker = null;
     this.maskee = null;
+    this.metaData = null;
+    this.soundTransform = new SoundTransform();
+    this.blendMode = "normal";
     this.opaqueBackground = null;
-    this.cache = null;
-    this._viewRotation = null;
-    this._viewXScale = null;
-    this._viewYScale = null;
+
+    // flags
     this.AVM1_REMOVED = false;
     this.VISIBLE = true;
     this.SCALE_ROTATION_CACHED = false;
     this.TRANSFORMED_BY_SCRIPT = false;
-    this.PLACED_BY_SCRIPT = false;
+    this.PLACED_BY_AVM2_SCRIPT = false;
     this.INSTANTIATED_BY_TIMELINE = false;
     this.IS_ROOT = false;
     this.LOCK_ROOT = false;
@@ -19853,66 +19818,203 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.CACHE_INVALIDATED = false;
     this.AVM1_PENDING_REMOVAL = false;
     this.HAS_MATRIX3D_STUB = false;
+    this.PLACED_BY_AVM1_SCRIPT = false;
+    this.MANUAL_FRAME_CONSTRUCT = false;
   }
   DisplayObject.prototype.displayType = "Base";
   DisplayObject.prototype._debug_colorDisplayType = [0, 0, 0, 1];
-  DisplayObject.prototype.setAvm1PendingRemoval = function(value) {
-    this.AVM1_PENDING_REMOVAL = value;
+  DisplayObject.prototype.getDepth = function() {
+    return this.depth;
   }
-  DisplayObject.prototype.localToGlobalMatrix = function() {
-    var matrix = this.getMatrix();
-    var node = this.getParent();
-    while(node) {
-      if (node instanceof Stage) break;
-      matrix = node.getMatrix().mul(matrix);
-      node = node.getParent();
-    }
-    return matrix;
+  DisplayObject.prototype.setDepth = function(depth) {
+    this.depth = depth;
   }
-  DisplayObject.prototype.globalToLocalMatrix = function() {
-    return this.localToGlobalMatrix().inverse();
-  }
-  DisplayObject.prototype.localToGlobal = function(local) {
-    return this.localToGlobalMatrix().mulPoint(local);
-  }
-  DisplayObject.prototype.globalToLocal = function(local) {
-    var matrix = this.globalToLocalMatrix();
-    return matrix ? matrix.mulPoint(local) : null;
-  }
-  DisplayObject.prototype.setSoundTransform = function(context, soundTransform) {
-    this.soundTransform = soundTransform;
-    context.setSoundTransformsDirty();
-  }
-  DisplayObject.prototype.getColorTransform = function() {
-    return this.transform.colorTransform;
+  DisplayObject.prototype.getTransform = function(apply_matrix) {
+    return new Transform(apply_matrix ? this.matrix : Matrix.IDENTITY.clone(), this.colorTransform);
   }
   DisplayObject.prototype.getMatrix = function() {
-    return this.transform.matrix;
-  }
-  DisplayObject.prototype.applyColorTransform = function(colorTransform) {
-    this.transform.colorTransform[0] = colorTransform[0];
-    this.transform.colorTransform[1] = colorTransform[1];
-    this.transform.colorTransform[2] = colorTransform[2];
-    this.transform.colorTransform[3] = colorTransform[3];
-    this.transform.colorTransform[4] = colorTransform[4];
-    this.transform.colorTransform[5] = colorTransform[5];
-    this.transform.colorTransform[6] = colorTransform[6];
-    this.transform.colorTransform[7] = colorTransform[7];
+    return this.matrix;
   }
   DisplayObject.prototype.applyMatrix = function(matrix) {
-    this.transform.matrix.copy(matrix);
+    this.matrix.copy(matrix);
+    this._setScaleRotationCached(false);
   }
-  DisplayObject.prototype.getBlendMode = function() {
-    return this.blendMode;
+  DisplayObject.prototype.getColorTransform = function() {
+    return this.colorTransform;
   }
-  DisplayObject.prototype.setBlendMode = function(mode) {
-    var b = getBlendMode(mode) || "normal";
-    var changed = b != this.blendMode;
-    this.blendMode = b;
-    if (changed) {
+  DisplayObject.prototype.applyColorTransform = function(colorTransform) {
+    this.colorTransform[0] = colorTransform[0];
+    this.colorTransform[1] = colorTransform[1];
+    this.colorTransform[2] = colorTransform[2];
+    this.colorTransform[3] = colorTransform[3];
+    this.colorTransform[4] = colorTransform[4];
+    this.colorTransform[5] = colorTransform[5];
+    this.colorTransform[6] = colorTransform[6];
+    this.colorTransform[7] = colorTransform[7];
+  }
+  DisplayObject.prototype.getX = function() {
+    var matrix = this.getMatrix();
+    return matrix.tx / 20;
+  }
+  DisplayObject.prototype._setX = function(x) {
+    var matrix = this.getMatrix();
+    var changed = matrix.tx != x;
+    matrix.tx = x;
+    this.TRANSFORMED_BY_SCRIPT = true;
+    return changed;
+  }
+  DisplayObject.prototype.setX = function(x) {
+    if (this._setX(x * 20)) {
       var parent = this.getParent();
-      if (parent) parent.invalidateCachedBitmap();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      }
     }
+  }
+  DisplayObject.prototype.getY = function() {
+    var matrix = this.getMatrix();
+    return matrix.ty / 20;
+  }
+  DisplayObject.prototype._setY = function(y) {
+    var matrix = this.getMatrix();
+    var changed = matrix.ty != y;
+    matrix.ty = y;
+    this.TRANSFORMED_BY_SCRIPT = true;
+    return changed;
+  }
+  DisplayObject.prototype.setY = function(y) {
+    if (this._setY(y * 20)) {
+      var parent = this.getParent();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      }
+    }
+  }
+  DisplayObject.prototype.cacheScaleRotation = function() {
+    if (!this.SCALE_ROTATION_CACHED) {
+      var matrix = this.matrix;
+      var a = matrix.a;
+      var b = matrix.b;
+      var c = matrix.c;
+      var d = matrix.d;
+      var rotation_x = Math.atan2(b, a);
+      var rotation_y = Math.atan2(-c, d);
+      var scale_x = Math.sqrt(a * a + b * b);
+      var scale_y = Math.sqrt(c * c + d * d);
+      this.rotation = f64_to_degrees(rotation_x);
+      this.scaleX = scale_x * 100;
+      this.scaleY = scale_y * 100;
+      this.skew = rotation_y - rotation_x;
+    }
+  }
+  DisplayObject.prototype.getRotation = function() {
+    this.cacheScaleRotation();
+    this.setScaleRotationCached();
+    return this.rotation;
+  }
+  DisplayObject.prototype._setRotation = function(degrees) {
+    this.TRANSFORMED_BY_SCRIPT = true;
+    this.cacheScaleRotation();
+    var changed = this.rotation != degrees;
+    this.rotation = degrees;
+    if (Number.isNaN(f64_to_radians(degrees))) {
+      return changed;
+    }
+    var skew = this.skew;
+    var cos_x = Math.cos(f64_to_radians(degrees));
+    var sin_x = Math.sin(f64_to_radians(degrees));
+    var cos_y = Math.cos(f64_to_radians(degrees) + skew);
+    var sin_y = Math.sin(f64_to_radians(degrees) + skew);
+    var scale_x = this.scaleX / 100;
+    var scale_y = this.scaleY / 100;
+    var matrix = this.matrix;
+    matrix.a = (scale_x * cos_x);
+    matrix.b = (scale_x * sin_x);
+    matrix.c = (scale_y * (-sin_y));
+    matrix.d = (scale_y * cos_y);
+    return changed;
+  }
+  DisplayObject.prototype.setRotation = function(rotation) {
+    if (this._setRotation(rotation)) {
+      this.setScaleRotationCached();
+      var parent = this.getParent();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      }
+    }
+  }
+  DisplayObject.prototype.getXScale = function() {
+    this.cacheScaleRotation();
+    this.setScaleRotationCached();
+    return this.scaleX;
+  }
+  DisplayObject.prototype._setXScale = function(value) {
+    var changed = this.scaleX != value;
+    this.TRANSFORMED_BY_SCRIPT = true;
+    this.cacheScaleRotation();
+    this.scaleX = value;
+    if (Number.isNaN(value)) {
+      value = 0;
+    }
+    var rot = f64_to_radians(this.rotation);
+    if (Number.isNaN(rot)) {
+      rot = 0;
+    }
+    var cos = Math.cos(rot);
+    var sin = Math.sin(rot);
+    var matrix = this.matrix;
+    matrix.a = cos * (value / 100);
+    matrix.b = sin * (value / 100);
+    return changed;
+  }
+  DisplayObject.prototype.setXScale = function(xscale) {
+    if (this._setXScale(xscale)) {
+      this.setScaleRotationCached();
+      var parent = this.getParent();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      } 
+    }
+  }
+  DisplayObject.prototype.getYScale = function() {
+    this.cacheScaleRotation();
+    this.setScaleRotationCached();
+    return this.scaleY;
+  }
+  DisplayObject.prototype._setYScale = function(value) {
+    var changed = this.scaleY != value;
+    this.TRANSFORMED_BY_SCRIPT = true;
+    this.cacheScaleRotation();
+    this.scaleY = value;
+    if (Number.isNaN(value)) {
+      value = 0;
+    }
+    var rot = f64_to_radians(this.rotation);
+    if (Number.isNaN(rot)) {
+      rot = 0;
+    }
+    var skew = this.skew;
+    var cos = Math.cos(rot + skew);
+    var sin = Math.sin(rot + skew);
+    var matrix = this.matrix;
+    matrix.c = (-sin) * (value / 100);
+    matrix.d = cos * (value / 100);
+    return changed;
+  }
+  DisplayObject.prototype.setYScale = function(yscale) {
+    if (this._setYScale(yscale)) {
+      this.setScaleRotationCached();
+      var parent = this.getParent();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      }  
+    }
+  }
+  DisplayObject.prototype.getName = function() {
+    return this.name;
+  }
+  DisplayObject.prototype.setName = function(name) {
+    this.name = name;
   }
   DisplayObject.prototype.getFilters = function() {
     return this.filters;
@@ -19931,20 +20033,56 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.invalidateCachedBitmap();
     }
   }
-  DisplayObject.prototype.recheck_cache_as_bitmap = function() {
-    var should_cache = this.is_bitmap_cached_preference() || this.filters.length;
-    if (should_cache && !this.cache) {
-      if (this.cache) {
-        console.log("cache");
-        this.cache.clear();
-      }
-      this.cache = new BitmapCache();
-    } else if (!should_cache && this.cache) {
-      if (this.cache) {
-        this.cache.clear();
-      }
-      this.cache = null;
+  DisplayObject.prototype.getAlpha = function() {
+    var colorTransform = this.getColorTransform();
+    return colorTransform[3];
+  }
+  DisplayObject.prototype._setAlpha = function(value) {
+    this.TRANSFORMED_BY_SCRIPT = true;
+    var colorTransform = this.getColorTransform();
+    var changed = colorTransform[3] != value;
+    colorTransform[3] = value;
+    return changed;
+  }
+  DisplayObject.prototype.setAlpha = function(alpha) {
+    if (this._setAlpha(alpha)) {
+      var parent = this.getParent();
+      if (parent) {
+        parent.invalidateCachedBitmap();
+      }  
     }
+  }
+  DisplayObject.prototype.getParent = function() {
+    return this.parent;
+  }
+  DisplayObject.prototype.setParent = function(context, parent) {
+    this.parent = parent;
+  }
+  DisplayObject.prototype._setScaleRotationCached = function(set_flag) {
+    this.SCALE_ROTATION_CACHED = set_flag;
+  }
+  DisplayObject.prototype.setScaleRotationCached = function() {
+    if (this.swfVersion() >= 5) {
+      this._setScaleRotationCached(true);
+    }
+  }
+  DisplayObject.prototype.getVisible = function() {
+    return this.VISIBLE;
+  }
+  DisplayObject.prototype.setVisible = function(visible) {
+    var changed = this.VISIBLE != visible;
+    this.VISIBLE = visible;
+    if (changed) {
+      var parent = this.getParent();
+      if (parent) parent.invalidateCachedBitmap();
+    }
+  }
+  DisplayObject.prototype.getOpaqueBackground = function() {
+    return this.opaqueBackground;
+  }
+  DisplayObject.prototype.setOpaqueBackground = function(color) {
+    this.opaqueBackground = color;
+    this.invalidateCachedBitmap();
   }
   DisplayObject.prototype.is_bitmap_cached_preference = function() {
     return this.CACHE_AS_BITMAP;
@@ -19952,9 +20090,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   DisplayObject.prototype.set_bitmap_cached_preference = function(value) {
     this.CACHE_AS_BITMAP = value;
     this.recheck_cache_as_bitmap();
-  }
-  DisplayObject.prototype.isBitmapCached = function() {
-    return !!this.cache;
   }
   DisplayObject.prototype._invalidateCachedBitmap = function() {
     if (this.CACHE_INVALIDATED) {
@@ -19977,485 +20112,27 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   DisplayObject.prototype.clearInvalidateFlag = function() {
     this.CACHE_INVALIDATED = false;
   }
-  DisplayObject.prototype.swfVersion = function() {
-    return this.getMovie().version;
-  }
-  DisplayObject.prototype.getDepth = function() {
-    return this.depth;
-  }
-  DisplayObject.prototype.setDepth = function(depth) {
-    this.depth = depth;
-  }
-  DisplayObject.prototype.getId = function() {
-    return 0;
-  }
-  DisplayObject.prototype.getVisible = function() {
-    return this.VISIBLE;
-  }
-  DisplayObject.prototype.setVisible = function(visible) {
-    var changed = this.VISIBLE != visible;
-    this.VISIBLE = visible;
-    if (changed) {
-      var parent = this.getParent();
-      if (parent) parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype.getX = function() {
-    var matrix = this.getMatrix();
-    return matrix.tx / 20;
-  }
-  DisplayObject.prototype.getY = function() {
-    var matrix = this.getMatrix();
-    return matrix.ty / 20;
-  }
-  DisplayObject.prototype.getXScale = function() {
-    if (this._viewXScale !== null) {
-      return this._viewXScale;
-    }
-    var matrix = this.getMatrix();
-    var xScale = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) * 100;
-    if (0 > matrix.a) {
-      xScale *= -1;
-    }
-    return xScale;
-  }
-  DisplayObject.prototype.getYScale = function() {
-    if (this._viewYScale !== null) {
-      return this._viewYScale;
-    }
-    var matrix = this.getMatrix();
-    var yScale = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) * 100;
-    if (0 > matrix.d) {
-      yScale *= -1;
-    }
-    return yScale;
-  }
-  DisplayObject.prototype.getWidth = function() {
-    var local_bounds = this.localBounds();
-    return local_bounds.width / 20;
-  }
-  DisplayObject.prototype.getHeight = function() {
-    var local_bounds = this.localBounds();
-    return local_bounds.height / 20;
-  }
-  DisplayObject.prototype._setWidth = function(width) {
-    var _matrix = this.getMatrix();
-    var bounds = this.getBoundsWithTransform(_matrix);
-    var _width = bounds.width;
-    var xScale = width * _matrix.a / _width;
-    if (Number.isNaN(xScale)) {
-      xScale = 0;
-    }
-    _matrix = this.getMatrix();
-    _matrix.a = xScale;
-    this.TRANSFORMED_BY_SCRIPT = true;
-  }
-  DisplayObject.prototype._setHeight = function(height) {
-    var _matrix = this.getMatrix();
-    var bounds = this.getBoundsWithTransform(_matrix);
-    var _height = bounds.height;
-    var yScale = height * _matrix.d / _height;
-    if (Number.isNaN(yScale)) {
-      yScale = 0;
-    }
-    _matrix = this.getMatrix();
-    _matrix.d = yScale;
-    this.TRANSFORMED_BY_SCRIPT = true;
-  }
-  DisplayObject.prototype.setWidth = function(width) {
-    this._setWidth(width * 20);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype.setHeight = function(height) {
-    this._setHeight(height * 20);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype._setX = function(x) {
-    var matrix = this.getMatrix();
-    var changed = matrix.tx != x;
-    this.TRANSFORMED_BY_SCRIPT = true;
-    matrix.tx = x;
-    return changed;
-  }
-  DisplayObject.prototype._setY = function(y) {
-    var matrix = this.getMatrix();
-    var changed = matrix.ty != y;
-    matrix.ty = y;
-    this.TRANSFORMED_BY_SCRIPT = true;
-    return changed;
-  }
-  DisplayObject.prototype.setX = function(x) {
-    if (this._setX(x * 20)) {
-      var parent = this.getParent();
-      if (parent) {
-        parent.invalidateCachedBitmap();
+  DisplayObject.prototype.recheck_cache_as_bitmap = function() {
+    var should_cache = this.is_bitmap_cached_preference() || this.filters.length;
+    if (should_cache && !this.cache) {
+      if (this.cache) {
+        console.log("cache");
+        this.cache.clear();
       }
-    }
-  }
-  DisplayObject.prototype.setY = function(y) {
-    if (this._setY(y * 20)) {
-      var parent = this.getParent();
-      if (parent) {
-        parent.invalidateCachedBitmap();
+      this.cache = new BitmapCache();
+    } else if (!should_cache && this.cache) {
+      if (this.cache) {
+        this.cache.clear();
       }
+      this.cache = null;
     }
   }
-  DisplayObject.prototype._setXScale = function(xscale) {
-    if (this._viewXScale !== xscale) {
-      var matrix = this.getMatrix();
-      var radianX = Math.atan2(matrix.b, matrix.a);
-      if (radianX === -Math.PI) {
-        radianX = 0;
-      }
-      this._viewXScale = xscale;
-      xscale /= 100;
-      matrix.a = xscale * Math.cos(radianX);
-      matrix.b = xscale * Math.sin(radianX);
+  DisplayObject.prototype.renderBase = function(context, options) {
+    if (options.skipMasks && this.maskee) return;
+    if (options.applyTransform) {
+      var _transform = this.getTransform(options.applyMatrix);
+      context.transformStack.stackPush(_transform);
     }
-  }
-  DisplayObject.prototype.setXScale = function(xscale) {
-    this._setXScale(xscale);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype._setYScale = function(yscale) {
-    if (this._viewYScale !== yscale) {
-      var matrix = this.getMatrix();
-      var radianY = Math.atan2(-matrix.c, matrix.d);
-      if (radianY === -Math.PI) {
-        radianY = 0;
-      }
-      this._viewYScale = yscale;
-      yscale /= 100;
-      matrix.c = -yscale * Math.sin(radianY);
-      matrix.d = yscale * Math.cos(radianY);
-      this.TRANSFORMED_BY_SCRIPT = true;  
-    }
-  }
-  DisplayObject.prototype.setYScale = function(yscale) {
-    this._setYScale(yscale);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype.getRotation = function() {
-    if (this._viewRotation != null) {
-      return this._viewRotation * 180 / Math.PI;
-    }
-    var matrix = this.getMatrix();
-    var rotation = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
-    switch (rotation) {
-      case -90.00000000000001:
-        rotation = -90;
-        break;
-      case 90.00000000000001:
-        rotation = 90;
-        break;
-    }
-    return rotation;
-  }
-  DisplayObject.prototype._setRotation = function(rotation) {
-    var matrix = this.getMatrix();
-    var radianX = Math.atan2(matrix.b, matrix.a);
-    var radianY = Math.atan2(-matrix.c, matrix.d);
-    var ScaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b);
-    var ScaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d);
-    rotation *= Math.PI / 180;
-    radianY += rotation - radianX;
-    radianX = rotation;
-    matrix.a = ScaleX * Math.cos(radianX);
-    matrix.b = ScaleX * Math.sin(radianX);
-    matrix.c = -ScaleY * Math.sin(radianY);
-    matrix.d = ScaleY * Math.cos(radianY);
-    this.TRANSFORMED_BY_SCRIPT = true;
-    this._viewRotation = rotation;
-  }
-  DisplayObject.prototype.setRotation = function(rotation) {
-    this._setRotation(rotation);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype.getAlpha = function() {
-    var colorTransform = this.getColorTransform();
-    var alpha = colorTransform[3];
-    return alpha * 100;
-  }
-  DisplayObject.prototype._setAlpha = function(alpha) {
-    var _colorTransform = this.getColorTransform();
-    var colorTransform = cloneArray(_colorTransform);
-    colorTransform[3] = alpha / 100;
-    colorTransform[7] = 0;
-    this.TRANSFORMED_BY_SCRIPT = true;
-    this.applyColorTransform(colorTransform);
-  }
-  DisplayObject.prototype.setAlpha = function(alpha) {
-    this._setAlpha(alpha);
-    var parent = this.getParent();
-    if (parent) {
-      parent.invalidateCachedBitmap();
-    }
-  }
-  DisplayObject.prototype.localMousePosition = function(context) {
-    var stage = context.stage;
-    var pixel_ratio = stage.view_matrix().a;
-    var virtual_to_device = Matrix.scale(pixel_ratio, pixel_ratio);
-    var mouse_position = context.mousePosition;
-    var global_twips = mouse_position.clone();
-    var global_device_twips = virtual_to_device.mulPoint(global_twips);
-    var global_device_pixels = Matrix.TWIPS_TO_PIXELS.mulPoint(global_device_twips);
-    var local_twips_to_global_twips = this.localToGlobalMatrix();
-    var twips_to_device_pixels = virtual_to_device.mul(Matrix.TWIPS_TO_PIXELS);
-    var local_twips_to_global_device_pixels = twips_to_device_pixels.mul(local_twips_to_global_twips);
-    var global_device_pixels_to_local_twips = local_twips_to_global_device_pixels.inverse() || Matrix.IDENTITY.clone();
-    return global_device_pixels_to_local_twips.mulPoint(global_device_pixels);
-  }
-  DisplayObject.prototype.getPlaceFrame = function() {
-    return this.placeFrame;
-  }
-  DisplayObject.prototype.setPlaceFrame = function(frame) {
-    this.placeFrame = frame;
-  }
-  DisplayObject.prototype.getParent = function() {
-    return this.parent;
-  }
-  DisplayObject.prototype.setParent = function(context, parent) {
-    this.parent = parent;
-  }
-  DisplayObject.prototype.getOpaqueBackground = function() {
-    return this.opaqueBackground;
-  }
-  DisplayObject.prototype.setOpaqueBackground = function(color) {
-    this.opaqueBackground = color;
-    this.invalidateCachedBitmap();
-  }
-  DisplayObject.prototype.isRoot = function() {
-    return this.IS_ROOT;
-  }
-  DisplayObject.prototype.setIsRoot = function(bool) {
-    this.IS_ROOT = bool;
-  }
-  DisplayObject.prototype.getName = function() {
-    return this.name;
-  }
-  DisplayObject.prototype.setName = function(name) {
-    this.name = name;
-  }
-  DisplayObject.prototype.setDefaultInstanceName = function(context) {
-    var name = this.getName();
-    if (name == null) {
-      var r = context.addInstanceCounter();
-      this.setName("instance" + r);
-    }
-  }
-  DisplayObject.prototype.setDefaultRootName = function(context) {
-    this.setName("");
-  }
-  DisplayObject.prototype.setSkipNextEnterFrame = function(b) {
-    this.SKIP_NEXT_ENTER_FRAME = b;
-  }
-  DisplayObject.prototype.shouldSkipNextEnterFrame = function() {
-    return this.SKIP_NEXT_ENTER_FRAME;
-  }
-  DisplayObject.prototype.applyPlaceObject = function(context, placeObject) {
-    if (!this.TRANSFORMED_BY_SCRIPT) {
-      if ("matrix" in placeObject) {
-        this.applyMatrix(Matrix.fromArray(placeObject.matrix));
-        var parent = this.getParent();
-        if (parent) {
-          parent.invalidateCachedBitmap();
-        }
-      }
-      if ("colorTransform" in placeObject) {
-        this.applyColorTransform(placeObject.colorTransform);
-        var parent = this.getParent();
-        if (parent) {
-          parent.invalidateCachedBitmap();
-        }
-      }
-      if ("ratio" in placeObject) {
-        if (this instanceof MorphShape) {
-          this.setRatio(placeObject.ratio);
-        } else if(this instanceof VideoDisplay) {
-          this.seek(context, placeObject.ratio);
-        }
-      }
-      if ("bitmapCache" in placeObject) {
-        this.set_bitmap_cached_preference(!!placeObject.bitmapCache);
-      }
-      if ("blendMode" in placeObject) {
-        this.setBlendMode(placeObject.blendMode);
-      }
-      if (this.swfVersion() >= 11) {
-        if ("visible" in placeObject) {
-          this.setVisible(!!placeObject.visible);
-        }
-        if ("backgroundColor" in placeObject) {
-          var backgroundColor = placeObject.backgroundColor.slice(0);
-          var color = null;
-          if (backgroundColor[3] > 0) {
-            backgroundColor[3] = 1;
-            color = backgroundColor;
-          }
-          this.setOpaqueBackground(color);
-        }
-      }
-      if ("filters" in placeObject) {
-        var filters = placeObject.filters;
-        var result = [];
-        for (var i = 0; i < filters.length; i++) {
-          var _ = Filter.from(filters[i]);
-          if (_) result.push(_);
-        }
-        this.setFilters(result);
-      }
-    }
-  }
-  DisplayObject.prototype.path = function() {
-    var parent = this.getAvm1Parent();
-    if (parent) {
-      var path = parent.path();
-      path += ".";
-      var name = this.getName();
-      if (name) {
-        path += name;
-      }
-      return path;
-    } else {
-      return "_level" + this.getDepth();
-    }
-  }
-  DisplayObject.prototype.slash_path = function() {
-    function build_slash_path(object) {
-      var parent = object.getAvm1Parent();
-      if (parent) {
-        var path = build_slash_path(parent);
-        path += "/";
-        var name = object.getName();
-        if (name) {
-          path += name;
-        }
-        return path;
-      } else {
-        var level = object.getDepth();
-        if (level == 0) {
-          return "";
-        } else {
-          return "_level" + level;
-        }
-      }
-    }
-    var parent = this.getAvm1Parent();
-    if (parent) {
-      return build_slash_path(this);
-    } else {
-      return "/";
-    }
-  }
-  DisplayObject.prototype.replaceWith = function(context, characterId) {}
-  DisplayObject.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
-    if (runFrame) {
-      this.runFrameAvm1(context);
-    }
-  }
-  DisplayObject.prototype.getObject = function() {
-    return Avm1Value.INSTANCE.Undefined;
-  }
-  DisplayObject.prototype.getBounds = function() {
-    return this.getBoundsWithTransform(Matrix.IDENTITY);
-  }
-  DisplayObject.prototype.localBounds = function() {
-    return this.getBoundsWithTransform(this.getMatrix());
-  }
-  DisplayObject.prototype.worldBounds = function() {
-    return this.getBoundsWithTransform(this.localToGlobalMatrix());
-  }
-  DisplayObject.prototype.getBoundsWithTransform = function(matrix) {
-    var bounds = matrix.mulRectangle(this.selfBounds());
-    if (this.isContainer()) {
-      var children = this.iterRenderList();
-      for (var i = 0; i < children.length; i++) {
-        var child = children[i];
-        var mat = matrix.mul(child.getMatrix());
-        bounds = bounds.union(child.getBoundsWithTransform(mat));
-      }
-    }
-    return bounds;
-  }
-  DisplayObject.prototype.renderBoundsWithTransform = function(matrix, include_own_filters, view_matrix) {
-    var bounds = matrix.mulRectangle(this.selfBounds());
-    if (this.isContainer()) {
-      var children = this.iterRenderList();
-      for (var i = 0; i < children.length; i++) {
-        var child = children[i];
-        var mat = matrix.mul(child.getMatrix());
-        bounds = bounds.union(child.renderBoundsWithTransform(mat, true, view_matrix));
-      }
-    }
-    if (include_own_filters) {
-      var filters = this.getFilters();
-      for (var i = 0; i < filters.length; i++) {
-        var filter = filters[i].clone();
-        filter.scale(view_matrix.a, view_matrix.d);
-        bounds = filter.calculateDestRect(bounds);
-      }
-    }
-    return bounds;
-  }
-  DisplayObject.prototype.selfBounds = function() {
-    return Rectangle.INVALID.clone();
-  }
-  DisplayObject.prototype.hitTestShape = function(_context, point, options) {
-    return false;
-  }
-  DisplayObject.prototype.hitTestObject = function(other) {
-    var a = this.worldBounds();
-    var b = other.worldBounds();
-    var result = a.intersects(b);
-    return result;
-  }
-  DisplayObject.prototype.hitTestBounds = function(point) {
-    return this.worldBounds().contains(point);
-  }
-  DisplayObject.prototype.setMasker = function(node, remove_old_link) {
-    if (remove_old_link) {
-      var old_masker = this.masker;
-      if (old_masker) {
-        old_masker.setMaskee(null, false);
-      }
-      var parent = this.getParent();
-      if (parent) {
-        parent.invalidateCachedBitmap();
-      }
-    }
-    this.masker = node;
-  }
-  DisplayObject.prototype.setMaskee = function(node, remove_old_link) {
-    if (remove_old_link) {
-      var old_masker = this.maskee;
-      if (old_masker) {
-        old_masker.setMasker(null, false);
-      }
-      this.invalidateCachedBitmap();
-    }
-    this.maskee = node;
-  }
-  DisplayObject.prototype.render = function(context) {
-    this.renderBase(context);
-  }
-  DisplayObject.prototype.renderBase = function(context) {
-    if (this.maskee) return;
-    context.transformStack.stackPush(this.transform);
     var blendMode = this.getBlendMode();
     var originalCommands = (blendMode != "normal") ? context.commands.copy() : null; 
     if (originalCommands) {
@@ -20562,10 +20239,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           filters: cache_info.filters,
         });
       }
-      var t = context.transformStack.getTransform().clone();
-      var mx = t.matrix.tx + offset_x;
-      var my = t.matrix.ty + offset_y;
-      context.commands.renderBitmap(cache_info.handle, new Transform(new Matrix(1, 0, 0, 1, mx, my), cache_info.base_transform.colorTransform), true, PixelSnapping.INSTANCE.Always);
+      this.apply_standard_mask_and_scroll(context, function() {
+        var t = context.transformStack.getTransform().clone();
+        var mx = t.matrix.tx + offset_x;
+        var my = t.matrix.ty + offset_y;
+        context.commands.renderBitmap(cache_info.handle, new Transform(new Matrix(1, 0, 0, 1, mx, my), cache_info.base_transform.colorTransform), true, PixelSnapping.INSTANCE.Always);  
+      }, options);
     } else {
       var background = this.getOpaqueBackground();
       if (background) {
@@ -20573,19 +20252,27 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         var bounds = this.renderBoundsWithTransform(base_transform.matrix, true, context.stage.view_matrix());
         context.commands.drawRect(background, new Matrix(bounds.width / 20, 0, 0, bounds.height / 20, bounds.xMin, bounds.yMin));
       }
-      this.apply_standard_mask_and_scroll(context, this.renderSelf.bind(this));
+      this.apply_standard_mask_and_scroll(context, this.renderSelf.bind(this), options);
     }
     if (originalCommands) {
       var subCommands = context.commands.copy();
       context.commands.replace(originalCommands);
       context.commands.blend(subCommands, blendMode);
     }
-    context.transformStack.stackPop();
+    if (options.applyTransform) context.transformStack.stackPop();
   }
-  DisplayObject.prototype.apply_standard_mask_and_scroll = function(context, draw) {
+  DisplayObject.prototype.apply_standard_mask_and_scroll = function(context, draw, options) {
+    var maskType = 0;
     var mask = this.masker;
-    var mask_transform = new Transform();
     if (mask) {
+      if (this.isBitmapCached() && mask.isBitmapCached()) {
+        maskType = 1;
+      } else {
+        maskType = 2;
+      }
+    }
+    var mask_transform = new Transform();
+    if (maskType) {
       mask_transform.matrix = (this.globalToLocalMatrix() || Matrix.IDENTITY.clone()).mul(mask.localToGlobalMatrix());
       context.commands.pushMask();
       context.transformStack.stackPush(mask_transform);
@@ -20594,7 +20281,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       context.commands.activateMask();
     }
     draw(context);
-    if (mask) {
+    if (maskType) {
       context.commands.deactivateMask();
       context.transformStack.stackPush(mask_transform);
       mask.renderSelf(context);
@@ -20602,15 +20289,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       context.commands.popMask();
     }
   }
-  DisplayObject.prototype.renderSelf = function(context) {}
-  DisplayObject.prototype.preRender = function(context) {
-    this.clearInvalidateFlag();
-  }
-  DisplayObject.prototype.allowAsMask = function() {
-    return true;
-  }
   DisplayObject.prototype.debugRender = function(context, player) {
-    player.debugTransformStack.stackPush(this.transform);
+    player.debugTransformStack.stackPush(this.getTransform(true));
     var oa = null;
     var hgfh = player.debugTransformStack.getTransform();
     var bm = this.renderBoundsWithTransform(hgfh.matrix, true, context.stage.view_matrix());
@@ -20635,22 +20315,238 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     context.transformStack.stackPop();
     player.debugTransformStack.stackPop();
   }
-  DisplayObject.prototype.enterFrame = function() {}
-  DisplayObject.prototype.runFrameAvm1 = function() {}
-  DisplayObject.prototype.isInteractive = function() {
-    return false;
+
+  DisplayObject.prototype.getId = function() {
+    return 0;
   }
-  DisplayObject.prototype.isContainer = function() {
-    return false;
+
+  DisplayObject.prototype.setAvm1PendingRemoval = function(value) {
+    this.AVM1_PENDING_REMOVAL = value;
   }
-  DisplayObject.prototype.getAvm1RootNoLock = function() {
-    var root = this;
-    var parent;
-    while(parent = root.getAvm1Parent()) {
-      root = parent;
+  DisplayObject.prototype.localToGlobalMatrix = function() {
+    var matrix = this.getMatrix();
+    var node = this.getParent();
+    while(node) {
+      if (node instanceof Stage) break;
+      matrix = node.getMatrix().mul(matrix);
+      node = node.getParent();
     }
-    return root;
+    return matrix;
   }
+  DisplayObject.prototype.globalToLocalMatrix = function() {
+    return this.localToGlobalMatrix().inverse();
+  }
+  DisplayObject.prototype.localToGlobal = function(local) {
+    return this.localToGlobalMatrix().mulPoint(local);
+  }
+  DisplayObject.prototype.globalToLocal = function(local) {
+    var matrix = this.globalToLocalMatrix();
+    return matrix ? matrix.mulPoint(local) : null;
+  }
+  DisplayObject.prototype.setSoundTransform = function(context, soundTransform) {
+    this.soundTransform = soundTransform;
+    context.setSoundTransformsDirty();
+  }
+  DisplayObject.prototype.getBlendMode = function() {
+    return this.blendMode;
+  }
+  DisplayObject.prototype.setBlendMode = function(mode) {
+    var b = getBlendMode(mode) || "normal";
+    var changed = b != this.blendMode;
+    this.blendMode = b;
+    if (changed) {
+      var parent = this.getParent();
+      if (parent) parent.invalidateCachedBitmap();
+    }
+  }
+  DisplayObject.prototype.isBitmapCached = function() {
+    return !!this.cache;
+  }
+
+  DisplayObject.prototype.getWidth = function() {
+    return this.localBounds().width / 20;
+  }
+  DisplayObject.prototype.setWidth = function(value) {
+    var object_bounds = this.getBounds();
+    var object_width = object_bounds.width / 20;
+    var object_height = object_bounds.height / 20;
+    var aspect_ratio = object_height / object_width;
+    var target_scale_x = 0;
+    var target_scale_y = 0;
+    if (object_width != 0) {
+      target_scale_x = value / object_width;
+      target_scale_y = value / object_height;
+    }
+    var prev_scale_x = this.scaleX / 100;
+    var prev_scale_y = this.scaleY / 100;
+    var rotation = this.rotation;
+    var cos = Math.abs(Math.cos(f64_to_radians(rotation)));
+    var sin = Math.abs(Math.sin(f64_to_radians(rotation)));
+    var new_scale_x = aspect_ratio * (cos * target_scale_x + sin * target_scale_y) / ((cos + aspect_ratio * sin) * (aspect_ratio * cos + sin));
+    var new_scale_y = (sin * prev_scale_x + aspect_ratio * cos * prev_scale_y) / (aspect_ratio * cos + sin);
+    if (!Number.isFinite(new_scale_x)) {
+      new_scale_x = 0;
+    }
+    if (!Number.isFinite(new_scale_y)) {
+      new_scale_y = 0;
+    }
+    this.setXScale(new_scale_x * 100);
+    this.setYScale(new_scale_y * 100);
+  }
+  DisplayObject.prototype.getHeight = function() {
+    return this.localBounds().height / 20;
+  }
+  DisplayObject.prototype.setHeight = function(value) {
+    var object_bounds = this.getBounds();
+    var object_width = object_bounds.width / 20;
+    var object_height = object_bounds.height / 20;
+    var aspect_ratio = object_width / object_height;
+    var target_scale_x = 0;
+    var target_scale_y = 0;
+    if (object_height != 0) {
+      target_scale_x = value / object_width;
+      target_scale_y = value / object_height;
+    }
+    var prev_scale_x = this.scaleX / 100;
+    var prev_scale_y = this.scaleY / 100;
+    var rotation = this.rotation;
+    var cos = Math.abs(Math.cos(f64_to_radians(rotation)));
+    var sin = Math.abs(Math.sin(f64_to_radians(rotation)));
+    var new_scale_x = (aspect_ratio * cos * prev_scale_x + sin * prev_scale_y) / (aspect_ratio * cos + sin);
+    var new_scale_y = aspect_ratio * (sin * target_scale_x + cos * target_scale_y) / ((cos + aspect_ratio * sin) * (aspect_ratio * cos + sin));
+    if (!Number.isFinite(new_scale_x)) {
+      new_scale_x = 0;
+    }
+    if (!Number.isFinite(new_scale_y)) {
+      new_scale_y = 0;
+    }
+    this.setXScale(new_scale_x * 100);
+    this.setYScale(new_scale_y * 100);
+  }
+  DisplayObject.prototype.localMousePosition = function(context) {
+    var stage = context.stage;
+    var pixel_ratio = stage.view_matrix().a;
+    var virtual_to_device = Matrix.scale(pixel_ratio, pixel_ratio);
+    var mouse_position = context.mousePosition;
+    var global_twips = mouse_position.clone();
+    var global_device_twips = virtual_to_device.mulPoint(global_twips);
+    var global_device_pixels = Matrix.TWIPS_TO_PIXELS.mulPoint(global_device_twips);
+    var local_twips_to_global_twips = this.localToGlobalMatrix();
+    var twips_to_device_pixels = virtual_to_device.mul(Matrix.TWIPS_TO_PIXELS);
+    var local_twips_to_global_device_pixels = twips_to_device_pixels.mul(local_twips_to_global_twips);
+    var global_device_pixels_to_local_twips = local_twips_to_global_device_pixels.inverse() || Matrix.IDENTITY.clone();
+    return global_device_pixels_to_local_twips.mulPoint(global_device_pixels);
+  }
+  DisplayObject.prototype.getPlaceFrame = function() {
+    return this.placeFrame;
+  }
+  DisplayObject.prototype.setPlaceFrame = function(frame) {
+    this.placeFrame = frame;
+  }
+  DisplayObject.prototype.isRoot = function() {
+    return this.IS_ROOT;
+  }
+  DisplayObject.prototype.setIsRoot = function(bool) {
+    this.IS_ROOT = bool;
+  }
+  DisplayObject.prototype.setSkipNextEnterFrame = function(b) {
+    this.SKIP_NEXT_ENTER_FRAME = b;
+  }
+  DisplayObject.prototype.shouldSkipNextEnterFrame = function() {
+    return this.SKIP_NEXT_ENTER_FRAME;
+  }
+  DisplayObject.prototype.path = function() {
+    var parent = this.getAvm1Parent();
+    if (parent) {
+      var path = parent.path();
+      path += ".";
+      var name = this.getName();
+      if (name) {
+        path += name;
+      }
+      return path;
+    } else {
+      return "_level" + this.getDepth();
+    }
+  }
+  DisplayObject.prototype.slash_path = function() {
+    function build_slash_path(object) {
+      var parent = object.getAvm1Parent();
+      if (parent) {
+        var path = build_slash_path(parent);
+        path += "/";
+        var name = object.getName();
+        if (name) {
+          path += name;
+        }
+        return path;
+      } else {
+        var level = object.getDepth();
+        if (level == 0) {
+          return "";
+        } else {
+          return "_level" + level;
+        }
+      }
+    }
+    var parent = this.getAvm1Parent();
+    if (parent) {
+      return build_slash_path(this);
+    } else {
+      return "/";
+    }
+  }
+  DisplayObject.prototype.getBounds = function() {
+    return this.getBoundsWithTransform(Matrix.IDENTITY);
+  }
+  DisplayObject.prototype.localBounds = function() {
+    return this.getBoundsWithTransform(this.getMatrix());
+  }
+  DisplayObject.prototype.worldBounds = function() {
+    return this.getBoundsWithTransform(this.localToGlobalMatrix());
+  }
+  DisplayObject.prototype.getBoundsWithTransform = function(matrix) {
+    var bounds = matrix.mulRectangle(this.selfBounds());
+    if (this.isContainer()) {
+      var children = this.iterRenderList();
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        var mat = matrix.mul(child.getMatrix());
+        bounds = bounds.union(child.getBoundsWithTransform(mat));
+      }
+    }
+    return bounds;
+  }
+  DisplayObject.prototype.renderBoundsWithTransform = function(matrix, include_own_filters, view_matrix) {
+    var bounds = matrix.mulRectangle(this.selfBounds());
+    if (this.isContainer()) {
+      var children = this.iterRenderList();
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        var mat = matrix.mul(child.getMatrix());
+        bounds = bounds.union(child.renderBoundsWithTransform(mat, true, view_matrix));
+      }
+    }
+    if (include_own_filters) {
+      var filters = this.getFilters();
+      for (var i = 0; i < filters.length; i++) {
+        var filter = filters[i].clone();
+        filter.scale(view_matrix.a, view_matrix.d);
+        bounds = filter.calculateDestRect(bounds);
+      }
+    }
+    return bounds;
+  }
+  DisplayObject.prototype.selfBounds = function() {
+    return Rectangle.INVALID.clone();
+  }
+
+  DisplayObject.prototype.setRatio = function(context, ratio) {
+    this.ratio = ratio;
+    this.invalidateCachedBitmap();
+    this.on_ratio_changed(context, ratio);
+  }
+  DisplayObject.prototype.on_ratio_changed = function(context, _new_ratio) {}
   DisplayObject.prototype.getAvm1Parent = function() {
     var a = this.getParent();
     if (a) {
@@ -20658,37 +20554,71 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return null;
   }
-  DisplayObject.prototype.getAvm1Root = function() {
-    var root = this;
-    while(true) {
-      if (root.LOCK_ROOT) {
-        break;
+  DisplayObject.prototype.setMasker = function(node, remove_old_link) {
+    if (remove_old_link) {
+      var old_masker = this.masker;
+      if (old_masker) {
+        old_masker.setMaskee(null, false);
       }
-      var parent = root.getAvm1Parent();
+      var parent = this.getParent();
       if (parent) {
-        root = parent;
-      } else {
-        break;
+        parent.invalidateCachedBitmap();
       }
     }
-    return root;
+    this.masker = node;
   }
-  DisplayObject.prototype.getAvm1Stage = function() {
-    var root = this;
-    while(true) {
-      var parent = root.getParent();
-      if (parent) {
-        if (parent instanceof Stage) {
-          return parent;
-        }
-        root = parent;
-      } else {
-        return root;
+  DisplayObject.prototype.setMaskee = function(node, remove_old_link) {
+    if (remove_old_link) {
+      var old_masker = this.maskee;
+      if (old_masker) {
+        old_masker.setMasker(null, false);
       }
+      this.invalidateCachedBitmap();
     }
+    this.maskee = node;
   }
-  DisplayObject.prototype.getAvm1TextFieldBindings = function() {
+  DisplayObject.prototype.runFrameAvm1 = function() {}
+  DisplayObject.prototype.isInteractive = function() {
+    return false;
+  }
+  DisplayObject.prototype.isContainer = function() {
+    return false;
+  }
+  DisplayObject.prototype.frameConstructed = function(context) {}
+  DisplayObject.prototype.exitFrame = function(context) {}
+  DisplayObject.prototype.getDisplayName = function() {
+    return this.displayType + ": " + this.getId();
+  }
+  DisplayObject.prototype.mousePickAvm1 = function() {
     return null;
+  }
+  
+  DisplayObject.prototype.enterFrame = function() {}
+  DisplayObject.prototype.setState = function() {}
+  DisplayObject.prototype.constructFrame = function() {}
+  DisplayObject.prototype.onConstructionComplete = function(context) {}
+  DisplayObject.prototype.runFrameScripts = function(context) {
+    if (this.isContainer()) {
+      var children = this.iterRenderList();
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        child.runFrameScripts(context);
+      }
+    }
+  }
+  DisplayObject.prototype.preRender = function(context) {
+    this.clearInvalidateFlag();
+  }
+  DisplayObject.prototype.renderSelf = function(context) {}
+  DisplayObject.prototype.render = function(context) {
+    this.renderWithOptions(context, {
+      skipMasks: true,
+      applyTransform: true,
+      applyMatrix: true
+    });
+  }
+  DisplayObject.prototype.renderWithOptions = function(context, options) {
+    this.renderBase(context, options);
   }
   DisplayObject.prototype.avm1Unload = function(context) {
     if (this.isContainer()) {
@@ -20711,36 +20641,138 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (this.cache) this.cache.clear();
     this.AVM1_REMOVED = true;
   }
-  DisplayObject.prototype.constructFrame = function() {
-
-  }
-  DisplayObject.prototype.onConstructionComplete = function(context) {
-    
-  }
-  DisplayObject.prototype.frameConstructed = function(context) {
-
-  }
-  DisplayObject.prototype.runFrameScripts = function(context) {
-    if (this.isContainer()) {
-
-    }
-  }
-  DisplayObject.prototype.exitFrame = function(context) {
-
-  }
-  DisplayObject.prototype.setState = function() {
-  }
-  DisplayObject.prototype.getDisplayName = function() {
-    return this.displayType + ": " + this.getId();
-  }
-  DisplayObject.prototype.mousePickAvm1 = function() {
+  DisplayObject.prototype.getAvm1TextFieldBindings = function() {
     return null;
   }
+  DisplayObject.prototype.applyPlaceObject = function(context, placeObject) {
+    if (!this.TRANSFORMED_BY_SCRIPT) {
+      if ("matrix" in placeObject) {
+        this.applyMatrix(Matrix.fromArray(placeObject.matrix));
+        var parent = this.getParent();
+        if (parent) {
+          parent.invalidateCachedBitmap();
+        }
+      }
+      if ("colorTransform" in placeObject) {
+        this.applyColorTransform(placeObject.colorTransform);
+        var parent = this.getParent();
+        if (parent) {
+          parent.invalidateCachedBitmap();
+        }
+      }
+      if ("ratio" in placeObject) {
+        this.setRatio(context, placeObject.ratio);
+      }
+      if ("bitmapCache" in placeObject) {
+        this.set_bitmap_cached_preference(!!placeObject.bitmapCache);
+      }
+      if ("blendMode" in placeObject) {
+        this.setBlendMode(placeObject.blendMode);
+      }
+      if (this.swfVersion() >= 11) {
+        if ("visible" in placeObject) {
+          this.setVisible(!!placeObject.visible);
+        }
+        if ("backgroundColor" in placeObject) {
+          var backgroundColor = placeObject.backgroundColor.slice(0);
+          var color = null;
+          if (backgroundColor[3] > 0) {
+            backgroundColor[3] = 1;
+            color = backgroundColor;
+          }
+          this.setOpaqueBackground(color);
+        }
+      }
+      if ("filters" in placeObject) {
+        var filters = placeObject.filters;
+        var result = [];
+        for (var i = 0; i < filters.length; i++) {
+          var _ = Filter.from(filters[i]);
+          if (_) result.push(_);
+        }
+        this.setFilters(result);
+      }
+    }
+  }
+  DisplayObject.prototype.replaceWith = function(context, characterId) {}
+  DisplayObject.prototype.getObject1 = function() {
+    return null;
+  }
+  DisplayObject.prototype.getObject1OrUndef = function() {
+    return Avm1Value.INSTANCE.Undefined;
+  }
+  DisplayObject.prototype.getObject1OrBare = function() {
+    var obj = this.getObject1();
+    return obj ? obj : Avm1Object.createNewWithoutProto();
+  }
+  DisplayObject.prototype.hitTestBounds = function(point) {
+    return this.worldBounds().contains(point);
+  }
+  DisplayObject.prototype.hitTestObject = function(other) {
+    return this.worldBounds().intersects(other.worldBounds());
+  }
+  DisplayObject.prototype.hitTestShape = function(_context, point, options) {
+    return (!options.contains(HitTestOptions.SKIP_INVISIBLE) || this.VISIBLE) && this.hitTestBounds(point);
+  }
+  DisplayObject.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {}
+  DisplayObject.prototype.swfVersion = function() {
+    return this.getMovie().version;
+  }
+  DisplayObject.prototype.allowAsMask = function() {
+    return true;
+  }
+  DisplayObject.prototype.getAvm1Root = function() {
+    var root = this;
+    while(true) {
+      if (root.LOCK_ROOT) {
+        break;
+      }
+      var parent = root.getAvm1Parent();
+      if (parent) {
+        root = parent;
+      } else {
+        break;
+      }
+    }
+    return root;
+  }
+  DisplayObject.prototype.getAvm1RootNoLock = function() {
+    var root = this;
+    var parent;
+    while(parent = root.getAvm1Parent()) {
+      root = parent;
+    }
+    return root;
+  }
+  DisplayObject.prototype.getAvm1Stage = function() {
+    var root = this;
+    while(true) {
+      var parent = root.getParent();
+      if (parent) {
+        if (parent instanceof Stage) {
+          return parent;
+        }
+        root = parent;
+      } else {
+        return root;
+      }
+    }
+  }
+  DisplayObject.prototype.setDefaultInstanceName = function(context) {
+    var name = this.getName();
+    if (name == null) {
+      var r = context.addInstanceCounter();
+      this.setName("instance" + r);
+    }
+  }
+  DisplayObject.prototype.setDefaultRootName = function(context) {
+    this.setName("");
+  }
   DisplayObject.prototype.getAvm1BooleanProperty = function(name, context, d) {
-    var object = this.getObject();
-    if (object.a == Avm1Value.Object) {
+    var object = this.getObject1();
+    if (object) {
       var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[AVM1 Boolean Property]"), this.getAvm1Root());
-      var value = object.b.get(name, activation);
+      var value = object.get(name, activation);
       switch(value.a) {
         case Avm1Value.Undefined:
           return d(context);
@@ -20851,7 +20883,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   var InteractiveObject = function() {
     DisplayObject.call(this);
-    this._mouseEnabled = true;
+    this.MOUSE_ENABLED = true;
+    this.DOUBLE_CLICK_ENABLED = false;
+    this.HAS_FOCUS = false;
   }
   inherits(InteractiveObject, DisplayObject);
   InteractiveObject.prototype.displayType = "InteractiveObject";
@@ -20875,7 +20909,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return false;
   }
   InteractiveObject.prototype.handleClipEvent = function(context, event) {
-    if (!this._mouseEnabled) {
+    if (!this.MOUSE_ENABLED) {
       return false;
     }
     if (!this.filterClipEvent(context, event)) {
@@ -20911,9 +20945,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       if (child.hasUnloadHandler()) {
         return true;
       } else {
-        var obj = child.getObject().coerceToObject(activation);
-        if (obj.has_property(activation, "onUnload")) {
-          return true;
+        var obj = child.getObject1();
+        if (obj) {
+          if (obj.has_property(activation, "onUnload")) {
+            return true;
+          }
         }
       }
     }
@@ -21005,8 +21041,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     child.setParent(context, parent);
     var prev_child = this.depthList.insert(depth, child);
     if (prev_child) {
-
+      child.clipDepth = 0;
+      prev_child.setDepth(prev_depth);
+      prev_child.clipDepth = 0;
+      prev_child.TRANSFORMED_BY_SCRIPT = true;
+      this.depthList.insert(prev_depth, prev_child);
+      var prev_position = this.renderList.indexOf(prev_child);
+      var next_position = this.renderList.indexOf(child);
+      if ((prev_position >= 0) && (next_position >= 0)) {
+        var r1 = this.renderList[prev_position];
+        var r2 = this.renderList[next_position];
+        this.renderList[prev_position] = r2;
+        this.renderList[next_position] = r1;
+      } else {
+        console.log("ChildContainer::swap_at_depth: A child is missing in the render list");
+      }
     } else {
+      console.log("swapAtDepth");
       this.depthList.remove(prev_depth);
       var old_position = this.renderList.indexOf(child);
       if (old_position >= 0) {
@@ -21015,11 +21066,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var below_child = this.depthList.range(null, depth);
       if (below_child) {
         var new_position = this.renderList.indexOf(below_child);
+        if (new_position >= 0) {
+          new_position += 1;
+        } else {
+          console.log("ChildContainer::swap_at_depth: below_child is missing in the render list");
+          new_position = 0;
+        }
         this.insertId(new_position, child);
       } else {
         this.insertId(0, child);
       }
     }
+  }
+  ChildContainer.prototype.hasDepth = function(depth) {
+    return this.depthList.containsKey(depth);
   }
   ChildContainer.prototype.getName = function(name, case_sensitive) {
     if (this.has_pending_removals) {
@@ -21069,7 +21129,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (prevChild) {
       var rs = this.renderList.indexOf(prevChild);
       if (rs >= 0) {
-        if (!prevChild.PLACED_BY_SCRIPT) {
+        if (!prevChild.PLACED_BY_AVM2_SCRIPT) {
           this.replaceId(rs, child);
           return prevChild;
         } else {
@@ -21148,6 +21208,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   DisplayObjectContainer.prototype.childByName = function(name, case_sensitive) {
     return this.container.getName(name, case_sensitive);
   }
+  DisplayObjectContainer.prototype.hasChildAtDepth = function(depth) {
+    return this.container.hasDepth(depth);
+  }
   DisplayObjectContainer.prototype.swapAtDepth = function(context, child, depth) {
     this.container.swapAtDepth(context, this, child, depth);
     this.invalidateCachedBitmap();
@@ -21215,7 +21278,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
   DisplayObjectContainer.prototype.debugRender = function(context, player) {
-    player.debugTransformStack.stackPush(this.transform);
+    player.debugTransformStack.stackPush(this.getTransform(true));
     var children = this.iterRenderList();
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
@@ -21261,10 +21324,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.invalidateCachedBitmap();
   }
   Graphic.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
-    context.avm1.addExecuteList(this);
-    if (runFrame) {
-      this.runFrameAvm1(context);
-    }
   }
   Graphic.prototype.runFrameAvm1 = function(context) {}
   Graphic.prototype.selfBounds = function() {
@@ -21307,7 +21366,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   var MorphShape = function() {
     DisplayObject.call(this);
     this.morphShapeData = null;
-    this.ratio = 0;
   }
   inherits(MorphShape, DisplayObject);
   MorphShape.prototype.displayType = "MorphShape";
@@ -21332,10 +21390,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   MorphShape.prototype.runFrameAvm1 = function(context) {
     // Noop
-  }
-  MorphShape.prototype.setRatio = function(ratio) {
-    this.ratio = ratio;
-    this.invalidateCachedBitmap();
   }
   MorphShape.prototype.selfBounds = function() {
     var frame = this.morphShapeData.getFrame(this.ratio);
@@ -21448,16 +21502,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   MorphShapeStatic.prototype.lerpLine = function(lineStyle, per) {
     var width = this.lerpTwips(lineStyle.startWidth, lineStyle.endWidth, per);
-    if (lineStyle.fillType) {
-      return {
-        width: width,
-        fillType: this.lerpFill(lineStyle.fillType, per)
-      };
-    } else {
-      return {
-        width: width,
-        color: this.lerpColor(lineStyle.startColor, lineStyle.endColor, per)
-      };
+    return {
+      width: width,
+      fillType: this.lerpFill(lineStyle.fillType, per)
     }
   }
   MorphShapeStatic.prototype.buildEdges = function(per) {
@@ -21805,12 +21852,27 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     d.init(this);
     return d;
   }
+  var EditTextStyleSheet = function(type, data) {
+    this.type = type;
+    this.data = data;
+  }
+  EditTextStyleSheet.None = 0;
+  EditTextStyleSheet.Avm1 = 1;
+  EditTextStyleSheet.Avm2 = 2;
+  EditTextStyleSheet.prototype.isSome = function() {
+    return !!this.getStyleSheet();
+  }
+  EditTextStyleSheet.prototype.isNone = function() {
+    return !this.getStyleSheet();
+  }
+  EditTextStyleSheet.prototype.getStyleSheet = function() {
+    return null;
+  }
   var TextField = function() {
     InteractiveObject.call(this);
     this.text_bounds = null;
     this.__backgroundColor = [255, 255, 255, 1];
     this.__border_color = [0, 0, 0, 1];
-    this.__text = "";
     this.___object = null;
     this.___font = null;
     this._variable = null;
@@ -21818,6 +21880,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.textColor = [0, 0, 0, 1];
     this.fontHeight = 0;
     this.bound_display_object = null;
+    this.styleSheet = null;
     this.textSpans = null;
     this.staticData = null;
     this.FIRING_VARIABLE_BINDING = false;
@@ -21853,13 +21916,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.HTML;
   }
   TextField.prototype.isEffectivelyHTML = function() {
-    return this.HTML;
+    return this.HTML || this.styleSheet.isSome();
   }
   TextField.prototype.htmlText = function() {
-    if (this.isEffectivelyHTML()) {
-      return "";
+    if (this.isEffectivelyHTML()) { // TODO
+      return this.getText();
     } else {
-      return this.__text;
+      return this.getText();
     }
   }
   TextField.prototype.setIsHTML = function(b) {
@@ -21868,7 +21931,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   TextField.prototype.parseHTML = function(text) {
     var defaultFormat = this.textSpans.defaultFormat.clone();
     this.textSpans = FormatSpans.fromHTML(text, defaultFormat, null, false, false, this.staticData.movie);
-    return null;
   }
   TextField.prototype.init = function(sd) {
     this.staticData = sd;
@@ -21880,22 +21942,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var encoding = movie.encoding;
     var text = ("initialText" in textInfo) ? encoding.decode(textInfo.initialText) : "";
     var text_spans = textInfo.HTML ? FormatSpans.fromHTML(text, defaultFormat, null, textInfo.isMultiline, false, movie.version) : FormatSpans.fromText(text, defaultFormat);
-    var resultText = text_spans.text;
     this.textSpans = text_spans;
-    this.__text = resultText;
     this.HAS_BACKGROUND = !!textInfo.border;
-
     if ("fontID" in textInfo) {
       var r = movie.library.getFont(textInfo.fontID);
       //console.log(r);
       this.___font = r;
     }
-
-    if (textInfo.HTML) {
-      this.HTML = false;
-    } else {
-      this.HTML = false;
-    }
+    this.styleSheet = new EditTextStyleSheet(EditTextStyleSheet.None);
+    this.HTML = textInfo.HTML;
     if ("fontHeight" in textInfo) this.fontHeight = textInfo.fontHeight;
     if ("textColor" in textInfo) this.textColor = textInfo.textColor.slice(0);
     this._variable = this.getMovie().encoding.decode(textInfo.variableName);
@@ -21903,12 +21958,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   TextField.prototype.selfBounds = function() {
     return this.text_bounds;
   }
-  TextField.prototype.getObject = function() {
+  TextField.prototype.getObject1 = function() {
+    return this.___object;
+  }
+  TextField.prototype.getObject1OrUndef = function() {
     return this.___object ? Avm1Value.fromObject(this.___object) : Avm1Value.INSTANCE.Undefined;
   }
   TextField.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
     this.setDefaultInstanceName(context);
-    context.avm1.addExecuteList(this);
     if (!this.getMovie().isActionScript3()) {
       this.constructAsAvm1Object(context, runFrame);
     }
@@ -21934,7 +21991,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             var value = object.get(property, activation);
             _this.set_html_text(value.coerceToString(activation), activation.context);
           } else {
-            var text = _this.__text;
+            var text = _this.getText();
             if (text) {
               object.set(property, Avm1Value.fromString(text), activation);
             }
@@ -21952,8 +22009,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return bound;
   }
   TextField.prototype.set_html_text = function(text, context) {
-    if (text == this.htmlText()) return;
+    if (this.htmlText() == text) return;
     if (this.isEffectivelyHTML()) {
+      this.parseHTML(text);
       this.relayout(context);
     } else {
       this.setText(text, context);
@@ -21964,7 +22022,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   TextField.prototype.constructAsAvm1Object = function(context, runFrame) {
     if (!this.___object) {
-      var scriptObject = Avm1Object.createNewWithNative(context.avm1.prototypes.text_field, new Avm1NativeObject(Avm1NativeObject.EditText, this));
+      var scriptObject = Avm1Object.createNewWithNative(Avm1Value.fromObject(context.avm1.getPrototypes(this.swfVersion()).text_field), new Avm1NativeObject(Avm1NativeObject.EditText, this));
       this.___object = scriptObject;
     }
     var _this = this;
@@ -22033,7 +22091,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       context.commands.drawRect(this.__backgroundColor, context.transformStack.getTransform().matrix);
       context.transformStack.stackPop();  
     }
-    var lists = this.__text.split("\r");
+    var lists = this.getText().split("\r");
     var x = xMin;
     var y = yMin;
     for (var i = 0; i < lists.length; i++) {
@@ -22043,10 +22101,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
   TextField.prototype.getText = function() {
-    return this.__text;
+    return this.textSpans.text;
   }
   TextField.prototype.setText = function(text, context) {
-    this.__text = text;
+    if (this.getText() == text) {
+      return;
+    }
+    if (this.styleSheet.isSome()) {
+      this.parseHTML(text);
+    } else {
+      var defaultFormat = this.textSpans.defaultFormat;
+      this.textSpans = FormatSpans.fromText(text, defaultFormat);
+    }
     this.relayout(context);
   }
   TextField.prototype.propagateTextBinding = function(activation) {}
@@ -22105,7 +22171,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.staticData.movie;
   }
   VideoDisplay.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
-    context.avm1.addExecuteList(this);
     var streamdef = this.staticData.data;
     this.isSmoothed = !!streamdef.isSmoothed;
     var stream = context.video.registerVideoStream(streamdef.numFrames, [streamdef.width, streamdef.height], streamdef.codec, streamdef.codec);
@@ -22129,9 +22194,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   VideoDisplay.prototype.selfBounds = function() {
     return new Rectangle(0, this.__size[0] * 20, 0, this.__size[1] * 20);
-  }
-  VideoDisplay.prototype.setRatio = function(ratio) {
-    this.seek(ratio);
   }
   VideoDisplay.prototype.seek = function(context, frame_id) {
     this.invalidateCachedBitmap();
@@ -22196,6 +22258,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     this.decoded_frame = [frameId, res];
   }
+  VideoDisplay.prototype.on_ratio_changed = function(context, new_ratio) {
+    this.seek(context, new_ratio);
+  }
   VideoDisplay.prototype.getDebugVideoText = function() {
     if (this.isInstantiated) {
       return this.staticData.data.codec + ":" + this.getId() + " " + this._debug_decoder_time + "ms";
@@ -22245,9 +22310,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   BitmapGraphic.prototype.getMovie = function() {
     return this.movie;
   }
-  BitmapGraphic.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
-    context.avm1.addExecuteList(this);
-  }
+  BitmapGraphic.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {}
   BitmapGraphic.prototype.selfBounds = function() {
     return new Rectangle(0, this.staticBitmap.width * 20, 0, this.staticBitmap.height * 20);
   }
@@ -22301,15 +22364,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this._actions = i.actions;
     this._recordColorTransforms = i.colorTransforms;
   }
-  Avm1Button.prototype.getObject = function() {
+  Avm1Button.prototype.getObject1OrUndef = function() {
     return this.___object ? Avm1Value.fromObject(this.___object) : Avm1Value.INSTANCE.Undefined;
+  }
+  Avm1Button.prototype.getObject1 = function() {
+    return this.___object;
   }
   Avm1Button.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
     this.setDefaultInstanceName(context);
-    context.avm1.addExecuteList(this);
     if (!this.getMovie().isActionScript3()) {
       if (!this.___object) {
-        var scriptObject = Avm1Object.createNewWithNative(context.avm1.prototypes.button, new Avm1NativeObject(Avm1NativeObject.Button, this));
+        var scriptObject = Avm1Object.createNewWithNative(Avm1Value.fromObject(context.avm1.getPrototypes(this.swfVersion()).button), new Avm1NativeObject(Avm1NativeObject.Button, this));
         this.___object = scriptObject;
       } 
     }
@@ -22398,11 +22463,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Avm1Button.prototype.playSound = function(context, sound, soundInfo) {
     switch (soundInfo.event) {
       case "event":
-        context.startSound(sound, soundInfo, this, null);
+        context.startSound(sound, soundInfo, null, this, null);
         break;
       case "start":
         if (!context.isSoundPlayingWithHandle(sound)) {
-          context.startSound(sound, soundInfo, this, null);
+          context.startSound(sound, soundInfo, null, this, null);
         }
         break;
       case "stop":
@@ -22577,12 +22642,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return handled;
   }
-  Avm1Button.prototype.mousePickAvm1 = function(context, point, _) {
-    if (this.getVisible() && this._mouseEnabled) {
+  Avm1Button.prototype.mousePickAvm1 = function(context, point, require_button_mode) {
+    if (this.getVisible() && this.MOUSE_ENABLED) {
       for (var i = 0; i < this.___hitArea.length; i++) {
         var child = this.___hitArea[i];
         if (child) {
-          if (child.hitTestShape(context, point, _)) {
+          if (child.hitTestShape(context, point, HitTestOptions.MOUSE_PICK)) {
             return this;
           }
         }
@@ -22632,22 +22697,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var colorTransforms = tag.colorTransforms;
     if (colorTransforms) {
       this.colorTransforms = colorTransforms;
-    }
-  }
-  function objectCopy(src) {
-    var obj = {};
-    for (var name in src) {
-      obj[name] = src[name];
-    }
-    return obj;
-  }
-  function removeIdArray(array, i) {
-    if (array.length) {
-      if (i >= array.length) {
-        array.pop();
-      } else {
-        array.splice(i, 1);
-      }
     }
   }
   var GotoPlaceObject = function(frame, place, isRewind, index) {
@@ -22762,13 +22811,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   var MovieClip = function(staticData) {
     DisplayObjectContainer.call(this);
     this.staticData = staticData;
-    this.currentFrame = 0;
-    this.audioStream = null;
     this.tagStreamPos = 0;
     this.object1 = null;
-    this.drawing = null;
+    this.object2 = null;
+    this.nextAvm1Clip = null;
+    this.audioStream = null;
     this.clipEventHandlers = [];
+    this.drawing = null;
+    this.currentFrame = 0;
     this.avm1_text_field_bindings = [];
+
+    // flags
     this.isPlaying = true;
     this.isLoop = true;
     this.INITIALIZED = false;
@@ -22815,9 +22868,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.staticData.preloadProgress.curPreloadFrame - 1;
   }
   MovieClip.prototype.postInstantiation = function(context, initObject, instantiatedBy, runFrame) {
-    if (this.POST_INSTANTIATED) {
-      return;
-    }
+    if (this.POST_INSTANTIATED) return;
     this.POST_INSTANTIATED = true;
     this.setDefaultInstanceName(context);
     context.avm1.addExecuteList(this);
@@ -22830,9 +22881,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var avm1_constructor = this.getRegisteredAvm1Constructor(context);
       if (avm1_constructor && (instantiatedBy == Instantiator.Avm1)) {
         var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Construct]"), this);
-        var prototype = avm1_constructor.get("prototype", activation).coerceToObject(activation);
+        var prototype = avm1_constructor.get("prototype", activation).coerceToObjectOrBare(activation);
         if (prototype) {
-          var object = Avm1Object.createNewWithNative(prototype, new Avm1NativeObject(Avm1NativeObject.MovieClip, this));
+          var object = Avm1Object.createNewWithNative(Avm1Value.fromObject(prototype), new Avm1NativeObject(Avm1NativeObject.MovieClip, this));
           this.object1 = object;
           if (runFrame) {
             this.runFrameAvm1(context);
@@ -22841,7 +22892,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
         return;
       }
-      var object = Avm1Object.createNewWithNative(context.avm1.prototypes.movieclip, new Avm1NativeObject(Avm1NativeObject.MovieClip, this));
+      var object = Avm1Object.createNewWithNative(Avm1Value.fromObject(context.avm1.getPrototypes(this.swfVersion()).movieclip), new Avm1NativeObject(Avm1NativeObject.MovieClip, this));
       this.object1 = object;
       if (runFrame) {
         this.runFrameAvm1(context);
@@ -22886,9 +22937,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return null;
   }
   MovieClip.prototype.hasUnloadHandler = function() {
-    var agdg = this.clipEventHandlers;
-    for (var i = 0; i < agdg.length; i++) {
-      var e = agdg[i];
+    var _ = this.clipEventHandlers;
+    for (var i = 0; i < _.length; i++) {
+      var e = _[i];
       if (e.events.unload) {
         return true;
       }
@@ -23089,11 +23140,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.currentFrame--;
   }
   MovieClip.prototype.runGoto = function(context, frame, isImplicit) {
+    var _this = this;
     var frameBeforeRewind = this.currentFrame;
     this.setSkipNextEnterFrame(false);
     var gotoCommands = [];
     this.stopAudioStream(context);
-    var isRewind = (frame <= this.currentFrame);
+    var isRewind = frame <= this.currentFrame;
     if (isRewind) {
       this.tagStreamPos = 0;
       this.currentFrame = 0;
@@ -23144,12 +23196,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     var hitTargetFrame = this.currentFrame == frame;
     if (isRewind) {
-      var children = this.iterRenderList().filter(function (clip) {
+      var children;
+      //var final_placements = new Map();
+      //for (var i = 0; i < gotoCommands.length; i++) {
+      //  var g = gotoCommands[i];
+      //  final_placements.set(g.getDepth(), g);
+      //}
+      //children = this.iterRenderList().filter(function(clip) {
+      //  return !_this.survives_rewind(clip, final_placements, frame);
+      //});
+      children = this.iterRenderList().filter(function(clip) {
         return clip.getPlaceFrame() > frame;
       });
       for (var i = 0; i < children.length; i++) {
         var child = children[i];
-        if (!child.PLACED_BY_SCRIPT) {
+        if (!child.PLACED_BY_AVM2_SCRIPT) {
           this.removeChild(context, child);
         } else {
           this.removeChildFromDepthList(context, child);
@@ -23201,6 +23262,52 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       run_goto_command(goto);
     });
   }
+  MovieClip.prototype.survives_rewind = function(old_object, final_placements, frame) {
+    var is_candidate_for_removal = this.getMovie().isActionScript3() ? ((old_object.getPlaceFrame() > frame) || old_object.PLACED_BY_AVM2_SCRIPT) : (old_object.getDepth() < AVM1_DEPTH_BIAS);
+    if (!is_candidate_for_removal && !(old_object instanceof MorphShape)) {
+      return true;
+    }
+    var final_placement = final_placements.get(old_object.getDepth());
+    if (!final_placement) {
+      return false;
+    }
+    var new_params = final_placement.placeData;
+    if (!old_object.getMovie().isActionScript3() && old_object.PLACED_BY_AVM1_SCRIPT && (old_object.getDepth() < AVM1_DEPTH_BIAS)) {
+      return false;
+    }
+    var id_equals = false;
+    if ("characterId" in new_params) {
+      id_equals = old_object.getId() == new_params.characterId;
+    }
+    var ratio_equals = true;
+    if ("ratio" in new_params) {
+      ratio_equals = old_object.ratio == new_params.ratio;
+    }
+    var clip_depth_equals = true;
+    if ("clipDepth" in new_params) {
+      clip_depth_equals = old_object.clipDepth == new_params.clipDepth;
+    }
+    var color_transform_equals = true;
+    var ct = new_params.colorTransform;
+    if (ct) {
+      var r = old_object.getColorTransform();
+      color_transform_equals = (r[0] == ct[0]) && (r[1] == ct[1]) && (r[2] == ct[2]) && (r[3] == ct[3]) && (r[4] == ct[4]) && (r[5] == ct[5]) && (r[6] == ct[6]) && (r[7] == ct[7]);
+    }
+    var base_matrix_equals = true;
+    var m = new_params.matrix;
+    if (m) {
+      var h = Matrix.fromArray(m);
+      var r = old_object.getMatrix();
+      base_matrix_equals = r.eq(h);
+    }
+    if ((old_object instanceof Graphic) || (old_object instanceof MorphShape) || (old_object instanceof StaticText)) {
+      return ratio_equals && id_equals && clip_depth_equals && base_matrix_equals && color_transform_equals;
+    } else if ((old_object instanceof Avm1Button) || (old_object instanceof TextField) || (old_object instanceof BitmapGraphic) || (old_object instanceof VideoDisplay)) {
+      return ratio_equals && id_equals && clip_depth_equals;
+    } else if ((old_object instanceof MovieClip) || (old_object instanceof Stage)) {
+      return ratio_equals;
+    }
+  }
   MovieClip.prototype.gotoPlaceObject = function(reader, version, tagLen, gotoCommands, isRewind, index) {
     var place = reader.parsePlaceObject(version, tagLen);
     var depth = place.depth;
@@ -23233,7 +23340,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.currentFrame = fromFrame;
       var child = this.childByDepth(depth);
       if (child) {
-        if (!child.PLACED_BY_SCRIPT) {
+        if (!child.PLACED_BY_AVM2_SCRIPT) {
           this.removeChild(context, child);
         } else {
           this.removeChildFromDepthList(context, child);
@@ -23293,6 +23400,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
   MovieClip.prototype.instantiateChild = function(context, id, depth, place) {
+    if (this.hasChildAtDepth(depth)) {
+      context.avm_warning("Failed to place object at depth " + depth + ".");
+      return null;
+    }
     var movie = this.getMovie();
     var child = movie.library.instantiateById(id);
     if (child) {
@@ -23378,8 +23489,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.audioStream = null;
     }
   }
-  MovieClip.prototype.getObject = function() {
+  MovieClip.prototype.getObject1OrUndef = function() {
     return this.object1 ? Avm1Value.fromObject(this.object1) : Avm1Value.INSTANCE.Undefined;
+  }
+  MovieClip.prototype.getObject1 = function() {
+    return this.object1;
   }
   MovieClip.prototype.avm1Unload = function(context) {
     var children = this.iterRenderList();
@@ -23484,13 +23598,35 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
       }
       var hit_depth = 0;
-      var children = this.iterRenderList();
       var result = null;
+      var options = new HitTestOptions(false, true, false);
+      options.SKIP_MASK = !this.maskee;
+      var check_non_interactive = !require_button_mode;
+      var children = this.iterRenderList();
       for (var i = children.length - 1; i >= 0; i--) {
         var child = children[i];
-        if (!result) result = child.mousePickAvm1(context, point, require_button_mode);
+        if (child.clipDepth > 0) {
+          if (result && (child.clipDepth >= hit_depth)) {
+            if (child.hitTestShape(context, point, HitTestOptions.MOUSE_PICK)) {
+              return result;
+            } else {
+              result = null;
+            }
+          }
+        } else if (!result) {
+          if (child instanceof InteractiveObject) {
+            result = child.mousePickAvm1(context, point, require_button_mode);
+          } else if (check_non_interactive && this.MOUSE_ENABLED && child.hitTestShape(context, point, options)) {
+            result = this;
+          }
+          if (result) {
+            hit_depth = child.getDepth();
+          }
+        }
       }
-      return result;
+      if (result) {
+        return result;
+      }
     }
     return null;
   }
@@ -23531,7 +23667,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var re = reader.parseRemoveObject(version);
     var child = this.childByDepth(re.depth);
     if (child) {
-      if (!child.PLACED_BY_SCRIPT) {
+      if (!child.PLACED_BY_AVM2_SCRIPT) {
         this.removeChild(context, child);
       } else {
         this.removeChildFromDepthList(context, child);
@@ -23550,24 +23686,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   MovieClip.prototype.startSound1 = function(context, reader) {
     var tag = reader.parseStartSound(1);
-    var movie = this.getMovie();
-    var sound = movie.library.getSound(tag.id);
-    if (sound) {
-      var soundInfo = tag.info;
-      switch (soundInfo.event) {
-        case "event":
-          context.startSound(sound, soundInfo, this, null);
-          break;
-        case "start":
-          if (!context.isSoundPlayingWithHandle(sound)) {
-            context.startSound(sound, soundInfo, this, null);
-          }
-          break;
-        case "stop":
-          context.stopSoundsWithHandle(sound);
-          break;
-      }
-    }
+    AudioManager.performSoundEvent(this, context, tag.id, tag.info);
   }
   var PreloadProgress = function() {
     this.nextPreloadChunk = 0;
@@ -23642,6 +23761,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           break;
         case 45:
           this.soundStreamHead(reader, 2);
+          break;
+        case 86:
+          this.sceneAndFrameLabels(reader);
           break;
         //////// Define ////////
         case 10:
@@ -23950,6 +24072,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   MovieClipStatic.prototype.soundStreamHead = function(reader, version) {
     this.audioStreamInfo = reader.parseSoundStreamHead(version);
   }
+  MovieClipStatic.prototype.sceneAndFrameLabels = function(reader) {
+    var sfl_data = reader.parseDefineSceneAndFrameLabelData();
+    console.log(sfl_data);
+  }
   MovieClipStatic.prototype.preloadVideoFrame = function(reader, tagLength) {
     var movie = this.getMovie();
     var vframe = reader.parseVideoFrame(tagLength);
@@ -24135,9 +24261,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.stage_size[0] = this.movie_size[0];
     this.stage_size[1] = this.movie_size[1];
   }
-  Stage.prototype.render = function(context) {
+  Stage.prototype.renderViewport = function(context) {
     context.transformStack.stackPush(new Transform(this.viewport_matrix, [1, 1, 1, 1, 0, 0, 0, 0]));
-    this.renderBase(context);
+    this.render(context);
     context.transformStack.stackPop();
   }
   Stage.prototype.renderSelf = function(context) {
@@ -24154,6 +24280,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Stage.prototype.eventDispatch = function(context, event) {
     return false;
   }
+
+  ////////// Avm1.js //////////
+
   var Avm1Value = function() {
     this.a = arguments[0];
     if (arguments.length == 2) {
@@ -24191,15 +24320,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return result;
     }
   }
-  Avm1Value.prototype.isPrimitive = function() {
-    switch (this.a) {
-      case Avm1Value.Object:
-      case Avm1Value.MovieClip:
-        return false;
-      default:
-        return true;
-    }
-  }
   Avm1Value.prototype.eq = function(other) {
     var thisType = this.a;
     var otherType = other.a;
@@ -24222,6 +24342,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return false;
     }
   }
+  Avm1Value.prototype.isPrimitive = function() {
+    switch (this.a) {
+      case Avm1Value.Object:
+      case Avm1Value.MovieClip:
+        return false;
+      default:
+        return true;
+    }
+  }
   Avm1Value.prototype.primitiveAsNumber = function(activation) {
     var type = this.a;
     var value = this.b;
@@ -24240,22 +24369,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return Avm1Value.string_to_f64(value, activation.swfVersion);
     }
   }
-  Avm1Value.prototype.toPrimitive = function(activation) {
-    switch (this.a) {
+  Avm1Value.prototype.coerceToNumber = function(activation) {
+    var type = this.a;
+    switch (type) {
       case Avm1Value.Object:
-        var val;
-        if (activation.swfVersion > 5) {
-          val = this.b.callMethod("toString", [], activation, Avm1ExecutionReason.INSTANCE.Special);
-        } else {
-          val = this.b.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
-        }
-        return val;
+        return this.toPrimitiveNum(activation).primitiveAsNumber(activation);
       case Avm1Value.MovieClip:
-        var object = this.coerceToObject(activation);
-        var res = object.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
-        return (res.a == Avm1Value.Undefined) ? Avm1Value.fromString(this.coerceToString(activation)) : res;
+        return Avm1Value.fromObject(this.coerceToObjectOrBare(activation)).toPrimitiveNum(activation).primitiveAsNumber(activation);
       default:
-        return this;
+        return this.primitiveAsNumber(activation);
     }
   }
   Avm1Value.prototype.toPrimitiveNum = function(activation) {
@@ -24266,15 +24388,22 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return this;
     }
   }
-  Avm1Value.prototype.coerceToNumber = function(activation) {
-    var type = this.a;
-    switch (type) {
+  Avm1Value.prototype.toPrimitive = function(activation) {
+    switch (this.a) {
       case Avm1Value.Object:
-        return this.toPrimitiveNum(activation).primitiveAsNumber(activation);
+        var val;
+        if ((activation.swfVersion > 5) && false) {
+          val = this.b.callMethod("toString", [], activation, Avm1ExecutionReason.INSTANCE.Special);
+        } else {
+          val = this.b.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
+        }
+        return val.isPrimitive() ? val : this;
       case Avm1Value.MovieClip:
-        return Avm1Value.fromObject(this.coerceToObject(activation)).toPrimitiveNum(activation).primitiveAsNumber(activation);
+        var object = this.coerceToObjectOrBare(activation);
+        var res = object.callMethod("valueOf", [], activation, Avm1ExecutionReason.INSTANCE.Special);
+        return (res.a == Avm1Value.Undefined) ? Avm1Value.fromString(this.coerceToString(activation)) : res;
       default:
-        return this.primitiveAsNumber(activation);
+        return this;
     }
   }
   Avm1Value.prototype.coerceToI32 = function(activation) {
@@ -24288,12 +24417,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var value = this.b;
     switch (type) {
       case Avm1Value.Object:
-        var dobj = value.asDisplayObjectNoSuper();
-        if (dobj) {
-          return dobj.path();
+        var native = value.getNative();
+        if (native.type == Avm1NativeObject.String) {
+          return native.data;
         } else {
-          var o = value.callMethod("toString", [], activation, Avm1ExecutionReason.INSTANCE.Special);
-          return (o.a == Avm1Value.String) ? o.b : (value.asExecutable() ? "[type Function]" : "[type Object]");  
+          var dobj = value.asDisplayObjectNoSuper();
+          if (dobj) {
+            return dobj.path();
+          } else {
+            var o = value.callMethod("toString", [], activation, Avm1ExecutionReason.INSTANCE.Special);
+            return (o.a == Avm1Value.String) ? o.b : (value.asFunction() ? "[type Function]" : "[type Object]");  
+          } 
         }
       case Avm1Value.MovieClip:
         return value.coerceToString(activation);
@@ -24331,8 +24465,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return false;
     }
   }
+  Avm1Value.prototype.asObject = function(activation) {
+    switch (this.a) {
+      case Avm1Value.Object:
+        return this.b;
+      case Avm1Value.MovieClip:
+        return this.b.coerceToObject(activation);
+      default:
+        return null;
+    }
+  }
+  Avm1Value.prototype.coerceToObjectOrBare = function(activation) {
+    var obj = this.coerceToObject(activation);
+    if (obj) return obj;
+    else return Avm1Object.createNewWithoutProto();
+  }
   Avm1Value.prototype.coerceToObject = function(activation) {
-    var value, proto;
+    var class_name;
     switch(this.a) {
       case Avm1Value.Object:
         return this.b;
@@ -24341,40 +24490,42 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         if (hf) {
           return hf;
         } else {
-          value = Avm1Value.INSTANCE.Undefined;
-          proto = null;
+          return null;
         }
       case Avm1Value.Null:
       case Avm1Value.Undefined:
-        value = this;
-        proto = null;
-        break;
+          return null;
       case Avm1Value.Bool:
-        value = this;
-        proto = activation.context.avm1.prototypes.boolean;
+        class_name = "Boolean";
         break;
       case Avm1Value.Number:
-        value = this;
-        proto = activation.context.avm1.prototypes.number;
+        class_name = "Number";
         break;
       case Avm1Value.String:
-        value = this;
-        proto = activation.context.avm1.prototypes.string;
+        class_name = "String";
         break;
     }
-    var obj = Avm1Object.createNew(proto);
-    switch(this.a) {
-      case Avm1Value.Bool:
-        avm1_globals.boolean.constructor(activation, obj, [value]);
-        break;
-      case Avm1Value.Number:
-        avm1_globals.number.number(activation, obj, [value]);
-        break;
-      case Avm1Value.String:
-        avm1_globals.string.string(activation, obj, [value]);
-        break;
+    var _class = activation.globalObject().get_opt(class_name, activation, false);
+    if (_class) {
+      if (_class.a == Avm1Value.Object) {
+        var obj = _class.b.construct(activation, [this]);
+        if (obj.a == Avm1Value.Object) {
+          return obj.b;
+        }
+      }
     }
-    return obj;
+    return null;
+  }
+  Avm1Value.prototype.typeOf = function(activation) {
+    switch (this.a) {
+      case Avm1Value.Undefined: return "undefined";
+      case Avm1Value.Null: return "null";
+      case Avm1Value.Bool: return "boolean";
+      case Avm1Value.Number: return "number";
+      case Avm1Value.String: return "string";
+      case Avm1Value.Object: return this.b.asFunction() ? "function" : "object";
+      case Avm1Value.MovieClip: return "movieclip";
+    }
   }
   Avm1Value.prototype.abstract_lt = function(other, activation) {
     var prim_self = this.toPrimitiveNum(activation);
@@ -24435,16 +24586,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return false;
     }
   }
-  Avm1Value.prototype.typeOf = function(activation) {
-    switch (this.a) {
-      case Avm1Value.Undefined: return "undefined";
-      case Avm1Value.Null: return "null";
-      case Avm1Value.Bool: return "boolean";
-      case Avm1Value.Number: return "number";
-      case Avm1Value.String: return "string";
-      case Avm1Value.Object: return this.b.asExecutable() ? "function" : "object";
-      case Avm1Value.MovieClip: return "movieclip";
+  Avm1Value.prototype.instanceOf = function(_class, activation) {
+    if (!this.isPrimitive()) {
+      var r_class = _class.coerceToObject(activation);
+      if (r_class) {
+        var p = r_class.getPrototype(activation).coerceToObject(activation);
+        if (p) {
+          var obj = this.asObject(activation);
+          if (obj) {
+            return obj.isInstanceOf(activation, p);
+          }
+        }
+      }
     }
+    return false;
   }
   Avm1Value.Undefined = 1;
   Avm1Value.Null = 2;
@@ -24463,12 +24618,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1ExecutionName.Static = 1;
   Avm1ExecutionName.Dynamic = 2;
-  var Avm1ExecutionReason = function(type) {
-    this.type = type;
-  }
-  Avm1ExecutionReason.FunctionCall = 1;
-  Avm1ExecutionReason.Special = 2;
-  Avm1ExecutionReason.INSTANCE = {FunctionCall: new Avm1ExecutionReason(Avm1ExecutionReason.FunctionCall), Special: new Avm1ExecutionReason(Avm1ExecutionReason.Special)};
   var Avm1Attribute = function() {
     this.DONT_ENUM = false;
     this.DONT_DELETE = false;
@@ -24566,11 +24715,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return p ? p.data : null;
   }
   Avm1PropertyMap.prototype.remove = function(key, case_sensitive) {
+    var res = this.properties[case_sensitive ? key : key.toLowerCase()];
     var g = delete this.properties[case_sensitive ? key : key.toLowerCase()];
     if (!g && !case_sensitive) {
       g = delete this.properties[key];
+      res = this.properties[key];
     }
-    return g;
+    return !!res;
   }
   Avm1PropertyMap.prototype.contains_key = function(key, case_sensitive) {
     var r = (case_sensitive ? key : key.toLowerCase()) in this.properties;
@@ -24589,9 +24740,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     result.reverse();
     return result;
-  }
-  function avm1_eq_with_case(n1, n2, is_case_sensitive) {
-    return is_case_sensitive ? (n1 == n2) : eq_ignore_case(n1, n2);
   }
   var Avm1NativeObject = function(type, data) {
     this.type = type;
@@ -24630,7 +24778,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1Watcher.prototype.call = function(activation, name, old_value, new_value, _this) {
     var args = [Avm1Value.fromString(name), old_value, new_value, this.user_data];
-    var exec = this.callback.asExecutable();
+    var exec = this.callback.asFunction();
     return exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Dynamic, name), activation, Avm1Value.fromObject(_this), 0, args, Avm1ExecutionReason.INSTANCE.Special, this.callback);
   }
   var Avm1Object = function(data) {
@@ -24640,21 +24788,30 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.watchers = data.watchers;
   }
   Avm1Object.createNew = function(proto) {
+    return Avm1Object.createNewImpl(proto, Avm1NativeObject.INSTANCE.None);
+  }
+  Avm1Object.createNewWithNative = function(proto, native) {
+    return Avm1Object.createNewImpl(proto, native);
+  }
+  Avm1Object.createNewImpl = function(proto, native) {
     var object = new Avm1Object({
-      native: Avm1NativeObject.INSTANCE.None,
+      native: native,
       properties: new Avm1PropertyMap(),
-      interfaces: [],
+      interfaces: null,
       watchers: new Avm1PropertyMap()
     });
     if (proto) {
-      object.defineValue("__proto__", Avm1Value.fromObject(proto), new Avm1Attribute().dontEnum().dontDelete());
+      object.defineValue("__proto__", proto, new Avm1Attribute().dontEnum().dontDelete());
     }
     return object;
   }
-  Avm1Object.createNewWithNative = function(proto, native) {
-    var o = Avm1Object.createNew(proto);
-    o.setNative(native);
-    return o;
+  Avm1Object.createNewWithoutProto = function() {
+    return new Avm1Object({
+      native: Avm1NativeObject.INSTANCE.None,
+      properties: new Avm1PropertyMap(),
+      interfaces: null,
+      watchers: new Avm1PropertyMap()
+    });
   }
   Avm1Object.prototype.getData = function(name, activation) {
     var h = this.properties.get(name, activation.is_case_sensitive());
@@ -24668,7 +24825,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.properties.insert(name, Avm1Property.newStored(value, new Avm1Attribute()), activation.is_case_sensitive());
     }
   }
-  Avm1Object.prototype.getLocalStored = function(name, activation, is_slash_path) {
+  Avm1Object.prototype.getLocalStored = function(name, activation) {
     if (this.asSuperObject()) {
       return null;
     }
@@ -24680,7 +24837,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     var display_object = this.asDisplayObject();
     if (display_object) {
-      return avm1_stage_object.get_property(display_object, name, activation, is_slash_path);
+      return avm1_stage_object.get_property(display_object, name, activation);
     }
     return null;
   }
@@ -24703,7 +24860,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         if (index != null) {
           var length = this.getLength(activation);
           if (index >= length) {
-            this.setLength(activation, index + 1);
+            this.setLength(activation, (index + 1) | 0);
           }
         }
       }
@@ -24720,7 +24877,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
       }
     }
-    var setter;
+    var setter = null;
     var h = this.properties.get(name, activation.is_case_sensitive());
     if (h) {
       h.setData(value);
@@ -24729,7 +24886,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.properties.insert(name, Avm1Property.newStored(value, new Avm1Attribute()), activation.is_case_sensitive());
     }
     if (setter) {
-      var exec = setter.asExecutable();
+      var exec = setter.asFunction();
       if (exec) {
         exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Setter]"), activation, Avm1Value.fromObject(_this), 1, [value], Avm1ExecutionReason.INSTANCE.Special, setter);
       }
@@ -24740,8 +24897,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (native.type == Avm1NativeObject.Super) {
       return native.data.call(name, activation, args);
     } else if (native.type == Avm1NativeObject.Function) {
-      var func = native.data;
-      return func.call(name, activation, this, _this, args);
+      return native.data.call(name, activation, this, _this, args);
     } else {
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -24750,9 +24906,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var native = this.getNativeNoSuper();
     if (native.type == Avm1NativeObject.Function) {
       var func = native.data;
-      return func.constructOnExisting(activation, this, _this, args);
-    } else {
-      return Avm1Value.INSTANCE.Undefined;
+      func.constructOnExisting(activation, this, _this, args);
     }
   }
   Avm1Object.prototype.construct = function(activation, args) {
@@ -24817,6 +24971,32 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.properties.insert(name, Avm1Property.newVirtual(getter, setter, attributes), activation.is_case_sensitive());
     }
   }
+  Avm1Object.prototype.callWatcher = function(activation, name, value, _this) {
+    var zuper = this.asSuperObject()
+    if (zuper) {
+      return zuper.thisObject.callWatcher(activation, name, value, _this);
+    }
+    var watcher = this.watchers.get(name, activation.is_case_sensitive());
+    if (watcher) {
+      var old_value = this.getStored(name, activation);
+      try {
+        var v = watcher.call(activation, name, old_value, value[0], _this);
+        value[0] = v;
+      } catch(e) {
+        value[0] = Avm1Value.INSTANCE.Undefined;
+        return e;
+      }
+    }
+    return null;
+  }
+  Avm1Object.prototype.watch = function(activation, name, callback, userData) {
+    if (this.asSuperObject()) return;
+    this.watchers.insert(name, new Avm1Watcher(callback, userData), activation.is_case_sensitive());
+  }
+  Avm1Object.prototype.unwatch = function(activation, name) {
+    if (this.asSuperObject()) return false;
+    return this.watchers.remove(name, activation.is_case_sensitive());
+  }
   Avm1Object.prototype.defineValue = function(name, value, attributes) {
     if (this.asSuperObject()) return;
     this.properties.insert(name, Avm1Property.newStored(value, attributes), true);
@@ -24827,6 +25007,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return zuper.getProto(activation);
     }
     return this.getData("__proto__", activation);
+  }
+  Avm1Object.prototype.getPrototype = function(activation) {
+    return this.getData("prototype", activation);
   }
   Avm1Object.prototype.has_property = function(activation, name) {
     var native = this.getNativeNoSuper();
@@ -24912,8 +25095,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return out_keys;
   }
   Avm1Object.prototype.getInterfaces = function() {
-    if (this.asSuperObject()) return [];
-    return this.interfaces;
+    return this.interfaces || [];
   }
   Avm1Object.prototype.setInterfaces = function(iface_list) {
     if (this.asSuperObject()) return;
@@ -24945,9 +25127,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return null;
   }
-  Avm1Object.prototype.asExecutable = function() {
+  Avm1Object.prototype.asFunction = function() {
     var native = this.getNativeNoSuper();
-    return (native.type == Avm1NativeObject.Function) ? native.data.asExecutable() : null;
+    return (native.type == Avm1NativeObject.Function) ? native.data : null;
   }
   Avm1Object.prototype.asDisplayObjectNoSuper = function() {
     return this.native.asDisplayObject();
@@ -24985,7 +25167,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     } else if (this.native.type == Avm1NativeObject.Array) {
       var length = this.getLength(activation);
       if (index >= length) {
-        this.setLength(activation, index + 1);
+        this.setLength(activation, (index + 1) | 0);
       }
     }
     this.setData(index + "", value, activation);
@@ -24995,7 +25177,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.delete(activation, index + "");
   }
   // Object
-  Avm1Object.prototype.get_non_slash_path = function(name, activation) {
+  Avm1Object.prototype.get_opt = function(name, activation, call_resolve_fn) {
     var _this, proto;
     var super_object = this.asSuperObject();
     if (super_object) {
@@ -25005,32 +25187,40 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       _this = this;
       proto = Avm1Value.fromObject(this);
     }
-    var s = avm1_search_prototype(proto, name, activation, _this, false);
+    var s = avm1_search_prototype(proto, name, activation, _this, call_resolve_fn);
     if (s) {
       return s[0];
     } else {
-      return Avm1Value.INSTANCE.Undefined;
+      return null;
     }
   }
   Avm1Object.prototype.get = function(name, activation) {
-    var _this, proto;
-    var super_object = this.asSuperObject();
-    if (super_object) {
-      _this = super_object.thisObject;
-      proto = super_object.getProto(activation);
-    } else {
-      _this = this;
-      proto = Avm1Value.fromObject(this);
+    return this.get_opt(name, activation, true) || Avm1Value.INSTANCE.Undefined;
+  }
+  Avm1Object.prototype.getStored = function(name, activation) {
+    var depth = 0;
+    var _proto = Avm1Value.fromObject(this);
+    while(true) {
+      var p = (_proto.a == Avm1Value.Object) ? _proto.b : null;
+      if (p) {
+        if (depth == 255) {
+          throw new Error("Error::PrototypeRecursionLimit");
+        }
+        var b = p.getLocalStored(name, activation);
+        if (b) {
+          return b;
+        }
+        _proto = p.getProto(activation);
+        depth += 1;
+      } else {
+        break;
+      }
     }
-    var s = avm1_search_prototype(proto, name, activation, _this, true);
-    if (s) {
-      return s[0];
-    } else {
-      return Avm1Value.INSTANCE.Undefined;
-    }
+    return Avm1Value.INSTANCE.Undefined;
   }
   Avm1Object.prototype.set = function(name, value, activation) {
     if (!name) return;
+    var _value = [value];
     var _this, proto;
     var super_object = this.asSuperObject();
     if (super_object) {
@@ -25040,6 +25230,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       _this = this;
       proto = Avm1Value.fromObject(this);
     }
+    var watcher_result = this.callWatcher(activation, name, _value, _this);
     if (!this.has_own_property(activation, name)) {
       while(true) {
         if (proto.a == Avm1Value.Object) {
@@ -25047,9 +25238,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           if (this_proto.has_own_virtual(activation, name)) {
             var setter = this_proto.setter(name, activation);
             if (setter) {
-              var exec = setter.asExecutable();
+              var exec = setter.asFunction();
               if (exec) {
-                exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Setter]"), activation, Avm1Value.fromObject(_this), 1, [value], Avm1ExecutionReason.INSTANCE.Special, setter);
+                exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Setter]"), activation, Avm1Value.fromObject(_this), 1, _value, Avm1ExecutionReason.INSTANCE.Special, setter);
               }
             }
             return;
@@ -25060,7 +25251,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
       }
     }
-    var result = this.setLocal(name, value, activation, _this);
+    var result = null;
+    try {
+      this.setLocal(name, _value[0], activation, _this);
+    } catch(e) {
+      result = e;
+    }
+    if (watcher_result) {
+      throw watcher_result;
+    } else {
+      if (result) {
+        throw result;
+      }  
+    }
   }
   Avm1Object.prototype.callMethod = function(name, args, activation, reason) {
     var method, depth;
@@ -25075,7 +25278,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
       }
     }
-    var t = avm1_search_prototype(Avm1Value.fromObject(this), name, activation, this, false);
+    var call_resolve_fn = !(reason.type == Avm1ExecutionReason.Special);
+    var t = avm1_search_prototype(Avm1Value.fromObject(this), name, activation, this, call_resolve_fn);
     if (t) {
       method = t[0].b;
       if (t[0].a != Avm1Value.Object) {
@@ -25086,41 +25290,37 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     var _depth = Math.max(depth, 1);
-    var n = method.asExecutable();
+    var n = method.asFunction();
     if (n) {
       return n.exec(new Avm1ExecutionName(Avm1ExecutionName.Dynamic, name), activation, Avm1Value.fromObject(this), _depth, args, reason, method);
     } else {
       return method.call(new Avm1ExecutionName(Avm1ExecutionName.Dynamic, name), activation, Avm1Value.fromObject(this), args);
     }
   }
-  Avm1Object.prototype.isInstanceOf = function(activation, constructor, prototype) {
-    var proto_stack = [];
-    var p = this.getProto(activation);
-    if (p.a == Avm1Value.Object) {
-      proto_stack.push(p.b);
-    }
+  Avm1Object.prototype.isInstanceOf = function(activation, prototype) {
+    var interface_stack = [];
+    var _this = this;
     var this_proto;
-    while(this_proto = proto_stack.pop()) {
-      if (this_proto === prototype) {
-        return true;
+    while(true) {
+      this_proto = _this.getProto(activation);
+      if (this_proto.a == Avm1Value.Object) {
+        this_proto = this_proto.b;
+      } else {
+        break;
       }
-      var p = this_proto.getProto(activation);
-      if (p.a == Avm1Value.Object) {
-        proto_stack.push(p.b);
-      }
-      if (activation.swfVersion >= 7) {
-        var interfaces = this_proto.getInterfaces();
-        for (var i = 0; i < interfaces.length; i++) {
-          var interface = interfaces[i];
-          if (interface === constructor) {
-            return true;
-          }
-          var o = interface.get("prototype", activation);
-          if (o.a == Avm1Value.Object) {
-            proto_stack.push(o.b);
-          }
+      interface_stack.push(this_proto);
+      var _interface = null;
+      while(_interface = interface_stack.pop()) {
+        if (_interface === prototype) {
+          return true;
+        }
+        var _interfaces = _interface.getInterfaces();
+        for (var i = 0; i < _interfaces.length; i++) {
+          var r = _interfaces[i];
+          interface_stack.push(r);
         }
       }
+      _this = this_proto;
     }
     return false;
   }
@@ -25139,7 +25339,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return false;
   }
-  function avm1_search_prototype(proto, name, activation, _this, is_slash_path) {
+  function avm1_search_prototype(proto, name, activation, _this, call_resolve_fn) {
     var depth = 0;
     var _proto = proto;
     var orig_proto = _proto; 
@@ -25151,15 +25351,45 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
         var getter = p.getter(name, activation);
         if (getter) {
-          var exec = getter.asExecutable();
+          var exec = getter.asFunction();
           if (exec) {
             var result = exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Getter]"), activation, Avm1Value.fromObject(_this), 1, [], Avm1ExecutionReason.INSTANCE.Special, getter);
             return [result, depth];
           }
         }
-        var b = p.getLocalStored(name, activation, is_slash_path);
+        var b = p.getLocalStored(name, activation);
         if (b) {
           return [b, depth];
+        }
+        _proto = p.getProto(activation);
+        depth += 1;
+      } else {
+        break;
+      }
+    }
+    if (call_resolve_fn) {
+      var _resolve = find_resolve_method(orig_proto, activation);
+      if (_resolve) {
+        var res = _resolve.call("__resolve", activation, Avm1Value.fromObject(_this), [Avm1Value.fromString(name)]);
+        return [res, 0];
+      }
+    }
+    return null;
+  }
+  function find_resolve_method(proto, activation) {
+    var depth = 0;
+    var _proto = proto;
+    while(true) {
+      var p = (_proto.a == Avm1Value.Object) ? _proto.b : null;
+      if (p) {
+        if (depth == 255) {
+          throw new Error("Error::PrototypeRecursionLimit");
+        }
+        var b = p.getLocalStored("__resolve", activation);
+        if (b) {
+          if (b.a == Avm1Value.Object) {
+            return b.b;
+          }
         }
         _proto = p.getProto(activation);
         depth += 1;
@@ -25177,18 +25407,35 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var depth = this.depth;
     var proto = this.thisObject;
     for (var i = 0; i < depth; i++) {
-      proto = proto.getProto(activation).coerceToObject(activation);
+      var g = proto.getProto(activation);
+      if (g.a == Avm1Value.Object) {
+        proto = g.b;
+      } else {
+        return null;
+      }
     }
     return proto;
   }
   Avm1SuperObject.prototype.getProto = function(activation) {
-    return this.baseProto(activation).getProto(activation);
+    var a = this.baseProto(activation);
+    return a ? a.getProto(activation) : Avm1Value.INSTANCE.Undefined;
   }
   Avm1SuperObject.prototype.call = function(name, activation, args) {
-    var constructor = this.baseProto(activation).get("__constructor__", activation).coerceToObject(activation);
+    var proto = this.baseProto(activation);
+    if (!proto) return Avm1Value.INSTANCE.Undefined;
+    var constructor = proto.get_opt("__constructor__", activation, false);
+    if (constructor) {
+      if (constructor.a == Avm1Value.Object) {
+        constructor = constructor.b;
+      } else {
+        return Avm1Value.INSTANCE.Undefined;
+      }
+    } else {
+      return Avm1Value.INSTANCE.Undefined;
+    }
     var constr = constructor.getNative();
     if (constr.type == Avm1NativeObject.Function) {
-      return constr.data.asConstructor().exec(name, activation, Avm1Value.fromObject(this.thisObject), this.depth + 1, args, Avm1ExecutionReason.INSTANCE.FunctionCall, constructor);
+      return constr.data.exec_constructor(name, activation, Avm1Value.fromObject(this.thisObject), this.depth + 1, args, Avm1ExecutionReason.INSTANCE.FunctionCall, constructor);
     } else {
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -25208,13 +25455,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     } else {
       return Avm1Value.INSTANCE.Undefined;
     }
-    var exec = method.asExecutable();
+    var exec = method.asFunction();
     if (exec) {
       return exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Dynamic, name), activation, Avm1Value.fromObject(_this), this.depth + depth + 1, args, reason, method);
     } else {
       return method.call(name, activation, Avm1Value.fromObject(_this), args);
     }
   }
+  var Avm1ExecutionReason = function(type) {
+    this.type = type;
+  }
+  Avm1ExecutionReason.FunctionCall = 1;
+  Avm1ExecutionReason.ConstructorCall = 2;
+  Avm1ExecutionReason.Special = 3;
+  Avm1ExecutionReason.INSTANCE = {
+    FunctionCall: new Avm1ExecutionReason(Avm1ExecutionReason.FunctionCall),
+    ConstructorCall: new Avm1ExecutionReason(Avm1ExecutionReason.ConstructorCall),
+    Special: new Avm1ExecutionReason(Avm1ExecutionReason.Special)
+  };
   var Avm1Function = function(swf_version, actions, swf_function, scope, constant_pool, base_clip) {
     var encoding = SwfEncoding.encodingForVersion(swf_version);
     var name = encoding.decode(swf_function.name);
@@ -25296,7 +25554,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1Function.prototype.loadRoot = function(frame, preload_r) {
     if (this.preloadRoot) {
-      var root = frame.base_clip.getAvm1Root().getObject();
+      var root = frame.base_clip.getAvm1Root().getObject1OrUndef();
       frame.setLocalRegister(preload_r, root);
       preload_r++;
     }
@@ -25306,7 +25564,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (this.preloadParent) {
       var parent = frame.base_clip.getAvm1Parent();
       if (parent) {
-        frame.setLocalRegister(preload_r, parent.getObject());
+        frame.setLocalRegister(preload_r, parent.getObject1OrUndef());
         preload_r++;
       }
     }
@@ -25314,83 +25572,71 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1Function.prototype.loadGlobal = function(frame, preload_r) {
     if (this.preloadGlobal) {
-      var global = frame.context.avm1.globalObject();
+      var global = frame.globalObject();
       frame.setLocalRegister(preload_r, Avm1Value.fromObject(global));
       preload_r++;
     }
     return preload_r;
   }
-  var Avm1Executable = function(type, data) {
-    this.type = type;
-    this.data = data;
-  }
-  Avm1Executable.prototype.exec = function(name, activation, _this, depth, args, reason, _callee) {
-    var af = this.data;
-    switch(this.type) {
-      case Avm1Executable.Native:
-        var __this = _this.coerceToObject(activation);
-        return af(activation, __this, args);
-    }
+  Avm1Function.prototype.exec = function(name, activation, _this, depth, args, reason, _callee) {
     var this_obj = (_this.a == Avm1Value.Object) ? _this.b : null;
     var target = activation.target_clip_or_root();
     var is_closure = activation.swfVersion >= 6;
+    var this_do = null;
+    if (this_obj) {
+      this_do = this_obj.asDisplayObject();
+    }
+    this_do = this_do || target;
     var base_clip;
-    if ((is_closure || (reason.type == Avm1ExecutionReason.Special)) && !af.base_clip.AVM1_REMOVED) {
-      base_clip = af.base_clip;
+    if (is_closure || (reason.type == Avm1ExecutionReason.Special)) {
+      var hh = this.base_clip.resolveReference(activation);
+      hh = hh ? hh[2] : null;
+      base_clip = hh || this_do;
     } else {
-      if (this_obj) {
-        var _p = this_obj.asDisplayObject();
-        if (_p) {
-          base_clip = _p;
-        } else {
-          base_clip = target;
-        }
-      } else {
-        base_clip = target;
-      }
+      base_clip = this_do;
     }
     var swf_version, parent_scope;
     if (is_closure) {
-      swf_version = af.swf_version;
-      parent_scope = af.scope;
+      swf_version = this.swf_version;
+      parent_scope = this.scope;
     } else {
       swf_version = Math.max(base_clip.swfVersion(), 5);
-      var base_clip_obj = base_clip.getObject();
-      if (base_clip_obj.a == Avm1Value.Object) {
-        base_clip_obj = base_clip_obj.b;
-      } else {
-        throw new Error("unreachable");
-      }
-      var scope = new Avm1Scope(activation.context.avm1.globalScope, new Avm1ScopeClass(Avm1ScopeClass.Target), base_clip_obj);
+      var base_clip_obj = base_clip.getObject1();
+      var scope = new Avm1Scope(activation.globalScope(), new Avm1ScopeClass(Avm1ScopeClass.Target), base_clip_obj);
       parent_scope = scope;
     }
     var child_scope = Avm1Scope.newLocalScope(parent_scope);
     var arguments_caller = activation.callee;
     var _name = "[Anonymous]";
-    var is_this_inherited = af.preloadThis || af.suppressThis;
+    var is_this_inherited = this.preloadThis || this.suppressThis;
     var local_this = is_this_inherited ? activation.thisObject : _this;
+    var local_registers = [];
+    for (var i = 0; i < this.register_count; i++) {
+      local_registers.push(Avm1Value.INSTANCE.Undefined);
+    }
     var max_recursion_depth = activation.context.avm1.maxRecursionDepth;
-    var frame = Avm1Activation.fromAction(activation.context, activation.id.function(_name, reason, max_recursion_depth), swf_version, child_scope, af.constant_pool, base_clip, local_this, _callee);
-    frame.allocateLocalRegisters(af.register_count);
+    var frame = Avm1Activation.fromAction(activation.context, activation.id.function(_name, reason, max_recursion_depth), swf_version, child_scope, this.constant_pool, base_clip, local_this, _callee, local_registers);
     var preload_r = 1;
-    preload_r = af.loadThis(frame, _this, preload_r);
-    preload_r = af.loadArguments(frame, args, arguments_caller, preload_r);
-    preload_r = af.loadSuper(frame, this_obj, depth, preload_r);
-    preload_r = af.loadRoot(frame, preload_r);
-    preload_r = af.loadParent(frame, preload_r);
-    preload_r = af.loadGlobal(frame, preload_r);
-    var params = af.params;
+    preload_r = this.loadThis(frame, _this, preload_r);
+    preload_r = this.loadArguments(frame, args, arguments_caller, preload_r);
+    preload_r = this.loadSuper(frame, this_obj, depth, preload_r);
+    preload_r = this.loadRoot(frame, preload_r);
+    preload_r = this.loadParent(frame, preload_r);
+    preload_r = this.loadGlobal(frame, preload_r);
+    var params = this.params;
     for (var i = 0; i < params.length; i++) {
       var param = params[i];
       var value = args[i] || Avm1Value.INSTANCE.Undefined;
-      if (param.register == null) {
-        frame.forceDefineLocal(param.name, value);
-      } else {
+      if (param.register != null) {
         frame.setLocalRegister(param.register, value);
       }
+      frame.forceDefineLocal(param.name, value);
     }
-    var g = frame.runActions(af.data);
-    return g.getValue();
+    return frame.runActions(this.data).getValue();
+  }
+  var Avm1Executable = function(type, data) {
+    this.type = type;
+    this.data = data;
   }
   Avm1Executable.Native = 1;
   Avm1Executable.Action = 2;
@@ -25401,63 +25647,75 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this._function = _function;
     this._constructor = _constructor;
   }
-  Avm1FunctionObject.bare_function = function(_function, _constructor, fn_proto) {
-    var obj = Avm1Object.createNew(fn_proto);
-    var native = new Avm1NativeObject(Avm1NativeObject.Function, new Avm1FunctionObject(_function, _constructor));
+  Avm1FunctionObject.createEmpty = function() {
+    return new Avm1FunctionObject(Avm1Executable.EMPTY, null);
+  }
+  Avm1FunctionObject.createFunction = function(_function) {
+    return new Avm1FunctionObject(new Avm1Executable(Avm1Executable.Action, _function), null);
+  }
+  Avm1FunctionObject.createNative = function(_function) {
+    return new Avm1FunctionObject(new Avm1Executable(Avm1Executable.Native, _function), null);
+  }
+  Avm1FunctionObject.createConstructor = function(_constructor, _function) {
+    return new Avm1FunctionObject(new Avm1Executable(Avm1Executable.Native, _function), _constructor);
+  }
+  Avm1FunctionObject.defineConstructorProps = function(activation, _this, _callee) {
+    _this.defineValue("__constructor__", _callee, new Avm1Attribute().dontEnum());
+    if (activation.swfVersion < 7) {
+      _this.defineValue("constructor", _callee, new Avm1Attribute().dontEnum());
+    }
+  }
+  Avm1FunctionObject.prototype.build = function(fn_proto, prototype) {
+    var obj = Avm1Object.createNew(Avm1Value.fromObject(fn_proto));
+    var native = new Avm1NativeObject(Avm1NativeObject.Function, this);
     obj.setNative(native);
+    if (prototype) {
+      prototype.defineValue("constructor", Avm1Value.fromObject(obj), new Avm1Attribute().dontEnum());
+      obj.defineValue("prototype", Avm1Value.fromObject(prototype), new Avm1Attribute().dontEnum().dontDelete());
+    }
     return obj;
   }
-  Avm1FunctionObject.allocate_function = function(_function, _constructor, fn_proto, prototype) {
-    var __function = Avm1FunctionObject.bare_function(_function, _constructor, fn_proto);
-    prototype.defineValue("constructor", Avm1Value.fromObject(__function), new Avm1Attribute().dontEnum());
-    __function.defineValue("prototype", Avm1Value.fromObject(prototype), new Avm1Attribute());
-    return __function;
-  }
-  Avm1FunctionObject.createEmpty = function(fn_proto, prototype) {
-    return Avm1FunctionObject.allocate_function(Avm1Executable.EMPTY, null, fn_proto, prototype);
-  }
-  Avm1FunctionObject.createFunction = function(_function, fn_proto, prototype) {
-    return Avm1FunctionObject.allocate_function(new Avm1Executable(Avm1Executable.Action, _function), null, fn_proto, prototype);
-  }
-  Avm1FunctionObject.createNative = function(_function, fn_proto, prototype) {
-    var __function = new Avm1Executable(Avm1Executable.Native, _function);
-    return Avm1FunctionObject.allocate_function(__function, null, fn_proto, prototype);
-  }
-  Avm1FunctionObject.createConstructor = function(_constructor, _function, fn_proto, prototype) {
-    return Avm1FunctionObject.allocate_function(new Avm1Executable(Avm1Executable.Native, _function), _constructor, fn_proto, prototype);
-  }
-  Avm1FunctionObject.prototype.asExecutable = function() {
-    return this._function;
-  }
-  Avm1FunctionObject.prototype.asConstructor = function() {
-    if (this._constructor) {
-      return new Avm1Executable(Avm1Executable.Native, this._constructor);
-    } else {
-      return this._function;
+  Avm1FunctionObject.prototype.exec = function(name, activation, _this, depth, args, reason, _callee) {
+    var _func = this._function;
+    var af = _func.data;
+    switch(_func.type) {
+      case Avm1Executable.Native:
+        var __this = _this.coerceToObjectOrBare(activation);
+        return af(activation, __this, args);
+      case Avm1Executable.Action:
+        return af.exec(name, activation, _this, depth, args, reason, _callee);
     }
   }
-  Avm1FunctionObject.prototype.isNativeConstructor = function() {
-    return !!this._constructor;
+  Avm1FunctionObject.prototype.exec_constructor = function(name, activation, _this, depth, args, reason, _callee) {
+    var _constr;
+    if (this._constructor) {
+      _constr = new Avm1Executable(Avm1Executable.Native, this._constructor);
+    } else {
+      _constr = this._function;
+    }
+    var af = _constr.data;
+    switch(_constr.type) {
+      case Avm1Executable.Native:
+        var __this = _this.coerceToObjectOrBare(activation);
+        return af(activation, __this, args);
+      case Avm1Executable.Action:
+        return af.exec(name, activation, _this, depth, args, reason, _callee);
+    }
   }
   Avm1FunctionObject.prototype.call = function(name, activation, callee, _this, args) {
-    return this._function.exec(name, activation, _this, 0, args, Avm1ExecutionReason.INSTANCE.FunctionCall, callee);
+    return this.exec(name, activation, _this, 0, args, Avm1ExecutionReason.INSTANCE.FunctionCall, callee);
   }
   Avm1FunctionObject.prototype.constructOnExisting = function(activation, callee, _this, args) {
-    _this.defineValue("__constructor__", Avm1Value.fromObject(callee), new Avm1Attribute().dontEnum());
-    if (activation.swfVersion < 7) {
-      _this.defineValue("constructor", Avm1Value.fromObject(callee), new Avm1Attribute().dontEnum());
-    }
-    this.asConstructor().exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[ctor]"), activation, Avm1Value.fromObject(_this), 1, args, Avm1ExecutionReason.INSTANCE.FunctionCall, callee);
+    Avm1FunctionObject.defineConstructorProps(activation, _this, Avm1Value.fromObject(callee));
+    this.exec_constructor(new Avm1ExecutionName(Avm1ExecutionName.Static, "[ctor]"), activation, Avm1Value.fromObject(_this), 1, args, Avm1ExecutionReason.INSTANCE.ConstructorCall, callee);
   }
   Avm1FunctionObject.prototype.construct = function(activation, callee, args) {
-    var prototype = callee.get("prototype", activation).coerceToObject(this);
-    var _this = Avm1Object.createNew(prototype);
-    _this.defineValue("__constructor__", Avm1Value.fromObject(callee), new Avm1Attribute().dontEnum());
-    if (activation.swfVersion < 7) {
-      _this.defineValue("constructor", Avm1Value.fromObject(callee), new Avm1Attribute().dontEnum());
-    }
-    var result = this.asConstructor().exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[ctor]"), activation, Avm1Value.fromObject(_this), 1, args, Avm1ExecutionReason.INSTANCE.FunctionCall, callee);
-    if (this.isNativeConstructor()) {
+    var prototype = callee.get("prototype", activation).coerceToObjectOrBare(activation);
+    var _this = Avm1Object.createNew(Avm1Value.fromObject(prototype));
+    Avm1FunctionObject.defineConstructorProps(activation, _this, Avm1Value.fromObject(callee));
+    var propagate = !!this._constructor;
+    var result = this.exec_constructor(new Avm1ExecutionName(Avm1ExecutionName.Static, "[ctor]"), activation, Avm1Value.fromObject(_this), 1, args, Avm1ExecutionReason.INSTANCE.ConstructorCall, callee);
+    if (propagate) {
       return result;
     } else {
       return Avm1Value.fromObject(_this);
@@ -25469,7 +25727,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.proto = proto;
   }
   Avm1ArrayBuilder.createNew = function(activation) {
-    var proto = activation.context.avm1.prototypes.array;
+    var proto = activation.getPrototypes().array;
     return Avm1ArrayBuilder.new_with_proto(proto);
   }
   Avm1ArrayBuilder.new_with_proto = function(proto) {
@@ -25489,7 +25747,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     _this.setNative(new Avm1NativeObject(Avm1NativeObject.Array, this));
   }
   Avm1ArrayBuilder.prototype.with = function(elements) {
-    var obj = Avm1Object.createNew(null);
+    var obj = Avm1Object.createNewWithoutProto();
     obj.defineValue(this.proto_prop, Avm1Value.fromObject(this.proto), new Avm1Attribute().dontEnum().dontDelete());
     this.init_with(obj, elements);
     return obj;
@@ -25535,7 +25793,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       Avm1Value.fromNumber(color_transform[6]),
       Avm1Value.fromNumber(color_transform[7])
     ];
-    var constructor = activation.context.avm1.prototypes.color_transform_constructor;
+    var constructor = activation.getPrototypes().color_transform_constructor;
     return constructor.construct(activation, args);
   }
   Avm1ColorTransformObject.cast = function(value) {
@@ -25603,6 +25861,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return null;
     }
   }
+  function avm1_args_try_get_object(myargs, activation, i) {
+    var value = myargs[i];
+    if (value) {
+      return value.coerceToObject(activation);
+    }
+    return null;
+  }
+  function avm1_args_try_get_i32(myargs, activation, i, undefined_behaviour) {
+    var value = myargs[i];
+    if (value) {
+      if ((undefined_behaviour == false) && (value.a == Avm1Value.Undefined)) {
+        return null;
+      }
+      return value.coerceToI32(activation);
+    }
+    return null;
+  }
   var Avm1FSCommand = {
     parse: function(url) {
       var prefix = "fscommand:";
@@ -25621,54 +25896,82 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       
     }
   }
-  function avm1_define_properties_on(decls, _this, fn_proto) {
+  var Avm1DeclContext = function(object_proto, fn_proto) {
+    this.object_proto = object_proto;
+    this.fn_proto = fn_proto;
+  }
+  Avm1DeclContext.prototype.define_properties_on = function(_this, decls) {
     for (var name in decls) {
       if (Object.prototype.hasOwnProperty.call(decls, name)) {
-        var decl = decls[name];
-        var value = Avm1Value.INSTANCE.Undefined;
-        var a = new Avm1Attribute();
-        var attributes = decl.attributes;
-        if (attributes) {
-          for (var i = 0; i < attributes.length; i++) {
-            switch(attributes[i]) {
-              case "DONT_ENUM":
-                a.dontEnum();
-                break;
-              case "DONT_DELETE":
-                a.dontDelete();
-                break;
-              case "READ_ONLY":
-                a.readOnly();
-                break;
-            }
-          } 
-        }
-        if (decl.version != null) {
-          a.withVersion(decl.version);
-        }
-        switch(decl.type) {
-          case "method":
-            value = Avm1Value.fromObject(Avm1FunctionObject.bare_function(new Avm1Executable(Avm1Executable.Native, decl.fn), null, fn_proto));
-            break;
-          case "property":
-            var getter = Avm1FunctionObject.createNative(decl.getter, fn_proto, fn_proto);
-            var setter = decl.setter ? Avm1FunctionObject.createNative(decl.setter, fn_proto, fn_proto) : null;
-            _this.addProperty(name, getter, setter, a);
-            value = Avm1Value.INSTANCE.Undefined;
-            break;
-          case "number":
-            value = Avm1Value.fromNumber(decl.number);
-            break;
-          case "string":
-            value = Avm1Value.fromString(decl.string);
-            break;
-          case "boolean":
-            value = Avm1Value.fromBoolean(decl.boolean);
-            break;
-        }
-        if (decl.type != "property") _this.defineValue(name, value, a);
+        avm1_define_on(decls[name], name, _this, this.fn_proto);
       }
     }
+  }
+  Avm1DeclContext.prototype.empty_class = function(super_proto) {
+    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
+    var constr = Avm1FunctionObject.createEmpty().build(this.fn_proto, proto);
+    return new Avm1SystemClass(proto, constr);
+  }
+  Avm1DeclContext.prototype.class = function(_function, super_proto) {
+    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
+    var constr = Avm1FunctionObject.createNative(_function).build(this.fn_proto, proto);
+    return new Avm1SystemClass(proto, constr);
+  }
+  Avm1DeclContext.prototype.native_class = function(_constructor, _function, super_proto) {
+    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
+    return this.native_class_with_proto(_constructor, _function, proto);
+  }
+  Avm1DeclContext.prototype.native_class_with_proto = function(_constructor, _function, proto) {
+    var constr = Avm1FunctionObject.createConstructor(_constructor, _function).build(this.fn_proto, proto);
+    return new Avm1SystemClass(proto, constr);
+  }
+  var Avm1SystemClass = function(proto, constr) {
+    this.proto = proto;
+    this.constr = constr;
+  }
+  function avm1_define_on(decl, name, _this, fn_proto) {
+    var value = Avm1Value.INSTANCE.Undefined;
+    var a = new Avm1Attribute();
+    var attributes = decl.attributes;
+    if (attributes) {
+      for (var i = 0; i < attributes.length; i++) {
+        switch(attributes[i]) {
+          case "DONT_ENUM":
+            a.dontEnum();
+            break;
+          case "DONT_DELETE":
+            a.dontDelete();
+            break;
+          case "READ_ONLY":
+            a.readOnly();
+            break;
+        }
+      } 
+    }
+    if (decl.version != null) {
+      a.withVersion(decl.version);
+    }
+    switch(decl.type) {
+      case "method":
+        value = Avm1Value.fromObject(Avm1FunctionObject.createNative(decl.fn).build(fn_proto, fn_proto));
+        break;
+      case "property":
+        var getter = Avm1FunctionObject.createNative(decl.getter).build(fn_proto, fn_proto);
+        var setter = decl.setter ? Avm1FunctionObject.createNative(decl.setter).build(fn_proto, fn_proto) : null;
+        _this.addProperty(name, getter, setter, a);
+        value = Avm1Value.INSTANCE.Undefined;
+        break;
+      case "number":
+        value = Avm1Value.fromNumber(decl.number);
+        break;
+      case "string":
+        value = Avm1Value.fromString(decl.string);
+        break;
+      case "boolean":
+        value = Avm1Value.fromBoolean(decl.boolean);
+        break;
+    }
+    if (decl.type != "property") _this.defineValue(name, value, a);
   }
   var avm1_globals = {};
   var AVM1_DEPTH_BIAS = 16384;
@@ -25735,12 +26038,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
       "watch": {
         type: "method",
-        fn: avm1_globals.todo("watch"),
+        fn: watch,
         attributes: ["DONT_ENUM", "DONT_DELETE"]
       },
       "unwatch": {
         type: "method",
-        fn: avm1_globals.todo("unwatch"),
+        fn: unwatch,
         attributes: ["DONT_ENUM", "DONT_DELETE"]
       },
     };
@@ -25759,7 +26062,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           __this = _this;
           break;
         default:
-          __this = __this.coerceToObject(activation);
+          __this = __this.coerceToObjectOrBare(activation);
       }
       return Avm1Value.fromObject(__this);
     }
@@ -25769,10 +26072,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       switch(__this.a) {
         case Avm1Value.Undefined:
         case Avm1Value.Null:
-          obj = Avm1Object.createNew(null);
+          obj = Avm1Object.createNewWithoutProto();
           break;
         default:
-          obj = __this.coerceToObject(activation);
+          obj = __this.coerceToObjectOrBare(activation);
       }
       return Avm1Value.fromObject(obj);
     }
@@ -25807,25 +26110,32 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return Avm1Value.fromBoolean(false);
       }
     }
+    function to_string(activation, _this, args) {
+      var r = _this.asFunction() ? "[type Function]" : "[object Object]";
+      return Avm1Value.fromString(r);
+    }
     function is_prototype_of(activation, _this, args) {
       var value = args[0];
       if (value) {
-        var ob = value.coerceToObject(activation);
+        var ob = value.coerceToObjectOrBare(activation);
         return Avm1Value.fromBoolean(_this.is_prototype_of(activation, ob));
       } else {
         return Avm1Value.fromBoolean(false);
       }
     }
+    function value_of(activation, _this, args) {
+      return Avm1Value.fromObject(_this);
+    }
     function register_class(activation, _this, args) {
       var class_name = args[0], constructor = args[1];
-      if (class_name && constructor) {
+      if (args.length >= 2) {
       } else {
         return Avm1Value.fromBoolean(false);
       }
       if (constructor.a == Avm1Value.Undefined || constructor.a == Avm1Value.Null) {
         constructor = null;
       } else if (constructor.a == Avm1Value.Object) {
-        constructor = constructor.b.asExecutable() ? constructor.b : null;
+        constructor = constructor.b.asFunction() ? constructor.b : null;
       } else {
         return Avm1Value.fromBoolean(false);
       }
@@ -25833,21 +26143,39 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       activation.context.avm1.registerConstructor(activation.base_clip.getMovie().version, class_name, constructor);
       return Avm1Value.fromBoolean(true);
     }
-    function to_string(activation, _this, args) {
-      var r = _this.asExecutable() ? "[type Function]" : "[object Object]";
-      return Avm1Value.fromString(r);
+    function watch(activation, _this, args) {
+      var arg_name = args[0];
+      var name;
+      if (arg_name) {
+        name = arg_name.coerceToString(activation);
+      } else {
+        return Avm1Value.fromBoolean(false);
+      }
+      var callback = (args[1] || Avm1Value.INSTANCE.Undefined).coerceToObjectOrBare(activation);
+      if (!callback.asFunction()) {
+        return Avm1Value.fromBoolean(false);
+      }
+      var user_data = args[2] || Avm1Value.INSTANCE.Undefined;
+      _this.watch(activation, name, callback, user_data);
+      return Avm1Value.fromBoolean(true);
     }
-    function value_of(activation, _this, args) {
-      return Avm1Value.fromObject(_this);
+    function unwatch(activation, _this, args) {
+      var arg_name = args[0];
+      var name;
+      if (arg_name) {
+        name = arg_name.coerceToString(activation);
+      } else {
+        return Avm1Value.fromBoolean(false);
+      }
+      var result = _this.unwatch(activation, name);
+      return Avm1Value.fromBoolean(result);
     }
     return {
-      create_object_object: function(proto, fn_proto) {
-        var _object_function = Avm1FunctionObject.createConstructor(_constructor, object_function, fn_proto, proto);
-        avm1_define_properties_on(OBJECT_DECLS, _object_function, fn_proto);
-        return _object_function;
-      },
-      fill_proto: function(object_proto, fn_proto) {
-        avm1_define_properties_on(PROTO_DECLS, object_proto, fn_proto);
+      create_class: function(context) {
+        var _class = context.native_class_with_proto(_constructor, object_function, context.object_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        context.define_properties_on(_class.constr, OBJECT_DECLS);
+        return _class;
       }
     };
   }());
@@ -25865,12 +26193,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
     };
     function _call(activation, func, myargs) {
-      var _this = myargs[0] || Avm1Value.INSTANCE.Undefined;
-      if (_this.a == Avm1Value.Undefined || _this.a == Avm1Value.Null) {
-        _this = activation.context.avm1.globalObject();
-      } else {
-        _this = _this.coerceToObject(activation);
-      }
+      var _this = avm1_args_try_get_object(myargs, activation, 0) || activation.globalObject();
       var empty = [];
       var args;
       switch(myargs.length) {
@@ -25881,7 +26204,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         default:
           args = myargs.slice(1);
       }
-      var exec = func.asExecutable();
+      var exec = func.asFunction();
       if (exec) {
         return exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Anonymous]"), activation, Avm1Value.fromObject(_this), 1, args, Avm1ExecutionReason.INSTANCE.FunctionCall, func);
       } else {
@@ -25889,13 +26212,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
     }
     function _apply(activation, func, myargs) {
-      var _this;
-      var a = myargs[0] || Avm1Value.INSTANCE.Undefined;
-      if (a.a == Avm1Value.Undefined || a.a == Avm1Value.Null) {
-        _this = activation.context.avm1.globalObject();
-      } else {
-        _this = a.coerceToObject(activation);
-      }
+      var _this = avm1_args_try_get_object(myargs, activation, 0) || activation.globalObject();
       var args_object = myargs[1] || Avm1Value.INSTANCE.Undefined;
       var length = 0;
       if (args_object.a == Avm1Value.Object) {
@@ -25903,26 +26220,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
       var child_args = [];
       while(child_args.length < length) {
-        var args = args_object.coerceToObject(activation);
+        var args = args_object.coerceToObjectOrBare(activation);
         var next_arg = args.get(child_args.length + "", activation);
         child_args.push(next_arg);
       }
-      var exec = func.asExecutable();
+      var exec = func.asFunction();
       return exec ? exec.exec(new Avm1ExecutionName(Avm1ExecutionName.Static, "[Anonymous]"), activation, Avm1Value.fromObject(_this), 1, child_args, Avm1ExecutionReason.INSTANCE.FunctionCall, func) : Avm1Value.INSTANCE.Undefined;
     }
     function _constructor(activation, _this, args) {
       return args[0] || Avm1Value.fromObject(_this);
     }
     function _function(activation, _this, args) {
-      return args[0] || Avm1Value.fromObject(Avm1Object.createNew(null));
+      return args[0] || Avm1Value.fromObject(Avm1Object.createNewWithoutProto());
     }
     return {
-      constructor: _constructor,
-      function: _function,
-      create_proto: function(proto) {
-        var function_proto = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, function_proto, proto);
-        return function_proto;
+      create_class: function(context) {
+        var _class = context.native_class_with_proto(_constructor, _function, context.fn_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -25993,16 +26308,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      number: number,
-      create_number_object: function(number_proto, fn_proto) {
-        var _number = Avm1FunctionObject.createConstructor(number, number_function, fn_proto, number_proto);
-        avm1_define_properties_on(OBJECT_DECLS, _number, fn_proto);
-        return _number;
-      },
-      create_proto: function(proto, fn_proto) {
-        var number_proto = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, number_proto, fn_proto);
-        return number_proto;
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(number, number_function, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        context.define_properties_on(_class.constr, OBJECT_DECLS);
+        return _class;
       }
     };
   }());
@@ -26267,16 +26577,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromString(out);
     }
     return {
-      string: string,
-      create_string_object: function(string_proto, fn_proto) {
-        var _string = Avm1FunctionObject.createConstructor(string, string_function, fn_proto, string_proto);
-        avm1_define_properties_on(OBJECT_DECLS, _string, fn_proto);
-        return _string;
-      },
-      create_proto: function(string_proto, fn_proto) {
-        var _string_proto = Avm1Object.createNew(string_proto);
-        avm1_define_properties_on(PROTO_DECLS, _string_proto, fn_proto);
-        return _string_proto;
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(string, string_function, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        context.define_properties_on(_class.constr, OBJECT_DECLS);
+        return _class;
       }
     };
   }());
@@ -26320,18 +26625,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return ("0" in args) ? Avm1Value.fromBoolean(args[0].asBool(activation.swfVersion)) : Avm1Value.INSTANCE.Undefined;
     }
     return {
-      constructor: _constructor,
-      create_boolean_object: function(boolean_proto, fn_proto) {
-        return Avm1FunctionObject.createConstructor(_constructor, boolean_function, fn_proto, boolean_proto);
-      },
-      create_proto: function(proto, fn_proto) {
-        var boolean_proto = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, boolean_proto, fn_proto);
-        return boolean_proto;
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(_constructor, boolean_function, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
   avm1_globals.array = (function(){
+    var SortOptions = {};
+    SortOptions.CASE_INSENSITIVE     = 1 << 0;
+    SortOptions.DESCENDING           = 1 << 1;
+    SortOptions.UNIQUE_SORT          = 1 << 2;
+    SortOptions.RETURN_INDEXED_ARRAY = 1 << 3;
+    SortOptions.NUMERIC              = 1 << 4;
     var PROTO_DECLS = {
       "push": {
         type: "method",
@@ -26360,7 +26667,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
       "reverse": {
         type: "method",
-        fn: avm1_globals.todo("reverse"),
+        fn: reverse,
         attributes: ["DONT_ENUM", "DONT_DELETE"]
       },
       "unshift": {
@@ -26385,7 +26692,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
       "sort": {
         type: "method",
-        fn: avm1_globals.todo("sort"),
+        fn: sort,
         attributes: ["DONT_ENUM", "DONT_DELETE"]
       },
       "sortOn": {
@@ -26420,12 +26727,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         _this.setElement(activation, old_length + i, arg);
       }
       var new_length = old_length + args.length;
-      _this.setLength(activation, new_length);
+      _this.setLength(activation, new_length | 0);
       return Avm1Value.fromNumber(new_length);
     }
     function unshift(activation, _this, args) {
       var old_length = _this.getLength(activation);
-      var new_length = old_length + args.length;
+      var new_length = (old_length + args.length) | 0;
       for (var i = 0; i < old_length; i++) {
         var from = old_length - i - 1;
         var to = new_length - i - 1;
@@ -26463,33 +26770,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
       return first;
     }
-    function concat(activation, _this, args) {
-      var elements = [];
-      var _args = [Avm1Value.fromObject(_this)];
-      for (var i = 0; i < args.length; i++) {
-        _args.push(args[i]);
-      }
-      for (var i = 0; i < _args.length; i++) {
-        var value = _args[i];
-        var array_object = null;
-        if (value.a == Avm1Value.Object) {
-          var object = value.b;
-          if (object.getNative().type == Avm1NativeObject.Array) {
-            array_object = object;
-          }
-        }
-        if (array_object) {
-          var length = array_object.getLength(activation);
-          for (var j = 0; j < length; j++) {
-            var element = array_object.getElement(activation, j);
-                    elements.push(element);
-          }
-        } else {
-          elements.push(value);
-        }
-      }
-      return Avm1Value.fromObject(Avm1ArrayBuilder.createNew(activation).with(elements));
-    }
     function pop(activation, _this, args) {
       var length = _this.getLength(activation);
       if (length == 0) 
@@ -26500,6 +26780,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         _this.setLength(activation, length - 1);
       }
       return last;
+    }
+    function reverse(activation, _this, args) {
+      var array = [];
+      var length = _this.getLength(activation);
+      for (var i = 0; i < length; i++) {
+        array.push(_this.getElement(activation, i));
+      }
+      array.reverse();
+      for (var i = 0; i < length; i++) {
+        _this.setElement(activation, i, array[i]);
+      }
+      return Avm1Value.fromObject(_this);
     }
     function join(activation, _this, args) {
       var length = _this.getLength(activation);
@@ -26543,16 +26835,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromObject(Avm1ArrayBuilder.createNew(activation).with(elements));
     }
     function splice(activation, _this, args) {
-      var start = args[0];
-      if (!start) return Avm1Value.INSTANCE.Undefined;
+      var start = avm1_args_try_get_i32(args, activation, 0, false);
+      if (start == null) return Avm1Value.INSTANCE.Undefined;
       var length = _this.getLength(activation);
-      start = make_index_absolute(start.coerceToI32(activation), length);
+      start = make_index_absolute(start, length);
       var delete_count;
-      var arg = args[1];
-      if (arg) {
-        var _delete_count = arg.coerceToI32(activation);
-        if (_delete_count < 0) return Avm1Value.INSTANCE.Undefined;
-        delete_count = Math.min(_delete_count, length - start);
+      if (args.length > 1) {
+        var _delete_count = avm1_args_try_get_i32(args, activation, 1, false);
+        if (_delete_count != null) {
+          if (_delete_count < 0) return Avm1Value.INSTANCE.Undefined;
+          delete_count = Math.min(_delete_count, length - start);
+        } else {
+          return Avm1Value.INSTANCE.Undefined;
+        }
       } else {
         delete_count = length - start;
       }
@@ -26587,18 +26882,72 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       _this.setLength(activation, length - delete_count + items.length);
       return Avm1Value.fromObject(result);
     }
+    function concat(activation, _this, args) {
+      var elements = [];
+      var _args = [Avm1Value.fromObject(_this)];
+      for (var i = 0; i < args.length; i++) {
+        _args.push(args[i]);
+      }
+      for (var i = 0; i < _args.length; i++) {
+        var value = _args[i];
+        var array_object = null;
+        if (value.a == Avm1Value.Object) {
+          var object = value.b;
+          if (object.getNative().type == Avm1NativeObject.Array) {
+            array_object = object;
+          }
+        }
+        if (array_object) {
+          var length = array_object.getLength(activation);
+          for (var j = 0; j < length; j++) {
+            var element = array_object.getElement(activation, j);
+            elements.push(element);
+          }
+        } else {
+          elements.push(value);
+        }
+      }
+      return Avm1Value.fromObject(Avm1ArrayBuilder.createNew(activation).with(elements));
+    }
     function to_string(activation, _this, args) {
       return join(activation, _this, []);
     }
+    function sort(activation, _this, args) {
+      //var compare_fn = null;
+      //var options = 0;
+      //return sort_internal(activation, _this, sort_compare, options, false);
+      return Avm1Value.INSTANCE.Undefined;
+    }
+    function sort_compare(activation, a, b, options) {
+      var result;
+      if ((a.a == Avm1Value.Number && b.a == Avm1Value.Number) && (options & SortOptions.NUMERIC)) {
+        result = b.b - a.b;
+      } else {
+        var a1 = a.coerceToString(activation);
+        var a2 = b.coerceToString(activation);
+        if (a1 > a2) {
+          result = 1;
+        } else if (a1 < a2) {
+          result = -1;
+        } else {
+          result = 0;
+        }
+      }
+      if (options & SortOptions.DESCENDING) {
+        return 0 - result;
+      } else {
+        return result;
+      }
+    }
+    function sort_internal(activation, _this, compare_fn, options, is_sort_on) {
+      
+    }
     return {
-      create_array_object: function(array_proto, fn_proto) {
-        var _array = Avm1FunctionObject.createConstructor(_constructor, array, fn_proto, array_proto);
-        return _array;
-      },
-      create_proto: function(proto, fn_proto) {
-        var _array = Avm1ArrayBuilder.new_with_proto(proto).with([]);
-        avm1_define_properties_on(PROTO_DECLS, _array, fn_proto);
-        return _array;
+      create_class: function(context, super_proto) {
+        var proto = Avm1ArrayBuilder.new_with_proto(super_proto).with([]);
+        var _class = context.native_class_with_proto(_constructor, array, proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -26810,9 +27159,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(NaN);
     }
     return {
-      create: function(proto, fn_proto) {
-        var _math = Avm1Object.createNew(proto);
-        avm1_define_properties_on(OBJECT_DECLS, _math, fn_proto);
+      create: function(context) {
+        var _math = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
+        context.define_properties_on(_math, OBJECT_DECLS);
         return _math;
       }
     }
@@ -27064,7 +27413,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
       "getSWFVersion": {
         type: "method",
-        fn: avm1_globals.todo("MovieClip:getSWFVersion"),
+        fn: mc_method(get_swf_version),
         attributes: ["DONT_ENUM", "DONT_DELETE"]
       },
       "getURL": {
@@ -27078,6 +27427,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         attributes: ["DONT_ENUM"]
       },
     };
+    function get_swf_version(movie_clip, _activation, _args) {
+      var version = movie_clip.getMovie().version;
+      return Avm1Value.fromNumber((version > 0) ? version : -1);
+    }
     function goto_frame(movie_clip, activation, args, stop, scene_offset) {
       var call_frame = null;
       var f = args[0] || Avm1Value.INSTANCE.Undefined;
@@ -27091,10 +27444,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           var frame = o[1];
           clip = clip.asDisplayObject();
           if (clip) {
-            var lf = clip.frameLabelToNumber(frame, activation.context);
-            if (lf != null) {
-              call_frame = [clip, lf];
-            } 
+            var frameNum = +frame;
+            if (Number.isFinite(frameNum)) {
+              call_frame = [clip, frameNum | 0];
+            } else {
+              var lf = clip.frameLabelToNumber(frame, activation.context);
+              if (lf != null) {
+                call_frame = [clip, lf];
+              }
+            }
           }
         }
       }
@@ -27180,7 +27538,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           }
         }
         new_clip.postInstantiation(activation.context, _init_object, Instantiator.Avm1, true);
-        return Avm1Value.fromObject(new_clip.getObject().coerceToObject(activation));
+        return new_clip.getObject1OrUndef();
       } else {
         console.log("Unable to attach", export_name);
         return Avm1Value.INSTANCE.Undefined;
@@ -27200,7 +27558,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       new_clip.setName(new_instance_name);
       movie_clip.replaceAtDepth(activation.context, new_clip, depth);
       new_clip.postInstantiation(activation.context, null, Instantiator.Avm1, true);
-      return new_clip.getObject();
+      return new_clip.getObject1OrUndef();
     }
     function remove_movie_clip(activation, _this, _args) {
       var d = _this.asDisplayObject();
@@ -27219,8 +27577,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var point = args[0] || Avm1Value.INSTANCE.Undefined;
       if (point.a == Avm1Value.Object) {
         point = point.b;
-        var x = point.getLocalStored("x", activation, false) || Avm1Value.INSTANCE.Undefined;
-        var y = point.getLocalStored("y", activation, false) || Avm1Value.INSTANCE.Undefined;
+        var x = point.getLocalStored("x", activation) || Avm1Value.INSTANCE.Undefined;
+        var y = point.getLocalStored("y", activation) || Avm1Value.INSTANCE.Undefined;
         if (x.a == Avm1Value.Number || y.a == Avm1Value.Number) {
           x = x.b;
           y = y.b;
@@ -27236,8 +27594,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var point = args[0] || Avm1Value.INSTANCE.Undefined;
       if (point.a == Avm1Value.Object) {
         point = point.b;
-        var x = point.getLocalStored("x", activation, false) || Avm1Value.INSTANCE.Undefined;
-        var y = point.getLocalStored("y", activation, false) || Avm1Value.INSTANCE.Undefined;
+        var x = point.getLocalStored("x", activation) || Avm1Value.INSTANCE.Undefined;
+        var y = point.getLocalStored("y", activation) || Avm1Value.INSTANCE.Undefined;
         if (x.a == Avm1Value.Number || y.a == Avm1Value.Number) {
           x = x.b;
           y = y.b;
@@ -27274,7 +27632,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         } else {
           out_bounds = new Rectangle(0x8000000, 0x8000000, 0x8000000, 0x8000000);
         }
-        var out = Avm1Object.createNew(activation.context.avm1.prototypes.object);
+        var out = Avm1Object.createNew(Avm1Value.fromObject(activation.getPrototypes().object));
         out.set("xMin", Avm1Value.fromNumber(out_bounds.xMin / 20), activation);
         out.set("xMax", Avm1Value.fromNumber(out_bounds.xMax / 20), activation);
         out.set("yMin", Avm1Value.fromNumber(out_bounds.yMin / 20), activation);
@@ -27299,14 +27657,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
       var init_object = args[2];
       if (init_object) {
-        init_object = init_object.coerceToObject(activation);
+        init_object = init_object.coerceToObjectOrBare(activation);
       }
       var _depth = (depth + AVM1_DEPTH_BIAS) | 0;
       var new_clip = clone_sprite(movie_clip, activation.context, name, _depth, init_object);
       if (activation.swfVersion < 6) {
         return Avm1Value.INSTANCE.Undefined;
       }
-      return new_clip ? new_clip.getObject() : Avm1Value.INSTANCE.Undefined;
+      return new_clip ? Avm1Value.fromObject(new_clip.getObject1()) : Avm1Value.INSTANCE.Undefined;
     }
     function get_instance_at_depth(movie_clip, activation, args) {
       if (activation.swfVersion >= 7) {
@@ -27319,11 +27677,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
         var child = movie_clip.childByDepth(depth);
         if (child) {
-          var obj = child.getObject();
-          if (obj.a == Avm1Value.Undefined) {
-            return movie_clip.getObject();
+          var obj = child.getObject1();
+          if (obj) {
+            return Avm1Value.fromObject(obj);
           } else {
-            return obj;
+            return movie_clip.getObject1OrUndef();
           }
         } else {
           return Avm1Value.INSTANCE.Undefined;
@@ -27404,7 +27762,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
       }
       if (depth != null) {
-        if (depth < 0 || depth > AVM1_MAX_DEPTH) {
+        if ((depth < 0) || (depth > AVM1_MAX_DEPTH)) {
           return Avm1Value.INSTANCE.Undefined;
         }
         if (depth != movie_clip.getDepth()) {
@@ -27415,8 +27773,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     function transform(_this, activation) {
-      var constructor = activation.context.avm1.prototypes.transform_constructor;
-      var cloned = constructor.construct(activation, [_this.getObject()]);
+      var constructor = activation.getPrototypes().transform_constructor;
+      var cloned = constructor.construct(activation, [_this.getObject1OrUndef()]);
       return cloned;
     }
     function set_transform(_this, activation, value) {
@@ -27503,10 +27861,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       start_drag_impl: start_drag_impl,
       goto_frame: goto_frame,
       clone_sprite: clone_sprite,
-      create_proto: function(proto, fn_proto) {
-        var _proto = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, _proto, fn_proto);
-        return _proto;
+      create_class: function(context, super_proto) {
+        var _class = context.empty_class(super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -27523,10 +27881,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       },
     };
     return {
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.empty_class(super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -27639,10 +27997,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.empty_class(super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -27757,7 +28115,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             event: "start",
             inSample: (start_offset * 44100) | 0,
             numLoops: loops
-          }, sound.owner, _this);
+          }, null, sound.owner, _this);
           if (sound_instance) {
             sound.setSoundInstance(sound_instance);
           }
@@ -27854,13 +28212,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      create_constructor: function(proto, fn_proto) {
-        return Avm1FunctionObject.createConstructor(constructor, null, fn_proto, proto);
-      },
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(constructor, null, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -27986,11 +28341,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      constructor: _constructor,
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(_constructor, null, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28043,12 +28397,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return new Matrix(a, b, c, d, tx, ty);
     }
     function value_to_matrix(value, activation) {
-      var a = value.coerceToObject(activation).get("a", activation).coerceToNumber(activation);
-      var b = value.coerceToObject(activation).get("b", activation).coerceToNumber(activation);
-      var c = value.coerceToObject(activation).get("c", activation).coerceToNumber(activation);
-      var d = value.coerceToObject(activation).get("d", activation).coerceToNumber(activation);
-      var tx = value.coerceToObject(activation).get("tx", activation).coerceToNumber(activation) * 20;
-      var ty = value.coerceToObject(activation).get("ty", activation).coerceToNumber(activation) * 20;
+      var a = value.coerceToObjectOrBare(activation).get("a", activation).coerceToNumber(activation);
+      var b = value.coerceToObjectOrBare(activation).get("b", activation).coerceToNumber(activation);
+      var c = value.coerceToObjectOrBare(activation).get("c", activation).coerceToNumber(activation);
+      var d = value.coerceToObjectOrBare(activation).get("d", activation).coerceToNumber(activation);
+      var tx = value.coerceToObjectOrBare(activation).get("tx", activation).coerceToNumber(activation) * 20;
+      var ty = value.coerceToObjectOrBare(activation).get("ty", activation).coerceToNumber(activation) * 20;
       return new Matrix(a, b, c, d, tx, ty);
     }
     function matrix_to_value(matrix, activation) {
@@ -28060,7 +28414,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         Avm1Value.fromNumber(matrix.tx / 20),
         Avm1Value.fromNumber(matrix.ty / 20)
       ];
-      var _constructor = activation.context.avm1.prototypes.matrix_constructor;
+      var _constructor = activation.getPrototypes().matrix_constructor;
       var cloned = _constructor.construct(activation, args);
       return cloned;
     }
@@ -28101,7 +28455,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         _this.get("tx", activation),
         _this.get("ty", activation)
       ];
-      var _constructor = activation.context.avm1.prototypes.matrix_constructor;
+      var _constructor = activation.getPrototypes().matrix_constructor;
       var cloned = _constructor.construct(activation, args);
       return cloned;
     }
@@ -28143,13 +28497,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return {
       matrix_to_value: matrix_to_value,
       object_to_matrix: object_to_matrix,
-      create_matrix_object: function(matrix_proto, fn_proto) {
-        return Avm1FunctionObject.createNative(constructor, fn_proto, matrix_proto);
-      },
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.class(constructor, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28223,7 +28574,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           ];
           var value = args[0];
           if (value) {
-            var object = value.coerceToObject(activation);
+            var object = value.coerceToObjectOrBare(activation);
             var is_matrix = false;
             for (var i = 0; i < matrix_props.length; i++) {
               var o = matrix_props[i];
@@ -28260,10 +28611,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
     }
     return {
-      create_constructor: function(proto, fn_proto) {
-        var transform_proto = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, transform_proto, fn_proto);
-        return Avm1FunctionObject.createConstructor(transform_method(0), null, fn_proto, transform_proto);
+      create_class: function(context, super_proto) {
+        var _class = context.native_class(transform_method(0), null, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28311,7 +28662,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var _target = target(activation, _this);
       if (_target) {
         var color_transform = _target.getColorTransform();
-        var out = Avm1Object.createNew(activation.context.avm1.prototypes.object);
+        var out = Avm1Object.createNew(Avm1Value.fromObject(activation.getPrototypes().object));
         out.set("ra", Avm1Value.fromNumber(color_transform[0] * 100), activation);
         out.set("ga", Avm1Value.fromNumber(color_transform[1] * 100), activation);
         out.set("ba", Avm1Value.fromNumber(color_transform[2] * 100), activation);
@@ -28349,7 +28700,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           parent.invalidateCachedBitmap();
         }
         var color_transform = _target.getColorTransform();
-        var transform = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToObject(activation);
+        var transform = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToObjectOrBare(activation);
         set_color_mult(activation, transform, "ra", color_transform, 0);
         set_color_mult(activation, transform, "ga", color_transform, 1);
         set_color_mult(activation, transform, "ba", color_transform, 2);
@@ -28362,11 +28713,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      constructor: _constructor,
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.class(_constructor, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28425,13 +28775,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return construct_new_point(args, activation);
     }
     function construct_new_point(args, activation) {
-        var constructor = activation.context.avm1.prototypes.point_constructor;
+      var constructor = activation.getPrototypes().point_constructor;
       var object = constructor.construct(activation, args);
       return object;
     }
     function value_to_point(value, activation) {
-      var x = value.coerceToObject(activation).get("x", activation).coerceToNumber(activation);
-      var y = value.coerceToObject(activation).get("y", activation).coerceToNumber(activation);
+      var x = value.coerceToObjectOrBare(activation).get("x", activation).coerceToNumber(activation);
+      var y = value.coerceToObjectOrBare(activation).get("y", activation).coerceToNumber(activation);
       return [x, y];
     }
     function object_to_point(object, activation) {
@@ -28451,7 +28801,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     function clone(activation, _this, _args) {
       var args = [_this.get("x", activation), _this.get("y", activation)];
-        var constructor = activation.context.avm1.prototypes.point_constructor;
+      var constructor = activation.getPrototypes().point_constructor;
       var cloned = constructor.construct(activation, args);
       return cloned;
     }
@@ -28499,10 +28849,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     function distance(activation, _this, args) {
       if (args.length < 2) return Avm1Value.fromNumber(NaN);
-      var a = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToObject(activation);
+      var a = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToObjectOrBare(activation);
       var b = args[1] || Avm1Value.INSTANCE.Undefined;
       var delta = a.callMethod("subtract", [b], activation, Avm1ExecutionReason.INSTANCE.FunctionCall);
-      return delta.coerceToObject(activation).get("length", activation);
+      return delta.coerceToObjectOrBare(activation).get("length", activation);
     }
     function polar(activation, _this, args) {
       var length = (args[0] || Avm1Value.INSTANCE.Undefined).coerceToNumber(activation);
@@ -28531,7 +28881,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       if (other) {
         var this_x = _this.get("x", activation);
         var this_y = _this.get("y", activation);
-        other = other.coerceToObject(activation);
+        other = other.coerceToObjectOrBare(activation);
         var other_x = other.get("x", activation);
         var other_y = other.get("y", activation);
         return Avm1Value.fromBoolean(this_x.eq(other_x) && this_y.eq(other_y));
@@ -28539,15 +28889,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromBoolean(false);
     }
     return {
-      create_point_object: function(point_proto, fn_proto) {
-        var point = Avm1FunctionObject.createNative(constructor, fn_proto, point_proto);
-        avm1_define_properties_on(OBJECT_DECLS, point, fn_proto);
-        return point;
-      },
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.class(constructor, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        context.define_properties_on(_class.constr, OBJECT_DECLS);
+        return _class;
       }
     };
   }());
@@ -28587,13 +28933,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromBoolean(false);
     }
     return {
-      create_rectangle_object: function(rectangle_proto, fn_proto) {
-        return Avm1FunctionObject.createNative(constructor, fn_proto, rectangle_proto);
-      },
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.class(constructor, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28624,11 +28967,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromString(message.coerceToString(activation));
     }
     return {
-      constructor: _constructor,
-      create_proto: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(PROTO_DECLS, object, fn_proto);
-        return object;
+      create_class: function(context, super_proto) {
+        var _class = context.class(_constructor, super_proto);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -28749,9 +29091,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(code);
     }
     return {
-      create_key_object: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(OBJECT_DECLS, object, fn_proto);
+      create_key_object: function(context, broadcaster_functions, array_proto) {
+        var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
+        context.define_properties_on(object, OBJECT_DECLS);
         return object;
       }
     };
@@ -28780,9 +29122,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(was_visible ? 0 : 1);
     }
     return {
-      create_mouse_object: function(proto, fn_proto) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(OBJECT_DECLS, object, fn_proto);
+      create_mouse_object: function(context, broadcaster_functions, array_proto) {
+        var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
+        context.define_properties_on(object, OBJECT_DECLS);
         return object;
       }
     };
@@ -28849,9 +29191,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      create_stage_object: function(proto, array_proto, fn_proto, broadcaster_functions) {
-        var object = Avm1Object.createNew(proto);
-        avm1_define_properties_on(OBJECT_DECLS, object, fn_proto);
+      create_stage_object: function(context, broadcaster_functions, array_proto) {
+        var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
+        context.define_properties_on(object, OBJECT_DECLS);
         return object;
       }
     };
@@ -28922,6 +29264,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       "Infinity": {
         type: "property",
         getter: get_infinity,
+        attributes: ["DONT_ENUM"]
+      },
+      "updateAfterEvent": {
+        type: "method",
+        fn: update_after_event,
         attributes: ["DONT_ENUM"]
       }
     }
@@ -28999,7 +29346,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var interval = null;
       var o = args[0];
       if (o && (o.a == Avm1Value.Object)) {
-        var e = o.b.asExecutable();
+        var e = o.b.asFunction();
         if (e) {
           callback = {
             type: "avm1_function",
@@ -29042,136 +29389,98 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return Avm1Value.INSTANCE.Undefined;
       }
     }
+    function update_after_event(activation, _this, args) {
+      activation.context.needsRender = true;
+      return Avm1Value.INSTANCE.Undefined;
+    }
   }());
 
   function avm1_create_globals() {
-    var object_proto = Avm1Object.createNew(null);
-    var function_proto = avm1_globals.function.create_proto(object_proto);
-    avm1_globals.object.fill_proto(object_proto, function_proto);
-
-    var button_proto = avm1_globals.button.create_proto(object_proto, function_proto);
-    var movie_clip_proto = avm1_globals.movieclip.create_proto(object_proto, function_proto);
-
-    var sound_proto = avm1_globals.sound.create_proto(object_proto, function_proto);
-
-    var text_field_proto = avm1_globals.text_field.create_proto(object_proto, function_proto);
-
-    var array_proto = avm1_globals.array.create_proto(object_proto, function_proto);
-
-    var color_proto = avm1_globals.color.create_proto(object_proto, function_proto);
-
-    var error_proto = avm1_globals.error.create_proto(object_proto, function_proto);
-
-    var object = avm1_globals.object.create_object_object(object_proto, function_proto);
-    var _function = Avm1FunctionObject.createConstructor(avm1_globals.function.constructor, avm1_globals.function.function, function_proto, function_proto);
-
-    var string_proto = avm1_globals.string.create_proto(object_proto, function_proto);
-    var number_proto = avm1_globals.number.create_proto(object_proto, function_proto);
-    var boolean_proto = avm1_globals.boolean.create_proto(object_proto, function_proto);
-
-    var array = avm1_globals.array.create_array_object(array_proto, function_proto);
-
-    var string = avm1_globals.string.create_string_object(string_proto, function_proto);
-    var number = avm1_globals.number.create_number_object(number_proto, function_proto);
-    var boolean = avm1_globals.boolean.create_boolean_object(boolean_proto, function_proto);
-
-    var color = Avm1FunctionObject.createNative(avm1_globals.color.constructor, function_proto, color_proto);
-
-    var sound = avm1_globals.sound.create_constructor(sound_proto, function_proto);
-
-    var movie_clip = Avm1FunctionObject.createEmpty(function_proto, movie_clip_proto);
-    var button = Avm1FunctionObject.createEmpty(function_proto, button_proto);
-    var text_field = Avm1FunctionObject.createEmpty(function_proto, text_field_proto);
-
-    var error = Avm1FunctionObject.createNative(avm1_globals.error.constructor, function_proto, error_proto);
-
-    var color_transform_proto = avm1_globals.color_transform.create_proto(object_proto, function_proto);
-    var color_transform = Avm1FunctionObject.createConstructor(avm1_globals.color_transform.constructor, null, function_proto, color_transform_proto);
-
-    var matrix_proto = avm1_globals.matrix.create_proto(object_proto, function_proto);
-    var point_proto = avm1_globals.point.create_proto(object_proto, function_proto);
-    var rectangle_proto = avm1_globals.rectangle.create_proto(object_proto, function_proto);
-
-    var matrix = avm1_globals.matrix.create_matrix_object(matrix_proto, function_proto);
-    var point = avm1_globals.point.create_point_object(point_proto, function_proto);
-    var rectangle = avm1_globals.rectangle.create_rectangle_object(rectangle_proto, function_proto);
-
-    var transform = avm1_globals.transform.create_constructor(object_proto, function_proto);
-
-    var math = avm1_globals.math.create(object_proto, function_proto);
-    var mouse = avm1_globals.mouse.create_mouse_object(object_proto, function_proto);
-
-    var key = avm1_globals.key.create_key_object(object_proto, function_proto, null, array_proto);
-
-    var stage = avm1_globals.stage.create_stage_object(object_proto, array_proto, function_proto, null);
-
-    var flash = Avm1Object.createNew(object_proto);
-    var geom = Avm1Object.createNew(object_proto);
-
-    var globals = Avm1Object.createNew(null);
-
+    var object_proto = Avm1Object.createNewWithoutProto();
+    var context = new Avm1DeclContext(object_proto, Avm1Object.createNew(Avm1Value.fromObject(object_proto)));
+    var object = avm1_globals.object.create_class(context);
+    var _function = avm1_globals.function.create_class(context);
+    var array = avm1_globals.array.create_class(context, object.proto);
+    var string = avm1_globals.string.create_class(context, object.proto);
+    var number = avm1_globals.number.create_class(context, object.proto);
+    var boolean = avm1_globals.boolean.create_class(context, object.proto);
+    var movie_clip = avm1_globals.movieclip.create_class(context, object.proto);
+    var button = avm1_globals.button.create_class(context, object.proto);
+    var text_field = avm1_globals.text_field.create_class(context, object.proto);
+    var sound = avm1_globals.sound.create_class(context, object.proto);
+    var color = avm1_globals.color.create_class(context, object.proto);
+    var error = avm1_globals.error.create_class(context, object.proto);
+    var color_transform = avm1_globals.color_transform.create_class(context, object.proto);
+    var matrix = avm1_globals.matrix.create_class(context, object.proto);
+    var point = avm1_globals.point.create_class(context, object.proto);
+    var rectangle = avm1_globals.rectangle.create_class(context, object.proto);
+    var transform = avm1_globals.transform.create_class(context, object.proto);
+    var math = avm1_globals.math.create(context);
+    var mouse = avm1_globals.mouse.create_mouse_object(context, null, array.proto);
+    var key = avm1_globals.key.create_key_object(context, null, array.proto);
+    var stage = avm1_globals.stage.create_stage_object(context, null, array.proto);
+    var flash = Avm1Object.createNew(Avm1Value.fromObject(object.proto));
+    var geom = Avm1Object.createNew(Avm1Value.fromObject(object.proto));
+    var globals = Avm1Object.createNewWithoutProto();
     function define_globals(defs) {
       for (var i = 0; i < defs.length; i++) {
         var _ = defs[i];
         _[0].defineValue(_[1], Avm1Value.fromObject(_[2]), _[3]);
       }
     }
-
-    avm1_define_properties_on(AVM1_GLOBAL_DECLS, globals, function_proto);
-
+    context.define_properties_on(globals, AVM1_GLOBAL_DECLS);
     define_globals([
-      [globals, "Array", array, new Avm1Attribute().dontEnum()],
-      [globals, "Button", button, new Avm1Attribute().dontEnum()],
-      [globals, "Color", color, new Avm1Attribute().dontEnum()],
-      [globals, "Error", error, new Avm1Attribute().dontEnum()],
-      [globals, "Object", object, new Avm1Attribute().dontEnum()],
-      [globals, "Function", _function, new Avm1Attribute().dontEnum()],
-      [globals, "MovieClip", movie_clip, new Avm1Attribute().dontEnum()],
-      [globals, "Sound", sound, new Avm1Attribute().dontEnum()],
-      [globals, "TextField", text_field, new Avm1Attribute().dontEnum()],
-      [globals, "String", string, new Avm1Attribute().dontEnum()],
-      [globals, "Number", number, new Avm1Attribute().dontEnum()],
-      [globals, "Boolean", boolean, new Avm1Attribute().dontEnum()],
+      [globals, "Array", array.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Button", button.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Color", color.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Error", error.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Object", object.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Function", _function.constr, new Avm1Attribute().dontEnum()],
+      [globals, "MovieClip", movie_clip.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Sound", sound.constr, new Avm1Attribute().dontEnum()],
+      [globals, "TextField", text_field.constr, new Avm1Attribute().dontEnum()],
+      [globals, "String", string.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Number", number.constr, new Avm1Attribute().dontEnum()],
+      [globals, "Boolean", boolean.constr, new Avm1Attribute().dontEnum()],
       [globals, "Math", math, new Avm1Attribute().dontEnum()],
       [globals, "Mouse", mouse, new Avm1Attribute().dontEnum()],
       [globals, "Key", key, new Avm1Attribute().dontEnum()],
       [globals, "Stage", stage, new Avm1Attribute().dontEnum()],
       [globals, "flash", flash, new Avm1Attribute().dontEnum()],
       [flash, "geom", geom, new Avm1Attribute()],
-      [geom, "ColorTransform", color_transform, new Avm1Attribute()],
-      [geom, "Matrix", matrix, new Avm1Attribute()],
-      [geom, "Point", point, new Avm1Attribute()],
-      [geom, "Rectangle", rectangle, new Avm1Attribute()],
-      [geom, "Transform", transform, new Avm1Attribute()]
+      [geom, "ColorTransform", color_transform.constr, new Avm1Attribute()],
+      [geom, "Matrix", matrix.constr, new Avm1Attribute()],
+      [geom, "Point", point.constr, new Avm1Attribute()],
+      [geom, "Rectangle", rectangle.constr, new Avm1Attribute()],
+      [geom, "Transform", transform.constr, new Avm1Attribute()]
     ]);
-
     return [
       {
-        object: object_proto,
-        function: function_proto,
-        array: array_proto,
-        string: string_proto,
-        number: number_proto,
-        boolean: boolean_proto,
-        movieclip: movie_clip_proto,
-        button: button_proto,
-        text_field: text_field_proto,
-        sound: sound_proto,
-        color_transform: color_transform_proto,
-        color_transform_constructor: color_transform,
-        matrix: matrix_proto,
-        matrix_constructor: matrix,
-        point: point_proto,
-        point_constructor: point,
-        rectangle: rectangle_proto,
-        rectangle_constructor: rectangle,
-        transform_constructor: transform,
+        object: object.proto,
+        function: _function.proto,
+        array: array.proto,
+        string: string.proto,
+        number: number.proto,
+        boolean: boolean.proto,
+        movieclip: movie_clip.proto,
+        button: button.proto,
+        text_field: text_field.proto,
+        sound: sound.proto,
+        color_transform: color_transform.proto,
+        color_transform_constructor: color_transform.constr,
+        matrix: matrix.proto,
+        matrix_constructor: matrix.constr,
+        point: point.proto,
+        point_constructor: point.constr,
+        rectangle: rectangle.proto,
+        rectangle_constructor: rectangle.constr,
+        transform_constructor: transform.constr,
       },
       globals
     ]
   }
   var avm1_stage_object = {};
-  avm1_stage_object.get_property = function(dobj, name, activation, is_slash_path) {
+  avm1_stage_object.get_property = function(dobj, name, activation) {
     var magic_property = name[0] == "_";
     if (magic_property) {
       var a = avm1_stage_object.resolve_path_property(dobj, name, activation);
@@ -29182,13 +29491,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (dobj.isContainer()) {
       var o = dobj.childByName(name, activation.is_case_sensitive());
       if (o) {
-        if (is_slash_path) {
-          return o.getObject();
-        } else if (o instanceof Graphic) {
-          return o.getParent().getObject();
+        var val = Avm1Value.INSTANCE.Undefined;
+        var o2 = o.getObject1();
+        if (o2) {
+          val = Avm1Value.fromObject(o2);
         } else {
-          return o.getObject();
+          var d = o.getParent();
+          if (d) {
+            d = d.getObject1();
+          }
+          if (d) {
+            val = Avm1Value.fromObject(d);
+          }
         }
+        return val;
       }
     }
     if (magic_property) {
@@ -29243,20 +29559,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   avm1_stage_object.resolve_path_property = function(dobj, name, activation) {
     var case_sensitive = activation.is_case_sensitive();
-    if (avm1_eq_with_case(name, "_root", case_sensitive)) {
-      return activation.rootObject();
-    } else if (avm1_eq_with_case(name, "_parent", case_sensitive)) {
+    if (eq_with_case(name, "_root", case_sensitive)) {
+      return dobj.getAvm1Root().getObject1OrUndef();
+    } else if (eq_with_case(name, "_parent", case_sensitive)) {
       var r = dobj.getAvm1Parent();
-      return r ? r.getObject() : Avm1Value.INSTANCE.Undefined;
-    } else if (avm1_eq_with_case(name, "_global", case_sensitive)) {
-      return Avm1Value.fromObject(activation.context.avm1.globalObject());
+      return r ? Avm1Value.fromObject(r.getObject1OrBare()) : Avm1Value.INSTANCE.Undefined;
+    } else if (eq_with_case(name, "_global", case_sensitive)) {
+      return Avm1Value.fromObject(activation.globalObject());
     }
     var prefix = name.slice(0, 6);
     if (prefix) {
-      if (prefix == "_level" || prefix == "_flash") {
+      if (eq_with_case(prefix, "_level", case_sensitive) || eq_with_case(prefix, "_flash", case_sensitive)) {
         var level_id = avm1_parse_level_id(name.slice(6));
         var level = activation.get_level(level_id);
-        return level ? level.getObject() : Avm1Value.INSTANCE.Undefined;
+        return level ? level.getObject1OrUndef() : Avm1Value.INSTANCE.Undefined;
       }
     }
     return null;
@@ -29400,12 +29716,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
     }
     function alpha(activation, _this) {
-      return Avm1Value.fromNumber(_this.getAlpha());
+      return Avm1Value.fromNumber(_this.getAlpha() * 100);
     }
     function set_alpha(activation, _this, val) {
       var n = property_coerce_to_number(activation, val);
       if (n != null) {
-        _this.setAlpha(n);
+        _this.setAlpha(n / 100);
       }
     }
     function visible(activation, _this) {
@@ -29440,9 +29756,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(t);
     }
     function set_rotation(activation, _this, val) {
-      var n = property_coerce_to_number(activation, val);
-      if (n != null) {
-        _this.setRotation(n);
+      var degrees = property_coerce_to_number(activation, val);
+      if (degrees != null) {
+        degrees %= 360;
+        if (degrees < -180) {
+          degrees += 360;
+        } else if (degrees > 180) {
+          degrees -= 360;
+        }
+        _this.setRotation(degrees);
       }
     }
     function target(activation, _this) {
@@ -29461,6 +29783,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     function set_name(activation, _this, val) {
       var n = val.coerceToString(activation);
       _this.setName(n);
+    }
+    function drop_target() {
+      console.log("drop_target");
+      return Avm1Value.fromNumber(0);
     }
     function url(activation, _this) {
       return Avm1Value.fromString(activation.context.swf.url);
@@ -29504,10 +29830,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var local = _this.localMousePosition(activation.context);
       return Avm1Value.fromNumber(local.y / 20);
     }
-    function drop_target() {
-      console.log("drop_target");
-      return Avm1Value.fromNumber(0);
-    }
     avm1_stage_object.property_coerce_to_number = property_coerce_to_number;
     Avm1DisplayPropertyMap.PROPERTIES = [
       ["_x", x, set_x],
@@ -29550,7 +29872,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return new Avm1Scope(null, new Avm1ScopeClass(Avm1ScopeClass.Global), globals);
   }
   Avm1Scope.newLocalScope = function(parent) {
-    return new Avm1Scope(parent, new Avm1ScopeClass(Avm1ScopeClass.Local), Avm1Object.createNew(null));
+    return new Avm1Scope(parent, new Avm1ScopeClass(Avm1ScopeClass.Local), Avm1Object.createNewWithoutProto());
   }
   Avm1Scope.newTargetScope = function(parent, clip) {
     var scope = parent.clone();
@@ -29572,14 +29894,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1Scope.prototype.resolve_recursive = function(name, activation, top_level) {
     if (this.values.has_property(activation, name)) {
-      return new Avm1CallableValue(Avm1CallableValue.Callable, this.values, this.values.get_non_slash_path(name, activation));
+      return new Avm1CallableValue(Avm1CallableValue.Callable, this.values, this.values.get(name, activation));
     }
     if (this.parent) {
       var res = this.parent.resolve(name, activation);
-      if (top_level && res.type == Avm1CallableValue.UnCallable) {
+      if (top_level && (res.type == Avm1CallableValue.UnCallable)) {
         if (res.value.a == Avm1Value.Undefined) {
           if (this.values.has_own_property(activation, name)) {
-            var g = activation.rootObject().coerceToObject(activation).get_non_slash_path(name, activation);
+            var g = activation.base_clip.getAvm1Root().getObject1OrBare().get(name, activation);
             return new Avm1CallableValue(Avm1CallableValue.Callable, this.values, g);
           }
         }
@@ -29615,8 +29937,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.values.set(name, value, activation);
     }
   }
-  Avm1Scope.prototype.forceDefineLocal = function(name, value, activation) {
-    this.values.set(name, value, activation);
+  Avm1Scope.prototype.forceDefineLocal = function(name, value) {
+    this.values.defineValue(name, value, new Avm1Attribute());
   }
   Avm1Scope.prototype.delete = function(activation, name) {
     if (this.values.has_property(activation, name)) {
@@ -29731,19 +30053,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (display_object) {
       if (display_object instanceof MovieClip) {
         path = display_object.path();
-        cached = display_object.getObject();
+        cached = display_object.getObject1();
       } else if (activation.swfVersion <= 5) {
         var d = Avm1MovieClipReference.process_swf5_references(activation, display_object);
         path = d.path();
-        cached = d.getObject();
+        cached = d.getObject1();
       } else {
         return null;
       }
     } else {
       return null;
     }
-    if (cached.a == Avm1Value.Object) {
-      cached = cached.b;
+    if (cached) {
+      
     } else {
       return null;
     }
@@ -29804,42 +30126,24 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     if (start) {
       var dd = Avm1MovieClipReference.process_swf5_references(activation, start);
-      return [false, dd.getObject().coerceToObject(activation), dd];
+      return [false, dd.getObject1OrBare(), dd];
     }
     return null;
-  }
-  var Avm1RegisterSet = function(len) {
-    this.registers = [];
-    for (var i = 0; i < len; i++) {
-      this.registers.push(Avm1Value.INSTANCE.Undefined);
-    }
-  }
-  Avm1RegisterSet.prototype.has = function(idx) {
-    return idx in this.registers;
-  }
-  Avm1RegisterSet.prototype.get = function(idx) {
-    return this.registers[idx];
-  }
-  Avm1RegisterSet.prototype.set = function(idx, value) {
-    if (idx in this.registers) {
-      this.registers[idx] = value;
-    }
   }
   var Avm1Activation = function(context, id) {
     this.context = context;
     this.id = id;
     this.swfVersion = 4;
-    this.target_clip = null;
-    this.base_clip = null;
     this.scope = null;
-    this.thisObject = null;
-    this.stack = [];
-    this.callee = null;
-    this.base_clip_unloaded = false;
     this.constantPool = [];
-    this.localRegisters = null;
+    this.thisObject = null;
+    this.callee = null;
+    this.localRegisters = [];
+    this.base_clip = null;
+    this.target_clip = null;
+    this.stack = [];
   }
-  Avm1Activation.fromAction = function(context, id, swf_version, scope, constant_pool, base_clip, _this, _callee) {
+  Avm1Activation.fromAction = function(context, id, swf_version, scope, constant_pool, base_clip, _this, _callee, local_registers) {
     var r = new Avm1Activation(context, id);
     r.swfVersion = swf_version;
     r.target_clip = base_clip;
@@ -29848,34 +30152,34 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     r.scope = scope;
     r.constantPool = constant_pool;
     r.callee = _callee;
-    r.base_clip_unloaded = base_clip.AVM1_REMOVED;
+    r.localRegisters = local_registers;
     return r;
   }
   Avm1Activation.fromNothing = function(context, id, base_clip) {
     var r = new Avm1Activation(context, id);
-    r.swfVersion = base_clip.swfVersion();
+    var swf_version = base_clip.swfVersion();
+    var scope = context.avm1.globalScope(swf_version);
+    r.swfVersion = swf_version;
     r.target_clip = base_clip;
     r.base_clip = base_clip;
-    r.thisObject = Avm1Value.fromObject(context.avm1.globalObject());
+    r.thisObject = Avm1Value.fromObject(scope.values);
     r.constantPool = context.avm1.constantPool;
-    r.scope = context.avm1.globalScope;
-    r.base_clip_unloaded = base_clip.AVM1_REMOVED;
+    r.scope = scope;
     return r;
   }
   Avm1Activation.prototype.runChildFrameForAction = function(name, active_clip, code) {
     var parent_activation = Avm1Activation.fromNothing(this.context, Avm1ActivationIdentifier.root("[Actions Parent]"), active_clip);
-    var clip_obj = active_clip.getObject();
-    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj.coerceToObject(this));
+    var clip_obj = active_clip.getObject1OrBare();
+    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
     var child_name = parent_activation.id.child(name);
-    var child_activation = Avm1Activation.fromAction(this.context, child_name, active_clip.swfVersion(), child_scope, [], active_clip, clip_obj, null);
+    var child_activation = Avm1Activation.fromAction(this.context, child_name, active_clip.swfVersion(), child_scope, [], active_clip, Avm1Value.fromObject(clip_obj), null, []);
     child_activation.runActions(code);
   }
   Avm1Activation.prototype.runWithChildFrameForDisplayObject = function(name, active_clip, swf_version, fn) {
-    var clip_obj = active_clip.getObject();
-    clip_obj = clip_obj.b;
-    var child_scope = new Avm1Scope(this.context.avm1.globalScope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
+    var clip_obj = active_clip.getObject1OrBare();
+    var child_scope = new Avm1Scope(this.context.avm1.globalScope(this.swfVersion), new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
     var constant_pool = this.context.avm1.constantPool;
-    var activation = Avm1Activation.fromAction(this.context, this.id.child(name), swf_version, child_scope, constant_pool, active_clip, clip_obj, null);
+    var activation = Avm1Activation.fromAction(this.context, this.id.child(name), swf_version, child_scope, constant_pool, active_clip, Avm1Value.fromObject(clip_obj), null, []);
     fn(activation);
   }
   Avm1Activation.prototype.withNewScope = function(name, scope) {
@@ -29886,7 +30190,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     r.thisObject = this.thisObject;
     r.constantPool = this.constantPool;
     r.scope = scope;
-    r.base_clip_unloaded = this.base_clip_unloaded;
     return r;
   }
   Avm1Activation.prototype.push = function(value) {
@@ -29903,342 +30206,30 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Avm1Activation.prototype.stackLen = function() {
     return this.stack.length;
   }
+  Avm1Activation.prototype.getPrototypes = function() {
+    return this.context.avm1.getPrototypes(this.swfVersion);
+  }
+  Avm1Activation.prototype.globalScope = function() {
+    return this.context.avm1.globalScope(this.swfVersion);
+  }
+  Avm1Activation.prototype.globalObject = function() {
+    return this.globalScope().values;
+  }
   Avm1Activation.prototype.setConstantPool = function(constantPool) {
     this.constantPool = constantPool;
   }
-  Avm1Activation.prototype.getCurrentRegister = function(id) {
-    if (this.hasLocalRegister(id)) {
-      return this.localRegister(id) || Avm1Value.INSTANCE.Undefined;
-    } else {
-      return this.context.avm1.registers[id] || Avm1Value.INSTANCE.Undefined;
-    }
-  }
-  Avm1Activation.prototype.setCurrentRegister = function(id, value) {
-    if (this.hasLocalRegister(id)) {
-      this.setLocalRegister(id, value);
-    } else {
-      if (id in this.context.avm1.registers) {
-        this.context.avm1.registers[id] = value;
-      }
-    }
-  }
-  Avm1Activation.prototype.allocateLocalRegisters = function(num) {
-    this.localRegisters = (num > 0) ? new Avm1RegisterSet(num) : null;
-  }
   Avm1Activation.prototype.hasLocalRegister = function(id) {
-    return this.localRegisters ? this.localRegisters.has(id) : false;
+    return id in this.localRegisters;
   }
   Avm1Activation.prototype.localRegister = function(id) {
-    return this.localRegisters ? this.localRegisters.get(id) : null;
-  }
-  Avm1Activation.prototype.setLocalRegister = function(id, value) {
-    if (this.localRegisters) {
-      this.localRegisters.set(id, value);
-    }
-  }
-  Avm1Activation.prototype.resolveTargetPath = function(root, start, path, first_element, path_has_slash) {
-    if (!path) return start;
-    var object, is_slash_path;
-    if (path[0] == "/") {
-      path = path.slice(1);
-      object = root.getObject().coerceToObject(this);
-      is_slash_path = true;
-    } else {
-      object = start;
-      is_slash_path = false;
-    }
-    var case_sensitive = this.is_case_sensitive();
-    while (path) {
-      path = string_trim_start_matches(path, ":");
-      var prefix = path.slice(0, Math.min(path.length, 3));
-      var val = null;
-      if (prefix == ".." || prefix == "../" || prefix == "..:") {
-        if (path[2] == "/") {
-          is_slash_path = true;
-        }
-        path = path.slice(3);
-        var parent = object.asDisplayObject();
-        if (parent) {
-          parent = parent.getAvm1Parent();
-          if (parent) {
-            val = parent.getObject();
-          } else {
-            return null;
-          }
-        } else {
-          return null;
-        }
-      } else {
-        var pos = 0;
-        while(pos < path.length) {
-          var _ = path[pos];
-          if (_ == ":") {
-            break;
-          } else if (_ == ".") {
-            if (!is_slash_path) break;
-          } else if (_ == "/") {
-            is_slash_path = true;
-            break;
-          }
-          pos++;
-        }
-        var name = path.slice(0, pos);
-        path = path.slice(pos + 1);
-        if (first_element && (name == "this")) {
-          val = this.thisObject;
-        } else if (first_element && (name == "_root")) {
-          val = this.rootObject();
-        } else {
-          var child = null;
-          var d = object.asDisplayObject();
-          if (d) {
-            if (d.isContainer()) {
-              child = d.childByName(name, case_sensitive);
-            } 
-          }
-          if (child) {
-            if (path_has_slash) {
-              val = child.getObject();
-            } else if (child instanceof Graphic) {
-              var d = child.getParent();
-              val = d ? d.getObject() : Avm1Value.INSTANCE.Undefined;
-            } else {
-              val = child.getObject();
-            }
-          } else {
-            if (path_has_slash) {
-              val = object.get(name, this);
-            } else {
-              val = object.get_non_slash_path(name, this);
-            }
-          }
-        }
-      }
-      first_element = false;
-      var resO = null;
-      if (val.a == Avm1Value.Object) {
-        resO = val.b;
-      } else if (val.a == Avm1Value.MovieClip) {
-        resO = val.coerceToObject(this);
-      } else {
-        return null;
-      }
-      object = resO;
-    }
-    return object;
-  }
-  Avm1Activation.prototype.resolveTargetDisplayObject = function(start, target, allow_empty) {
-    if (target.a == Avm1Value.Object) {
-      var o = target.b.asDisplayObject();
-      return o;
-    }
-    var path = target.coerceToString(this);
-    if (!allow_empty && !path) {
-      return null;
-    }
-    var root = start.getAvm1Root();
-    var _start = start.getObject().coerceToObject(this);
-    var d = this.resolveTargetPath(root, _start, path, false, true);
-    if (d) {
-      return d.asDisplayObject();
-    } else {
-      return null;
-    }
-  }
-  Avm1Activation.prototype.get_root_parent_container = function() {
-    return this.base_clip.getAvm1Stage();
-  }
-  Avm1Activation.prototype.get_level = function(level_id) {
-    var r = this.get_root_parent_container();
-    return r ? r.childByDepth(level_id) : null;
-  }
-  Avm1Activation.prototype.get_or_create_level = function(level_id) {
-    var level = this.get_level(level_id);
-    if (level) {
-      return level;
-    } else {
-      var mc = MovieClip.createNew(this.base_clip.getMovie());
-      mc.setDepth(level_id);
-      mc.setDefaultInstanceName(this.context);
-      var r = this.get_root_parent_container();
-      if (r) {
-        r.replaceAtDepth(this.context, mc, level_id);
-      }
-      return r;
-    }
-  }
-  Avm1Activation.prototype.setTargetClip = function(value) {
-    this.target_clip = value ? (!value.AVM1_REMOVED ? value : null) : null;
-  }
-  Avm1Activation.prototype.setTarget = function(target) {
-    var base_clip = this.base_clip;
-    var new_target_clip;
-    var root = base_clip.getAvm1Root();
-    var start = base_clip.getObject().coerceToObject(this);
-    if (!target) {
-      new_target_clip = base_clip;
-    } else {
-      var clip = this.resolveTargetPath(root, start, target, false, true);
-      if (clip) {
-        clip = clip.asDisplayObject();
-        if (clip && !this.base_clip.AVM1_REMOVED) {
-        } else {
-          clip = null;
-        }
-      }
-      if (clip) {
-        new_target_clip = clip;
-      } else {
-        var path = base_clip.AVM1_REMOVED ? "?" : base_clip.path();
-        //console.log("SetTarget failed: " + target + " not found");
-        var message = "Target not found: Target=" + target + " Base=" + path;
-        this.context.avm_trace(message);
-        new_target_clip = null;
-      }
-    }
-    this.setTargetClip(new_target_clip);
-    var clip_obj = this.target_clip_or_root().getObject().coerceToObject(this);
-    this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
-    return Avm1FrameControl.objContinue;
-  }
-  Avm1Activation.prototype.in_local_scope = function() {
-    var current_scope = this.scope;
-    while (current_scope) {
-      switch(current_scope.class.type) {
-        case Avm1ScopeClass.Local:
-          return true;
-        case Avm1ScopeClass.Target:
-          return false;
-      }
-      current_scope = current_scope.parent;
-    }
-    return false;
-  }
-  Avm1Activation.prototype.defineLocal = function(name, value) {
-    if (!this.in_local_scope() && (name.indexOf(".") >= 0 || name.indexOf(":") >= 0)) {
-      this.setVariable(name, value);
-    } else {
-      this.scope.defineLocal(name, value, this);
-    }
-  }
-  Avm1Activation.prototype.forceDefineLocal = function(name, value) {
-    this.scope.forceDefineLocal(name, value, this);
-  }
-  Avm1Activation.prototype.is_case_sensitive = function() {
-    return this.swfVersion > 6;
-  }
-  Avm1Activation.prototype.target_clip_or_root = function() {
-    return this.target_clip || this.base_clip.getAvm1Root();
-  }
-  Avm1Activation.prototype.target_clip_or_base_clip = function() {
-    return this.target_clip || this.base_clip;
-  }
-  Avm1Activation.prototype.rootObject = function() {
-    return this.base_clip.getAvm1Root().getObject();
-  }
-  Avm1Activation.prototype.continue_if_base_clip_exists = function() {
-    if (!this.base_clip_unloaded && this.base_clip.AVM1_REMOVED) {
-      return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
-    } else {
-      return Avm1FrameControl.objContinue;
-    }
+    return this.localRegisters[id];
   }
   Avm1Activation.prototype.resolve = function(name) {
-    if (name == "this") {
+    var this_case_sensitive = (this.swfVersion <= 5) ? (this.scope.class.type == Avm1ScopeClass.Local) : this.is_case_sensitive();
+    if (eq_with_case(name, "this", this_case_sensitive)) {
       return new Avm1CallableValue(Avm1CallableValue.UnCallable, this.thisObject);
     }
     return this.scope.resolve(name, this);
-  }
-  Avm1Activation.prototype.getVariable = function(path) { 
-    var start = this.target_clip_or_root();
-    var path_has_slash = path.indexOf('/') >= 0;
-    var separator = string_rfind(path, [":", "."]);
-    if (separator != null) {
-      var _path = path.slice(0, separator);
-      var var_name = path.slice(separator + 1);
-      var current_scope = this.scope;
-      while(current_scope) {
-        var avm1_root = start.getAvm1Root();
-        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true, path_has_slash);
-        if (object) {
-          if (object.has_property(this, var_name)) {
-            return new Avm1CallableValue(Avm1CallableValue.Callable, object, object.get(var_name, this));
-          }
-        }
-        current_scope = current_scope.parent;
-      }
-      return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.INSTANCE.Undefined);
-    }
-    if (path_has_slash) {
-      var current_scope = this.scope;
-      while(current_scope) {
-        var avm1_root = start.getAvm1Root();
-        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, false, true);
-        if (object) {
-          return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.fromObject(object));
-        }
-        current_scope = current_scope.parent;
-      }
-    }
-    return this.resolve(path);
-  }
-  Avm1Activation.prototype.setVariable = function(path, value) {
-    var start = this.target_clip_or_root();
-    if (!path) return;
-    if (path == "this") {
-      this.thisObject = value;
-      return;
-    }
-    var separator = string_rfind(path, [":", "."]);
-    if (separator != null) {
-      var _path = path.slice(0, separator);
-      var var_name = path.slice(separator + 1);
-      var current_scope = this.scope;
-      while(current_scope) {
-        var avm1_root = start.getAvm1Root();
-        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true, true);
-        if (object) {
-          object.set(var_name, value, this);
-        }
-        current_scope = current_scope.parent;
-      }
-      return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.INSTANCE.Undefined);
-    }
-    this.scope.set(path, value, this);
-  }
-  Avm1Activation.prototype.resolveVariablePath = function(start, path) {
-    var path_has_slash = path.indexOf("/") >= 0;
-    var separator = string_rfind(path, [":", "."]);
-    if (separator != null) {
-      var _path = path.slice(0, separator);
-      var var_name = path.slice(separator + 1);
-      var current_scope = this.scope;
-      while(current_scope) {
-        var avm1_root = start.getAvm1Root();
-        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true, path_has_slash);
-        if (object) {
-          return [object, var_name];
-        }
-        current_scope = current_scope.parent;
-      }
-      return null;
-    }
-    var obj = start.getObject();
-    if (obj.a == Avm1Value.Object) {
-      return [obj.b, path];
-    } else {
-      return null;
-    }
-  }
-  Avm1Activation.prototype.stackPush = function(value) {
-    var _value;
-    if (value.a == Avm1Value.Object) {
-      var mc = Avm1MovieClipReference.tryFromStagePbject(this, value.b);
-      _value = mc ? Avm1Value.fromMovieClip(mc) : value;
-    } else {
-      _value = value;
-    }
-    this.push(_value);
   }
   Avm1Activation.prototype.runActions = function(code) {
     var read = new Avm1Reader(code);
@@ -30276,8 +30267,323 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1FrameControl.objContinue;
     }
   }
+  Avm1Activation.prototype.stackPush = function(value) {
+    var _value;
+    if (value.a == Avm1Value.Object) {
+      var mc = Avm1MovieClipReference.tryFromStagePbject(this, value.b);
+      _value = mc ? Avm1Value.fromMovieClip(mc) : value;
+    } else {
+      _value = value;
+    }
+    this.push(_value);
+  }
+  Avm1Activation.prototype.popCallArgs = function(num_args) {
+    num_args = Math.min(num_args, this.stackLen());
+    var args = [];
+    for (var i = 0; i < num_args; i++) {
+      var arg = this.pop();
+      var o = arg.asObject(this);
+      args.push(o ? Avm1Value.fromObject(o) : arg);
+    }
+    return args;
+  }
+  Avm1Activation.prototype.getCurrentRegister = function(id) {
+    if (this.hasLocalRegister(id)) {
+      return this.localRegister(id) || Avm1Value.INSTANCE.Undefined;
+    } else {
+      return this.context.avm1.registers[id] || Avm1Value.INSTANCE.Undefined;
+    }
+  }
+  Avm1Activation.prototype.setCurrentRegister = function(id, value) {
+    if (this.hasLocalRegister(id)) {
+      this.setLocalRegister(id, value);
+    } else {
+      if (id in this.context.avm1.registers) {
+        this.context.avm1.registers[id] = value;
+      }
+    }
+  }
+  Avm1Activation.prototype.setLocalRegister = function(id, value) {
+    if (id in this.localRegisters) {
+      this.localRegisters[id] = value;
+    }
+  }
+  Avm1Activation.prototype.resolveTargetDisplayObject = function(start, target, allow_empty) {
+    if (target.a == Avm1Value.Object) {
+      var o = target.b.asDisplayObject();
+      return o;
+    }
+    var path = target.coerceToString(this);
+    if (!allow_empty && !path) {
+      return null;
+    }
+    var root = start.getAvm1Root();
+    var _start = start.getObject1OrBare();
+    var d = this.resolveTargetPath(root, _start, path, false);
+    if (d) {
+      return d.asDisplayObject();
+    } else {
+      return null;
+    }
+  }
+  Avm1Activation.prototype.resolveTargetPath = function(root, start, path, first_element) {
+    if (!path) return start;
+    var object, is_slash_path;
+    if (path[0] == "/") {
+      path = path.slice(1);
+      object = root.getObject1OrBare();
+      is_slash_path = true;
+    } else {
+      object = start;
+      is_slash_path = false;
+    }
+    var case_sensitive = this.is_case_sensitive();
+    while (path) {
+      path = string_trim_start_matches(path, ":");
+      var prefix = path.slice(0, Math.min(path.length, 3));
+      var val = null;
+      if (prefix == ".." || prefix == "../" || prefix == "..:") {
+        if (path[2] == "/") {
+          is_slash_path = true;
+        }
+        path = path.slice(3);
+        var parent = object.asDisplayObject();
+        if (parent) {
+          parent = parent.getAvm1Parent();
+          if (parent) {
+            val = parent.getObject1OrUndef();
+          } else {
+            return null;
+          }
+        } else {
+          return null;
+        }
+      } else {
+        var pos = 0;
+        while(pos < path.length) {
+          var _ = path[pos];
+          if (_ == ":") {
+            break;
+          } else if (_ == ".") {
+            if (!is_slash_path) break;
+          } else if (_ == "/") {
+            is_slash_path = true;
+            break;
+          }
+          pos++;
+        }
+        var name = path.slice(0, pos);
+        path = path.slice(pos + 1);
+        if (first_element && (name == "this")) {
+          val = this.thisObject;
+        } else if (first_element && (name == "_root")) {
+          val = this.base_clip.getAvm1Root().getObject1OrUndef();
+        } else {
+          var child = null;
+          var d = object.asDisplayObject();
+          if (d) {
+            if (d.isContainer()) {
+              child = d.childByName(name, case_sensitive);
+            } 
+          }
+          if (child) {
+            var obj1 = child.getObject1();
+            if (!obj1) {
+              var d = child.getParent();
+              obj1 = d ? d.getObject1() : null;
+            }
+            val = obj1 ? Avm1Value.fromObject(obj1) : Avm1Value.INSTANCE.Undefined;
+          } else {
+            val = object.get(name, this);
+          }
+        }
+      }
+      first_element = false;
+      var _o = val.asObject(this);
+      if (_o) {
+        object = _o;
+      } else {
+        return null;
+      }
+    }
+    return object;
+  }
+  Avm1Activation.prototype.resolveVariablePath = function(start, path) {
+    var separator = string_rfind(path, [":", "."]);
+    if (separator != null) {
+      var _path = path.slice(0, separator);
+      var var_name = path.slice(separator + 1);
+      var current_scope = this.scope;
+      while(current_scope) {
+        var avm1_root = start.getAvm1Root();
+        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true);
+        if (object) {
+          return [object, var_name];
+        }
+        current_scope = current_scope.parent;
+      }
+      return null;
+    }
+    var obj = start.getObject1();
+    if (obj) {
+      return [obj, path];
+    } else {
+      return null;
+    }
+  }
+  Avm1Activation.prototype.getVariable = function(path) { 
+    var start = this.target_clip_or_root();
+    var separator = string_rfind(path, [":", "."]);
+    if (separator != null) {
+      var _path = path.slice(0, separator);
+      var var_name = path.slice(separator + 1);
+      var current_scope = this.scope;
+      while(current_scope) {
+        var avm1_root = start.getAvm1Root();
+        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true);
+        if (object) {
+          if (object.has_property(this, var_name)) {
+            return new Avm1CallableValue(Avm1CallableValue.Callable, object, object.get(var_name, this));
+          }
+        }
+        current_scope = current_scope.parent;
+      }
+      return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.INSTANCE.Undefined);
+    }
+    if (path.indexOf('/') >= 0) {
+      var current_scope = this.scope;
+      while(current_scope) {
+        var avm1_root = start.getAvm1Root();
+        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, false);
+        if (object) {
+          return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.fromObject(object));
+        }
+        current_scope = current_scope.parent;
+      }
+    }
+    return this.resolve(path);
+  }
+  Avm1Activation.prototype.setVariable = function(path, value) {
+    var start = this.target_clip_or_root();
+    if (!path) return;
+    if (path == "this") {
+      this.thisObject = value;
+      return;
+    }
+    var separator = string_rfind(path, [":", "."]);
+    if (separator != null) {
+      var _path = path.slice(0, separator);
+      var var_name = path.slice(separator + 1);
+      var current_scope = this.scope;
+      while(current_scope) {
+        var avm1_root = start.getAvm1Root();
+        var object = this.resolveTargetPath(avm1_root, current_scope.values, _path, true);
+        if (object) {
+          object.set(var_name, value, this);
+        }
+        current_scope = current_scope.parent;
+      }
+      return new Avm1CallableValue(Avm1CallableValue.UnCallable, Avm1Value.INSTANCE.Undefined);
+    }
+    this.scope.set(path, value, this);
+  }
+  Avm1Activation.prototype.get_or_create_level = function(level_id) {
+    var level = this.get_level(level_id);
+    if (level) {
+      return level;
+    } else {
+      var mc = MovieClip.createNew(this.base_clip.getMovie());
+      mc.setDepth(level_id);
+      mc.setDefaultInstanceName(this.context);
+      var r = this.get_root_parent_container();
+      if (r) {
+        r.replaceAtDepth(this.context, mc, level_id);
+      }
+      return r;
+    }
+  }
+  Avm1Activation.prototype.get_root_parent_container = function() {
+    return this.base_clip.getAvm1Stage();
+  }
+  Avm1Activation.prototype.get_level = function(level_id) {
+    var r = this.get_root_parent_container();
+    return r ? r.childByDepth(level_id) : null;
+  }
+  Avm1Activation.prototype.target_clip_or_root = function() {
+    return this.target_clip || this.base_clip.getAvm1Root();
+  }
+  Avm1Activation.prototype.target_clip_or_base_clip = function() {
+    return this.target_clip || this.base_clip;
+  }
+  Avm1Activation.prototype.is_case_sensitive = function() {
+    return this.swfVersion > 6;
+  }
   Avm1Activation.prototype.getEncoding = function() {
     return SwfEncoding.encodingForVersion(this.swfVersion);
+  }
+  Avm1Activation.prototype.in_local_scope = function() {
+    var current_scope = this.scope;
+    while (current_scope) {
+      switch(current_scope.class.type) {
+        case Avm1ScopeClass.Local:
+          return true;
+        case Avm1ScopeClass.Target:
+          return false;
+      }
+      current_scope = current_scope.parent;
+    }
+    return false;
+  }
+  Avm1Activation.prototype.setTargetClip = function(value) {
+    this.target_clip = value ? (!value.AVM1_REMOVED ? value : null) : null;
+  }
+  Avm1Activation.prototype.defineLocal = function(name, value) {
+    if (!this.in_local_scope() && (name.indexOf(".") >= 0 || name.indexOf(":") >= 0)) {
+      this.setVariable(name, value);
+    } else {
+      this.scope.defineLocal(name, value, this);
+    }
+  }
+  Avm1Activation.prototype.forceDefineLocal = function(name, value) {
+    this.scope.forceDefineLocal(name, value);
+  }
+  Avm1Activation.prototype.continue_if_base_clip_exists = function() {
+    if (this.base_clip.AVM1_REMOVED) {
+      return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
+    } else {
+      return Avm1FrameControl.objContinue;
+    }
+  }
+  Avm1Activation.prototype.setTarget = function(target) {
+    var base_clip = this.base_clip;
+    var new_target_clip;
+    var root = base_clip.getAvm1Root();
+    var start = base_clip.getObject1OrBare();
+    if (!target) {
+      new_target_clip = base_clip;
+    } else {
+      var clip = this.resolveTargetPath(root, start, target, false);
+      if (clip) {
+        clip = clip.asDisplayObject();
+        if (clip && !this.base_clip.AVM1_REMOVED) {
+        } else {
+          clip = null;
+        }
+      }
+      if (clip) {
+        new_target_clip = clip;
+      } else {
+        var path = base_clip.AVM1_REMOVED ? "?" : base_clip.path();
+        //console.log("SetTarget failed: " + target + " not found");
+        var message = "Target not found: Target=\"" + target + "\" Base=\"" + path + "\"";
+        this.context.avm_trace(message);
+        new_target_clip = null;
+      }
+    }
+    this.setTargetClip(new_target_clip);
+    var clip_obj = this.target_clip_or_root().getObject1OrBare();
+    this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
+    return Avm1FrameControl.objContinue;
   }
   var avm1Callback = [];
   avm1Callback[0x00] = function() { // ActionEnd
@@ -30571,9 +30877,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         if (clip) {
           if (clip instanceof MovieClip) {
             var frame = s[1];
-            if (frame) {
-              call_frame = [clip, arg.b >>> 0];
-              frame >>> 0;
+            var frame_n = Number(frame);
+            if (Number.isInteger(frame_n)) {
+              call_frame = [clip, frame_n >>> 0];
             } else {
               var f = clip.frameLabelToNumber(frame, this.context);
               if (f != null) {
@@ -30653,7 +30959,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
         break;
       case Avm1Value.MovieClip:
-        var clip = target.coerceToObject(this).asDisplayObject();
+        var o = target.coerceToObjectOrBare(this);
+        var clip = o.asDisplayObject();
         if (clip) {
           this.setTargetClip(clip);
         } else {
@@ -30665,7 +30972,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         var t = target.coerceToString(this);
         return this.setTarget(t);
     }
-    var clip_obj = this.target_clip_or_base_clip().getObject().coerceToObject(this);
+    var clip_obj = this.target_clip_or_base_clip().getObject1OrBare();
     this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
     return Avm1FrameControl.objContinue;
   }
@@ -30826,18 +31133,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var fn_name_value = this.pop();
     var fn_name = fn_name_value.coerceToString(this);
     var num_args = this.pop().coerceToU32(this);
-    num_args = Math.min(num_args, this.stackLen());
-    var args = [];
-    for (var i = 0; i < num_args; i++) {
-      var arg = this.pop();
-      if (arg.a == Avm1Value.MovieClip) {
-        args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
-      } else {
-        args.push(arg);
-      }
-    }
+    var args = this.popCallArgs(num_args);
     var variable = this.getVariable(fn_name);
-    var result = variable.call_with_default_this(this.target_clip_or_root().getObject().coerceToObject(this), fn_name, this, args);
+    var result = variable.call_with_default_this(this.target_clip_or_root().getObject1OrUndef(), fn_name, this, args);
     this.stackPush(result);
     return this.continue_if_base_clip_exists();
   }
@@ -30845,21 +31143,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var method_name = this.pop();
     var object_val = this.pop();
     var num_args = this.pop().coerceToU32(this);
-    num_args = Math.min(num_args, this.stackLen());
-    var args = [];
-    for (var i = 0; i < num_args; i++) {
-      var arg = this.pop();
-      if (arg.a == Avm1Value.MovieClip) {
-        args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
-      } else {
-        args.push(arg);
-      }
-    }
+    var args = this.popCallArgs(num_args);
     if ((object_val.a == Avm1Value.Undefined) || (object_val.a == Avm1Value.Null)) {
       this.push(Avm1Value.INSTANCE.Undefined);
       return Avm1FrameControl.objContinue;
     }
-    var object = object_val.coerceToObject(this);
+    var object = object_val.coerceToObjectOrBare(this);
     var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
     var result;
     if (_method_name) {
@@ -30885,10 +31174,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var swf_version = this.swfVersion;
     var func_data = parent_data.toUnboundedSubslice(aScript.actions);
     var constant_pool = this.constantPool;
-    var func = new Avm1Function(swf_version, func_data, aScript, this.scope, constant_pool, this.base_clip);
+    var bc = this.base_clip.getObject1OrBare();
+    var func = new Avm1Function(swf_version, func_data, aScript, this.scope, constant_pool, Avm1MovieClipReference.tryFromStagePbject(this, bc));
     var name = func.name;
-    var prototype = Avm1Object.createNew(this.context.avm1.prototypes.object);
-    var func_obj = Avm1FunctionObject.createFunction(func, this.context.avm1.prototypes.function, prototype);
+    var prototype = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
+    var func_obj = Avm1FunctionObject.createFunction(func).build(this.getPrototypes().function, prototype);
     if (name.length) {
       this.defineLocal(name, Avm1Value.fromObject(func_obj));
     } else {
@@ -30923,10 +31213,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var name = name_val.coerceToString(this);
     var object = this.pop();
     var success;
-    if (object.a == Avm1Value.Object) {
-      success = object.b.delete(this, name);
-    } else if (object.a == Avm1Value.MovieClip) {
-      success = object.coerceToObject(this).delete(this, name);
+    var _object = object.asObject(this);
+    if (_object) {
+      success = _object.delete(this, name);
     } else {
       log.warn("Cannot delete property " + name + " from " + object);
       success = false;
@@ -30944,24 +31233,17 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   avm1Callback[0x46] = function(aScript) { // ActionEnumerate
     var name_value = this.pop();
     var name = name_value.coerceToString(this);
-    var object = this.getVariable(name).getValue();
+    var value = this.getVariable(name).getValue();
     this.push(Avm1Value.INSTANCE.Undefined);
-    if (object.a == Avm1Value.MovieClip) {
-      var ob = object.coerceToObject(this);
-      var keys = ob.getKeys(this, false);
-      keys.reverse();
-      for (var i = 0; i < keys.length; i++) {
-        this.push(Avm1Value.fromString(keys[i]));
-      }
-    } else if (object.a == Avm1Value.Object) {
-      var ob = object.b;
-      var keys = ob.getKeys(this, false);
+    var object = value.asObject(this);
+    if (object) {
+      var keys = object.getKeys(this, false);
       keys.reverse();
       for (var i = 0; i < keys.length; i++) {
         this.push(Avm1Value.fromString(keys[i]));
       }
     } else {
-      console.log("Cannot enumerate", object);
+      console.log("Cannot enumerate", value);
     }
     return Avm1FrameControl.objContinue;
   }
@@ -30976,8 +31258,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var name_val = this.pop();
     var name = name_val.coerceToString(this);
     var object_val = this.pop();
-    var object = object_val.coerceToObject(this);
-    var result = object.get_non_slash_path(name, this);
+    var object = object_val.coerceToObjectOrBare(this);
+    var result = object.get(name, this);
     this.stackPush(result);
     return Avm1FrameControl.objContinue;
   }
@@ -31002,7 +31284,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (num_props < 0 || num_props > 2147483647) {
       result = Avm1Value.INSTANCE.Undefined;
     } else {
-      var object = Avm1Object.createNew(this.context.avm1.prototypes.object);
+      var object = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
       for (var _ = 0; _ < num_props; _++) {
         var value = this.pop();
         var name_val = this.pop();
@@ -31018,20 +31300,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var method_name = this.pop();
     var object_val = this.pop();
     var num_args = this.pop().coerceToU32(this);
-    num_args = Math.min(num_args, this.stackLen());
-    var args = [];
-    for (var i = 0; i < num_args; i++) {
-      var arg = this.pop();
-      if (arg.a == Avm1Value.MovieClip) {
-        args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
-      } else {
-        args.push(arg);
-      }
-    }
+    var args = this.popCallArgs(num_args);
     if (object_val.a == Avm1Value.Undefined || object_val.a == Avm1Value.Null) {
       return Avm1FrameControl.objContinue;
     }
-    var object = object_val.coerceToObject(this);
+    var object = object_val.coerceToObjectOrBare(this);
     var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
     var result;
     if (_method_name) {
@@ -31052,18 +31325,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var fn_name_val = this.pop();
     var fn_name = fn_name_val.coerceToString(this);
     var num_args = this.pop().coerceToU32(this);
-    num_args = Math.min(num_args, this.stackLen());
-    var args = [];
-    for (var i = 0; i < num_args; i++) {
-      var arg = this.pop();
-      if (arg.a == Avm1Value.MovieClip) {
-        args.push(Avm1Value.fromObject(arg.coerceToObject(this)));
-      } else {
-        args.push(arg);
-      }
-    }
+    var args = this.popCallArgs(num_args);
     var name_value = this.resolve(fn_name).getValue();
-    var constructor = name_value.coerceToObject(this);
+    var constructor = name_value.coerceToObjectOrBare(this);
     var result = constructor.construct(this, args);
     this.stackPush(result);
     return this.continue_if_base_clip_exists();
@@ -31072,12 +31336,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var value = this.pop();
     var name_val = this.pop();
     var name = name_val.coerceToString(this);
-    var object = this.pop().coerceToObject(this);
+    var object = this.pop().coerceToObjectOrBare(this);
     object.set(name, value, this);
     return Avm1FrameControl.objContinue;
   }
   avm1Callback[0x45] = function(aScript) { // ActionTargetPath
-    var param = this.pop().coerceToObject(this);
+    var param = this.pop().coerceToObjectOrBare(this);
     var display_object = param.asDisplayObject();
     var result = null;
     if (display_object) {
@@ -31094,10 +31358,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     switch(value.a) {
       case Avm1Value.Undefined:
       case Avm1Value.Null:
-        console.log("Error: A 'with' action failed because the specified object did not exist.");
+        this.context.avm_trace("Error: A 'with' action failed because the specified object did not exist.\n");
         return Avm1FrameControl.objContinue;
       default:
-        var object = value.coerceToObject(this);
+        var object = value.coerceToObjectOrBare(this);
         var with_scope = Avm1Scope.newWithScope(this.scope, object);
         var new_activation = this.withNewScope("[With]", with_scope);
         var res = new_activation.runActions(code);
@@ -31189,10 +31453,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return Avm1FrameControl.objContinue;
   }
   avm1Callback[0x65] = function(aScript) { // ActionBitURShift
-    // TODO
     var a = this.pop().coerceToU32(this) & 0b11111;
     var b = this.pop().coerceToU32(this);
     var result = b >>> a;
+    if ((this.swfVersion >= 8) && (this.swfVersion <= 9)) {
+      // In SWF8 and SWF9, unsigned right shift actually has a signed result.
+      result = result | 0;
+    }
     this.push(Avm1Value.fromNumber(result));
     return Avm1FrameControl.objContinue;
   }
@@ -31241,36 +31508,18 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   
   // SWFv6
   avm1Callback[0x54] = function(aScript) { // ActionInstanceOf
-    var constr = this.pop().coerceToObject(this);
+    var constr = this.pop();
     var obj = this.pop();
-    var result;
-    if (obj.a == Avm1Value.Object) {
-      obj = obj.b;
-      var prototype = constr.get("prototype", this).coerceToObject(this);
-      result = obj.isInstanceOf(this, constr, prototype);
-    } else if (obj.a == Avm1Value.MovieClip) {
-      obj = obj.coerceToObject(this);
-      var prototype = constr.get("prototype", this).coerceToObject(this);
-      result = obj.isInstanceOf(this, constr, prototype);
-    } else {
-      result = false;
-    }
+    var result = obj.instanceOf(constr, this);
     this.push(Avm1Value.fromBoolean(result));
     return Avm1FrameControl.objContinue;
   }
   avm1Callback[0x55] = function(aScript) { // ActionEnumerate2
     var value = this.pop();
     this.push(Avm1Value.INSTANCE.Undefined);
-    if (value.a == Avm1Value.MovieClip) {
-      var ob = value.coerceToObject(this);
-      var keys = ob.getKeys(this, false);
-      keys.reverse();
-      for (var i = 0; i < keys.length; i++) {
-        this.push(Avm1Value.fromString(keys[i]));
-      }
-    } else if (value.a == Avm1Value.Object) {
-      var ob = value.b;
-      var keys = ob.getKeys(this, false);
+    var object = value.asObject(this);
+    if (object) {
+      var keys = object.getKeys(this, false);
       keys.reverse();
       for (var i = 0; i < keys.length; i++) {
         this.push(Avm1Value.fromString(keys[i]));
@@ -31305,9 +31554,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   // SWFv7
   avm1Callback[0x9b] = avm1Callback[0x8e]; // ActionDefineFunction2
   avm1Callback[0x69] = function(aScript) { // ActionExtends
-    var superclass = this.pop().coerceToObject(this);
-    var subclass = this.pop().coerceToObject(this);
-    var super_prototype = superclass.get("prototype", this).coerceToObject(this);
+    var superclass = this.pop().coerceToObjectOrBare(this);
+    var subclass = this.pop().coerceToObjectOrBare(this);
+    var super_prototype = superclass.get("prototype", this);
     var sub_prototype = Avm1Object.createNew(super_prototype);
     sub_prototype.defineValue("constructor", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
     sub_prototype.defineValue("__constructor__", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
@@ -31316,24 +31565,20 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   avm1Callback[0x2b] = function(aScript) { // ActionCastOp
     var obj = this.pop();
-    var constr = this.pop().coerceToObject(this);
-    var is_instance_of;
-    if (obj.a == Avm1Value.Object) {
-      var prototype = constr.get("prototype", this).coerceToObject(this);
-      is_instance_of = obj.b.isInstanceOf(this, constr, prototype);
-    } else if (obj.a == Avm1Value.MovieClip) {
-      var _obj = obj.b.coerceToObject(this);
-      var prototype = constr.get("prototype", this).coerceToObject(this);
-      is_instance_of = _obj.isInstanceOf(this, constr, prototype);
-    } else {
-      is_instance_of = false;
+    var constr = this.pop();
+    if (obj.isPrimitive()) {
+      obj.coerceToObject(this);
     }
+    var is_instance_of = obj.instanceOf(constr, this);
     var result = is_instance_of ? obj : Avm1Value.INSTANCE.Null;
     this.push(result);
     return Avm1FrameControl.objContinue;
   }
   avm1Callback[0x2c] = function(aScript) { // ActionImplementsOp
-    var constructor = this.pop().coerceToObject(this);
+    var constructor = this.pop().asObject(this);
+    if (!constructor) {
+      console.log("ImplementsOp: primitive not coerced into object");
+    }
     var count = this.pop();
     if (count.isPrimitive()) {
       count = count.coerceToI32(this);
@@ -31342,12 +31587,26 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       count = 0;
     }
     count = Math.min(count, this.stackLen());
-    var interfaces = [];
-    for (var i = 0; i < count; i++) {
-      interfaces.push(this.pop().coerceToObject(this));
+    if (count > 0) {
+      var interfaces = [];
+      for (var i = 0; i < count; i++) {
+        var obj = this.pop().asObject(this);
+        if (obj) {
+          var _prototype = obj.getPrototype(this);
+          if (_prototype.a == Avm1Value.Object) {
+            interfaces.push(_prototype.b);  
+          }
+        } else {
+          console.log("ImplementsOp: primitive not coerced into object");
+        }
+      }
+      if (constructor && (this.swfVersion >= 7)) {
+        var prototype = constructor.getPrototype(this).asObject(this);
+        if (prototype) {
+          prototype.setInterfaces(interfaces);
+        }
+      }
     }
-    var prototype = constructor.get("prototype", this).coerceToObject(this);
-    prototype.setInterfaces(interfaces);
     return Avm1FrameControl.objContinue;
   }
   avm1Callback[0x8f] = function(aScript, _reader, parent_data) { // ActionTry
@@ -31359,7 +31618,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         var catchBody = aScript.catchBody;
         if (catchBody) {
           var catchVar = aScript.catchVar;
-          var activation = Avm1Activation.fromAction(this.context, this.id.child("[Catch]"), this.swfVersion, this.scope, this.constantPool, this.base_clip, this.thisObject, this.callee);
+          var activation = Avm1Activation.fromAction(this.context, this.id.child("[Catch]"), this.swfVersion, this.scope, this.constantPool, this.base_clip, this.thisObject, this.callee, []);
           activation.localRegisters = this.localRegisters;
           if (typeof catchVar == "number") {
             activation.setCurrentRegister(catchVar, e.value);
@@ -31372,13 +31631,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       } else {
         console.log(e);
       }
-    } finally {
-      var finallyBody = aScript.finallyBody;
-      if (finallyBody) {
-        var v = this.runActions(parent_data.toUnboundedSubslice(finallyBody));
-        if (v.type == Avm1ReturnType.explicit) {
-          return new Avm1ReturnType(Avm1ReturnType.explicit, v.value);
-        }
+    }
+    var finallyBody = aScript.finallyBody;
+    if (finallyBody) {
+      var v = this.runActions(parent_data.toUnboundedSubslice(finallyBody));
+      if (v.type == Avm1ReturnType.explicit) {
+        return new Avm1ReturnType(Avm1ReturnType.explicit, v.value);
       }
     }
     if (result) {
@@ -31394,15 +31652,19 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var value = this.pop();
     throw new Avm1Error(value);
   }
+  var Avm1GlobalEnv = function() {
+    var result_globals  = avm1_create_globals();
+    this.globalScope = Avm1Scope.fromGlobalObject(result_globals[1]);
+    this.prototypes = result_globals[0];
+    this.broadcasterFunctions = null;
+    this.constructorRegistry = new Avm1PropertyMap();
+  }
   var Avm1 = function() {
     this.version = 6;
-    this.clipExecList = null;
-    var result_globals  = avm1_create_globals();
-    this.prototypes = result_globals[0];
-    this.globalScope = Avm1Scope.fromGlobalObject(result_globals[1]);
-    this.displayProperties = new Avm1DisplayPropertyMap();
-    this.maxRecursionDepth = 255;
     this.constantPool = [];
+    this.envCaseInsensitive = new Avm1GlobalEnv();
+    this.envCaseSensitive = new Avm1GlobalEnv();
+    this.displayProperties = new Avm1DisplayPropertyMap();
     this.stack = [];
     this.registers = [
       Avm1Value.INSTANCE.Undefined,
@@ -31410,23 +31672,54 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       Avm1Value.INSTANCE.Undefined,
       Avm1Value.INSTANCE.Undefined
     ];
-    this.constructorRegistryCaseInsensitive = new Avm1PropertyMap();
-    this.constructorRegistryCaseSensitive = new Avm1PropertyMap();
+    this.maxRecursionDepth = 255;
+    this.clipExecList = null;
     this.use_new_invalid_bounds_value = false;
   }
   Avm1.runWithStackFrameForDisplayObject = function(activeClip, action_context, fn) {
-    var clip_obj = activeClip.getObject();
-    clip_obj = clip_obj.b;
-    var child_scope = new Avm1Scope(action_context.avm1.globalScope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
+    var clip_obj = activeClip.getObject1();
+    var child_scope = new Avm1Scope(action_context.avm1.globalScope(activeClip.swfVersion()), new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
     var constant_pool = action_context.avm1.constantPool;
-    var activation = Avm1Activation.fromAction(action_context, Avm1ActivationIdentifier.root("[Display Object]"), activeClip.swfVersion(), child_scope, constant_pool, activeClip, clip_obj, null);
+    var activation = Avm1Activation.fromAction(action_context, Avm1ActivationIdentifier.root("[Display Object]"), activeClip.swfVersion(), child_scope, constant_pool, activeClip, Avm1Value.fromObject(clip_obj), null, []);
     fn(activation);
   }
-  Avm1.prototype.get_use_new_invalid_bounds_value = function() {
-    return this.use_new_invalid_bounds_value;
+  Avm1.isCaseSensitive = function(swf_version) {
+    return swf_version >= 7;
   }
-  Avm1.prototype.activate_use_new_invalid_bounds_value = function() {
-    this.use_new_invalid_bounds_value = true;
+  Avm1.prototype.runStackFrameForAction = function(active_clip, name, action, context) {
+    var parent_activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Actions Parent]"), active_clip);
+    var clip_obj = active_clip.getObject1();
+    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
+    var constant_pool = parent_activation.context.avm1.constantPool;
+    var child_name = parent_activation.id.child(name);
+    var child_activation = Avm1Activation.fromAction(context, child_name, active_clip.swfVersion(), child_scope, constant_pool, active_clip, Avm1Value.fromObject(clip_obj), null, []);
+    try {
+      child_activation.runActions(action);
+    } catch(e) {
+      avm1_root_error_handler(child_activation, e);
+    }
+  }
+  Avm1.prototype.runStackFrameForInitAction = function(active_clip, code, context) {
+    var parent_activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Init Parent]"), active_clip);
+    var clip_obj = active_clip.getObject1OrBare();
+    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj);
+    var constant_pool = parent_activation.context.avm1.constantPool;
+    var child_name = parent_activation.id.child("[Init]");
+    var child_activation = Avm1Activation.fromAction(context, child_name, active_clip.swfVersion(), child_scope, constant_pool, active_clip, Avm1Value.fromObject(clip_obj), null, []);
+    child_activation.push(Avm1Value.INSTANCE.Undefined);
+    try {
+      child_activation.runActions(code);
+    } catch(e) {
+      avm1_root_error_handler(child_activation, e);
+    }
+  }
+  Avm1.prototype.runStacFrameForMethod = function(active_clip, obj, name, args, context) {
+    if (!obj) return;
+    var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root(name), active_clip);
+    obj.callMethod(name, args, activation, Avm1ExecutionReason.INSTANCE.Special);
+  }
+  Avm1.prototype.stackLen = function() {
+    return this.stack.length;
   }
   Avm1.prototype.clearStack = function() {
     this.stack = [];
@@ -31437,22 +31730,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Avm1.prototype.pop = function() {
     return this.stack.pop();
   }
-  Avm1.prototype.stackLen = function() {
-    return this.stack.length;
-  }
-  Avm1.prototype.getRegisteredConstructor = function(swf_version, symbol) {
-    var is_case_sensitive = swf_version >= 7;
-    var registry = is_case_sensitive ? this.constructorRegistryCaseSensitive : this.constructorRegistryCaseInsensitive;
-    return registry.get(symbol, is_case_sensitive);
-  }
-  Avm1.prototype.registerConstructor = function(swf_version, symbol, constructor) {
-    var is_case_sensitive = swf_version >= 7;
-    var registry = is_case_sensitive ? this.constructorRegistryCaseSensitive : this.constructorRegistryCaseInsensitive;
-    if (constructor) {
-      registry.insert(symbol, constructor, is_case_sensitive);
+  Avm1.prototype.globalScope = function(swf_version) {
+    if (Avm1.isCaseSensitive(swf_version)) {
+      return this.envCaseSensitive.globalScope;
     } else {
-      registry.remove(symbol, is_case_sensitive);
+      return this.envCaseInsensitive.globalScope;
     }
+  }
+  Avm1.prototype.getPrototypes = function(swf_version) {
+    if (Avm1.isCaseSensitive(swf_version)) {
+      return this.envCaseSensitive.prototypes;
+    } else {
+      return this.envCaseInsensitive.prototypes;
+    }
+  }
+  Avm1.prototype.get_use_new_invalid_bounds_value = function() {
+    return this.use_new_invalid_bounds_value;
+  }
+  Avm1.prototype.activate_use_new_invalid_bounds_value = function() {
+    this.use_new_invalid_bounds_value = true;
   }
   Avm1.prototype.setConstantPool = function(constantPool) {
     this.constantPool = constantPool;
@@ -31489,9 +31785,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1.prototype.runFrame = function(context) {
     this.removePending(context);
+    context.framePhase.set(new FramePhase(FramePhase.Idle));
     var prev = null;
     var next = this.clipExecList;
-    context.framePhase.set(new FramePhase(FramePhase.Idle));
     while (true) {
       var clip = next;
       if (!clip) {
@@ -31518,46 +31814,25 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.clipExecList = clip;
     }
   }
-  Avm1.prototype.runStackFrameForAction = function(active_clip, name, action, context) {
-    var parent_activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Actions Parent]"), active_clip);
-    var clip_obj = active_clip.getObject();
-    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj.coerceToObject(this));
-    var constant_pool = parent_activation.context.avm1.constantPool;
-    var child_name = parent_activation.id.child(name);
-    var child_activation = Avm1Activation.fromAction(context, child_name, active_clip.swfVersion(), child_scope, constant_pool, active_clip, clip_obj, null);
-    try {
-      child_activation.runActions(action);
-    } catch(e) {
-      avm1_root_error_handler(child_activation, e);
+  Avm1.prototype.getRegisteredConstructor = function(swf_version, symbol) {
+    var is_case_sensitive = Avm1.isCaseSensitive(swf_version);
+    var registry = is_case_sensitive ? this.envCaseSensitive.constructorRegistry : this.envCaseInsensitive.constructorRegistry;
+    return registry.get(symbol, is_case_sensitive);
+  }
+  Avm1.prototype.registerConstructor = function(swf_version, symbol, constructor) {
+    var is_case_sensitive = Avm1.isCaseSensitive(swf_version);
+    var registry = is_case_sensitive ? this.envCaseSensitive.constructorRegistry : this.envCaseInsensitive.constructorRegistry;
+    if (constructor) {
+      registry.insert(symbol, constructor, is_case_sensitive);
+    } else {
+      registry.remove(symbol, is_case_sensitive);
     }
-  }
-  Avm1.prototype.runStacFrameForMethod = function(active_clip, obj, name, args, context) {
-    if (!obj) return;
-    var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root(name), active_clip);
-    obj.callMethod(name, args, activation, Avm1ExecutionReason.INSTANCE.Special);
-  }
-  Avm1.prototype.runStackFrameForInitAction = function(active_clip, code, context) {
-    var parent_activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Init Parent]"), active_clip);
-    var clip_obj = active_clip.getObject();
-    var child_scope = new Avm1Scope(parent_activation.scope, new Avm1ScopeClass(Avm1ScopeClass.Target), clip_obj.coerceToObject(this));
-    var constant_pool = parent_activation.context.avm1.constantPool;
-    var child_name = parent_activation.id.child("[Init]");
-    var child_activation = Avm1Activation.fromAction(context, child_name, active_clip.swfVersion(), child_scope, constant_pool, active_clip, clip_obj, null);
-    child_activation.push(Avm1Value.INSTANCE.Undefined);
-    try {
-      child_activation.runActions(code);
-    } catch(e) {
-      avm1_root_error_handler(child_activation, e);
-    }
-  }
-  Avm1.prototype.globalObject = function() {
-    return this.globalScope.values;
   }
   
   function avm1_root_error_handler(activation, error) {
     if (error instanceof Avm1Error) {
       var message = error.value.coerceToString(activation);
-      console.log(message);
+      activation.context.avm_trace(message);
     } else {
       console.log(error);
     }
@@ -32990,7 +33265,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var element = r[i];
       var dobj = valid_orphan(element);
       if (dobj) {
-        if (dobj.PLACED_BY_SCRIPT) {
+        if (dobj.PLACED_BY_AVM2_SCRIPT) {
           a.push(element);
         }
       }
@@ -33418,6 +33693,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       console.log(message);
     }
   }
+  LogBackend.prototype.avm_warning = function(message) {
+    this.avm_trace("Warning: " + message);
+  }
 
   var PlayerEvent = function(type, data) {
     this.type = type;
@@ -33491,11 +33769,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.addEventListeners();
     this.debugRectLineShapeRender = this.renderer.registerShape([{
       type: 1,
-      width: 40,
       path2d: [[0, 0, 0], [2, 2000, 0], [2, 2000, 2000], [2, 0, 2000], [2, 0, 0]],
-      fill: {
-        type: 0,
-        color: [255, 255, 255, 1]
+      isClosed: false,
+      style: {
+        width: 40,
+        fillType: {
+          type: 0,
+          color: [255, 255, 255, 1]
+        }
       }
     }]);
     this.registerDeviceFont({
@@ -33944,6 +34225,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     } else {
       this.last_time = 0;
       this.time_offset = this.getTime();
+      this.canvas.style.cursor = "auto";
     }
     if (this.needsRender) {
       this.render();
@@ -34013,12 +34295,22 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     types.push(child);
     return types;
   }
+  function run_mouse_pick(context, require_button_mode) {
+    var children = context.stage.iterRenderList();
+    for (var i = children.length - 1; i >= 0; i--) {
+      var level = children[i];
+      if (level instanceof InteractiveObject) {
+        return level.mousePickAvm1(context, context.mousePosition, require_button_mode);
+      }
+    }
+    return null;
+  }
   Player.prototype.mousePick = function(context, type) {
     var clip = this.getRootClip();
     if (clip) {
       var needsRender = false;
       if ((type == "move") && !this.mouseData.pressed) {
-        var button = clip.mousePickAvm1(context, this.mousePosition, false);
+        var button = run_mouse_pick(context, true);
         if (button) {
           if (this.mouseData.hovered !== button) {
             if (this.mouseData.hovered) {
@@ -34182,6 +34474,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.runActions(context);
       return rval2;
     });
+    this.mutateWithUpdateContext(function(context) {
+      Player.updateDrag(context);
+    });
     return rval;
   }
   Player.prototype.executeVCamById = function(clip, idList, useScaleStage) {
@@ -34261,9 +34556,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             var activation = Avm1Activation.fromNothing(context, Avm1ActivationIdentifier.root("[Construct]"), actionInfo.clip);
             var prototype = action.constructor.get("prototype", activation);
             if (prototype) {
-              var object = actionInfo.clip.getObject();
-              if (object.a == Avm1Value.Object) {
-                object = object.b;
+              var object = actionInfo.clip.getObject1();
+              if (object) {
                 object.defineValue("__proto__", prototype, new Avm1Attribute().dontEnum().dontDelete());
                 for (var i = 0; i < action.events.length; i++) {
                   var event = action.events[i];
@@ -34333,7 +34627,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.stage.viewport_matrix.d = a[1];
     this.stage.viewport_matrix.tx = a[2] * 20;
     this.stage.viewport_matrix.ty = a[3] * 20;
-    if (isR) this.stage.render(context);
+    if (isR) this.stage.renderViewport(context);
     if (isB) this.stage.debugRender(context, this);
     this.renderer.submitFrame(backgroundColor, context.commands, cacheDraws);
     this.needsRender = false;
@@ -34769,7 +35063,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return null;
     }
   };
-  (function() {
+
+(function() {
     var css = `.pinkfie-root{
   position: relative;
   width: 100%;
@@ -34989,8 +35284,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.resize(640, 400);
     setInterval(this.tick.bind(this), 10);
   }
-  PinkFiePlayer.version = "1.4";
-  PinkFiePlayer.built = "2025-10-12";
+  PinkFiePlayer.version = "1.4.0";
+  PinkFiePlayer.built = "2026-2-2";
   PinkFiePlayer.isBeta = false;
   PinkFiePlayer.prototype.addNAS3 = function() {
     this.nas3 = document.createElement('div');
@@ -35324,7 +35619,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     loadingContainer.appendChild(a2);
     loadingContainer.appendChild(a3);
     var rfg = document.createElement('p');
-    rfg.textContent = "(c) 2025 EAP";
+    rfg.textContent = "(c) 2025 EAAQ2007P WYTV";
     rfg.style.color = "#000";
     rfg.style.margin = "4px";
     rfg.style.position = "absolute";
@@ -35932,6 +36227,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     this.oncleanup.emit();
   }
+  PinkFiePlayer.log = log;
   PinkFiePlayer.DEFAULT_OPTIONS = {
     autoplayPolicy: 'always',
     volume: 100,
