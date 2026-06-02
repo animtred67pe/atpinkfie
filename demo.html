@@ -43,9 +43,6 @@
 				position: absolute;
 				right: 0px;
 			}
-			#sampleSWFpkf {
-				width: 120px;
-			}
 			.pinkfielogo{
 				width: 87px;
 				height: 25px;
@@ -68,12 +65,9 @@
 	<body>
 		<div id="pkfcontrols">
 			<a href="https://animtred67pe.github.io/atpinkfie/" class="pinkfielogo"></a>
-			<div style="height: 20px; margin: 11px; position: absolute; left: 50%; transform: translate(-50%, 0);">
+			<div style="height: 20px; margin: 13px; position: absolute; left: 50%; transform: translate(-50%, 0);">
 				<a class="pkfcontrolB" id="loadswffile">Select File</a>
 				<label id="ggtitle5">No file selected.</label>
-				<label> </label>
-				<label>Sample SWF:</label>
-				<select value="" id="sampleSWFpkf"></select>
 			</div>
 			<a class="pkfcontrolC" title="SWF Reload" id="enswfreload" style="background-image: url(demo_icons.svg); background-position: 25px 0px;"></a>
 			<a class="pkfcontrolC" title="SWF Metadata" id="enswfmetadata" style="background-image: url(demo_icons.svg); margin: 8px 2px;"></a>
@@ -87,7 +81,6 @@
 		</div>
 		<label style="color: #888; position:fixed; bottom: 10px; right: 10px; margin: 0px; z-index: 99;" id="verinfo"></label>
 		<script src="pinkfie.js"></script>
-		<script src="pinkfie_logo.js"></script>
 		<script src="common.js"></script>
 		<script>
 			(function() {
@@ -172,8 +165,6 @@
 				var pkfcontrols = document.getElementById('pkfcontrols');
 				var ggtitle5 = document.getElementById("ggtitle5");
 
-				var sampleSWFpkf = document.getElementById("sampleSWFpkf");
-
 				playerArea.appendChild(player.root);
 
 				function _resize_() {
@@ -218,7 +209,6 @@
 						if (!file) {
 							return;
 						}
-						sampleSWFpkf.value = '';
 						loadSwfFile(file);
 					}, false);
 					sa.click();
@@ -249,7 +239,6 @@
 						if (item) {
 							if (item.kind === 'file') {
 								var file = item.getAsFile();
-								sampleSWFpkf.value = '';
 								loadSwfFile(file);
 							}
 						}
@@ -262,47 +251,12 @@
 				window.ondrop = dropHandler;
 				window.ondragover = dragOverHandler;
 
-				function loadSampleSWF(infoSample) {
-					var name = infoSample.name;
-					sampleSWFpkf.value = name;
-					if (infoSample.playerOptions) player.setOptions(infoSample.playerOptions);
-					if (infoSample.md5) {
-						loadSwfUrl(infoSample.md5.split("_"));
-					} else if (infoSample.url) {
-						loadSwfUrl(infoSample.url);
-					} else if (infoSample.file) {
-						loadSwfFile(infoSample.file);
-					}
-					document.title = name + " - PinkFie";
-				}
-				sampleSWFpkf.addEventListener("change", function() {
-					if (sampleSWFpkf.value) {
-						for (var k = 0; k < pinkfieSampleSWF.length; k++) {
-							var gd = pinkfieSampleSWF[k];
-							if (gd.name == sampleSWFpkf.value) {
-								loadSampleSWF(gd);
-								break;
-							}
-						}
-					}
-				});
-				for (var i = 0; i < pinkfieSampleSWF.length; i++) {
-					var element = pinkfieSampleSWF[i];
-					var name = element.name;
-					var g = document.createElement('option');
-					g.value = name;
-					g.textContent = name;
-					sampleSWFpkf.appendChild(g);
-				}
 				if (Common.swfUrl) {
-					if (!Common.autoplay) player.setOptions({autoplayPolicy: "never"})
-					sampleSWFpkf.value = '';
 					loadSwfUrl(Common.swfUrl);
 				} else {
-					sampleSWFpkf.value = '';
-					loadSampleSWF(pinkfieSampleSWF[0]);
 					document.title = initialTitle;
 				}	
+				if (!Common.autoplay) player.setOptions({autoplayPolicy: "never"});
 			}());
 		</script>
 	</body>

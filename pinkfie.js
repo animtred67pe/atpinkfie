@@ -371,248 +371,7 @@ var PinkFie = (function() {
   ByteStream.prototype.readSBFixed16 = function(n) {
     return this.readSB(n) / 0x10000;
   }
-  var LZMA = (function() {
-    function array_fill(_,q,w,e){var a=_.length,s=w||0,d=(e==null)?a:Math.min(e,a);for(var i=s;i<d;i++)_[i]=q;return _}
-    function __init(e){var t=[];t.push(e[12],e[13],e[14],e[15],e[16],e[4],e[5],e[6],e[7]);var s = 8;for(var _e=5;_e<9;++_e){if(t[_e]>=s){t[_e]=t[_e]-s|0;break}t[_e]=256+t[_e]-s|0,s=1}t.push(0,0,0,0);e.set(t,4);return e.subarray(4)}
-    function __reverseDecode2(e,t,s,i){var r=1,o=0,d=0;for (; d < i; ++d) {var _i=s.decodeBit(e,t+r);r=r<<1|_i,o|=_i<<d}return o}
-    function __decompress(e,t){var s=new Decoder,i=s.decodeHeader(e),r=i.uncompressedSize;if(s.setProperties(i),!s.decodeBody(e,t,r))throw new Error("Error in lzma data stream");return t}
-    var OutWindow = function() {
-      this._buffer = null,
-      this._stream = null,
-      this._pos = 0,
-      this._streamPos = 0,
-      this._windowSize = 0
-    }
-    OutWindow.prototype.create = function(e) {
-      this._buffer && this._windowSize === e || (this._buffer = new Uint8Array(e)),
-      this._windowSize = e
-    }
-    OutWindow.prototype.flush = function() {
-      var e = this._pos - this._streamPos;
-      e && (this._stream.writeBytes(this._buffer, e),
-      this._pos >= this._windowSize && (this._pos = 0),
-      this._streamPos = this._pos)
-    }
-    OutWindow.prototype.releaseStream = function() {
-      this.flush(),
-      this._stream = null
-    }
-    OutWindow.prototype.setStream = function(e) {
-      this._stream = e
-    }
-    OutWindow.prototype.init = function(_) {
-      var e = (_ == null) ? false : _;
-      e || (this._streamPos = 0,this._pos = 0)
-    }
-    OutWindow.prototype.copyBlock = function(e, t) {
-      var s = this._pos - e - 1;
-      for (s < 0 && (s += this._windowSize); t--; )
-        s >= this._windowSize && (s = 0),
-        this._buffer[this._pos++] = this._buffer[s++],
-        this._pos >= this._windowSize && this.flush()
-    }
-    OutWindow.prototype.putByte = function(e) {
-      this._buffer[this._pos++] = e,
-      this._pos >= this._windowSize && this.flush()
-    }
-    OutWindow.prototype.getByte = function(e) {
-      var t = this._pos - e - 1;
-      return t < 0 && (t += this._windowSize),this._buffer[t]
-    }
-    var RangeDecoder = function() {
-      this._stream = null,
-      this._code = 0,
-      this._range = -1
-    }
-    RangeDecoder.prototype.setStream = function(e) {
-      this._stream = e
-    }
-    RangeDecoder.prototype.releaseStream = function() {
-      this._stream = null
-    }
-    RangeDecoder.prototype.init = function() {
-      var e = 5;
-      for (this._code = 0,this._range = -1; e--; ) this._code = this._code << 8 | this._stream.readByte()
-    }
-    RangeDecoder.prototype.decodeDirectBits = function(e) {
-      var t = 0, s = e;
-      for (; s--; ) {
-        this._range >>>= 1;
-        var _e = this._code - this._range >>> 31;
-        this._code -= this._range & _e - 1,t = t << 1 | 1 - _e,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8)
-      }
-      return t
-    }
-    RangeDecoder.prototype.decodeBit = function(e, t) {
-      var s = e[t], i = (this._range >>> 11) * s;
-      return (2147483648 ^ this._code) < (2147483648 ^ i) ? (this._range = i,e[t] += 2048 - s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),0) : (this._range -= i,this._code -= i,e[t] -= s >>> 5,0 == (4278190080 & this._range) && (this._code = this._code << 8 | this._stream.readByte(),this._range <<= 8),1)
-    }
-    var BitTreeDecoder = function(e) {
-      this._models = array_fill(Array(1 << e), 1024),
-      this._numBitLevels = e
-    }
-    BitTreeDecoder.prototype.decode = function(e) {
-      var t = 1, s = this._numBitLevels;
-      for (; s--; )t = t << 1 | e.decodeBit(this._models, t);
-      return t - (1 << this._numBitLevels)
-    }
-    BitTreeDecoder.prototype.reverseDecode = function(e) {
-      var t = 1, s = 0, i = 0;
-      for (; i < this._numBitLevels; ++i) {
-        var r = e.decodeBit(this._models, t);
-        t = t << 1 | r,s |= r << i
-      }
-      return s
-    }
-    var LenDecoder = function() {
-      this._choice = [1024, 1024],
-      this._lowCoder = [],
-      this._midCoder = [],
-      this._highCoder = new BitTreeDecoder(8),
-      this._numPosStates = 0
-    }
-    LenDecoder.prototype.create = function(e) {
-      for (; this._numPosStates < e; ++this._numPosStates) this._lowCoder[this._numPosStates] = new BitTreeDecoder(3),this._midCoder[this._numPosStates] = new BitTreeDecoder(3)
-    }
-    LenDecoder.prototype.decode = function(e, t) {
-      return 0 === e.decodeBit(this._choice, 0) ? this._lowCoder[t].decode(e) : 0 === e.decodeBit(this._choice, 1) ? 8 + this._midCoder[t].decode(e) : 16 + this._highCoder.decode(e)
-    }
-    var Decoder2 = function() {
-      this._decoders = array_fill(Array(768), 1024)
-    }
-    Decoder2.prototype.decodeNormal = function(e) {
-      var t = 1;
-      do {
-        t = t << 1 | e.decodeBit(this._decoders, t)
-      } while (t < 256);
-      return 255 & t
-    }
-    Decoder2.prototype.decodeWithMatchByte = function(e, t) {
-      var s = 1;
-      do {
-        var i = t >> 7 & 1;
-        t <<= 1;
-        var r = e.decodeBit(this._decoders, (1 + i << 8) + s);
-        if (s = s << 1 | r,i !== r) {
-          for (; s < 256; )s = s << 1 | e.decodeBit(this._decoders, s);
-          break
-        }
-      } while (s < 256);
-      return 255 & s
-    }
-    var LiteralDecoder = function() {}
-    LiteralDecoder.prototype.create = function(e, t) {
-      if (this._coders && this._numPrevBits === t && this._numPosBits === e) return;
-      this._numPosBits = e,
-      this._posMask = (1 << e) - 1,
-      this._numPrevBits = t,
-      this._coders = [];
-      var s = 1 << this._numPrevBits + this._numPosBits;
-      for (; s--; )this._coders[s] = new Decoder2
-    }
-    LiteralDecoder.prototype.getDecoder = function(e, t) {
-      return this._coders[((e & this._posMask) << this._numPrevBits) + ((255 & t) >>> 8 - this._numPrevBits)]
-    }
-    var Decoder = function() {
-      this._outWindow = new OutWindow,
-      this._rangeDecoder = new RangeDecoder,
-      this._isMatchDecoders = array_fill(Array(192), 1024),
-      this._isRepDecoders = array_fill(Array(12), 1024),
-      this._isRepG0Decoders = array_fill(Array(12), 1024),
-      this._isRepG1Decoders = array_fill(Array(12), 1024),
-      this._isRepG2Decoders = array_fill(Array(12), 1024),
-      this._isRep0LongDecoders = array_fill(Array(192), 1024),
-      this._posDecoders = array_fill(Array(114), 1024),
-      this._posAlignDecoder = new BitTreeDecoder(4),
-      this._lenDecoder = new LenDecoder,
-      this._repLenDecoder = new LenDecoder,
-      this._literalDecoder = new LiteralDecoder,
-      this._dictionarySize = -1,
-      this._dictionarySizeCheck = -1,
-      this._posSlotDecoder = [new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6), new BitTreeDecoder(6)]
-    }
-    Decoder.prototype.setDictionarySize = function(e) {
-      return !(e < 0) && (this._dictionarySize !== e && (this._dictionarySize = e,this._dictionarySizeCheck = Math.max(this._dictionarySize, 1),this._outWindow.create(Math.max(this._dictionarySizeCheck, 4096))),!0)
-    }
-    Decoder.prototype.setLcLpPb = function(e, t, s) {
-      if (e > 8 || t > 4 || s > 4)return !1;
-      var i = 1 << s;
-      return this._literalDecoder.create(t, e),this._lenDecoder.create(i),this._repLenDecoder.create(i),this._posStateMask = i - 1,!0
-    }
-    Decoder.prototype.setProperties = function(e) {
-      if (!this.setLcLpPb(e.lc, e.lp, e.pb))throw Error("Incorrect stream properties");
-      if (!this.setDictionarySize(e.dictionarySize))throw Error("Invalid dictionary size")
-    }
-    Decoder.prototype.decodeHeader = function(e) {
-      if (e._$size < 13)return !1;
-      var t = e.readByte();
-      var s = t % 9;
-      t = ~~(t / 9);
-      var i = t % 5, r = ~~(t / 5);
-      var o = e.readByte();
-      o |= e.readByte() << 8,o |= e.readByte() << 16,o += 16777216 * e.readByte();
-      var d = e.readByte();
-      return d |= e.readByte() << 8,d |= e.readByte() << 16,d += 16777216 * e.readByte(),e.readByte(),e.readByte(),e.readByte(),e.readByte(),{lc: s,lp: i,pb: r,dictionarySize: o,uncompressedSize: d}
-    }
-    Decoder.prototype.decodeBody = function(e, t, s) {
-      var i, r, o = 0, d = 0, h = 0, c = 0, n = 0, _ = 0, a = 0;
-      for (this._rangeDecoder.setStream(e),this._rangeDecoder.init(),this._outWindow.setStream(t),this._outWindow.init(!1); _ < s; ) {
-        var _e1 = _ & this._posStateMask;
-        if (0 === this._rangeDecoder.decodeBit(this._isMatchDecoders, (o << 4) + _e1)) {
-          var _e = this._literalDecoder.getDecoder(_++, a);
-          a = o >= 7 ? _e.decodeWithMatchByte(this._rangeDecoder, this._outWindow.getByte(d)) : _e.decodeNormal(this._rangeDecoder),this._outWindow.putByte(a),o = o < 4 ? 0 : o - (o < 10 ? 3 : 6)
-        } else {
-          if (1 === this._rangeDecoder.decodeBit(this._isRepDecoders, o))i = 0,0 === this._rangeDecoder.decodeBit(this._isRepG0Decoders, o) ? 0 === this._rangeDecoder.decodeBit(this._isRep0LongDecoders, (o << 4) + _e1) && (o = o < 7 ? 9 : 11,i = 1) : (0 === this._rangeDecoder.decodeBit(this._isRepG1Decoders, o) ? r = h : (0 === this._rangeDecoder.decodeBit(this._isRepG2Decoders, o) ? r = c : (r = n,n = c),c = h),h = d,d = r),0 === i && (i = 2 + this._repLenDecoder.decode(this._rangeDecoder, _e1),o = o < 7 ? 8 : 11);
-          else {
-            n = c,c = h,h = d,i = 2 + this._lenDecoder.decode(this._rangeDecoder, _e1),o = o < 7 ? 7 : 10;
-            var _t = this._posSlotDecoder[i <= 5 ? i - 2 : 3].decode(this._rangeDecoder);
-            if (_t >= 4) {
-              var __e = (_t >> 1) - 1;
-              if (d = (2 | 1 & _t) << __e,_t < 14)d += __reverseDecode2(this._posDecoders, d - _t - 1, this._rangeDecoder, __e);
-              else if (d += this._rangeDecoder.decodeDirectBits(__e - 4) << 4,d += this._posAlignDecoder.reverseDecode(this._rangeDecoder),d < 0) {
-                if (-1 === d)break;
-                return !1
-              }
-            } else d = _t
-          }
-          if (d >= _ || d >= this._dictionarySizeCheck)return !1;
-          this._outWindow.copyBlock(d, i),_ += i,a = this._outWindow.getByte(0)
-        }
-      }
-      return this._outWindow.releaseStream(),this._rangeDecoder.releaseStream(),!0
-    }
-    var InStream = function(e) {
-      this._$data = e;
-      this._$size = e.length;
-      this._$offset = 0;
-    }
-    InStream.prototype.readByte = function() {
-      return this._$data[this._$offset++];
-    }
-    var OutStream = function(e) {
-      this.size = 0;
-      this.buffers = e;
-    }
-    OutStream.prototype.writeBytes = function(e, t) {
-      if (e.length === t) {
-        this.buffers.set(e, this.size);
-      } else {
-        this.buffers.set(e.subarray(0, t), this.size);
-      }
-      this.size += t;
-    }
-    return {
-      parse: function (data, fileLength) {
-        var s = new Uint8Array(data.length);
-        for (var i = 0; i < data.length; i++) {
-          s[i] = data[i];
-        }
-        var i = new Uint8Array(fileLength);
-        __decompress(new InStream(__init(s)), new OutStream(i));
-        return i
-      }
-    };
-  }());
+  var LZMA = (function(){function array_fill(_,q,w,e){var a=_.length,s=w||0,d=(e==null)?a:Math.min(e,a);for(var i=s;i<d;i++)_[i]=q;return _};function __init(e){var t=[];t.push(e[12],e[13],e[14],e[15],e[16],e[4],e[5],e[6],e[7]);var s = 8;for(var _e=5;_e<9;++_e){if(t[_e]>=s){t[_e]=t[_e]-s|0;break}t[_e]=256+t[_e]-s|0,s=1}t.push(0,0,0,0);e.set(t,4);return e.subarray(4)};function __reverseDecode2(e,t,s,i){var r=1,o=0,d=0;for (; d < i; ++d) {var _i=s.decodeBit(e,t+r);r=r<<1|_i,o|=_i<<d}return o};function __decompress(e,t){var s=new Decoder,i=s.decodeHeader(e),r=i.uncompressedSize;if(s.setProperties(i),!s.decodeBody(e,t,r))throw new Error("Error in lzma data stream");return t};var OutWindow=function(){this._buffer=null,this._stream=null,this._pos=0,this._streamPos=0,this._windowSize=0};OutWindow.prototype.create=function(e){this._buffer&&this._windowSize===e||(this._buffer=new Uint8Array(e)),this._windowSize=e};OutWindow.prototype.flush = function() {var e=this._pos-this._streamPos;e&&(this._stream.writeBytes(this._buffer,e),this._pos>=this._windowSize&&(this._pos=0),this._streamPos=this._pos)};OutWindow.prototype.releaseStream=function(){this.flush(),this._stream=null};OutWindow.prototype.setStream=function(e){this._stream=e};OutWindow.prototype.init=function(_){var e=(_==null)?false:_;e||(this._streamPos=0,this._pos=0)};OutWindow.prototype.copyBlock=function(e,t){var s=this._pos-e-1;for(s<0&&(s+=this._windowSize);t--;)s>=this._windowSize&&(s=0),this._buffer[this._pos++]=this._buffer[s++],this._pos>=this._windowSize&&this.flush()};OutWindow.prototype.putByte=function(e){this._buffer[this._pos++]=e,this._pos>=this._windowSize&&this.flush()};OutWindow.prototype.getByte=function(e){var t=this._pos-e-1;return t<0&&(t+=this._windowSize),this._buffer[t]};var RangeDecoder=function(){this._stream=null,this._code=0,this._range=-1};RangeDecoder.prototype.setStream=function(e){this._stream=e};RangeDecoder.prototype.releaseStream=function(){this._stream=null};RangeDecoder.prototype.init=function(){var e=5;for(this._code=0,this._range=-1; e--;)this._code=this._code<<8|this._stream.readByte()};RangeDecoder.prototype.decodeDirectBits=function(e){var t=0,s=e;for(;s--;){this._range>>>=1;var _e=this._code-this._range>>>31;this._code-=this._range&_e-1,t=t<<1|1-_e,0==(4278190080&this._range)&&(this._code=this._code<<8|this._stream.readByte(),this._range<<=8)}return t};RangeDecoder.prototype.decodeBit=function(e,t){var s=e[t],i=(this._range>>>11)*s;return(2147483648^this._code)<(2147483648^i)?(this._range=i,e[t]+=2048-s>>>5,0==(4278190080&this._range)&&(this._code=this._code<<8|this._stream.readByte(),this._range<<=8),0):(this._range-=i,this._code-=i,e[t]-=s>>>5,0==(4278190080&this._range)&&(this._code=this._code<<8|this._stream.readByte(),this._range<<=8),1)};var BitTreeDecoder=function(e){this._models=array_fill(Array(1<<e),1024),this._numBitLevels=e};BitTreeDecoder.prototype.decode=function(e){var t=1,s=this._numBitLevels;for(;s--;)t=t<<1|e.decodeBit(this._models,t);return t-(1<<this._numBitLevels)};BitTreeDecoder.prototype.reverseDecode=function(e){var t=1,s=0,i=0;for (;i<this._numBitLevels;++i) {var r=e.decodeBit(this._models,t);t=t<<1|r,s|=r<<i}return s};var LenDecoder=function(){this._choice=[1024, 1024],this._lowCoder=[],this._midCoder=[],this._highCoder=new BitTreeDecoder(8),this._numPosStates=0};LenDecoder.prototype.create=function(e){for(;this._numPosStates<e;++this._numPosStates)this._lowCoder[this._numPosStates]=new BitTreeDecoder(3),this._midCoder[this._numPosStates]=new BitTreeDecoder(3)};LenDecoder.prototype.decode=function(e,t){return 0===e.decodeBit(this._choice,0)?this._lowCoder[t].decode(e):0===e.decodeBit(this._choice,1)?8+this._midCoder[t].decode(e):16+this._highCoder.decode(e)};var Decoder2=function(){this._decoders=array_fill(Array(768),1024)};Decoder2.prototype.decodeNormal=function(e){var t=1;do{t=t<<1|e.decodeBit(this._decoders,t)}while(t<256);return 255&t};Decoder2.prototype.decodeWithMatchByte=function(e,t){var s=1;do{var i=t>>7&1;t<<=1;var r=e.decodeBit(this._decoders,(1+i<<8)+s);if (s=s<<1|r,i!==r) {for(;s<256;)s=s<<1|e.decodeBit(this._decoders,s);break}}while(s<256);return 255&s};var LiteralDecoder=function(){};LiteralDecoder.prototype.create=function(e,t){if (this._coders&&this._numPrevBits===t&&this._numPosBits===e)return;this._numPosBits=e,this._posMask=(1<<e)-1,this._numPrevBits=t,this._coders=[];var s=1<<this._numPrevBits+this._numPosBits;for(;s--;)this._coders[s]=new Decoder2};LiteralDecoder.prototype.getDecoder = function(e, t) {return this._coders[((e&this._posMask)<<this._numPrevBits)+((255&t)>>>8-this._numPrevBits)]};var Decoder=function(){this._outWindow=new OutWindow,this._rangeDecoder=new RangeDecoder,this._isMatchDecoders=array_fill(Array(192),1024),this._isRepDecoders=array_fill(Array(12),1024),this._isRepG0Decoders=array_fill(Array(12),1024),this._isRepG1Decoders=array_fill(Array(12),1024),this._isRepG2Decoders=array_fill(Array(12),1024),this._isRep0LongDecoders=array_fill(Array(192),1024),this._posDecoders=array_fill(Array(114),1024),this._posAlignDecoder=new BitTreeDecoder(4),this._lenDecoder=new LenDecoder,this._repLenDecoder=new LenDecoder,this._literalDecoder=new LiteralDecoder,this._dictionarySize=-1,this._dictionarySizeCheck=-1,this._posSlotDecoder=[new BitTreeDecoder(6),new BitTreeDecoder(6),new BitTreeDecoder(6),new BitTreeDecoder(6)]};Decoder.prototype.setDictionarySize=function(e){return!(e<0)&&(this._dictionarySize!==e&&(this._dictionarySize=e,this._dictionarySizeCheck=Math.max(this._dictionarySize, 1),this._outWindow.create(Math.max(this._dictionarySizeCheck, 4096))),!0)};Decoder.prototype.setLcLpPb=function(e,t,s){if(e>8||t>4||s>4)return!1;var i=1<<s;return this._literalDecoder.create(t,e),this._lenDecoder.create(i),this._repLenDecoder.create(i),this._posStateMask=i-1,!0};Decoder.prototype.setProperties=function(e){if(!this.setLcLpPb(e.lc,e.lp,e.pb))throw Error("Incorrect stream properties");if(!this.setDictionarySize(e.dictionarySize))throw Error("Invalid dictionary size")};Decoder.prototype.decodeHeader=function(e){if(e._$size<13)return!1;var t=e.readByte();var s=t%9;t=~~(t/9);var i=t%5,r=~~(t/5);var o=e.readByte();o|=e.readByte()<<8,o|=e.readByte()<<16,o+=16777216*e.readByte();var d=e.readByte();return d|=e.readByte()<<8,d|=e.readByte()<<16,d+=16777216*e.readByte(),e.readByte(),e.readByte(),e.readByte(),e.readByte(),{lc:s,lp:i,pb:r,dictionarySize:o,uncompressedSize:d}};Decoder.prototype.decodeBody=function(e,t,s){var i,r,o=0,d=0,h=0,c=0,n=0,_=0,a=0;for(this._rangeDecoder.setStream(e),this._rangeDecoder.init(),this._outWindow.setStream(t),this._outWindow.init(!1);_<s;) {var _e1=_&this._posStateMask;if (0===this._rangeDecoder.decodeBit(this._isMatchDecoders,(o<<4)+_e1)) {var _e=this._literalDecoder.getDecoder(_++,a);a=o>=7?_e.decodeWithMatchByte(this._rangeDecoder,this._outWindow.getByte(d)):_e.decodeNormal(this._rangeDecoder),this._outWindow.putByte(a),o=o<4?0:o-(o<10?3:6)}else{if(1===this._rangeDecoder.decodeBit(this._isRepDecoders,o))i=0,0===this._rangeDecoder.decodeBit(this._isRepG0Decoders,o)?0===this._rangeDecoder.decodeBit(this._isRep0LongDecoders,(o<<4)+_e1)&&(o=o<7?9:11,i=1):(0===this._rangeDecoder.decodeBit(this._isRepG1Decoders,o)?r=h:(0===this._rangeDecoder.decodeBit(this._isRepG2Decoders,o)?r=c:(r=n,n=c),c=h),h=d,d=r),0===i&&(i=2+this._repLenDecoder.decode(this._rangeDecoder,_e1),o=o<7?8:11);else{n=c,c=h,h=d,i=2+this._lenDecoder.decode(this._rangeDecoder,_e1),o=o<7?7:10;var _t=this._posSlotDecoder[i<=5?i-2:3].decode(this._rangeDecoder);if(_t>=4){var __e=(_t>>1)-1;if(d=(2|1&_t)<<__e,_t<14)d+=__reverseDecode2(this._posDecoders,d-_t-1,this._rangeDecoder,__e);else if(d+=this._rangeDecoder.decodeDirectBits(__e-4)<<4,d+=this._posAlignDecoder.reverseDecode(this._rangeDecoder),d<0){if(-1===d)break;return!1}}else d=_t}if(d>=_||d>=this._dictionarySizeCheck)return!1;this._outWindow.copyBlock(d,i),_+=i,a=this._outWindow.getByte(0)}}return this._outWindow.releaseStream(),this._rangeDecoder.releaseStream(),!0};var InStream=function(e){this._$data=e;this._$size=e.length;this._$offset=0};InStream.prototype.readByte=function(){return this._$data[this._$offset++]};var OutStream=function(e){this.size=0;this.buffers=e};OutStream.prototype.writeBytes=function(e,t){if(e.length===t)this.buffers.set(e,this.size);else this.buffers.set(e.subarray(0,t),this.size);this.size += t};return{parse:function(data,fileLength){var s=new Uint8Array(data.length);for(var i=0;i<data.length;i++)s[i]=data[i];var i=new Uint8Array(fileLength);__decompress(new InStream(__init(s)),new OutStream(i));return i}}}());
 
 var pako = (function(e,t){var _={};"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t(_);return _}(this,(function(e){var t=function(e,t,i,n){for(var a=65535&e|0,r=e>>>16&65535|0,o=0;0!==i;){i-=o=i>2e3?2e3:i;do{r=r+(a=a+t[n++]|0)|0}while(--o);a%=65521,r%=65521}return a|r<<16|0},i=new Uint32Array(function(){for(var e,t=[],i=0;i<256;i++){e=i;for(var n=0;n<8;n++)e=1&e?3988292384^e>>>1:e>>>1;t[i]=e}return t}()),n=function(e,t,n,a){var r=i,o=a+n;e^=-1;for(var s=a;s<o;s++)e=e>>>8^r[255&(e^t[s])];return-1^e},a=16209,r=function(e,t){var i,n,r,o,s,l,f,d,h,c,u,w,b,m,k,_,v,g,p,y,x,E,R,A,Z=e.state;i=e.next_in,R=e.input,n=i+(e.avail_in-5),r=e.next_out,A=e.output,o=r-(t-e.avail_out),s=r+(e.avail_out-257),l=Z.dmax,f=Z.wsize,d=Z.whave,h=Z.wnext,c=Z.window,u=Z.hold,w=Z.bits,b=Z.lencode,m=Z.distcode,k=(1<<Z.lenbits)-1,_=(1<<Z.distbits)-1;e:do{w<15&&(u+=R[i++]<<w,w+=8,u+=R[i++]<<w,w+=8),v=b[u&k];t:for(;;){if(u>>>=g=v>>>24,w-=g,0===(g=v>>>16&255))A[r++]=65535&v;else{if(!(16&g)){if(0==(64&g)){v=b[(65535&v)+(u&(1<<g)-1)];continue t}if(32&g){Z.mode=16191;break e}e.msg="invalid literal/length code",Z.mode=a;break e}p=65535&v,(g&=15)&&(w<g&&(u+=R[i++]<<w,w+=8),p+=u&(1<<g)-1,u>>>=g,w-=g),w<15&&(u+=R[i++]<<w,w+=8,u+=R[i++]<<w,w+=8),v=m[u&_];i:for(;;){if(u>>>=g=v>>>24,w-=g,!(16&(g=v>>>16&255))){if(0==(64&g)){v=m[(65535&v)+(u&(1<<g)-1)];continue i}e.msg="invalid distance code",Z.mode=a;break e}if(y=65535&v,w<(g&=15)&&(u+=R[i++]<<w,(w+=8)<g&&(u+=R[i++]<<w,w+=8)),(y+=u&(1<<g)-1)>l){e.msg="invalid distance too far back",Z.mode=a;break e}if(u>>>=g,w-=g,y>(g=r-o)){if((g=y-g)>d&&Z.sane){e.msg="invalid distance too far back",Z.mode=a;break e}if(x=0,E=c,0===h){if(x+=f-g,g<p){p-=g;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}}else if(h<g){if(x+=f+h-g,(g-=h)<p){p-=g;do{A[r++]=c[x++]}while(--g);if(x=0,h<p){p-=g=h;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}}}else if(x+=h-g,g<p){p-=g;do{A[r++]=c[x++]}while(--g);x=r-y,E=A}for(;p>2;)A[r++]=E[x++],A[r++]=E[x++],A[r++]=E[x++],p-=3;p&&(A[r++]=E[x++],p>1&&(A[r++]=E[x++]))}else{x=r-y;do{A[r++]=A[x++],A[r++]=A[x++],A[r++]=A[x++],p-=3}while(p>2);p&&(A[r++]=A[x++],p>1&&(A[r++]=A[x++]))}break}}break}}while(i<n&&r<s);i-=p=w>>3,u&=(1<<(w-=p<<3))-1,e.next_in=i,e.next_out=r,e.avail_in=i<n?n-i+5:5-(i-n),e.avail_out=r<s?s-r+257:257-(r-s),Z.hold=u,Z.bits=w},o=15,s=new Uint16Array([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258,0,0]),l=new Uint8Array([16,16,16,16,16,16,16,16,17,17,17,17,18,18,18,18,19,19,19,19,20,20,20,20,21,21,21,21,16,72,78]),f=new Uint16Array([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0]),d=new Uint8Array([16,16,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,64,64]),h=function(e,t,i,n,a,r,h,c){var u,w,b,m,k,_,v,g,p,y=c.bits,x=0,E=0,R=0,A=0,Z=0,S=0,T=0,O=0,U=0,D=0,I=null,B=new Uint16Array(16),N=new Uint16Array(16),C=null;for(x=0;x<=o;x++)B[x]=0;for(E=0;E<n;E++)B[t[i+E]]++;for(Z=y,A=o;A>=1&&0===B[A];A--);if(Z>A&&(Z=A),0===A)return a[r++]=20971520,a[r++]=20971520,c.bits=1,0;for(R=1;R<A&&0===B[R];R++);for(Z<R&&(Z=R),O=1,x=1;x<=o;x++)if(O<<=1,(O-=B[x])<0)return-1;if(O>0&&(0===e||1!==A))return-1;for(N[1]=0,x=1;x<o;x++)N[x+1]=N[x]+B[x];for(E=0;E<n;E++)0!==t[i+E]&&(h[N[t[i+E]]++]=E);if(0===e?(I=C=h,_=20):1===e?(I=s,C=l,_=257):(I=f,C=d,_=0),D=0,E=0,x=R,k=r,S=Z,T=0,b=-1,m=(U=1<<Z)-1,1===e&&U>852||2===e&&U>592)return 1;for(;;){v=x-T,h[E]+1<_?(g=0,p=h[E]):h[E]>=_?(g=C[h[E]-_],p=I[h[E]-_]):(g=96,p=0),u=1<<x-T,R=w=1<<S;do{a[k+(D>>T)+(w-=u)]=v<<24|g<<16|p|0}while(0!==w);for(u=1<<x-1;D&u;)u>>=1;if(0!==u?(D&=u-1,D+=u):D=0,E++,0==--B[x]){if(x===A)break;x=t[i+h[E]]}if(x>Z&&(D&m)!==b){for(0===T&&(T=Z),k+=R,O=1<<(S=x-T);S+T<A&&!((O-=B[S+T])<=0);)S++,O<<=1;if(U+=1<<S,1===e&&U>852||2===e&&U>592)return 1;a[b=D&m]=Z<<24|S<<16|k-r|0}}return 0!==D&&(a[k+D]=x-T<<24|64<<16|0),c.bits=Z,0},c={Z_NO_FLUSH:0,Z_PARTIAL_FLUSH:1,Z_SYNC_FLUSH:2,Z_FULL_FLUSH:3,Z_FINISH:4,Z_BLOCK:5,Z_TREES:6,Z_OK:0,Z_STREAM_END:1,Z_NEED_DICT:2,Z_ERRNO:-1,Z_STREAM_ERROR:-2,Z_DATA_ERROR:-3,Z_MEM_ERROR:-4,Z_BUF_ERROR:-5,Z_NO_COMPRESSION:0,Z_BEST_SPEED:1,Z_BEST_COMPRESSION:9,Z_DEFAULT_COMPRESSION:-1,Z_FILTERED:1,Z_HUFFMAN_ONLY:2,Z_RLE:3,Z_FIXED:4,Z_DEFAULT_STRATEGY:0,Z_BINARY:0,Z_TEXT:1,Z_UNKNOWN:2,Z_DEFLATED:8},u=c.Z_FINISH,w=c.Z_BLOCK,b=c.Z_TREES,m=c.Z_OK,k=c.Z_STREAM_END,_=c.Z_NEED_DICT,v=c.Z_STREAM_ERROR,g=c.Z_DATA_ERROR,p=c.Z_MEM_ERROR,y=c.Z_BUF_ERROR,x=c.Z_DEFLATED,E=16180,R=16190,A=16191,Z=16192,S=16194,T=16199,O=16200,U=16206,D=16209,I=function(e){return(e>>>24&255)+(e>>>8&65280)+((65280&e)<<8)+((255&e)<<24)};function B(){this.strm=null,this.mode=0,this.last=!1,this.wrap=0,this.havedict=!1,this.flags=0,this.dmax=0,this.check=0,this.total=0,this.head=null,this.wbits=0,this.wsize=0,this.whave=0,this.wnext=0,this.window=null,this.hold=0,this.bits=0,this.length=0,this.offset=0,this.extra=0,this.lencode=null,this.distcode=null,this.lenbits=0,this.distbits=0,this.ncode=0,this.nlen=0,this.ndist=0,this.have=0,this.next=null,this.lens=new Uint16Array(320),this.work=new Uint16Array(288),this.lendyn=null,this.distdyn=null,this.sane=0,this.back=0,this.was=0}var N,C,z=function(e){if(!e)return 1;var t=e.state;return!t||t.strm!==e||t.mode<E||t.mode>16211?1:0},F=function(e){if(z(e))return v;var t=e.state;return e.total_in=e.total_out=t.total=0,e.msg="",t.wrap&&(e.adler=1&t.wrap),t.mode=E,t.last=0,t.havedict=0,t.flags=-1,t.dmax=32768,t.head=null,t.hold=0,t.bits=0,t.lencode=t.lendyn=new Int32Array(852),t.distcode=t.distdyn=new Int32Array(592),t.sane=1,t.back=-1,m},L=function(e){if(z(e))return v;var t=e.state;return t.wsize=0,t.whave=0,t.wnext=0,F(e)},M=function(e,t){var i;if(z(e))return v;var n=e.state;return t<0?(i=0,t=-t):(i=5+(t>>4),t<48&&(t&=15)),t&&(t<8||t>15)?v:(null!==n.window&&n.wbits!==t&&(n.window=null),n.wrap=i,n.wbits=t,L(e))},H=function(e,t){if(!e)return v;var i=new B;e.state=i,i.strm=e,i.window=null,i.mode=E;var n=M(e,t);return n!==m&&(e.state=null),n},j=!0,K=function(e){if(j){N=new Int32Array(512),C=new Int32Array(32);for(var t=0;t<144;)e.lens[t++]=8;for(;t<256;)e.lens[t++]=9;for(;t<280;)e.lens[t++]=7;for(;t<288;)e.lens[t++]=8;for(h(1,e.lens,0,288,N,0,e.work,{bits:9}),t=0;t<32;)e.lens[t++]=5;h(2,e.lens,0,32,C,0,e.work,{bits:5}),j=!1}e.lencode=N,e.lenbits=9,e.distcode=C,e.distbits=5},P=function(e,t,i,n){var a,r=e.state;return null===r.window&&(r.wsize=1<<r.wbits,r.wnext=0,r.whave=0,r.window=new Uint8Array(r.wsize)),n>=r.wsize?(r.window.set(t.subarray(i-r.wsize,i),0),r.wnext=0,r.whave=r.wsize):((a=r.wsize-r.wnext)>n&&(a=n),r.window.set(t.subarray(i-n,i-n+a),r.wnext),(n-=a)?(r.window.set(t.subarray(i-n,i),0),r.wnext=n,r.whave=r.wsize):(r.wnext+=a,r.wnext===r.wsize&&(r.wnext=0),r.whave<r.wsize&&(r.whave+=a))),0},Y={inflateReset:L,inflateReset2:M,inflateResetKeep:F,inflateInit:function(e){return H(e,15)},inflateInit2:H,inflate:function(e,i){var a,o,s,l,f,d,c,B,N,C,F,L,M,H,j,Y,G,X,W,q,J,Q,V,$,ee=0,te=new Uint8Array(4),ie=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]);if(z(e)||!e.output||!e.input&&0!==e.avail_in)return v;(a=e.state).mode===A&&(a.mode=Z),f=e.next_out,s=e.output,c=e.avail_out,l=e.next_in,o=e.input,d=e.avail_in,B=a.hold,N=a.bits,C=d,F=c,Q=m;e:for(;;)switch(a.mode){case E:if(0===a.wrap){a.mode=Z;break}for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(2&a.wrap&&35615===B){0===a.wbits&&(a.wbits=15),a.check=0,te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0),B=0,N=0,a.mode=16181;break}if(a.head&&(a.head.done=!1),!(1&a.wrap)||(((255&B)<<8)+(B>>8))%31){e.msg="incorrect header check",a.mode=D;break}if((15&B)!==x){e.msg="unknown compression method",a.mode=D;break}if(N-=4,J=8+(15&(B>>>=4)),0===a.wbits&&(a.wbits=J),J>15||J>a.wbits){e.msg="invalid window size",a.mode=D;break}a.dmax=1<<a.wbits,a.flags=0,e.adler=a.check=1,a.mode=512&B?16189:A,B=0,N=0;break;case 16181:for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(a.flags=B,(255&a.flags)!==x){e.msg="unknown compression method",a.mode=D;break}if(57344&a.flags){e.msg="unknown header flags set",a.mode=D;break}a.head&&(a.head.text=B>>8&1),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0,a.mode=16182;case 16182:for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.head&&(a.head.time=B),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,te[2]=B>>>16&255,te[3]=B>>>24&255,a.check=n(a.check,te,4,0)),B=0,N=0,a.mode=16183;case 16183:for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.head&&(a.head.xflags=255&B,a.head.os=B>>8),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0,a.mode=16184;case 16184:if(1024&a.flags){for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.length=B,a.head&&(a.head.extra_len=B),512&a.flags&&4&a.wrap&&(te[0]=255&B,te[1]=B>>>8&255,a.check=n(a.check,te,2,0)),B=0,N=0}else a.head&&(a.head.extra=null);a.mode=16185;case 16185:if(1024&a.flags&&((L=a.length)>d&&(L=d),L&&(a.head&&(J=a.head.extra_len-a.length,a.head.extra||(a.head.extra=new Uint8Array(a.head.extra_len)),a.head.extra.set(o.subarray(l,l+L),J)),512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,a.length-=L),a.length))break e;a.length=0,a.mode=16186;case 16186:if(2048&a.flags){if(0===d)break e;L=0;do{J=o[l+L++],a.head&&J&&a.length<65536&&(a.head.name+=String.fromCharCode(J))}while(J&&L<d);if(512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,J)break e}else a.head&&(a.head.name=null);a.length=0,a.mode=16187;case 16187:if(4096&a.flags){if(0===d)break e;L=0;do{J=o[l+L++],a.head&&J&&a.length<65536&&(a.head.comment+=String.fromCharCode(J))}while(J&&L<d);if(512&a.flags&&4&a.wrap&&(a.check=n(a.check,o,L,l)),d-=L,l+=L,J)break e}else a.head&&(a.head.comment=null);a.mode=16188;case 16188:if(512&a.flags){for(;N<16;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(4&a.wrap&&B!==(65535&a.check)){e.msg="header crc mismatch",a.mode=D;break}B=0,N=0}a.head&&(a.head.hcrc=a.flags>>9&1,a.head.done=!0),e.adler=a.check=0,a.mode=A;break;case 16189:for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}e.adler=a.check=I(B),B=0,N=0,a.mode=R;case R:if(0===a.havedict)return e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,_;e.adler=a.check=1,a.mode=A;case A:if(i===w||i===b)break e;case Z:if(a.last){B>>>=7&N,N-=7&N,a.mode=U;break}for(;N<3;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}switch(a.last=1&B,N-=1,3&(B>>>=1)){case 0:a.mode=16193;break;case 1:if(K(a),a.mode=T,i===b){B>>>=2,N-=2;break e}break;case 2:a.mode=16196;break;case 3:e.msg="invalid block type",a.mode=D}B>>>=2,N-=2;break;case 16193:for(B>>>=7&N,N-=7&N;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if((65535&B)!=(B>>>16^65535)){e.msg="invalid stored block lengths",a.mode=D;break}if(a.length=65535&B,B=0,N=0,a.mode=S,i===b)break e;case S:a.mode=16195;case 16195:if(L=a.length){if(L>d&&(L=d),L>c&&(L=c),0===L)break e;s.set(o.subarray(l,l+L),f),d-=L,l+=L,c-=L,f+=L,a.length-=L;break}a.mode=A;break;case 16196:for(;N<14;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(a.nlen=257+(31&B),B>>>=5,N-=5,a.ndist=1+(31&B),B>>>=5,N-=5,a.ncode=4+(15&B),B>>>=4,N-=4,a.nlen>286||a.ndist>30){e.msg="too many length or distance symbols",a.mode=D;break}a.have=0,a.mode=16197;case 16197:for(;a.have<a.ncode;){for(;N<3;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.lens[ie[a.have++]]=7&B,B>>>=3,N-=3}for(;a.have<19;)a.lens[ie[a.have++]]=0;if(a.lencode=a.lendyn,a.lenbits=7,V={bits:a.lenbits},Q=h(0,a.lens,0,19,a.lencode,0,a.work,V),a.lenbits=V.bits,Q){e.msg="invalid code lengths set",a.mode=D;break}a.have=0,a.mode=16198;case 16198:for(;a.have<a.nlen+a.ndist;){for(;Y=(ee=a.lencode[B&(1<<a.lenbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(G<16)B>>>=j,N-=j,a.lens[a.have++]=G;else{if(16===G){for($=j+2;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(B>>>=j,N-=j,0===a.have){e.msg="invalid bit length repeat",a.mode=D;break}J=a.lens[a.have-1],L=3+(3&B),B>>>=2,N-=2}else if(17===G){for($=j+3;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}N-=j,J=0,L=3+(7&(B>>>=j)),B>>>=3,N-=3}else{for($=j+7;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}N-=j,J=0,L=11+(127&(B>>>=j)),B>>>=7,N-=7}if(a.have+L>a.nlen+a.ndist){e.msg="invalid bit length repeat",a.mode=D;break}for(;L--;)a.lens[a.have++]=J}}if(a.mode===D)break;if(0===a.lens[256]){e.msg="invalid code -- missing end-of-block",a.mode=D;break}if(a.lenbits=9,V={bits:a.lenbits},Q=h(1,a.lens,0,a.nlen,a.lencode,0,a.work,V),a.lenbits=V.bits,Q){e.msg="invalid literal/lengths set",a.mode=D;break}if(a.distbits=6,a.distcode=a.distdyn,V={bits:a.distbits},Q=h(2,a.lens,a.nlen,a.ndist,a.distcode,0,a.work,V),a.distbits=V.bits,Q){e.msg="invalid distances set",a.mode=D;break}if(a.mode=T,i===b)break e;case T:a.mode=O;case O:if(d>=6&&c>=258){e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,r(e,F),f=e.next_out,s=e.output,c=e.avail_out,l=e.next_in,o=e.input,d=e.avail_in,B=a.hold,N=a.bits,a.mode===A&&(a.back=-1);break}for(a.back=0;Y=(ee=a.lencode[B&(1<<a.lenbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(Y&&0==(240&Y)){for(X=j,W=Y,q=G;Y=(ee=a.lencode[q+((B&(1<<X+W)-1)>>X)])>>>16&255,G=65535&ee,!(X+(j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}B>>>=X,N-=X,a.back+=X}if(B>>>=j,N-=j,a.back+=j,a.length=G,0===Y){a.mode=16205;break}if(32&Y){a.back=-1,a.mode=A;break}if(64&Y){e.msg="invalid literal/length code",a.mode=D;break}a.extra=15&Y,a.mode=16201;case 16201:if(a.extra){for($=a.extra;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.length+=B&(1<<a.extra)-1,B>>>=a.extra,N-=a.extra,a.back+=a.extra}a.was=a.length,a.mode=16202;case 16202:for(;Y=(ee=a.distcode[B&(1<<a.distbits)-1])>>>16&255,G=65535&ee,!((j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(0==(240&Y)){for(X=j,W=Y,q=G;Y=(ee=a.distcode[q+((B&(1<<X+W)-1)>>X)])>>>16&255,G=65535&ee,!(X+(j=ee>>>24)<=N);){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}B>>>=X,N-=X,a.back+=X}if(B>>>=j,N-=j,a.back+=j,64&Y){e.msg="invalid distance code",a.mode=D;break}a.offset=G,a.extra=15&Y,a.mode=16203;case 16203:if(a.extra){for($=a.extra;N<$;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}a.offset+=B&(1<<a.extra)-1,B>>>=a.extra,N-=a.extra,a.back+=a.extra}if(a.offset>a.dmax){e.msg="invalid distance too far back",a.mode=D;break}a.mode=16204;case 16204:if(0===c)break e;if(L=F-c,a.offset>L){if((L=a.offset-L)>a.whave&&a.sane){e.msg="invalid distance too far back",a.mode=D;break}L>a.wnext?(L-=a.wnext,M=a.wsize-L):M=a.wnext-L,L>a.length&&(L=a.length),H=a.window}else H=s,M=f-a.offset,L=a.length;L>c&&(L=c),c-=L,a.length-=L;do{s[f++]=H[M++]}while(--L);0===a.length&&(a.mode=O);break;case 16205:if(0===c)break e;s[f++]=a.length,c--,a.mode=O;break;case U:if(a.wrap){for(;N<32;){if(0===d)break e;d--,B|=o[l++]<<N,N+=8}if(F-=c,e.total_out+=F,a.total+=F,4&a.wrap&&F&&(e.adler=a.check=a.flags?n(a.check,s,F,f-F):t(a.check,s,F,f-F)),F=c,4&a.wrap&&(a.flags?B:I(B))!==a.check){e.msg="incorrect data check",a.mode=D;break}B=0,N=0}a.mode=16207;case 16207:if(a.wrap&&a.flags){for(;N<32;){if(0===d)break e;d--,B+=o[l++]<<N,N+=8}if(4&a.wrap&&B!==(4294967295&a.total)){e.msg="incorrect length check",a.mode=D;break}B=0,N=0}a.mode=16208;case 16208:Q=k;break e;case D:Q=g;break e;case 16210:return p;default:return v}return e.next_out=f,e.avail_out=c,e.next_in=l,e.avail_in=d,a.hold=B,a.bits=N,(a.wsize||F!==e.avail_out&&a.mode<D&&(a.mode<U||i!==u))&&P(e,e.output,e.next_out,F-e.avail_out),C-=e.avail_in,F-=e.avail_out,e.total_in+=C,e.total_out+=F,a.total+=F,4&a.wrap&&F&&(e.adler=a.check=a.flags?n(a.check,s,F,e.next_out-F):t(a.check,s,F,e.next_out-F)),e.data_type=a.bits+(a.last?64:0)+(a.mode===A?128:0)+(a.mode===T||a.mode===S?256:0),(0===C&&0===F||i===u)&&Q===m&&(Q=y),Q},inflateEnd:function(e){if(z(e))return v;var t=e.state;return t.window&&(t.window=null),e.state=null,m},inflateGetHeader:function(e,t){if(z(e))return v;var i=e.state;return 0==(2&i.wrap)?v:(i.head=t,t.done=!1,m)},inflateSetDictionary:function(e,i){var n,a=i.length;return z(e)||0!==(n=e.state).wrap&&n.mode!==R?v:n.mode===R&&t(1,i,a,0)!==n.check?g:P(e,i,a,a)?(n.mode=16210,p):(n.havedict=1,m)},inflateInfo:"pako inflate (from Nodeca project)"};function G(e){return G="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},G(e)}var X=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},W=function(e){for(var t=Array.prototype.slice.call(arguments,1);t.length;){var i=t.shift();if(i){if("object"!==G(i))throw new TypeError(i+"must be non-object");for(var n in i)X(i,n)&&(e[n]=i[n])}}return e},q=function(e){for(var t=0,i=0,n=e.length;i<n;i++)t+=e[i].length;for(var a=new Uint8Array(t),r=0,o=0,s=e.length;r<s;r++){var l=e[r];a.set(l,o),o+=l.length}return a},J=!0;try{String.fromCharCode.apply(null,new Uint8Array(1))}catch(e){J=!1}for(var Q=new Uint8Array(256),V=0;V<256;V++)Q[V]=V>=252?6:V>=248?5:V>=240?4:V>=224?3:V>=192?2:1;Q[254]=Q[254]=1;var $=function(e){if("function"==typeof TextEncoder&&TextEncoder.prototype.encode)return(new TextEncoder).encode(e);var t,i,n,a,r,o=e.length,s=0;for(a=0;a<o;a++)55296==(64512&(i=e.charCodeAt(a)))&&a+1<o&&56320==(64512&(n=e.charCodeAt(a+1)))&&(i=65536+(i-55296<<10)+(n-56320),a++),s+=i<128?1:i<2048?2:i<65536?3:4;for(t=new Uint8Array(s),r=0,a=0;r<s;a++)55296==(64512&(i=e.charCodeAt(a)))&&a+1<o&&56320==(64512&(n=e.charCodeAt(a+1)))&&(i=65536+(i-55296<<10)+(n-56320),a++),i<128?t[r++]=i:i<2048?(t[r++]=192|i>>>6,t[r++]=128|63&i):i<65536?(t[r++]=224|i>>>12,t[r++]=128|i>>>6&63,t[r++]=128|63&i):(t[r++]=240|i>>>18,t[r++]=128|i>>>12&63,t[r++]=128|i>>>6&63,t[r++]=128|63&i);return t},ee=function(e,t){var i,n,a=t||e.length;if("function"==typeof TextDecoder&&TextDecoder.prototype.decode)return(new TextDecoder).decode(e.subarray(0,t));var r=new Array(2*a);for(n=0,i=0;i<a;){var o=e[i++];if(o<128)r[n++]=o;else{var s=Q[o];if(s>4)r[n++]=65533,i+=s-1;else{for(o&=2===s?31:3===s?15:7;s>1&&i<a;)o=o<<6|63&e[i++],s--;s>1?r[n++]=65533:o<65536?r[n++]=o:(o-=65536,r[n++]=55296|o>>10&1023,r[n++]=56320|1023&o)}}}return function(e,t){if(t<65534&&e.subarray&&J)return String.fromCharCode.apply(null,e.length===t?e:e.subarray(0,t));for(var i="",n=0;n<t;n++)i+=String.fromCharCode(e[n]);return i}(r,n)},te=function(e,t){(t=t||e.length)>e.length&&(t=e.length);for(var i=t-1;i>=0&&128==(192&e[i]);)i--;return i<0||0===i?t:i+Q[e[i]]>t?i:t},ie={2:"need dictionary",1:"stream end",0:"","-1":"file error","-2":"stream error","-3":"data error","-4":"insufficient memory","-5":"buffer error","-6":"incompatible version"};var ne=function(){this.input=null,this.next_in=0,this.avail_in=0,this.total_in=0,this.output=null,this.next_out=0,this.avail_out=0,this.total_out=0,this.msg="",this.state=null,this.data_type=2,this.adler=0};var ae=function(){this.text=0,this.time=0,this.xflags=0,this.os=0,this.extra=null,this.extra_len=0,this.name="",this.comment="",this.hcrc=0,this.done=!1},re=Object.prototype.toString,oe=c.Z_NO_FLUSH,se=c.Z_FINISH,le=c.Z_OK,fe=c.Z_STREAM_END,de=c.Z_NEED_DICT,he=c.Z_STREAM_ERROR,ce=c.Z_DATA_ERROR,ue=c.Z_MEM_ERROR;function we(e){this.options=W({chunkSize:65536,windowBits:15,to:""},e||{});var t=this.options;t.raw&&t.windowBits>=0&&t.windowBits<16&&(t.windowBits=-t.windowBits,0===t.windowBits&&(t.windowBits=-15)),!(t.windowBits>=0&&t.windowBits<16)||e&&e.windowBits||(t.windowBits+=32),t.windowBits>15&&t.windowBits<48&&0==(15&t.windowBits)&&(t.windowBits|=15),this.err=0,this.msg="",this.ended=!1,this.chunks=[],this.strm=new ne,this.strm.avail_out=0;var i=Y.inflateInit2(this.strm,t.windowBits);if(i!==le)throw new Error(ie[i]);if(this.header=new ae,Y.inflateGetHeader(this.strm,this.header),t.dictionary&&("string"==typeof t.dictionary?t.dictionary=$(t.dictionary):"[object ArrayBuffer]"===re.call(t.dictionary)&&(t.dictionary=new Uint8Array(t.dictionary)),t.raw&&(i=Y.inflateSetDictionary(this.strm,t.dictionary))!==le))throw new Error(ie[i])}function be(e,t){var i=new we(t);if(i.push(e),i.err)throw i.msg||ie[i.err];return i.result}we.prototype.push=function(e,t){var i,n,a,r=this.strm,o=this.options.chunkSize,s=this.options.dictionary;if(this.ended)return!1;for(n=t===~~t?t:!0===t?se:oe,"[object ArrayBuffer]"===re.call(e)?r.input=new Uint8Array(e):r.input=e,r.next_in=0,r.avail_in=r.input.length;;){for(0===r.avail_out&&(r.output=new Uint8Array(o),r.next_out=0,r.avail_out=o),(i=Y.inflate(r,n))===de&&s&&((i=Y.inflateSetDictionary(r,s))===le?i=Y.inflate(r,n):i===ce&&(i=de));r.avail_in>0&&i===fe&&r.state.wrap>0&&0!==e[r.next_in];)Y.inflateReset(r),i=Y.inflate(r,n);switch(i){case he:case ce:case de:case ue:return this.onEnd(i),this.ended=!0,!1}if(a=r.avail_out,r.next_out&&(0===r.avail_out||i===fe))if("string"===this.options.to){var l=te(r.output,r.next_out),f=r.next_out-l,d=ee(r.output,l);r.next_out=f,r.avail_out=o-f,f&&r.output.set(r.output.subarray(l,l+f),0),this.onData(d)}else this.onData(r.output.length===r.next_out?r.output:r.output.subarray(0,r.next_out));if(i!==le||0!==a){if(i===fe)return i=Y.inflateEnd(this.strm),this.onEnd(i),this.ended=!0,!0;if(0===r.avail_in)break}}return!0},we.prototype.onData=function(e){this.chunks.push(e)},we.prototype.onEnd=function(e){e===le&&("string"===this.options.to?this.result=this.chunks.join(""):this.result=q(this.chunks)),this.chunks=[],this.err=e,this.msg=this.strm.msg};var me=we,ke=be,_e=function(e,t){return(t=t||{}).raw=!0,be(e,t)},ve=be,ge=c,pe={Inflate:me,inflate:ke,inflateRaw:_e,ungzip:ve,constants:ge};e.Inflate=me,e.constants=ge,e.default=pe,e.inflate=ke,e.inflateRaw=_e,e.ungzip=ve,Object.defineProperty(e,"__esModule",{value:!0})})));
 
@@ -629,20 +388,11 @@ var AT_ASAO=(function(){var _1=function(){this.bytePos=0,this.bitPos=0};_1.proto
  * MP3 IN JAVASCRIPT ES5
  */ 
 var AT_MP3=(function(){
-  var BitStream = function(vec) {
+  var BitStream = function() {
     this._end = 0;
     this.viewUint8 = null;
     this.bitPos = 0;
     this.bytePos = 0;
-  }
-  BitStream.prototype.readBit = function() {
-    if (this._end <= this.bytePos) return 0;
-    var tmp = (this.viewUint8[this.bytePos] >> (7 - (this.bitPos++)));
-    if (this.bitPos > 7) {
-      this.bitPos = 0;
-      this.bytePos++;
-    }
-    return tmp & 1;
   }
   BitStream.prototype.get_bits = function(num) {
     if (num === 0) return 0;
@@ -650,7 +400,15 @@ var AT_MP3=(function(){
     var value = 0;
     while (num--) {
       value <<= 1;
-      value |= this.readBit();
+      var v = 0;
+      if (this.bytePos < this._end) {
+        v = (this.viewUint8[this.bytePos] >> (7 - (this.bitPos++))) & 1;
+        if (this.bitPos > 7) {
+          this.bitPos = 0;
+          this.bytePos++;
+        }
+      }
+      value |= v;
     }
     return value;
   }
@@ -11230,98 +10988,6 @@ var AT_NIHAV_VP6 = (function() {
     var action = {};
     var lenFix = length;
     switch (opcode) {
-      case 0x00: // End
-      case 0x04: // NextFrame
-      case 0x05: // PreviousFrame
-      case 0x06: // Play
-      case 0x07: // Stop
-      case 0x08: // ToggleQuality
-      case 0x09: // StopSounds
-      case 0x0A: // Add
-      case 0x0B: // Subtract
-      case 0x0C: // Multiply
-      case 0x0D: // Divide
-      case 0x0E: // Equals
-      case 0x0F: // Less
-      case 0x10: // And
-      case 0x11: // Or
-      case 0x12: // Not
-      case 0x13: // StringEquals
-      case 0x14: // StringLength
-      case 0x15: // StringExtract
-
-      case 0x17: // Pop
-      case 0x18: // ToInteger
-
-      case 0x1C: // GetVariable
-      case 0x1D: // SetVariable
-
-      case 0x20: // SetTarget2
-      case 0x21: // StringAdd
-      case 0x22: // GetProperty
-      case 0x23: // SetProperty
-      case 0x24: // CloneSprite
-      case 0x25: // RemoveSprite
-      case 0x26: // Trace
-      case 0x27: // StartDrag
-      case 0x28: // EndDrag
-      case 0x29: // StringLess
-      case 0x2A: // Throw
-      case 0x2B: // CastOp
-      case 0x2C: // ImplementsOp
-      case 0x2D: // FsCommand2
-
-      case 0x30: // RandomNumber
-      case 0x31: // MBStringLength
-      case 0x32: // CharToAscii
-      case 0x33: // AsciiToChar
-      case 0x34: // GetTime
-      case 0x35: // MBStringExtract
-      case 0x36: // MBCharToAscii
-      case 0x37: // MBAsciiToChar
-
-      case 0x3A: // Delete
-      case 0x3B: // Delete2
-      case 0x3C: // DefineLocal
-      case 0x3D: // CallFunction
-      case 0x3E: // Return
-      case 0x3F: // Modulo
-      case 0x40: // NewObject
-      case 0x41: // DefineLocal2
-      case 0x42: // InitArray
-      case 0x43: // InitObject
-      case 0x44: // TypeOf
-      case 0x45: // TargetPath
-      case 0x46: // Enumerate
-      case 0x47: // Add2
-      case 0x48: // Less2
-      case 0x49: // Equals2
-      case 0x4a: // ToNumber
-      case 0x4b: // ToString
-      case 0x4c: // PushDuplicate
-      case 0x4d: // StackSwap
-      case 0x4e: // GetMember
-      case 0x4f: // SetMember
-      case 0x50: // Increment
-      case 0x51: // Decrement
-      case 0x52: // CallMethod
-      case 0x53: // NewMethod
-      case 0x54: // InstanceOf
-      case 0x55: // Enumerate2
-
-      case 0x60: // BitAnd
-      case 0x61: // BitOr
-      case 0x62: // BitXor
-      case 0x63: // BitLShift
-      case 0x64: // BitRShift
-      case 0x65: // BitURShift
-      case 0x66: // StrictEquals
-      case 0x67: // Greater
-      case 0x68: // StringGreater
-      case 0x69: // Extends
-
-      case 0x9E: // Call
-        break;
       case 0x81: // GotoFrame
         action.frame = this.byteStream.readUint16();
         break;
@@ -11499,7 +11165,6 @@ var AT_NIHAV_VP6 = (function() {
         action.sceneOffset = ((flags & 0b10) != 0) ? this.byteStream.readUint16() : 0;
         break;
       default:
-        console.log("Unknown AVM1 opcode: " + opcode);
         this.byteStream.byte_offset += length;
     }
     action.len = lenFix;
@@ -30233,8 +29898,312 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1Activation.prototype.runActions = function(code) {
     var read = new Avm1Reader(code);
-    while (true) {
-      var result = this.doAction(code, read);
+    while (read.bytesAvailable > 0) {
+      var result = null;
+      var aScript = read.readAction();
+      var actionCode = aScript.opcode;
+      switch (actionCode) {
+        case 0x00:
+          return new Avm1ReturnType(Avm1ReturnType.implicit);
+        case 0x81:
+          result = this.actionGotoFrame(aScript);
+          break;
+        case 0x83:
+          result = this.actionGetURL(aScript);
+          break;
+        case 0x04:
+          result = this.actionNextFrame();
+          break;
+        case 0x05:
+          result = this.actionPreviousFrame();
+          break;
+        case 0x06:
+          result = this.actionPlay();
+          break;
+        case 0x07:
+          result = this.actionStop();
+          break;
+        case 0x08:
+          result = this.actionToggleQuality();
+          break;
+        case 0x09:
+          result = this.actionStopSounds();
+          break;
+        case 0x8A:
+          result = this.actionWaitForFrame(aScript);
+          break;
+        case 0x8B:
+          result = this.actionSetTarget(aScript);
+          break;
+        case 0x96:
+          result = this.actionPush(aScript);
+          break;
+        case 0x17:
+          result = this.actionPop();
+          break;
+        case 0x0A:
+          result = this.actionAdd();
+          break;
+        case 0x0B:
+          result = this.actionSubtract();
+          break;
+        case 0x0C:
+          result = this.actionMultiply();
+          break;
+        case 0x0D:
+          result = this.actionDivide();
+          break;
+        case 0x0E:
+          result = this.actionEquals();
+          break;
+        case 0x0F:
+          result = this.actionLess();
+          break;
+        case 0x10:
+          result = this.actionAnd();
+          break;
+        case 0x11:
+          result = this.actionOr();
+          break;
+        case 0x12:
+          result = this.actionNot();
+          break;
+        case 0x13:
+          result = this.actionStringEquals();
+          break;
+        case 0x14:
+          result = this.actionStringLength();
+          break;
+        case 0x21:
+          result = this.actionStringAdd();
+          break;
+        case 0x15:
+          result = this.actionStringExtract();
+          break;
+        case 0x29:
+          result = this.actionStringLess();
+          break;
+        case 0x31:
+          result = this.actionMBStringLength();
+          break;
+        case 0x35:
+          result = this.actionMBStringExtract();
+          break;
+        case 0x18:
+          result = this.actionToInteger();
+          break;
+        case 0x32:
+          result = this.actionCharToAscii();
+          break;
+        case 0x33:
+          result = this.actionAsciiToChar();
+          break;
+        case 0x36:
+          result = this.actionCharToAscii();
+          break;
+        case 0x37:
+          result = this.actionAsciiToChar();
+          break;
+        case 0x99:
+          result = this.actionJump(aScript, read);
+          break;
+        case 0x9D:
+          result = this.actionIf(aScript, read);
+          break;
+        case 0x9E:
+          result = this.actionCall();
+          break;
+        case 0x1C:
+          result = this.actionGetVariable();
+          break;
+        case 0x1D:
+          result = this.actionSetVariable();
+          break;
+        case 0x9A:
+          result = this.actionGetURL2();
+          break;
+        case 0x9F:
+          result = this.actionGotoFrame2(aScript);
+          break;
+        case 0x20:
+          result = this.actionSetTarget2();
+          break;
+        case 0x22:
+          result = this.actionGetProperty();
+          break;
+        case 0x23:
+          result = this.actionSetProperty();
+          break;
+        case 0x24:
+          result = this.actionCloneSprite();
+          break;
+        case 0x25:
+          result = this.actionRemoveSprite();
+          break;
+        case 0x27:
+          result = this.actionStartDrag();
+          break;
+        case 0x28:
+          result = this.actionEndDrag();
+          break;
+        case 0x8D:
+          result = this.actionWaitForFrame2();
+          break;
+        case 0x26:
+          result = this.actionTrace();
+          break;
+        case 0x34:
+          result = this.actionGetTime();
+          break;
+        case 0x30:
+          result = this.actionRandomNumber();
+          break;
+        case 0x8C:
+          result = this.actionGotoLabel(aScript);
+          break;
+        case 0x3d:
+          result = this.actionCallFunction();
+          break;
+        case 0x52:
+          result = this.actionCallMethod();
+          break;
+        case 0x88:
+          result = this.actionConstantPool(aScript);
+          break;
+        case 0x8e:
+        case 0x9b:
+          result = this.actionDefineFunction(aScript, read, code);
+          break;
+        case 0x3c:
+          result = this.actionDefineLocal();
+          break;
+        case 0x41:
+          result = this.actionDefineLocal2();
+          break;
+        case 0x3a:
+          result = this.actionDelete();
+          break;
+        case 0x3b:
+          result = this.actionDelete2();
+          break;
+        case 0x46:
+          result = this.actionEnumerate();
+          break;
+        case 0x49:
+          result = this.actionEquals2();
+          break;
+        case 0x4e:
+          result = this.actionGetMember();
+          break;
+        case 0x42:
+          result = this.actionInitArray();
+          break;
+        case 0x43:
+          result = this.actionInitObject();
+          break;
+        case 0x53:
+          result = this.actionNewMethod();
+          break;
+        case 0x40:
+          result = this.actionNewObject();
+          break;
+        case 0x4f:
+          result = this.actionSetMember();
+          break;
+        case 0x45:
+          result = this.actionTargetPath();
+          break;
+        case 0x94:
+          result = this.actionWith(aScript);
+          break;
+        case 0x4a:
+          result = this.actionToNumber();
+          break;
+        case 0x4b:
+          result = this.actionToString();
+          break;
+        case 0x44:
+          result = this.actionTypeOf();
+          break;
+        case 0x47:
+          result = this.actionAdd2();
+          break;
+        case 0x48:
+          result = this.actionLess2();
+          break;
+        case 0x3f:
+          result = this.actionModulo();
+          break;
+        case 0x60:
+          result = this.actionBitAnd();
+          break;
+        case 0x61:
+          result = this.actionBitOr();
+          break;
+        case 0x62:
+          result = this.actionBitXor();
+          break;
+        case 0x63:
+          result = this.actionBitLShift();
+          break;
+        case 0x64:
+          result = this.actionBitRShift();
+          break;
+        case 0x65:
+          result = this.actionBitURShift();
+          break;
+        case 0x50:
+          result = this.actionIncrement();
+          break;
+        case 0x51:
+          result = this.actionDecrement();
+          break;
+        case 0x4c:
+          result = this.actionPushDuplicate();
+          break;
+        case 0x3e:
+          result = this.actionReturn();
+          break;
+        case 0x4d:
+          result = this.actionStackSwap();
+          break;
+        case 0x87:
+          result = this.actionStoreRegister(aScript);
+          break;
+        case 0x54:
+          result = this.actionInstanceOf();
+          break;
+        case 0x55:
+          result = this.actionEnumerate2();
+          break;
+        case 0x66:
+          result = this.actionStrictEquals();
+          break;
+        case 0x67:
+          result = this.actionGreater();
+          break;
+        case 0x68:
+          result = this.actionStringGreater();
+          break;
+        case 0x69:
+          result = this.actionExtends();
+          break;
+        case 0x2b:
+          result = this.actionCastOp();
+          break;
+        case 0x2c:
+          result = this.actionImplementsOp();
+          break;
+        case 0x8f:
+          result = this.actionTry(aScript, read, code);
+          break;
+        case 0x2a:
+          result = this.actionThrow();
+          break;
+        default:
+          log.error("Unknown AVM1 opcode: " + actionCode);
+          result = Avm1FrameControl.objContinue;
+      }
       if (result) {
         if (result.type === Avm1FrameControl.return) {
           return result.value;
@@ -30243,30 +30212,1064 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         return new Avm1ReturnType(Avm1ReturnType.implicit);
       }
     }
+    return new Avm1ReturnType(Avm1ReturnType.implicit);
   }
-  Avm1Activation.prototype.doAction = function(data, reader) {
-    if (!(reader.bytesAvailable > 0)) {
-      return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
+  Avm1Activation.prototype.doAction = function(code, read) {
+    
+  }
+  Avm1Activation.prototype.actionEnd = function() {
+    return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
+  }
+  Avm1Activation.prototype.actionGotoFrame = function(aScript) {
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        clip.gotoFrame(this.context, aScript.frame + 1, true);
+      }
     }
-    var aScript = reader.readAction();
-    var actionCode = aScript.opcode;
-    if (actionCode == undefined) {
-      return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetURL = function(aScript) {
+    var encoding = this.getEncoding();
+    var target = encoding.decode(aScript.target);
+    var url = encoding.decode(aScript.url);
+    console.log(target);
+    console.log(url);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionNextFrame = function() {
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        clip.nextFrame(this.context);
+      }
     }
-    var actionFunc = avm1Callback[actionCode];
-    if (actionFunc) {
-      var result = actionFunc.call(this, aScript, reader, data);
-      if (result) {
-        return result;
-      } else {
-        console.log("Avm1:" + actionCode);
-        return null;
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionPreviousFrame = function() {
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        clip.prevFrame(this.context);
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionPlay = function() {
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        clip.play(this.context);
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStop = function() {
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        clip.stop(this.context);
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionToggleQuality = function() {
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStopSounds = function() {
+    this.context.stopAllSounds();
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionWaitForFrame = function(aScript) {
+    var frame_num = aScript.frame;
+    var loaded;
+    if (frame_num > 16000) {
+      loaded = false;
+    } else {
+      loaded = true;
+      var clip = this.target_clip;
+      if (clip) {
+        if (clip instanceof MovieClip) {
+          loaded = clip.getFramesloaded() >= Math.min(frame_num, clip.getHeaderFrames());
+        }
+      }
+    }
+    if (!loaded) {
+      avm1_skip_actions(r, aScript.numActionsToSkip);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionSetTarget = function(aScript) {
+    var target = this.getEncoding().decode(aScript.target);
+    return this.setTarget(target);
+  }
+  Avm1Activation.prototype.actionPush = function(aScript) {
+    var values = aScript.values;
+    for (var i = 0; i < values.length; i++) {
+      var val = values[i];
+      var type = val.type;
+      var value = val.value;
+      switch(type) {
+        case 0:
+          this.push(Avm1Value.fromString(this.getEncoding().decode(value)));
+          break;
+        case 2:
+          this.push(Avm1Value.INSTANCE.Null);
+          break;
+        case 3:
+          this.push(Avm1Value.INSTANCE.Undefined);
+          break;
+        case 4:
+          this.stackPush(this.getCurrentRegister(value));
+          break;
+        case 1:
+        case 6:
+        case 7:
+          this.push(Avm1Value.fromNumber(value));
+          break;
+        case 5:
+          this.push(Avm1Value.fromBoolean(value));
+          break;
+        case 8:
+        case 9:
+          if (value in this.constantPool) {
+            this.push(Avm1Value.fromString(this.constantPool[value]));
+          } else {
+            log.warn("ActionPush: Constant pool index " + value + " out of range (len = " + this.constantPool.length + ")");
+            this.push(Avm1Value.INSTANCE.Undefined);
+          }
+          break;
+        default:
+          console.log("value:" + type);
+          this.push(Avm1Value.INSTANCE.Undefined);
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionPop = function() {
+    this.pop();
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionAdd = function() {
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = b + a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionSubtract = function() {
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = b - a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionMultiply = function() {
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = b * a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDivide = function() {
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = ((a == 0) && (this.swfVersion < 5)) ? Avm1Value.fromString("#ERROR#") : Avm1Value.fromNumber(b / a);
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionEquals = function() {
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = b == a;
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionLess = function() {
+    var a = this.pop();
+    var b = this.pop();
+    var result = b.coerceToNumber(this) < a.coerceToNumber(this);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionAnd = function() {
+    var a = this.pop();
+    var b = this.pop();
+    var result = b.asBool(this.swfVersion) && a.asBool(this.swfVersion);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionOr = function() {
+    var a = this.pop();
+    var b = this.pop();
+    var result = b.asBool(this.swfVersion) || a.asBool(this.swfVersion);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionNot = function() {
+    var a = this.pop();
+    var result = !a.asBool(this.swfVersion);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringEquals = function() {
+    var a = this.pop().coerceToString(this);
+    var b = this.pop().coerceToString(this);
+    var result = b == a;
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringLength = function() {
+    // AS1 strlen
+    // In SWF6+, this is the same as String.length (returns number of UTF-16 code units).
+    // TODO: In SWF5, this returns the byte length, even though the encoding is locale dependent.
+    var val = this.pop().coerceToString(this);
+    this.push(Avm1Value.fromNumber(val.length));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringAdd = function() {
+    // SWFv4 string concatenation
+    // TODO(Herschel): Result with non-string operands?
+    var a = this.pop().coerceToString(this);
+    var b = this.pop().coerceToString(this);
+    var s = b + a;
+    this.push(Avm1Value.fromString(s));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringExtract = function() {
+    var count = this.pop().coerceToI32(this);
+    var index = this.pop().coerceToI32(this);
+    index = (index >= 1) ? (index - 1) : 0;
+    var string = this.pop().coerceToString(this);
+    var result = (count < 0) ? string.substr(index) : string.substr(index, count);
+    this.push(Avm1Value.fromString(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringLess = function() {
+    var a = this.pop().coerceToString(this);
+    var b = this.pop().coerceToString(this);
+    var result = b < a;
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionMBStringLength = function() {
+    var val = this.pop();
+    var len = val.coerceToString(this).length;
+    this.push(Avm1Value.fromNumber(len));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionMBStringExtract = function() {
+    console.log("ActionMBStringExtract");
+  }
+  Avm1Activation.prototype.actionToInteger = function() {
+    var val = this.pop();
+    var result = val.coerceToI32(this);
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionCharToAscii = function() {
+    console.log("ActionCharToAscii");
+  }
+  Avm1Activation.prototype.actionAsciiToChar = function() {
+    console.log("ActionAsciiToChar");
+  }
+  Avm1Activation.prototype.actionJump = function(aScript, reader) {
+    reader.seek(aScript.offset);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionIf = function(aScript, reader) {
+    var val = this.pop();
+    if (val.asBool(this.swfVersion)) {
+      reader.seek(aScript.offset);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionCall = function() {
+    var arg = this.pop();
+    var target = this.target_clip_or_root();
+    var call_frame = null;
+    if (arg.a == Avm1Value.Number) {
+      if (target instanceof MovieClip) {
+        call_frame = [target, arg.b >>> 0];
       }
     } else {
-      log.error("Unknown AVM1 opcode: " + actionCode);
+      var frame_path = arg.coerceToString(this);
+      var s = this.resolveVariablePath(target, frame_path);
+      if (s) {
+        var clip = s[0].asDisplayObject();
+        if (clip) {
+          if (clip instanceof MovieClip) {
+            var frame = s[1];
+            var frame_n = Number(frame);
+            if (Number.isInteger(frame_n)) {
+              call_frame = [clip, frame_n >>> 0];
+            } else {
+              var f = clip.frameLabelToNumber(frame, this.context);
+              if (f != null) {
+                call_frame = [clip, f];
+              }
+            }
+          }
+        }
+      }
+    }
+    if (call_frame) {
+      var actions = call_frame[0].actionsOnFrame(this.context, call_frame[1]);
+      for (var i = 0; i < actions.length; i++) {
+        var action = actions[i];
+        this.runChildFrameForAction("[Frame Call]", call_frame[0], action);
+      }
+    } else {
+      console.log("Call: Invalid call");
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetVariable = function() {
+    var var_path_val = this.pop();
+    var path = var_path_val.coerceToString(this);
+    var value = this.getVariable(path).getValue();
+    this.stackPush(value);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionSetVariable = function() {
+    // Flash 4-style variable
+    var value = this.pop();
+    var var_path_val = this.pop();
+    var var_path = var_path_val.coerceToString(this);
+    this.setVariable(var_path, value);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetURL2 = function() {
+    var target_val = this.pop();
+    var target = target_val.coerceToString(this);
+    var url_val = this.pop();
+    var url = url_val.coerceToString(this);
+    console.log("ActionGetURL2");
+    console.log(url);
+    console.log(target);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGotoFrame2 = function(aScript) {
+    var clip = this.target_clip_or_root();
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        var frame = this.pop();
+        avm1_globals.movieclip.goto_frame(clip, this, [frame], !aScript.setPlaying, aScript.sceneOffset);
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionSetTarget2 = function() {
+    var target = this.pop();
+    var base_clip = this.base_clip;
+    if (base_clip.AVM1_REMOVED) {
+      this.setTargetClip(null);
+      return Avm1FrameControl.objContinue;
+    }
+    switch(target.a) {
+      case Avm1Value.String:
+        return this.setTarget(target.b);
+      case Avm1Value.Undefined:
+        this.setTargetClip((this.swfVersion > 6) ? null : base_clip);
+        break;
+      case Avm1Value.Object:
+        var clip = target.b.asDisplayObject();
+        if (clip) {
+          this.setTargetClip(clip);
+        } else {
+          var t = target.coerceToString(this);
+          return this.setTarget(t);
+        }
+        break;
+      case Avm1Value.MovieClip:
+        var o = target.coerceToObjectOrBare(this);
+        var clip = o.asDisplayObject();
+        if (clip) {
+          this.setTargetClip(clip);
+        } else {
+          var t = target.coerceToString(this);
+          return this.setTarget(t);
+        }
+        break;
+      default:
+        var t = target.coerceToString(this);
+        return this.setTarget(t);
+    }
+    var clip_obj = this.target_clip_or_base_clip().getObject1OrBare();
+    this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetProperty = function() {
+    var prop_index = this.pop().coerceToNumber(this);
+    var path = this.pop();
+    var clip;
+    if (this.target_clip) {
+      clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
+    } else {
+      clip = this.resolveTargetDisplayObject(this.base_clip, path, false);
+    }
+    var property;
+    if (!Number.isFinite(prop_index) && (prop_index <= -1.0)) {
+
+    } else {
+      property = this.context.avm1.displayProperties.getByIndex(prop_index >>> 0);
+    }
+    var result;
+    if (clip) {
+      if (property) {
+        result = property.get(this, clip);
+      } else {
+        result = Avm1Value.INSTANCE.Undefined;
+      }
+    } else {
+      result = Avm1Value.INSTANCE.Undefined;
+    }
+    this.stackPush(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionSetProperty = function() {
+    var prop_value = this.pop();
+    var prop_index = this.pop().coerceToNumber(this);
+    var path = this.pop();
+    var clip;
+    if (this.target_clip) {
+      clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
+    } else {
+      clip = this.resolveTargetDisplayObject(this.base_clip, path, false);
+    }
+    var property;
+    if (!Number.isFinite(prop_index) && (prop_index <= -1.0)) {
+      property = null;
+    } else {
+      property = this.context.avm1.displayProperties.getByIndex(prop_index >>> 0);
+    }
+    if (property) {
+      if (!clip && property.isReadOnly()) {
+        avm1_stage_object.action_property_coerce(this, prop_index, prop_value);
+      }
+    }
+    if (clip) {
+      if (property) {
+        property.set(this, clip, prop_value);
+      } else {
+        console.log("SetProperty: Invalid property " + prop_index);
+      }
+    } else {
+      console.log("SetProperty: Invalid target: " + path);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionCloneSprite = function() {
+    var depth = this.pop().coerceToI32(this);
+    var target = this.pop().coerceToString(this);
+    var source = this.pop();
+    var start_clip = this.target_clip_or_root();
+    var source_clip = this.resolveTargetDisplayObject(start_clip, source, true);
+    var movie_clip;
+    if (source_clip) {
+      if (source_clip instanceof MovieClip) {
+        movie_clip = source_clip;
+      }
+    }
+    if (movie_clip) {
+      avm1_globals.movieclip.clone_sprite(movie_clip, this.context, target, depth, null);
+    } else {
+      console.log("CloneSprite: Source is not a movie clip");
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionRemoveSprite = function() {
+    var target = this.pop();
+    var start_clip = this.target_clip_or_root();
+    var target_clip = this.resolveTargetDisplayObject(start_clip, target, true);
+    if (target_clip) {
+      avm1_remove_display_object(target_clip, this);
+    } else {
+      console.log("RemoveSprite: Source is not a display object");
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStartDrag = function() {
+    var target = this.pop();
+    var start_clip = this.target_clip_or_root();
+    var display_object = this.resolveTargetDisplayObject(start_clip, target, true);
+    var lock_center = this.pop().coerceToI32(this) == 1;
+    var constrain = this.pop().coerceToI32(this) == 1;
+    var constraint_args;
+    if (constrain) {
+      var y_max = this.pop().coerceToNumber(this);
+      var x_max = this.pop().coerceToNumber(this);
+      var y_min = this.pop().coerceToNumber(this);
+      var x_min = this.pop().coerceToNumber(this);
+      constraint_args = [x_min, y_min, x_max, y_max];
+    } else {
+      constraint_args = null;
+    }
+    if (display_object) {
+      avm1_globals.movieclip.start_drag_impl(display_object, this, lock_center, constraint_args);
+    } else {
+      console.log("StartDrag: Invalid target");
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionEndDrag = function() {
+    Player.updateDrag(this.context);
+    this.context.setDragObject(null);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionWaitForFrame2 = function() {
+    console.log("ActionWaitForFrame2");
+  }
+  Avm1Activation.prototype.actionTrace = function() {
+    var val = this.pop();
+    var out = (val.a == Avm1Value.Undefined) ? "undefined" : val.coerceToString(this);
+    this.context.avm_trace(out);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetTime = function() {
+    var result = (Date.now() - this.context.startTime) | 0;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionRandomNumber = function() {
+    var max = this.pop().coerceToNumber(this) | 0;
+    var result = (max > 0) ? ((Math.random() * max) | 0) : 0;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGotoLabel = function(aScript) {
+    var label = this.getEncoding().decode(aScript.label);
+    var clip = this.target_clip;
+    if (clip) {
+      if (clip instanceof MovieClip) {
+        var frame = clip.frameLabelToNumber(label, this.context);
+        if (frame != null) {
+          clip.gotoFrame(this.context, frame, true);
+        }
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionCallFunction = function() {
+    var fn_name_value = this.pop();
+    var fn_name = fn_name_value.coerceToString(this);
+    var num_args = this.pop().coerceToU32(this);
+    var args = this.popCallArgs(num_args);
+    var variable = this.getVariable(fn_name);
+    var result = variable.call_with_default_this(this.target_clip_or_root().getObject1OrUndef(), fn_name, this, args);
+    this.stackPush(result);
+    return this.continue_if_base_clip_exists();
+  }
+  Avm1Activation.prototype.actionCallMethod = function() {
+    var method_name = this.pop();
+    var object_val = this.pop();
+    var num_args = this.pop().coerceToU32(this);
+    var args = this.popCallArgs(num_args);
+    if ((object_val.a == Avm1Value.Undefined) || (object_val.a == Avm1Value.Null)) {
+      this.push(Avm1Value.INSTANCE.Undefined);
+      return Avm1FrameControl.objContinue;
+    }
+    var object = object_val.coerceToObjectOrBare(this);
+    var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
+    var result;
+    if (_method_name) {
+      result = object.callMethod(_method_name, args, this, Avm1ExecutionReason.INSTANCE.FunctionCall);
+    } else {
+      result = object.call("[Anonymous]", this, Avm1Value.INSTANCE.Undefined, args);
+    }
+    this.stackPush(result);
+    return this.continue_if_base_clip_exists();
+  }
+  Avm1Activation.prototype.actionConstantPool = function(aScript) {
+    var encoding = this.getEncoding();
+    var result = [];
+    var strings = aScript.strings;
+    for (var i = 0; i < strings.length; i++) {
+      result.push(encoding.decode(strings[i]));
+    }
+    this.context.avm1.setConstantPool(result);
+    this.setConstantPool(this.context.avm1.constantPool);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDefineFunction = function(aScript, reader, parent_data) {
+    var swf_version = this.swfVersion;
+    var func_data = parent_data.toUnboundedSubslice(aScript.actions);
+    var constant_pool = this.constantPool;
+    var bc = this.base_clip.getObject1OrBare();
+    var func = new Avm1Function(swf_version, func_data, aScript, this.scope, constant_pool, Avm1MovieClipReference.tryFromStagePbject(this, bc));
+    var name = func.name;
+    var prototype = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
+    var func_obj = Avm1FunctionObject.createFunction(func).build(this.getPrototypes().function, prototype);
+    if (name.length) {
+      this.defineLocal(name, Avm1Value.fromObject(func_obj));
+    } else {
+      this.push(Avm1Value.fromObject(func_obj));
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDefineLocal = function() {
+    var value = this.pop();
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    this.defineLocal(name, value);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDefineLocal2 = function() {
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    if (!this.in_local_scope() && ((name.indexOf(":") >= 0) || (name.indexOf(".") >= 0))) {
+      var a = this.getVariable(name);
+      if (a.type == Avm1CallableValue.UnCallable) {
+        if (a.value.a == Avm1Value.Undefined) {
+          this.setVariable(name, Avm1Value.INSTANCE.Undefined);
+        }
+      }
+    } else if (!this.scope.values.has_property(this, name)) {
+      this.scope.defineLocal(name, Avm1Value.INSTANCE.Undefined, this);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDelete = function() {
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    var object = this.pop();
+    var success;
+    var _object = object.asObject(this);
+    if (_object) {
+      success = _object.delete(this, name);
+    } else {
+      log.warn("Cannot delete property " + name + " from " + object);
+      success = false;
+    }
+    this.push(Avm1Value.fromBoolean(success));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDelete2 = function() {
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    var success = this.scope.delete(this, name);
+    this.push(Avm1Value.fromBoolean(success));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionEnumerate = function() {
+    var name_value = this.pop();
+    var name = name_value.coerceToString(this);
+    var value = this.getVariable(name).getValue();
+    this.push(Avm1Value.INSTANCE.Undefined);
+    var object = value.asObject(this);
+    if (object) {
+      var keys = object.getKeys(this, false);
+      keys.reverse();
+      for (var i = 0; i < keys.length; i++) {
+        this.push(Avm1Value.fromString(keys[i]));
+      }
+    } else {
+      console.log("Cannot enumerate", value);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionEquals2 = function() {
+    var a = this.pop();
+    var b = this.pop();
+    var result = b.abstract_eq(a, this);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGetMember = function() {
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    var object_val = this.pop();
+    var object = object_val.coerceToObjectOrBare(this);
+    var result = object.get(name, this);
+    this.stackPush(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionInitArray = function() {
+    var num_elements = this.pop().coerceToNumber(this);
+    var result;
+    if (num_elements < 0.0 || num_elements > 0x7fffffff) {
+      result = Avm1Value.INSTANCE.Undefined;
+    } else {
+      var elements = [];
+      for (var _ = 0; _ < num_elements | 0; _++) {
+        elements.push(this.pop());
+      }
+      result = Avm1Value.fromObject(Avm1ArrayBuilder.createNew(this).with(elements));
+    } 
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionInitObject = function() {
+    var num_props = this.pop().coerceToNumber(this);
+    var result;
+    if (num_props < 0 || num_props > 2147483647) {
+      result = Avm1Value.INSTANCE.Undefined;
+    } else {
+      var object = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
+      for (var _ = 0; _ < num_props; _++) {
+        var value = this.pop();
+        var name_val = this.pop();
+        var name = name_val.coerceToString(this);
+        object.set(name, value, this);
+      }
+      result = Avm1Value.fromObject(object);
+    }
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionNewMethod = function() {
+    var method_name = this.pop();
+    var object_val = this.pop();
+    var num_args = this.pop().coerceToU32(this);
+    var args = this.popCallArgs(num_args);
+    if (object_val.a == Avm1Value.Undefined || object_val.a == Avm1Value.Null) {
+      return Avm1FrameControl.objContinue;
+    }
+    var object = object_val.coerceToObjectOrBare(this);
+    var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
+    var result;
+    if (_method_name) {
+      var constructor = object.get(_method_name, this);
+      if (constructor.a == Avm1Value.Object) {
+        result = constructor.b.construct(this, args);
+      } else {
+        console.log("Tried to construct with non-object constructor", constructor);
+        result = Avm1Value.INSTANCE.Undefined;
+      }
+    } else {
+      result = object.construct(this, args);
+    }
+    this.stackPush(result);
+    return this.continue_if_base_clip_exists();
+  }
+  Avm1Activation.prototype.actionNewObject = function() {
+    var fn_name_val = this.pop();
+    var fn_name = fn_name_val.coerceToString(this);
+    var num_args = this.pop().coerceToU32(this);
+    var args = this.popCallArgs(num_args);
+    var name_value = this.resolve(fn_name).getValue();
+    var constructor = name_value.coerceToObjectOrBare(this);
+    var result = constructor.construct(this, args);
+    this.stackPush(result);
+    return this.continue_if_base_clip_exists();
+  }
+  Avm1Activation.prototype.actionSetMember = function() {
+    var value = this.pop();
+    var name_val = this.pop();
+    var name = name_val.coerceToString(this);
+    var object = this.pop().coerceToObjectOrBare(this);
+    object.set(name, value, this);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionTargetPath = function() {
+    var param = this.pop().coerceToObjectOrBare(this);
+    var display_object = param.asDisplayObject();
+    var result = null;
+    if (display_object) {
+      result = Avm1Value.fromString(display_object.path());
+    }  else {
+      result = Avm1Value.INSTANCE.Undefined;
+    }
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionWith = function(aScript) {
+    var code = parent_data.toUnboundedSubslice(aScript.actions);
+    var value = this.pop();
+    switch(value.a) {
+      case Avm1Value.Undefined:
+      case Avm1Value.Null:
+        this.context.avm_trace("Error: A 'with' action failed because the specified object did not exist.\n");
+        return Avm1FrameControl.objContinue;
+      default:
+        var object = value.coerceToObjectOrBare(this);
+        var with_scope = Avm1Scope.newWithScope(this.scope, object);
+        var new_activation = this.withNewScope("[With]", with_scope);
+        var res = new_activation.runActions(code);
+        if (res.type == Avm1ReturnType.explicit) {
+          return new Avm1FrameControl(Avm1FrameControl.return, res);
+        } else {
+          return Avm1FrameControl.objContinue;
+        }
+    }
+  }
+  Avm1Activation.prototype.actionToNumber = function() {
+    var val = this.pop();
+    var result = val.coerceToNumber(this);
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionToString = function() {
+    var val = this.pop();
+    var string = val.coerceToString(this);
+    this.push(Avm1Value.fromString(string));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionTypeOf = function() {
+    var type_of = this.pop().typeOf(this);
+    this.push(Avm1Value.fromString(type_of));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionAdd2 = function() {
+    var a = this.pop().toPrimitive(this);
+    var b = this.pop().toPrimitive(this);
+    var a_type = a.a;
+    var b_type = b.a;
+    var a_value = a.b;
+    var b_value = b.b;
+    var result;
+    if ((a_type == Avm1Value.String) && (b_type == Avm1Value.String)) {
+      result = Avm1Value.fromString(b_value + a_value);
+    } else if (a_type == Avm1Value.String) {
+      result = Avm1Value.fromString(b.coerceToString(this) + a_value);
+    } else if (b_type == Avm1Value.String) {
+      result = Avm1Value.fromString(b_value + a.coerceToString(this));
+    } else {
+      result = Avm1Value.fromNumber(b.coerceToNumber(this) + a.coerceToNumber(this));
+    }
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionLess2 = function() {
+    var a = this.pop();
+    var b = this.pop();
+    var result = b.abstract_lt(a, this);
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionModulo = function() {
+    // TODO: Wrong operands?
+    var a = this.pop().coerceToNumber(this);
+    var b = this.pop().coerceToNumber(this);
+    var result = b % a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  
+  Avm1Activation.prototype.actionBitAnd = function() { // ActionBitAnd
+    var a = this.pop().coerceToI32(this);
+    var b = this.pop().coerceToI32(this);
+    var result = a & b;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionBitOr = function() { // ActionBitOr
+    var a = this.pop().coerceToI32(this);
+    var b = this.pop().coerceToI32(this);
+    var result = a | b;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionBitXor = function() { // ActionBitXor
+    var a = this.pop().coerceToI32(this);
+    var b = this.pop().coerceToI32(this);
+    var result = b ^ a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionBitLShift = function() { // ActionBitLShift
+    var a = this.pop().coerceToI32(this) & 0b11111;
+    var b = this.pop().coerceToI32(this);
+    var result = b << a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionBitRShift = function() { // ActionBitRShift
+    var a = this.pop().coerceToU32(this) & 0b11111;
+    var b = this.pop().coerceToI32(this);
+    var result = b >> a;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionBitURShift = function() { // ActionBitURShift
+    var a = this.pop().coerceToU32(this) & 0b11111;
+    var b = this.pop().coerceToU32(this);
+    var result = b >>> a;
+    if ((this.swfVersion >= 8) && (this.swfVersion <= 9)) {
+      // In SWF8 and SWF9, unsigned right shift actually has a signed result.
+      result = result | 0;
+    }
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionIncrement = function() { // ActionIncrement
+    var a = this.pop().coerceToNumber(this);
+    var result = a + 1;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionDecrement = function() { // ActionDecrement
+    var a = this.pop().coerceToNumber(this);
+    var result = a - 1;
+    this.push(Avm1Value.fromNumber(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionPushDuplicate = function() { // ActionPushDuplicate
+    var val = this.pop();
+    this.push(val);
+    this.push(val);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionReturn = function() { // ActionReturn
+    var return_value = this.pop();
+    return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.explicit, return_value));
+  }
+  Avm1Activation.prototype.actionStackSwap = function() { // ActionStackSwap
+    var a = this.pop();
+    var b = this.pop();
+    this.push(a);
+    this.push(b);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStoreRegister = function(aScript) { // ActionStoreRegister
+    var val = this.pop();
+    this.push(val);
+    this.setCurrentRegister(aScript.register, val);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionInstanceOf = function() { // ActionInstanceOf
+    var constr = this.pop();
+    var obj = this.pop();
+    var result = obj.instanceOf(constr, this);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionEnumerate2 = function() { // ActionEnumerate2
+    var value = this.pop();
+    this.push(Avm1Value.INSTANCE.Undefined);
+    var object = value.asObject(this);
+    if (object) {
+      var keys = object.getKeys(this, false);
+      keys.reverse();
+      for (var i = 0; i < keys.length; i++) {
+        this.push(Avm1Value.fromString(keys[i]));
+      }
+    } else {
+      console.log("Cannot enumerate", value);
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStrictEquals = function() { // ActionStrictEquals
+    var a = this.pop();
+    var b = this.pop();
+    var result  = a.eq(b);
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionGreater = function() { // ActionGreater
+    var a = this.pop();
+    var b = this.pop();
+    var result = a.abstract_lt(b, this);
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionStringGreater = function() { // ActionStringGreater
+    var a = this.pop().coerceToString(this);
+    var b = this.pop().coerceToString(this);
+    var result = b > a;
+    this.push(Avm1Value.fromBoolean(result));
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionExtends = function() { // ActionExtends
+    var superclass = this.pop().coerceToObjectOrBare(this);
+    var subclass = this.pop().coerceToObjectOrBare(this);
+    var super_prototype = superclass.get("prototype", this);
+    var sub_prototype = Avm1Object.createNew(super_prototype);
+    sub_prototype.defineValue("constructor", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
+    sub_prototype.defineValue("__constructor__", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
+    subclass.set("prototype", Avm1Value.fromObject(sub_prototype), this);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionCastOp = function() { // ActionCastOp
+    var obj = this.pop();
+    var constr = this.pop();
+    if (obj.isPrimitive()) {
+      obj.coerceToObject(this);
+    }
+    var is_instance_of = obj.instanceOf(constr, this);
+    var result = is_instance_of ? obj : Avm1Value.INSTANCE.Null;
+    this.push(result);
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionImplementsOp = function() { // ActionImplementsOp
+    var constructor = this.pop().asObject(this);
+    if (!constructor) {
+      console.log("ImplementsOp: primitive not coerced into object");
+    }
+    var count = this.pop();
+    if (count.isPrimitive()) {
+      count = count.coerceToI32(this);
+    } else {
+      console.log("ImplementsOp: Object not coerced into number");
+      count = 0;
+    }
+    count = Math.min(count, this.stackLen());
+    if (count > 0) {
+      var interfaces = [];
+      for (var i = 0; i < count; i++) {
+        var obj = this.pop().asObject(this);
+        if (obj) {
+          var _prototype = obj.getPrototype(this);
+          if (_prototype.a == Avm1Value.Object) {
+            interfaces.push(_prototype.b);  
+          }
+        } else {
+          console.log("ImplementsOp: primitive not coerced into object");
+        }
+      }
+      if (constructor && (this.swfVersion >= 7)) {
+        var prototype = constructor.getPrototype(this).asObject(this);
+        if (prototype) {
+          prototype.setInterfaces(interfaces);
+        }
+      }
+    }
+    return Avm1FrameControl.objContinue;
+  }
+  Avm1Activation.prototype.actionTry = function(aScript, _reader, parent_data) { // ActionTry
+    var result;
+    try {
+      result = this.runActions(parent_data.toUnboundedSubslice(aScript.tryBody));
+    } catch(e) {
+      if (e instanceof Avm1Error) {
+        var catchBody = aScript.catchBody;
+        if (catchBody) {
+          var catchVar = aScript.catchVar;
+          var activation = Avm1Activation.fromAction(this.context, this.id.child("[Catch]"), this.swfVersion, this.scope, this.constantPool, this.base_clip, this.thisObject, this.callee, []);
+          activation.localRegisters = this.localRegisters;
+          if (typeof catchVar == "number") {
+            activation.setCurrentRegister(catchVar, e.value);
+          } else {
+            var name = activation.getEncoding().decode(catchVar);
+            activation.setVariable(name, e.value);
+          }
+          result = activation.runActions(parent_data.toUnboundedSubslice(catchBody));
+        }
+      } else {
+        console.log(e);
+      }
+    }
+    var finallyBody = aScript.finallyBody;
+    if (finallyBody) {
+      var v = this.runActions(parent_data.toUnboundedSubslice(finallyBody));
+      if (v.type == Avm1ReturnType.explicit) {
+        return new Avm1ReturnType(Avm1ReturnType.explicit, v.value);
+      }
+    }
+    if (result) {
+      switch(result.type) {
+        case Avm1ReturnType.implicit: return Avm1FrameControl.objContinue;
+        case Avm1ReturnType.explicit: return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.explicit, result.value));
+      } 
+    } else {
       return Avm1FrameControl.objContinue;
     }
   }
+  Avm1Activation.prototype.actionThrow = function() { // ActionThrow
+    var value = this.pop();
+    throw new Avm1Error(value);
+  }
+  
   Avm1Activation.prototype.stackPush = function(value) {
     var _value;
     if (value.a == Avm1Value.Object) {
@@ -30586,1072 +31589,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return Avm1FrameControl.objContinue;
   }
   var avm1Callback = [];
-  avm1Callback[0x00] = function() { // ActionEnd
-    return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.implicit));
-  }
-  avm1Callback[0x81] = function(aScript) { // ActionGotoFrame
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        clip.gotoFrame(this.context, aScript.frame + 1, true);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x83] = function(aScript) { // ActionGetURL
-    var encoding = this.getEncoding();
-    var target = encoding.decode(aScript.target);
-    var url = encoding.decode(aScript.url);
-    console.log(target);
-    console.log(url);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x04] = function(aScript) { // ActionNextFrame
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        clip.nextFrame(this.context);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x05] = function(aScript) { // ActionPreviousFrame
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        clip.prevFrame(this.context);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x06] = function() { // ActionPlay
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        clip.play(this.context);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x07] = function() { // ActionStop
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        clip.stop(this.context);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x08] = function(aScript) { // ActionToggleQuality
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x09] = function(aScript) { // ActionStopSounds
-    this.context.stopAllSounds();
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8A] = function(aScript, r) { // ActionWaitForFrame
-    var frame_num = aScript.frame;
-    var loaded;
-    if (frame_num > 16000) {
-      loaded = false;
-    } else {
-      loaded = true;
-      var clip = this.target_clip;
-      if (clip) {
-        if (clip instanceof MovieClip) {
-          loaded = clip.getFramesloaded() >= Math.min(frame_num, clip.getHeaderFrames());
-        }
-      }
-    }
-    if (!loaded) {
-      avm1_skip_actions(r, aScript.numActionsToSkip);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8B] = function(aScript) { // ActionSetTarget
-    var target = this.getEncoding().decode(aScript.target);
-    return this.setTarget(target);
-  }
   
-  // SWFv4
-  avm1Callback[0x96] = function(aScript) { // ActionPush
-    var values = aScript.values;
-    for (var i = 0; i < values.length; i++) {
-      var val = values[i];
-      var type = val.type;
-      var value = val.value;
-      switch(type) {
-        case 0:
-          this.push(Avm1Value.fromString(this.getEncoding().decode(value)));
-          break;
-        case 2:
-          this.push(Avm1Value.INSTANCE.Null);
-          break;
-        case 3:
-          this.push(Avm1Value.INSTANCE.Undefined);
-          break;
-        case 4:
-          this.stackPush(this.getCurrentRegister(value));
-          break;
-        case 1:
-        case 6:
-        case 7:
-          this.push(Avm1Value.fromNumber(value));
-          break;
-        case 5:
-          this.push(Avm1Value.fromBoolean(value));
-          break;
-        case 8:
-        case 9:
-          if (value in this.constantPool) {
-            this.push(Avm1Value.fromString(this.constantPool[value]));
-          } else {
-            log.warn("ActionPush: Constant pool index " + value + " out of range (len = " + this.constantPool.length + ")");
-            this.push(Avm1Value.INSTANCE.Undefined);
-          }
-          break;
-        default:
-          console.log("value:" + type);
-          this.push(Avm1Value.INSTANCE.Undefined);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x17] = function(aScript) { // ActionPop
-    this.pop();
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0A] = function(aScript) { // ActionAdd
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = b + a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0B] = function(aScript) { // ActionSubtract
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = b - a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0C] = function(aScript) { // ActionMultiply
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = b * a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0D] = function(aScript) { // ActionDivide
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = ((a == 0) && (this.swfVersion < 5)) ? Avm1Value.fromString("#ERROR#") : Avm1Value.fromNumber(b / a);
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0E] = function(aScript) { // ActionEquals
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = b == a;
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x0F] = function(aScript) { // ActionLess
-    var a = this.pop();
-    var b = this.pop();
-    var result = b.coerceToNumber(this) < a.coerceToNumber(this);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x10] = function(aScript) { // ActionAnd
-    var a = this.pop();
-    var b = this.pop();
-    var result = b.asBool(this.swfVersion) && a.asBool(this.swfVersion);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x11] = function(aScript) { // ActionOr
-    var a = this.pop();
-    var b = this.pop();
-    var result = b.asBool(this.swfVersion) || a.asBool(this.swfVersion);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x12] = function(aScript) { // ActionNot
-    var a = this.pop();
-    var result = !a.asBool(this.swfVersion);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x13] = function(aScript) { // ActionStringEquals
-    var a = this.pop().coerceToString(this);
-    var b = this.pop().coerceToString(this);
-    var result = b == a;
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x14] = function(aScript) { // ActionStringLength
-    // AS1 strlen
-    // In SWF6+, this is the same as String.length (returns number of UTF-16 code units).
-    // TODO: In SWF5, this returns the byte length, even though the encoding is locale dependent.
-    var val = this.pop().coerceToString(this);
-    this.push(Avm1Value.fromNumber(val.length));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x21] = function(aScript) { // ActionStringAdd
-    // SWFv4 string concatenation
-    // TODO(Herschel): Result with non-string operands?
-    var a = this.pop().coerceToString(this);
-    var b = this.pop().coerceToString(this);
-    var s = b + a;
-    this.push(Avm1Value.fromString(s));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x15] = function(aScript) { // ActionStringExtract
-    var count = this.pop().coerceToI32(this);
-    var index = this.pop().coerceToI32(this);
-    index = (index >= 1) ? (index - 1) : 0;
-    var string = this.pop().coerceToString(this);
-    var result = (count < 0) ? string.substr(index) : string.substr(index, count);
-    this.push(Avm1Value.fromString(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x29] = function(aScript) { // ActionStringLess
-    var a = this.pop().coerceToString(this);
-    var b = this.pop().coerceToString(this);
-    var result = b < a;
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x31] = function(aScript) { // ActionMBStringLength
-    var val = this.pop();
-    var len = val.coerceToString(this).length;
-    this.push(Avm1Value.fromNumber(len));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x35] = function(aScript) { // ActionMBStringExtract
-    console.log("ActionMBStringExtract");
-  }
-  avm1Callback[0x18] = function(aScript) { // ActionToInteger
-    var val = this.pop();
-    var result = val.coerceToI32(this);
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x32] = function(aScript) { // ActionCharToAscii
-    console.log("ActionCharToAscii");
-  }
-  avm1Callback[0x33] = function(aScript) { // ActionAsciiToChar
-    console.log("ActionAsciiToChar");
-  }
-  avm1Callback[0x36] = function(aScript) { // ActionCharToAscii
-    console.log("ActionCharToAscii");
-  }
-  avm1Callback[0x37] = function(aScript) { // ActionAsciiToChar
-    console.log("ActionAsciiToChar");
-  }
-  avm1Callback[0x99] = function(aScript, reader) { // ActionJump
-    reader.seek(aScript.offset);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x9D] = function(aScript, reader) { // ActionIf
-    var val = this.pop();
-    if (val.asBool(this.swfVersion)) {
-      reader.seek(aScript.offset);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x9E] = function(aScript) { // ActionCall
-    var arg = this.pop();
-    var target = this.target_clip_or_root();
-    var call_frame = null;
-    if (arg.a == Avm1Value.Number) {
-      if (target instanceof MovieClip) {
-        call_frame = [target, arg.b >>> 0];
-      }
-    } else {
-      var frame_path = arg.coerceToString(this);
-      var s = this.resolveVariablePath(target, frame_path);
-      if (s) {
-        var clip = s[0].asDisplayObject();
-        if (clip) {
-          if (clip instanceof MovieClip) {
-            var frame = s[1];
-            var frame_n = Number(frame);
-            if (Number.isInteger(frame_n)) {
-              call_frame = [clip, frame_n >>> 0];
-            } else {
-              var f = clip.frameLabelToNumber(frame, this.context);
-              if (f != null) {
-                call_frame = [clip, f];
-              }
-            }
-          }
-        }
-      }
-    }
-    if (call_frame) {
-      var actions = call_frame[0].actionsOnFrame(this.context, call_frame[1]);
-      for (var i = 0; i < actions.length; i++) {
-        var action = actions[i];
-        this.runChildFrameForAction("[Frame Call]", call_frame[0], action);
-      }
-    } else {
-      console.log("Call: Invalid call");
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x1C] = function(aScript) { // ActionGetVariable
-    var var_path_val = this.pop();
-    var path = var_path_val.coerceToString(this);
-    var value = this.getVariable(path).getValue();
-    this.stackPush(value);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x1D] = function(aScript) { // ActionSetVariable
-    // Flash 4-style variable
-    var value = this.pop();
-    var var_path_val = this.pop();
-    var var_path = var_path_val.coerceToString(this);
-    this.setVariable(var_path, value);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x9A] = function(aScript) { // ActionGetURL2
-    var target_val = this.pop();
-    var target = target_val.coerceToString(this);
-    var url_val = this.pop();
-    var url = url_val.coerceToString(this);
-    console.log("ActionGetURL2");
-    console.log(url);
-    console.log(target);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x9F] = function(aScript) { // ActionGoToFrame2
-    var clip = this.target_clip_or_root();
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        var frame = this.pop();
-        avm1_globals.movieclip.goto_frame(clip, this, [frame], !aScript.setPlaying, aScript.sceneOffset);
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x20] = function(aScript) { // ActionSetTarget2
-    var target = this.pop();
-    var base_clip = this.base_clip;
-    if (base_clip.AVM1_REMOVED) {
-      this.setTargetClip(null);
-      return Avm1FrameControl.objContinue;
-    }
-    switch(target.a) {
-      case Avm1Value.String:
-        return this.setTarget(target.b);
-      case Avm1Value.Undefined:
-        this.setTargetClip((this.swfVersion > 6) ? null : base_clip);
-        break;
-      case Avm1Value.Object:
-        var clip = target.b.asDisplayObject();
-        if (clip) {
-          this.setTargetClip(clip);
-        } else {
-          var t = target.coerceToString(this);
-          return this.setTarget(t);
-        }
-        break;
-      case Avm1Value.MovieClip:
-        var o = target.coerceToObjectOrBare(this);
-        var clip = o.asDisplayObject();
-        if (clip) {
-          this.setTargetClip(clip);
-        } else {
-          var t = target.coerceToString(this);
-          return this.setTarget(t);
-        }
-        break;
-      default:
-        var t = target.coerceToString(this);
-        return this.setTarget(t);
-    }
-    var clip_obj = this.target_clip_or_base_clip().getObject1OrBare();
-    this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x22] = function(aScript) { // ActionGetProperty
-    var prop_index = this.pop().coerceToNumber(this);
-    var path = this.pop();
-    var clip;
-    if (this.target_clip) {
-      clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
-    } else {
-      clip = this.resolveTargetDisplayObject(this.base_clip, path, false);
-    }
-    var property;
-    if (!Number.isFinite(prop_index) && (prop_index <= -1.0)) {
-
-    } else {
-      property = this.context.avm1.displayProperties.getByIndex(prop_index >>> 0);
-    }
-    var result;
-    if (clip) {
-      if (property) {
-        result = property.get(this, clip);
-      } else {
-        result = Avm1Value.INSTANCE.Undefined;
-      }
-    } else {
-      result = Avm1Value.INSTANCE.Undefined;
-    }
-    this.stackPush(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x23] = function(aScript) { // ActionSetProperty
-    var prop_value = this.pop();
-    var prop_index = this.pop().coerceToNumber(this);
-    var path = this.pop();
-    var clip;
-    if (this.target_clip) {
-      clip = this.resolveTargetDisplayObject(this.target_clip, path, true);
-    } else {
-      clip = this.resolveTargetDisplayObject(this.base_clip, path, false);
-    }
-    var property;
-    if (!Number.isFinite(prop_index) && (prop_index <= -1.0)) {
-      property = null;
-    } else {
-      property = this.context.avm1.displayProperties.getByIndex(prop_index >>> 0);
-    }
-    if (property) {
-      if (!clip && property.isReadOnly()) {
-        avm1_stage_object.action_property_coerce(this, prop_index, prop_value);
-      }
-    }
-    if (clip) {
-      if (property) {
-        property.set(this, clip, prop_value);
-      } else {
-        console.log("SetProperty: Invalid property " + prop_index);
-      }
-    } else {
-      console.log("SetProperty: Invalid target: " + path);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x24] = function(aScript) { // ActionCloneSprite
-    var depth = this.pop().coerceToI32(this);
-    var target = this.pop().coerceToString(this);
-    var source = this.pop();
-    var start_clip = this.target_clip_or_root();
-    var source_clip = this.resolveTargetDisplayObject(start_clip, source, true);
-    var movie_clip;
-    if (source_clip) {
-      if (source_clip instanceof MovieClip) {
-        movie_clip = source_clip;
-      }
-    }
-    if (movie_clip) {
-      avm1_globals.movieclip.clone_sprite(movie_clip, this.context, target, depth, null);
-    } else {
-      console.log("CloneSprite: Source is not a movie clip");
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x25] = function(aScript) { // ActionRemoveSprite
-    var target = this.pop();
-    var start_clip = this.target_clip_or_root();
-    var target_clip = this.resolveTargetDisplayObject(start_clip, target, true);
-    if (target_clip) {
-      avm1_remove_display_object(target_clip, this);
-    } else {
-      console.log("RemoveSprite: Source is not a display object");
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x27] = function(aScript) { // ActionStartDrag
-    var target = this.pop();
-    var start_clip = this.target_clip_or_root();
-    var display_object = this.resolveTargetDisplayObject(start_clip, target, true);
-    var lock_center = this.pop().coerceToI32(this) == 1;
-    var constrain = this.pop().coerceToI32(this) == 1;
-    var constraint_args;
-    if (constrain) {
-      var y_max = this.pop().coerceToNumber(this);
-      var x_max = this.pop().coerceToNumber(this);
-      var y_min = this.pop().coerceToNumber(this);
-      var x_min = this.pop().coerceToNumber(this);
-      constraint_args = [x_min, y_min, x_max, y_max];
-    } else {
-      constraint_args = null;
-    }
-    if (display_object) {
-      avm1_globals.movieclip.start_drag_impl(display_object, this, lock_center, constraint_args);
-    } else {
-      console.log("StartDrag: Invalid target");
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x28] = function(aScript) { // ActionEndDrag
-    Player.updateDrag(this.context);
-    this.context.setDragObject(null);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8D] = function(aScript) { // ActionWaitForFrame2
-    console.log("ActionWaitForFrame2");
-  }
-  avm1Callback[0x26] = function(aScript) { // ActionTrace
-    var val = this.pop();
-    var out = (val.a == Avm1Value.Undefined) ? "undefined" : val.coerceToString(this);
-    this.context.avm_trace(out);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x34] = function(aScript) { // ActionGetTime
-    var result = (Date.now() - this.context.startTime) | 0;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x30] = function(aScript) { // ActionRandomNumber
-    var max = this.pop().coerceToNumber(this) | 0;
-    var result = (max > 0) ? ((Math.random() * max) | 0) : 0;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8C] = function(aScript) { // GotoLabel
-    var label = this.getEncoding().decode(aScript.label);
-    var clip = this.target_clip;
-    if (clip) {
-      if (clip instanceof MovieClip) {
-        var frame = clip.frameLabelToNumber(label, this.context);
-        if (frame != null) {
-          clip.gotoFrame(this.context, frame, true);
-        }
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
   
-  // SWFv5
-  avm1Callback[0x3d] = function(aScript) { // ActionCallFunction
-    var fn_name_value = this.pop();
-    var fn_name = fn_name_value.coerceToString(this);
-    var num_args = this.pop().coerceToU32(this);
-    var args = this.popCallArgs(num_args);
-    var variable = this.getVariable(fn_name);
-    var result = variable.call_with_default_this(this.target_clip_or_root().getObject1OrUndef(), fn_name, this, args);
-    this.stackPush(result);
-    return this.continue_if_base_clip_exists();
-  }
-  avm1Callback[0x52] = function(aScript) { // ActionCallMethod
-    var method_name = this.pop();
-    var object_val = this.pop();
-    var num_args = this.pop().coerceToU32(this);
-    var args = this.popCallArgs(num_args);
-    if ((object_val.a == Avm1Value.Undefined) || (object_val.a == Avm1Value.Null)) {
-      this.push(Avm1Value.INSTANCE.Undefined);
-      return Avm1FrameControl.objContinue;
-    }
-    var object = object_val.coerceToObjectOrBare(this);
-    var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
-    var result;
-    if (_method_name) {
-      result = object.callMethod(_method_name, args, this, Avm1ExecutionReason.INSTANCE.FunctionCall);
-    } else {
-      result = object.call("[Anonymous]", this, Avm1Value.INSTANCE.Undefined, args);
-    }
-    this.stackPush(result);
-    return this.continue_if_base_clip_exists();
-  }
-  avm1Callback[0x88] = function(aScript) { // ActionConstantPool
-    var encoding = this.getEncoding();
-    var result = [];
-    var strings = aScript.strings;
-    for (var i = 0; i < strings.length; i++) {
-      result.push(encoding.decode(strings[i]));
-    }
-    this.context.avm1.setConstantPool(result);
-    this.setConstantPool(this.context.avm1.constantPool);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8e] = function(aScript, _reader, parent_data) { // ActionDefineFunction
-    var swf_version = this.swfVersion;
-    var func_data = parent_data.toUnboundedSubslice(aScript.actions);
-    var constant_pool = this.constantPool;
-    var bc = this.base_clip.getObject1OrBare();
-    var func = new Avm1Function(swf_version, func_data, aScript, this.scope, constant_pool, Avm1MovieClipReference.tryFromStagePbject(this, bc));
-    var name = func.name;
-    var prototype = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
-    var func_obj = Avm1FunctionObject.createFunction(func).build(this.getPrototypes().function, prototype);
-    if (name.length) {
-      this.defineLocal(name, Avm1Value.fromObject(func_obj));
-    } else {
-      this.push(Avm1Value.fromObject(func_obj));
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x3c] = function(aScript) { // ActionDefineLocal
-    var value = this.pop();
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    this.defineLocal(name, value);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x41] = function(aScript) { // ActionDefineLocal2
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    if (!this.in_local_scope() && ((name.indexOf(":") >= 0) || (name.indexOf(".") >= 0))) {
-      var a = this.getVariable(name);
-      if (a.type == Avm1CallableValue.UnCallable) {
-        if (a.value.a == Avm1Value.Undefined) {
-          this.setVariable(name, Avm1Value.INSTANCE.Undefined);
-        }
-      }
-    } else if (!this.scope.values.has_property(this, name)) {
-      this.scope.defineLocal(name, Avm1Value.INSTANCE.Undefined, this);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x3a] = function(aScript) { // ActionDelete
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    var object = this.pop();
-    var success;
-    var _object = object.asObject(this);
-    if (_object) {
-      success = _object.delete(this, name);
-    } else {
-      log.warn("Cannot delete property " + name + " from " + object);
-      success = false;
-    }
-    this.push(Avm1Value.fromBoolean(success));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x3b] = function(aScript) { // ActionDelete2
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    var success = this.scope.delete(this, name);
-    this.push(Avm1Value.fromBoolean(success));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x46] = function(aScript) { // ActionEnumerate
-    var name_value = this.pop();
-    var name = name_value.coerceToString(this);
-    var value = this.getVariable(name).getValue();
-    this.push(Avm1Value.INSTANCE.Undefined);
-    var object = value.asObject(this);
-    if (object) {
-      var keys = object.getKeys(this, false);
-      keys.reverse();
-      for (var i = 0; i < keys.length; i++) {
-        this.push(Avm1Value.fromString(keys[i]));
-      }
-    } else {
-      console.log("Cannot enumerate", value);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x49] = function(aScript) { // ActionEquals2
-    var a = this.pop();
-    var b = this.pop();
-    var result = b.abstract_eq(a, this);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x4e] = function(aScript) { // ActionGetMember
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    var object_val = this.pop();
-    var object = object_val.coerceToObjectOrBare(this);
-    var result = object.get(name, this);
-    this.stackPush(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x42] = function(aScript) { // ActionInitArray
-    var num_elements = this.pop().coerceToNumber(this);
-    var result;
-    if (num_elements < 0.0 || num_elements > 0x7fffffff) {
-      result = Avm1Value.INSTANCE.Undefined;
-    } else {
-      var elements = [];
-      for (var _ = 0; _ < num_elements | 0; _++) {
-        elements.push(this.pop());
-      }
-      result = Avm1Value.fromObject(Avm1ArrayBuilder.createNew(this).with(elements));
-    } 
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x43] = function(aScript) { // ActionInitObject
-    var num_props = this.pop().coerceToNumber(this);
-    var result;
-    if (num_props < 0 || num_props > 2147483647) {
-      result = Avm1Value.INSTANCE.Undefined;
-    } else {
-      var object = Avm1Object.createNew(Avm1Value.fromObject(this.getPrototypes().object));
-      for (var _ = 0; _ < num_props; _++) {
-        var value = this.pop();
-        var name_val = this.pop();
-        var name = name_val.coerceToString(this);
-        object.set(name, value, this);
-      }
-      result = Avm1Value.fromObject(object);
-    }
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x53] = function(aScript) { // ActionNewMethod
-    var method_name = this.pop();
-    var object_val = this.pop();
-    var num_args = this.pop().coerceToU32(this);
-    var args = this.popCallArgs(num_args);
-    if (object_val.a == Avm1Value.Undefined || object_val.a == Avm1Value.Null) {
-      return Avm1FrameControl.objContinue;
-    }
-    var object = object_val.coerceToObjectOrBare(this);
-    var _method_name = (method_name.a == Avm1Value.Undefined) ? "" : method_name.coerceToString(this);
-    var result;
-    if (_method_name) {
-      var constructor = object.get(_method_name, this);
-      if (constructor.a == Avm1Value.Object) {
-        result = constructor.b.construct(this, args);
-      } else {
-        console.log("Tried to construct with non-object constructor", constructor);
-        result = Avm1Value.INSTANCE.Undefined;
-      }
-    } else {
-      result = object.construct(this, args);
-    }
-    this.stackPush(result);
-    return this.continue_if_base_clip_exists();
-  }
-  avm1Callback[0x40] = function(aScript) { // ActionNewObject
-    var fn_name_val = this.pop();
-    var fn_name = fn_name_val.coerceToString(this);
-    var num_args = this.pop().coerceToU32(this);
-    var args = this.popCallArgs(num_args);
-    var name_value = this.resolve(fn_name).getValue();
-    var constructor = name_value.coerceToObjectOrBare(this);
-    var result = constructor.construct(this, args);
-    this.stackPush(result);
-    return this.continue_if_base_clip_exists();
-  }
-  avm1Callback[0x4f] = function(aScript) { // ActionSetMember
-    var value = this.pop();
-    var name_val = this.pop();
-    var name = name_val.coerceToString(this);
-    var object = this.pop().coerceToObjectOrBare(this);
-    object.set(name, value, this);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x45] = function(aScript) { // ActionTargetPath
-    var param = this.pop().coerceToObjectOrBare(this);
-    var display_object = param.asDisplayObject();
-    var result = null;
-    if (display_object) {
-      result = Avm1Value.fromString(display_object.path());
-    }  else {
-      result = Avm1Value.INSTANCE.Undefined;
-    }
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x94] = function(aScript, _reader, parent_data) { // ActionWith
-    var code = parent_data.toUnboundedSubslice(aScript.actions);
-    var value = this.pop();
-    switch(value.a) {
-      case Avm1Value.Undefined:
-      case Avm1Value.Null:
-        this.context.avm_trace("Error: A 'with' action failed because the specified object did not exist.\n");
-        return Avm1FrameControl.objContinue;
-      default:
-        var object = value.coerceToObjectOrBare(this);
-        var with_scope = Avm1Scope.newWithScope(this.scope, object);
-        var new_activation = this.withNewScope("[With]", with_scope);
-        var res = new_activation.runActions(code);
-        if (res.type == Avm1ReturnType.explicit) {
-          return new Avm1FrameControl(Avm1FrameControl.return, res);
-        } else {
-          return Avm1FrameControl.objContinue;
-        }
-    }
-  }
-  avm1Callback[0x4a] = function(aScript) { // ActionToNumber
-    var val = this.pop();
-    var result = val.coerceToNumber(this);
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x4b] = function(aScript) { // ActionToString
-    var val = this.pop();
-    var string = val.coerceToString(this);
-    this.push(Avm1Value.fromString(string));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x44] = function(aScript) { // ActionTypeOf
-    var type_of = this.pop().typeOf(this);
-    this.push(Avm1Value.fromString(type_of));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x47] = function(aScript) { // ActionAdd2
-    var a = this.pop().toPrimitive(this);
-    var b = this.pop().toPrimitive(this);
-    var a_type = a.a;
-    var b_type = b.a;
-    var a_value = a.b;
-    var b_value = b.b;
-    var result;
-    if ((a_type == Avm1Value.String) && (b_type == Avm1Value.String)) {
-      result = Avm1Value.fromString(b_value + a_value);
-    } else if (a_type == Avm1Value.String) {
-      result = Avm1Value.fromString(b.coerceToString(this) + a_value);
-    } else if (b_type == Avm1Value.String) {
-      result = Avm1Value.fromString(b_value + a.coerceToString(this));
-    } else {
-      result = Avm1Value.fromNumber(b.coerceToNumber(this) + a.coerceToNumber(this));
-    }
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x48] = function(aScript) { // ActionLess2
-    var a = this.pop();
-    var b = this.pop();
-    var result = b.abstract_lt(a, this);
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x3f] = function(aScript) { // ActionModulo
-    // TODO: Wrong operands?
-    var a = this.pop().coerceToNumber(this);
-    var b = this.pop().coerceToNumber(this);
-    var result = b % a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x60] = function(aScript) { // ActionBitAnd
-    var a = this.pop().coerceToI32(this);
-    var b = this.pop().coerceToI32(this);
-    var result = a & b;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x63] = function(aScript) { // ActionBitLShift
-    var a = this.pop().coerceToI32(this) & 0b11111;
-    var b = this.pop().coerceToI32(this);
-    var result = b << a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x61] = function(aScript) { // ActionBitOr
-    var a = this.pop().coerceToI32(this);
-    var b = this.pop().coerceToI32(this);
-    var result = a | b;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x64] = function(aScript) { // ActionBitRShift
-    var a = this.pop().coerceToU32(this) & 0b11111;
-    var b = this.pop().coerceToI32(this);
-    var result = b >> a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x65] = function(aScript) { // ActionBitURShift
-    var a = this.pop().coerceToU32(this) & 0b11111;
-    var b = this.pop().coerceToU32(this);
-    var result = b >>> a;
-    if ((this.swfVersion >= 8) && (this.swfVersion <= 9)) {
-      // In SWF8 and SWF9, unsigned right shift actually has a signed result.
-      result = result | 0;
-    }
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x62] = function(aScript) { // ActionBitXor
-    var a = this.pop().coerceToI32(this);
-    var b = this.pop().coerceToI32(this);
-    var result = b ^ a;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x51] = function(aScript) { // ActionDecrement
-    var a = this.pop().coerceToNumber(this);
-    var result = a - 1;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x50] = function(aScript) { // ActionIncrement
-    var a = this.pop().coerceToNumber(this);
-    var result = a + 1;
-    this.push(Avm1Value.fromNumber(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x4c] = function(aScript) { // ActionPushDuplicate
-    var val = this.pop();
-    this.push(val);
-    this.push(val);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x3e] = function(aScript) { // ActionReturn
-    var return_value = this.pop();
-    return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.explicit, return_value));
-  }
-  avm1Callback[0x4d] = function(aScript) { // ActionStackSwap
-    var a = this.pop();
-    var b = this.pop();
-    this.push(a);
-    this.push(b);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x87] = function(aScript) { // ActionStoreRegister
-    var val = this.pop();
-    this.push(val);
-    this.setCurrentRegister(aScript.register, val);
-    return Avm1FrameControl.objContinue;
-  }
-  
-  // SWFv6
-  avm1Callback[0x54] = function(aScript) { // ActionInstanceOf
-    var constr = this.pop();
-    var obj = this.pop();
-    var result = obj.instanceOf(constr, this);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x55] = function(aScript) { // ActionEnumerate2
-    var value = this.pop();
-    this.push(Avm1Value.INSTANCE.Undefined);
-    var object = value.asObject(this);
-    if (object) {
-      var keys = object.getKeys(this, false);
-      keys.reverse();
-      for (var i = 0; i < keys.length; i++) {
-        this.push(Avm1Value.fromString(keys[i]));
-      }
-    } else {
-      console.log("Cannot enumerate", value);
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x66] = function(aScript) { // ActionStrictEquals
-    var a = this.pop();
-    var b = this.pop();
-    var result  = a.eq(b);
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x67] = function(aScript) { // ActionGreater
-    var a = this.pop();
-    var b = this.pop();
-    var result = a.abstract_lt(b, this);
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x68] = function(aScript) { // ActionStringGreater
-    var a = this.pop().coerceToString(this);
-    var b = this.pop().coerceToString(this);
-    var result = b > a;
-    this.push(Avm1Value.fromBoolean(result));
-    return Avm1FrameControl.objContinue;
-  }
-  
-  // SWFv7
-  avm1Callback[0x9b] = avm1Callback[0x8e]; // ActionDefineFunction2
-  avm1Callback[0x69] = function(aScript) { // ActionExtends
-    var superclass = this.pop().coerceToObjectOrBare(this);
-    var subclass = this.pop().coerceToObjectOrBare(this);
-    var super_prototype = superclass.get("prototype", this);
-    var sub_prototype = Avm1Object.createNew(super_prototype);
-    sub_prototype.defineValue("constructor", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
-    sub_prototype.defineValue("__constructor__", Avm1Value.fromObject(superclass), new Avm1Attribute().dontEnum());
-    subclass.set("prototype", Avm1Value.fromObject(sub_prototype), this);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x2b] = function(aScript) { // ActionCastOp
-    var obj = this.pop();
-    var constr = this.pop();
-    if (obj.isPrimitive()) {
-      obj.coerceToObject(this);
-    }
-    var is_instance_of = obj.instanceOf(constr, this);
-    var result = is_instance_of ? obj : Avm1Value.INSTANCE.Null;
-    this.push(result);
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x2c] = function(aScript) { // ActionImplementsOp
-    var constructor = this.pop().asObject(this);
-    if (!constructor) {
-      console.log("ImplementsOp: primitive not coerced into object");
-    }
-    var count = this.pop();
-    if (count.isPrimitive()) {
-      count = count.coerceToI32(this);
-    } else {
-      console.log("ImplementsOp: Object not coerced into number");
-      count = 0;
-    }
-    count = Math.min(count, this.stackLen());
-    if (count > 0) {
-      var interfaces = [];
-      for (var i = 0; i < count; i++) {
-        var obj = this.pop().asObject(this);
-        if (obj) {
-          var _prototype = obj.getPrototype(this);
-          if (_prototype.a == Avm1Value.Object) {
-            interfaces.push(_prototype.b);  
-          }
-        } else {
-          console.log("ImplementsOp: primitive not coerced into object");
-        }
-      }
-      if (constructor && (this.swfVersion >= 7)) {
-        var prototype = constructor.getPrototype(this).asObject(this);
-        if (prototype) {
-          prototype.setInterfaces(interfaces);
-        }
-      }
-    }
-    return Avm1FrameControl.objContinue;
-  }
-  avm1Callback[0x8f] = function(aScript, _reader, parent_data) { // ActionTry
-    var result;
-    try {
-      result = this.runActions(parent_data.toUnboundedSubslice(aScript.tryBody));
-    } catch(e) {
-      if (e instanceof Avm1Error) {
-        var catchBody = aScript.catchBody;
-        if (catchBody) {
-          var catchVar = aScript.catchVar;
-          var activation = Avm1Activation.fromAction(this.context, this.id.child("[Catch]"), this.swfVersion, this.scope, this.constantPool, this.base_clip, this.thisObject, this.callee, []);
-          activation.localRegisters = this.localRegisters;
-          if (typeof catchVar == "number") {
-            activation.setCurrentRegister(catchVar, e.value);
-          } else {
-            var name = activation.getEncoding().decode(catchVar);
-            activation.setVariable(name, e.value);
-          }
-          result = activation.runActions(parent_data.toUnboundedSubslice(catchBody));
-        }
-      } else {
-        console.log(e);
-      }
-    }
-    var finallyBody = aScript.finallyBody;
-    if (finallyBody) {
-      var v = this.runActions(parent_data.toUnboundedSubslice(finallyBody));
-      if (v.type == Avm1ReturnType.explicit) {
-        return new Avm1ReturnType(Avm1ReturnType.explicit, v.value);
-      }
-    }
-    if (result) {
-      switch(result.type) {
-        case Avm1ReturnType.implicit: return Avm1FrameControl.objContinue;
-        case Avm1ReturnType.explicit: return new Avm1FrameControl(Avm1FrameControl.return, new Avm1ReturnType(Avm1ReturnType.explicit, result.value));
-      } 
-    } else {
-      return Avm1FrameControl.objContinue;
-    }
-  }
-  avm1Callback[0x2a] = function(aScript) { // ActionThrow
-    var value = this.pop();
-    throw new Avm1Error(value);
-  }
   var Avm1GlobalEnv = function() {
     var result_globals  = avm1_create_globals();
     this.globalScope = Avm1Scope.fromGlobalObject(result_globals[1]);
@@ -34919,94 +34858,35 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.callback = null;
     this.callback2 = null;
   }
-  LoaderSwfUrl.prototype.fetchSwfMd5 = function(md5, callback, callbackProgress) {
+  LoaderSwfUrl.prototype.fetchSwfUrl = function(url, callback, callbackProgress) {
+    var _this = this;
     var xhr = new XMLHttpRequest();
     xhr.onload = function () {
-      if (xhr.status == 200) {
-        callback(new Uint8Array(xhr.response, 0x2c));
+      var dat = new Uint8Array(xhr.response);
+      if (xhr.status !== 200) {
+        log.log(url + " -> " + (xhr.statusText || xhr.status));
+        var mh = "";
+        try {
+          if (dat.length < 125) {
+            mh = new TextDecoder().decode(dat);
+            log.log(mh);
+          }
+        } catch(e) {
+        }
+        callback(null, xhr.status, mh || xhr.statusText);
       } else {
-        callback(null, xhr.status);
+        callback(new Blob([dat]), null);
       }
     };
     xhr.onprogress = function (e) {
       if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
     };
     xhr.onerror = function () {
-      callback(null, "");
+      callback(null, "unknown");
     };
     xhr.responseType = "arraybuffer";
-    xhr.open("GET", "https://assets.scratch.mit.edu/internalapi/asset/" + md5 + ".wav/get/");
+    xhr.open("GET", url);
     xhr.send();
-  }
-  LoaderSwfUrl.prototype.fetchSwfUrl = function(url, callback, callbackProgress) {
-    var _this = this;
-    if (Array.isArray(url)) {
-      var result = [];
-      var id_md5 = 0;
-      function _excgfd() {
-        if (result.length > 1) {
-          var len = 0;
-          for (var i = 0; i < result.length; i++) {
-            len += result[i].length;
-          }
-          var res = new Uint8Array(len);
-          var offest = 0;
-          for (var i = 0; i < result.length; i++) {
-            res.set(result[i], offest);
-            offest += result[i].length;
-          }
-          callback(new Blob([res]), null);
-        } else {
-          callback(new Blob([result[0]]), null);
-        }
-      }
-      function _next() {
-        _this.fetchSwfMd5(url[id_md5], function(res, status) {
-          if (!res) {
-            callback(null, "failed md5: " + status, "");
-            return;
-          }
-          id_md5++;
-          result.push(res);
-          if (id_md5 >= url.length) {
-            _excgfd();
-          } else {
-            _next();
-          }
-        }, function(_p, l, t) {
-          if (callbackProgress) callbackProgress((id_md5 / url.length) + (_p / url.length), l, t);
-        });
-      }
-      _next();
-    } else {
-      var xhr = new XMLHttpRequest();
-      xhr.onload = function () {
-        var dat = new Uint8Array(xhr.response);
-        if (xhr.status !== 200) {
-          log.log(url + " -> " + (xhr.statusText || xhr.status));
-          var mh = "";
-          try {
-            if (dat.length < 125) {
-              mh = new TextDecoder().decode(dat);
-              log.log(mh);
-            }
-          } catch(e) {
-          }
-          callback(null, xhr.status, mh || xhr.statusText);
-        } else {
-          callback(new Blob([dat]), null);
-        }
-      };
-      xhr.onprogress = function (e) {
-        if (callbackProgress) callbackProgress(e.loaded / e.total, e.loaded, e.total);
-      };
-      xhr.onerror = function () {
-        callback(null, "unknown");
-      };
-      xhr.responseType = "arraybuffer";
-      xhr.open("GET", url);
-      xhr.send();
-    }
   }
   LoaderSwfUrl.prototype.load = function() {
     var _this = this;
@@ -35051,13 +34931,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var j = url;
       var h = j.indexOf("?");
       var s = j.length;
-      if (h >= 0) {
+      if (h >= 0) 
         s = h;
-      }
       var o = s;
-      while((s >= 0) && (j.charAt(s) != "/")) {
+      while((s >= 0) && (j.charAt(s) != "/")) 
         s--;
-      }
       return decodeURIComponent(j.slice(s + 1, o));
     } catch(e) {
       return null;
@@ -35285,7 +35163,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     setInterval(this.tick.bind(this), 10);
   }
   PinkFiePlayer.version = "1.4.0";
-  PinkFiePlayer.built = "2026-2-2";
+  PinkFiePlayer.built = "2026-6-1";
   PinkFiePlayer.isBeta = false;
   PinkFiePlayer.prototype.addNAS3 = function() {
     this.nas3 = document.createElement('div');
@@ -35619,7 +35497,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     loadingContainer.appendChild(a2);
     loadingContainer.appendChild(a3);
     var rfg = document.createElement('p');
-    rfg.textContent = "(c) 2025 EAAQ2007P WYTV";
+    rfg.textContent = "(c) 2026 EAXDCFMLPFSXFFSMF";
     rfg.style.color = "#000";
     rfg.style.margin = "4px";
     rfg.style.position = "absolute";
@@ -35659,9 +35537,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (this.swfTitle) {
       var n = this.swfTitle.split(".");
       var j = n.pop();
-      if (j !== "swf") {
+      if (j !== "swf") 
         n.push(j);
-      }
       return n.join(".");
     } else {
       return this.getSwfMetadataName();
