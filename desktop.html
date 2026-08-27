@@ -154,11 +154,16 @@
 				var playerArea = document.getElementById('pinkfieArea');
                 playerArea.appendChild(player.root);
 				var minHH = 23;
-                player.oncleanup.subscribe(function() {
+
+                function _resetRRR() {
                     try {
                         window.resizeTo(640, 480);
                     } catch(e) {
                     }
+                }
+
+                player.oncleanup.subscribe(function() {
+                    _resetRRR();
 				});
                 player.onload.subscribe(function(stage) {
                     var swf = stage.swf;
@@ -256,6 +261,14 @@
                                     autoplayPolicy: 'always'
                                 });
                             }
+                            if (item.kind === 'string') {
+                                item.getAsString(function(s) {
+                                    player.loadSwfFromURL(s); 
+                                    player.setOptions({
+                                        autoplayPolicy: 'never'
+                                    });
+                                });
+                            }
                         }
 					}
 				}
@@ -307,6 +320,8 @@
 				});
 
                 document.title = "PinkFie Player " + PinkFie.version + ":" + PinkFie.built;
+
+                _resetRRR();
             }());
         </script>
     </body>

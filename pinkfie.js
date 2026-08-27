@@ -33433,22 +33433,23 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   var AudioBackend = function() {
     AudioMixerBackend.call(this);
+    this.samplesPerFrame = Math.round(audioContext.sampleRate * 0.008);
     this.mixer = new AudioMixer(audioContext.sampleRate);
     this.node = audioContext.createGain();
     this.node.connect(audioContext.destination);
     this.node.gain.value = 0;
     this.left = new Float32Array(11025);
     this.right = new Float32Array(11025);
-    this.source = audioContext.createScriptProcessor(1024, 2, 2);
+    this.source = audioContext.createScriptProcessor(2048, 2, 2);
     this.source.onaudioprocess = this.writeSampleData.bind(this)
     this.source.connect(this.node);
     this._source = null;
     this.debug_ms = 0;
     this.cur_time = 0;
-    this.hdhfg = 1024;
+    this.hdhfg = 0;
     this.kgbk = 0;
     var jhgjhg = [];
-    for (var i = 0; i < 1024; i++) {
+    for (var i = 0; i < this.samplesPerFrame; i++) {
       jhgjhg[i] = new Float32Array([0, 0]);
     }
     this.jhgjhg = jhgjhg;
@@ -33487,7 +33488,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   AudioBackend.prototype.getTime = function() {
     if (audioContext.state != "running") this._is_playing_time = (Date.now() - this._is_playing_start);
-    return (((this.cur_time / audioContext.sampleRate) * 1000) | 0) + this._is_playing_time;
+    return (((this.hdhfg / audioContext.sampleRate) * 1000) | 0) + this._is_playing_time;
   }
   AudioBackend.prototype.stopSource = function() {
     if (this._source) {
@@ -33504,31 +33505,39 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   AudioBackend.prototype.writeSampleData = function(evt) {
     var output1 = evt.outputBuffer.getChannelData(0);
     var output2 = evt.outputBuffer.getChannelData(1);
-    if (this._source) {
-      var i = 0;
-      var s = Date.now();
-      this.mixer.mix(this.jhgjhg);
-      this.debug_ms = (Date.now() - s) | 0;
-      this.kgbk = this.cur_time;
-      for (i = 0; i < 1024; i++) {
-        var l = this.jhgjhg[i][0];
-        var r = this.jhgjhg[i][1];
-        output1[i] = l;
-        output2[i] = r;
-        var s = (this.hdhfg + i) % 11025;
-        this.left[s] = l;
-        this.right[s] = r;
-      }
-      this.hdhfg += 1024;
-      this.cur_time += 1024;
+    if ((this.cur_time + 2048) > this.hdhfg) {
+      this.cur_time = this.hdhfg - 2048;
     }
+    var jghj = (this.cur_time + 4096) - this.hdhfg;
+    for (var i = 0; i < 2048; i++) {
+      output1[i] = this.left[this.cur_time % 11025];
+      output2[i] = this.right[this.cur_time % 11025];
+      this.cur_time++;
+    }
+    if (jghj < 0) {
+      this.cur_time -= jghj;
+    }
+  }
+  AudioBackend.prototype.nextBuffer = function() {
+    var s = Date.now();
+    this.mixer.mix(this.jhgjhg);
+    this.debug_ms = (Date.now() - s) | 0;
+    this.kgbk = this.hdhfg;
+    for (i = 0; i < this.samplesPerFrame; i++) {
+      var l = this.jhgjhg[i][0];
+      var r = this.jhgjhg[i][1];
+      var s = (this.hdhfg + i) % 11025;
+      this.left[s] = l;
+      this.right[s] = r;
+    }
+    this.hdhfg += this.samplesPerFrame;
   }
   AudioBackend.prototype.toWaveform = function(output) {
     if (!this._source) {
       return;
     }
     var rg = (audioContext.sampleRate / 44100) * 1200;
-    var time = this.kgbk;
+    var time = this.kgbk - 1024;
     var max4 = output.length / 2;
     for (var i = 0; i < output.length; i += 2) {
       var _g = (((((i / 2) / max4) * rg) | 0) + time) % 11025;
@@ -33536,7 +33545,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       output[i + 1] = this.right[_g] || 0;
     }
   }
-  AudioBackend.prototype.tick = function() {}
+  AudioBackend.prototype.tick = function() {
+    this.nextBuffer();
+  }
   var MouseCursor = function(type) {
     this.type = type;
   }
@@ -34127,25 +34138,14 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (this.playing) {
       var fd = Math.max(this.getTime() - this.time_offset, 0);
       while ((fd - this.last_time) >= 0) {
-        this.last_time += 10;
-        this.frame_accumulator += 10;
+        this.last_time += 8;
+        this.frame_accumulator += 8;
       }
       var frame_rate = this.frameRate;
       var frame_time = 1000 / frame_rate;
-      var startTime = Date.now();
-      var frame = 0;
-      while ((((Date.now() - startTime) < 50) && (frame < 5)) && (this.frame_accumulator >= 0)) {
+      while (this.frame_accumulator >= 0) {
         this.runFrame();
         this.frame_accumulator -= frame_time;
-        frame++;
-      }
-      var audioSkewTime = false;
-      if (this.frame_accumulator >= 0) {
-        this.frame_accumulator = 0;
-        this.last_time = 0;
-        this.time_offset = this.getTime();
-        this.audioManager.audioSkewTime(this.audio, 0);
-        audioSkewTime = true;
       }
       if (this.ui.mouseVisible()) {
         var tgs = this.cursor > 0;
@@ -34157,9 +34157,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       } else {
         this.canvas.style.cursor = "none";
       }
-      this.update_timers(10);
+      this.update_timers(8);
       this.update(function() {});
-      if (audioSkewTime) this.audio.resume();
       this.audio.tick();
     } else {
       this.last_time = 0;
@@ -34774,7 +34773,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             var r = root.getTotalBytes();
             _this.emitProgress([1, l / r], l, r);
           }
-        }, 10);
+        }, 16);
       }
       _this.swfdecompress = null;
     };
@@ -35160,10 +35159,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     });
     this.handleError = this.handleError.bind(this);
     this.resize(640, 400);
-    setInterval(this.tick.bind(this), 10);
+    setInterval(this.tick.bind(this), 8);
   }
   PinkFiePlayer.version = "1.4.0";
-  PinkFiePlayer.built = "2026-6-1";
+  PinkFiePlayer.built = "2026-8-27";
   PinkFiePlayer.isBeta = false;
   PinkFiePlayer.prototype.addNAS3 = function() {
     this.nas3 = document.createElement('div');
@@ -35497,7 +35496,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     loadingContainer.appendChild(a2);
     loadingContainer.appendChild(a3);
     var rfg = document.createElement('p');
-    rfg.textContent = "(c) 2026 EAXDCFMLPFSXFFSMF";
+    rfg.textContent = "(c) 2026 EAXDMLPSXF";
     rfg.style.color = "#000";
     rfg.style.margin = "4px";
     rfg.style.position = "absolute";
@@ -35939,7 +35938,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
   PinkFiePlayer.prototype.tick = function() {
-    this.tickTime += 10;
+    this.tickTime += 8;
     if (this.hasStage()) {
       var clip_current_frame = this.stage.rootCurrentFrame();
       var clip_total_frames = this.stage.getTotalFrames();
@@ -35965,7 +35964,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       this.__agdfdf.style.display = 'none';
     }
     if (this.hasStage()) {
-      this.stage.tick(10);
+      this.stage.tick(8);
       if (this.isPlayMovie()) this.movie_playStop.innerHTML = "Stop";
       else this.movie_playStop.innerHTML = "Play";
       if (this.isLoopMovie()) this.movie_loopButton.innerHTML = "Loop: ON";
