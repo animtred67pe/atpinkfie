@@ -155,11 +155,16 @@
                 playerArea.appendChild(player.root);
 				var minHH = 23;
 
-                function _resetRRR() {
+                function _mresize_(w, h) {
                     try {
-                        window.resizeTo(640, 480);
+                        window.resizeTo(w + 16, h + 39);
                     } catch(e) {
+
                     }
+                }
+
+                function _resetRRR() {
+                    _mresize_(700, 450);
                 }
 
                 player.oncleanup.subscribe(function() {
@@ -167,11 +172,7 @@
 				});
                 player.onload.subscribe(function(stage) {
                     var swf = stage.swf;
-                    try {
-                        window.resizeTo(swf.width + 16, swf.height + (minHH * 2) + 16);
-                    } catch(e) {
-
-                    }
+                    _mresize_(swf.width, swf.height + minHH);
                 });
                 
                 function _resize_() {
