@@ -1,7 +1,5 @@
 /*
  * PinkFie A Flash Player Emulator in javscript(ES6)
- *
- * Made By EddyAlonspAyalaQuispe2007
  */
 
 var PinkFie = (function() {
@@ -128,23 +126,7 @@ var PinkFie = (function() {
   function eq_with_case(a,b,c){return c?(a==b):eq_ignore_case(a,b)}
   function clampToI32(_){return((_>=-2147483648)&&_<=2147483647)?(_|0):-2147483648}
   function parse_array_index(_){var a=+_;return Number.isInteger(a)?(a|0):null}
-  
-  function number_round_ties_even(_) {
-    if (_ == 0) return 0;
-    var z = _ < 0;
-    var a = Math.abs(_);
-    var b = (a / 2) | 0;
-    var c = a % 2;
-    var result = 0;
-    if (c > 0.5) {
-      result = 1;
-      if (c >= 1.5) {
-        result = 2;
-      }
-    }
-    return (result + (b * 2)) * (z ? -1 : 1);
-  }
-  
+  function number_round_ties_even(_){if(_==0)return 0;var a=Math.abs(_);var b=(a/2)|0,c=a%2;var d=(c>0.5)?((c>=1.5)?2:1):0;return(d+(b*2))*((_<0)?-1:1)}
   function f64_to_degrees(a){return a*(180/Math.PI)}
   function f64_to_radians(a){return a*(Math.PI/180)}
   function inherits(a,b){a.prototype=Object.create(b.prototype);a.prototype.constructor=a}
@@ -156,15 +138,7 @@ var PinkFie = (function() {
   function generateColorTransform(a,b){return[Math.max(0,Math.min((a[0]*b[0])+b[4],255))|0,Math.max(0,Math.min((a[1]*b[1])+b[5],255))|0,Math.max(0,Math.min((a[2]*b[2])+b[6],255))|0,Math.max(0,Math.min((a[3]*255*b[3])+b[7],255))/255]}
   function object_assign(a,b){var r={};for(var i in a)r[i]=a[i];for(var j in b)r[j]=b[j];return r};
   function objectCopy(_){var a={};for(var b in _)a[b]=_[b];return a}
-  function removeIdArray(_, i) {
-    if (_.length) {
-      if (i >= _.length) {
-        _.pop();
-      } else {
-        _.splice(i, 1);
-      }
-    }
-  }
+  function removeIdArray(_,i){if(_.length){if(i>=_.length)_.pop();else _.splice(i, 1)}}
 
   var Transform = function(matrix, colorTransform) {
     this.matrix = matrix || Matrix.IDENTITY.clone();
@@ -9871,7 +9845,7 @@ var AT_NIHAV_VP6 = (function() {
         sampleRate = 44100;
         break;
       default:
-        console.log("unreachable");
+        this.emitMessage("unreachable", "error");
     }
     obj.sampleRate = sampleRate;
     obj.is16Bit = frags & 0b10;
@@ -11173,10 +11147,21 @@ var AT_NIHAV_VP6 = (function() {
   var Avm2Reader = function(data) {
     this.byteStream = new ByteStream(data);
   }
+  Avm2Reader.prototype.readU30 = function() {
+    return this.byteStream.readEncodedU32();
+  }
+  Avm2Reader.prototype.readI32 = function() {
+    return this.byteStream.readEncodedU32() | 0;
+  }
+  Avm2Reader.prototype.readString = function() {
+    var byteStream = this.byteStream;
+    var len = this.readU30();
+    var s = byteStream.readBytes(len);
+    return new TextDecoder().decode(s);
+  }
   Avm2Reader.prototype.read = function() {
     var byteStream = this.byteStream;
     var len;
-    var i;
     var minorVersion = byteStream.readUint16();
     var majorVersion = byteStream.readUint16();
     var constantPool = this.readConstantPool();
@@ -11191,14 +11176,13 @@ var AT_NIHAV_VP6 = (function() {
       metadata.push(this.readMetadata());
     }
     len = this.readU30();
-    i = len;
     var instances = [];
-    while (i--) {
+    while (len--) {
       instances.push(this.readInstance());
     }
-    i = len;
+    len = instances.length;
     var classes = [];
-    while (i--) {
+    while (len--) {
       classes.push(this.readClass());
     }
     len = this.readU30();
@@ -11211,6 +11195,17 @@ var AT_NIHAV_VP6 = (function() {
     while (len--) {
       methodBodies.push(this.readMethodBody());
     }
+    for (var i = 0; i < methodBodies.length; i++) {
+      var body = methodBodies[i];
+      var index = body.method;
+      if (index >= methods.length) {
+        throw new Error("AbcParseError::MethodInfoOutOfBounds");
+      }
+      if (methods[index].body != null) {
+        throw new Error("invalid_data(\"Duplicate method body\")");
+      }
+      methods[index].body = i;
+    }
     var obj = {};
     obj.minorVersion = minorVersion;
     obj.majorVersion = majorVersion;
@@ -11222,12 +11217,6 @@ var AT_NIHAV_VP6 = (function() {
     obj.scripts = scripts;
     obj.methodBodies = methodBodies;
     return obj;
-  }
-  Avm2Reader.prototype.readU30 = function() {
-    return this.byteStream.readEncodedU32();
-  }
-  Avm2Reader.prototype.readI32 = function() {
-    return this.byteStream.readEncodedU32() | 0;
   }
   Avm2Reader.prototype.readConstantPool = function() {
     var byteStream = this.byteStream;
@@ -11284,12 +11273,6 @@ var AT_NIHAV_VP6 = (function() {
     obj.multinames = multinames;
     return obj;
   }
-  Avm2Reader.prototype.readString = function() {
-    var byteStream = this.byteStream;
-    var len = this.readU30();
-    var s = byteStream.readBytes(len);
-    return new TextDecoder().decode(s);
-  }
   Avm2Reader.prototype.readNamespace = function() {
     var byteStream = this.byteStream;
     var obj = {};
@@ -11337,7 +11320,7 @@ var AT_NIHAV_VP6 = (function() {
       case 0x1C: // MultinameLA
         obj.nsSet = this.readU30();
         break;
-      case 0x1d:
+      case 0x1D: // TypeName
         obj.index = this.readU30();
         var count = this.readU30();
         var parameters = [];
@@ -11355,16 +11338,16 @@ var AT_NIHAV_VP6 = (function() {
     var byteStream = this.byteStream;
     var obj = {};
     var i;
-    var count = this.readU30();
-    obj.paramCount = count;
+    var paramCount = this.readU30();
     obj.returnType = this.readU30();
-    if (count) {
-      var paramType = [];
-      for (i = 0; i < count; i++) {
-        paramType.push(this.readU30());
-      }
-      obj.paramType = paramType;
+    var params = [];
+    for (i = 0; i < paramCount; i++) {
+      params.push({
+        kind: this.readU30(),
+        name: null
+      });
     }
+    obj.params = params;
     obj.name = this.readU30();
     var flags = byteStream.readUint8();
     obj.needArguments = flags & 1;
@@ -11382,13 +11365,9 @@ var AT_NIHAV_VP6 = (function() {
       obj.options = options;
     }
     if (128 & flags) {
-      var paramNames = [];
-      if (count) {
-        for (i = 0; i < count; i++) {
-          paramNames.push(this.readU30());
-        }
+      for (i = 0; i < params.length; i++) {
+        params[i].name = this.readU30();
       }
-      obj.paramNames = paramNames;
     }
     return obj;
   }
@@ -11421,9 +11400,10 @@ var AT_NIHAV_VP6 = (function() {
   }
   Avm2Reader.prototype.readOptionalValue = function() {
     var byteStream = this.byteStream;
-    var obj = {};
-    obj.index = this.readU30();
-    if (obj.index) {
+    var index = this.readU30();
+    if (index) {
+      var obj = {};
+      obj.index = index;
       obj.kind = byteStream.readUint8();
       switch (obj.kind) {
         case 0x00: // Undefined
@@ -11445,8 +11425,10 @@ var AT_NIHAV_VP6 = (function() {
         default:
           throw new Error("Invalid namespace kind");
       }
+      return obj;
+    } else {
+      return obj;
     }
-    return obj;
   }
   Avm2Reader.prototype.readMetadata = function() {
     var obj = {};
@@ -11656,7 +11638,7 @@ var AT_NIHAV_VP6 = (function() {
     } else {
       if (this._loadedType == 2) {
         if ((this.byteStream.length + 8) !== this._uncompressedLength) {
-          console.log("SWF length doesn't match header, may be corrupt");
+          log.warn("SWF length doesn't match header, may be corrupt");
         }
         var reader = new SwfInput(this.byteStream.data, this._swfVersion);
         var bounds = reader.rect();
@@ -11753,10 +11735,6 @@ var AT_NIHAV_VP6 = (function() {
       // NaN/Infinity goes to 0.
       return 0;
     }
-  }
-
-  function assert_eq(a, b) {
-    console.log(a, b, a == b);
   }
 
   var Point = function(x, y) {
@@ -19376,7 +19354,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
 
-  ////////// DisplayObjects.js //////////
+  ////////// DisplayObjects //////////
+
+  ///// DisplayObject.js /////
 
   var BitmapCache = function() {
     this.matrix_a = 0;
@@ -22789,12 +22769,22 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return false;
     };
     decode_tags(reader, tagCallback.bind(this));
+    //this.run_abc_and_symbol_tags(context, this.currentFrame - 1);
     this.tagStreamPos = reader.byteStream.byte_offset;
     if (this.audioStream) {
       if (!context.isSoundPlaying(this.audioStream)) {
         this.audioStream = null;
       }
     }
+  }
+  MovieClip.prototype.run_abc_and_symbol_tags = function(context, currentFrame) {
+    var eager_tags = this.staticData.eagerTags[currentFrame];
+    if (eager_tags) {
+      this.staticData.eagerTags[currentFrame] = null;
+    } else {
+      return;
+    }
+    console.log(eager_tags);
   }
   MovieClip.prototype.setBackgroundColor = function(context, reader) {
     context.stage.setBackgroundColor(reader.rgb());
@@ -23367,9 +23357,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.frameLabels = [];
     this.frameLabelsMap = new Map();
     this.initActions = new Map();
+    this.eagerTags = [];
     this.preloadProgress = new PreloadProgress();
-    this.symbolclassNames = new Map();
-    this.abcTags = new Map();
   }
   MovieClipStatic.withData = function(id, swf, totalFrames, loader_info) {
     var mcs = new MovieClipStatic();
@@ -23548,23 +23537,33 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   MovieClipStatic.prototype.preloadBytecodeTag = function(tagCode, reader, context, cur_frame, tagLength) {
     var tag = reader.parseTagWithCode(tagCode, tagLength);
     tag.tagcode = tagCode;
-    this.abcTags.set(cur_frame, tag);
-    var r = new Avm2Reader(tag.abc);
-    console.time("Avm2:read");
-    var res = r.read();
-    console.timeEnd("Avm2:read");
-    console.log(res);
+    if (!this.eagerTags[cur_frame]) {
+      this.eagerTags[cur_frame] = {
+        abcTags: [],
+        symbolclassNames: []
+      };
+    }
+    this.eagerTags[cur_frame].abcTags.push(tag);
   }
   MovieClipStatic.prototype.preloadSymbolClass = function(reader, context, cur_frame) {
     var byteStream = reader.byteStream;
     var num_symbols = byteStream.readUint16();
     var symbolclass_names = [];
-    this.symbolclassNames.set(cur_frame, symbolclass_names);
     for (var i = 0; i < num_symbols; i++) {
       var id = byteStream.readUint16();
       var str = reader.getEncoding().decode(byteStream.readBytesNullTerminated());
       symbolclass_names.push([id, str]);
     }
+    if (!this.eagerTags[cur_frame]) {
+      this.eagerTags[cur_frame] = {
+        abcTags: [],
+        symbolclassNames: []
+      };
+    }
+    this.eagerTags[cur_frame].symbolclassNames.push({
+      tagcode: 76,
+      symbols: symbolclass_names
+    });
   }
   MovieClipStatic.prototype.frameLabel = function(reader, cur_frame, context, tagLength) {
     var movie = this.getMovie();
@@ -25341,6 +25340,30 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return obj;
   }
+  Avm1FunctionObject.prototype.build_class_object = function(fn_proto, prototype, function_class, order) {
+    var obj = Avm1Object.createNewWithoutProto();
+    var native = new Avm1NativeObject(Avm1NativeObject.Function, this);
+    obj.setNative(native);
+    var attr = new Avm1Attribute().dontEnum().dontDelete();
+    var constructor_name = "constructor";
+    var proto_name = "__proto__";
+    var prototype_name = "prototype";
+    switch(order) {
+      case "PrototypeFirst":
+        obj.defineValue(prototype_name, Avm1Value.fromObject(prototype), attr);
+        obj.defineValue(constructor_name, Avm1Value.fromObject(function_class), attr);
+        obj.defineValue(proto_name, Avm1Value.fromObject(fn_proto), attr);
+        prototype.defineValue(constructor_name, Avm1Value.fromObject(obj), attr);
+        break;
+      case "PrototypeLast":
+        obj.defineValue(constructor_name, Avm1Value.fromObject(function_class), attr);
+        obj.defineValue(proto_name, Avm1Value.fromObject(fn_proto), attr);
+        prototype.defineValue(constructor_name, Avm1Value.fromObject(obj), attr);
+        obj.defineValue(prototype_name, Avm1Value.fromObject(prototype), attr);
+        break;
+    }
+    return obj;
+  }
   Avm1FunctionObject.prototype.exec = function(name, activation, _this, depth, args, reason, _callee) {
     var _func = this._function;
     var af = _func.data;
@@ -25565,6 +25588,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   var Avm1DeclContext = function(object_proto, fn_proto) {
     this.object_proto = object_proto;
     this.fn_proto = fn_proto;
+    this.function_class = null;
+  }
+  Avm1DeclContext.createNew = function(build_object, build_function) {
+    var object_proto = Avm1Object.createNewWithoutProto();
+    var fn_proto = Avm1Object.createNewWithoutProto();
+    var ctx = new Avm1DeclContext(object_proto, fn_proto);
+    ctx.function_class = object_proto;
+    var object = build_object(ctx);
+    var _function = build_function(ctx);
+    ctx.function_class = _function.constr;
+    var constructor_name = "constructor";
+    object.constr.defineValue(constructor_name, Avm1Value.fromObject(_function.constr), new Avm1Attribute().dontEnum().dontDelete());
+    _function.constr.defineValue(constructor_name, Avm1Value.fromObject(_function.constr), new Avm1Attribute().dontEnum().dontDelete());
+    fn_proto.defineValue("__proto__", Avm1Value.fromObject(object_proto), new Avm1Attribute().dontEnum().dontDelete());
+    return [ctx, object, _function];
   }
   Avm1DeclContext.prototype.define_properties_on = function(_this, decls) {
     for (var name in decls) {
@@ -25589,6 +25627,16 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Avm1DeclContext.prototype.native_class_with_proto = function(_constructor, _function, proto) {
     var constr = Avm1FunctionObject.createConstructor(_constructor, _function).build(this.fn_proto, proto);
+    return new Avm1SystemClass(proto, constr);
+  }
+  Avm1DeclContext.prototype.build_class = function(function_object, super_proto, order) {
+    var proto = Avm1Object.createNewWithoutProto();
+    var _class = this.build_class_with_proto(function_object, proto, "First");
+    proto.defineValue("__proto__", Avm1Value.fromObject(super_proto), new Avm1Attribute().dontEnum().dontDelete());
+    return _class;
+  }
+  Avm1DeclContext.prototype.build_class_with_proto = function(function_object, proto, order) {
+    var constr = function_object.build_class_object(this.fn_proto, proto, this.function_class, order);
     return new Avm1SystemClass(proto, constr);
   }
   var Avm1SystemClass = function(proto, constr) {
@@ -29062,10 +29110,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }());
 
   function avm1_create_globals() {
-    var object_proto = Avm1Object.createNewWithoutProto();
-    var context = new Avm1DeclContext(object_proto, Avm1Object.createNew(Avm1Value.fromObject(object_proto)));
-    var object = avm1_globals.object.create_class(context);
-    var _function = avm1_globals.function.create_class(context);
+    var ctxResult = Avm1DeclContext.createNew(avm1_globals.object.create_class, avm1_globals.function.create_class);
+    var context = ctxResult[0];
+    var object = ctxResult[1];
+    var _function = ctxResult[2];
     var array = avm1_globals.array.create_class(context, object.proto);
     var string = avm1_globals.string.create_class(context, object.proto);
     var number = avm1_globals.number.create_class(context, object.proto);
@@ -31592,8 +31640,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.scope = Avm1Scope.newTargetScope(this.scope, clip_obj);
     return Avm1FrameControl.objContinue;
   }
-  var avm1Callback = [];
-  
   
   var Avm1GlobalEnv = function() {
     var result_globals  = avm1_create_globals();
@@ -31733,9 +31779,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var next = this.clipExecList;
     while (true) {
       var clip = next;
-      if (!clip) {
+      if (!clip) 
         break;
-      }
       next = clip.nextAvm1Clip;
       if (clip.AVM1_REMOVED) {
         if (prev) {
@@ -31785,7 +31830,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       reader.readAction();
     }
   }
-  // AT AVM2
+
+  ////////// Avm2.js //////////
 
   var Avm2NamespaceSet = function(a, b) {
     this.a = a;
@@ -33278,7 +33324,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (initial_clip.swfVersion() <= 9 && initial_clip.getMovie().isActionScript3()) {
       initial_clip.constructFrame(context);
       initial_clip.setSkipNextEnterFrame(true);
-        return;
+      return;
     }
     var stage = context.stage;
     var old_phase = context.framePhase.type;
@@ -34000,9 +34046,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return this.swf.isActionScript3();
   }
   Player.prototype.checkAVM2 = function() {
+    //return false;
     var clip = this.getRootClip();
     if (clip) {
-      return clip.staticData.abcTags.size > 0;
+      return clip.staticData.eagerTags.length > 0;
     } else {
       return false;
     }
@@ -34726,7 +34773,6 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.onprogress = null;
     this.swfdecompress = null;
     this.aborted = false;
-    this.audioContext = null;
     this.interval = null;
   }
   Loader.prototype.cancel = function() {
@@ -34754,7 +34800,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Loader.prototype.loadSwfMovie = function(swfData, calllback) {
     var _this = this;
-    var stage = new Player(this.audioContext);
+    var stage = new Player();
     var swfdecompress = new SwfDecompress(swfData);
     swfdecompress.onprogress = function (fs) {
       var _ = swfdecompress.getProgress();
@@ -35184,7 +35230,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     setInterval(this.tick.bind(this), 5);
   }
   PinkFiePlayer.version = "1.4.0";
-  PinkFiePlayer.built = "2026-9-11";
+  PinkFiePlayer.built = "2026-10-19";
   PinkFiePlayer.isBeta = false;
   PinkFiePlayer.prototype.addNAS3 = function() {
     this.nas3 = document.createElement('div');
@@ -35607,6 +35653,11 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       console.log(text);
     }
   }
+  PinkFiePlayer.prototype.getSwfMetadata = function() {
+    if (this.stage) {
+      return this.stage.getMetadata();
+    }
+  }
   PinkFiePlayer.prototype.debugInfo = function() {
     var text = "";
     if (this.hasStage()) {
@@ -35984,12 +36035,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     } else {
       this.__agdfdf.style.display = 'none';
     }
-    var deltaTick = Math.max(_getTime() - this.startTimeD, 0);
+    var _time = _getTime();
+    var deltaTick = Math.max(_time - this.startTimeD, 0);
     this.tickTime += deltaTick;
-    this.startTimeD = _getTime();
+    this.startTimeD = _time;
     if (this.hasStage()) {
       if (!document.hidden && !document.msHidden && !document.mozHidden && !document.webkitHidden)
-        this.stage.tick(Math.min(deltaTick, 100));
+        this.stage.tick(Math.min(deltaTick, 50));
       this.stage.updateCursor();
       if (this.isPlayMovie()) this.movie_playStop.innerHTML = "Stop";
       else this.movie_playStop.innerHTML = "Play";

@@ -22,7 +22,8 @@ ul{
     padding: 0px 2px;
 }
 ul li {
-    margin: 12px 14px;
+    margin: 2px;
+    float: left;
 }
 ul li a {
     text-decoration: none;

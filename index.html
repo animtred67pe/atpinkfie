@@ -5,62 +5,6 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<link rel="stylesheet" type="text/css" href="index.css">
 		<title>PinkFie - Flash Player Emulator</title>
-		<style>
-			.pinkfiedemofull {
-				overflow: hidden;
-			}
-
-			.pa-controls {
-				margin: 8px 0px;
-			}
-			.pa-controls a{
-				text-decoration: none;
-				padding: 4px;
-				font-size: 12px;
-				background-color: #ddd;
-				border-radius: 8px;
-				color: #111;
-			}
-			.pa-controls a:hover{
-				background-color: #333;
-				color: #fff;
-			}
-			.dark .pa-controls a{
-				background-color: #333;
-				color: #fff;
-			}
-			.dark .pa-controls a:hover{
-				background-color: #fff;
-				color: #000;
-			}
-
-			.pa-controls {
-				margin: 0;
-				position: absolute;
-				top: 0;
-				left: 0;
-				color: #fff;
-			}
-			.pa-controls a{
-				margin: 2px;
-				float: left;
-				border-radius: 8px;
-			}
-			ul li {
-				margin: 2px;
-				float: left;
-			}
-			#pinkfiedemo {
-				z-index: 999;
-				overflow: hidden;
-				position: fixed;
-				top: 0;
-				left: 0;
-				background-color: rgba(0, 0, 0, 1);
-				width: 100%;
-				height: 100%;
-			}
-		</style>
 		<script>
 			// Apply local dark mode preference very early to avoid a flash of white
 			(function() {
@@ -98,29 +42,22 @@
 			<br>
 			<label>Enable WebGL Renderer:</label>
 			<input type="checkbox" id="enwebgla">
+			<div id="plyplaying" style=" display: none;">
+				<a id="plycancel">Close Player</a>	
+				<label id="ggtitle5"></label>
+			</div>
 			<div id="pinkfiedemo" style="display: none;">
 				<div id="pinkswf"></div>
-				<div class="pa-controls">
-					<a id="plymenu" style="border-radius: 100%; background-color: rgba(0, 0, 0, 0);"><img src="pinkfie_icon.png" width="24" height="24"></a>
-					<div id="plymenuall" style="display: none;">
-						<a id="plyplaypause">Play/Pause</a>
-						<br>
-						<a id="plysetting">Settings</a>
-						<br>
-						<a id="plycontrol">Controls</a>
-						<br>
-						<div id="plyfullscreen"><a>Full Screen</a></div>
-						<a id="plyreload">Reload SWF</a>
-						<br>
-						<a id="plyexit">Close</a>
-					</div>
-				</div>
 			</div>
+			<ul id="pd_pkfcontrols" style="display: none;">
+				<li><a id="pd_plyplaypause">Play/Pause</a></li>
+				<li><a id="pd_plysetting">Settings</a></li>
+				<li><a id="pd_plycontrol">Controls</a></li>
+				<li id="pd_plyfullscreen" style="display: none;"><a>Full Screen</a></li>
+				<li><a id="pd_plyreload">Reload SWF</a></li>
+			</ul>
 			<br>
-			<div id="plyplaying" style=" display: none;">
-				<a id="plyresume">Resume Player</a>
-				<a id="plycancel">Cancel Player</a>	
-			</div>
+			<div id="pinkfiedemo_info" style="display: none;"></div>
 			<p>PinkFie source code available on <a href="https://github.com/animtred67pe/atpinkfie">GitHub.</a></p>
 			<p><a style="color: #888; text-decoration-line: none;" href="https://animtred67pe.github.io/animtred67pe/">(c) 2026 EAXDMLPSXF</a></p>
 		</div>
@@ -139,8 +76,6 @@
 					return el;
 				}
 
-				var s_opendemo = true;
-
 				var initialTitle = document.title;
 
 				function isMobileOrTablet() {
@@ -150,16 +85,57 @@
 					return false;
 				}
 
+				var ggtitle5 = document.getElementById("ggtitle5");
+
 				/* Players */
+				var ppwidth = 640;
+				var ppheight = 400;
+
 				var pinkfiedemo = document.getElementById("pinkfiedemo");
+				var pinkfiedemo_info = document.getElementById("pinkfiedemo_info");
 				var pinkswf = document.getElementById("pinkswf");
+
+				var pd_pkfcontrols = document.getElementById('pd_pkfcontrols');
 
                 var fileorurl = document.getElementById('fileorurl');
                 var plyloadurl = document.getElementById('plyloadurl');
 
 				var plyplaying = document.getElementById('plyplaying');
 				var plycancel = document.getElementById('plycancel');
-				var plyresume = document.getElementById('plyresume');
+				
+				function showSwf() {
+
+					var swfmetadata = player.getSwfMetadata();
+
+					var resultswf = player.stage.swf;
+					var dfgfd = "<h3>SWF Info</h3>";
+
+					/*
+						Uncompressed Length
+						SWF Version
+						FP Version
+						ActionScript 3
+						Total Frames
+						Frame Rate
+						SWF Width
+						SWF Height
+						SWF Background Color
+					*/
+
+					dfgfd += "compression: " + resultswf.header.compression;
+					dfgfd += " version: " + swfmetadata.version;
+					dfgfd += " uncompressed length: " + swfmetadata.uncompressedLength + "<br>";
+
+					dfgfd += "resolution: " + swfmetadata.width;
+					dfgfd += "x" + swfmetadata.height;
+					dfgfd += " frame rate: " + swfmetadata.frameRate;
+					dfgfd += " total frames: " + swfmetadata.numFrames + "";
+
+					//dfgfd += " SWF Background Color: " + resultswf.movieInfo.numFrames + "";
+
+					pinkfiedemo_info.innerHTML = dfgfd;
+					pinkfiedemo_info.style.display = "";
+				}
 
 				plyloadurl.onclick = function() {
 					var resurl = fileorurl.value;
@@ -167,20 +143,6 @@
 						loadSwfUrl(resurl);
 					}
 				}
-
-				function _fullscreenchange() {
-					if (isPhone) {
-						if (typeof document.fullscreen === 'boolean' && document.fullscreen !== sle) {
-							closedemo();
-						} else if (typeof document.webkitIsFullScreen === 'boolean' && document.webkitIsFullScreen !== sle) {
-							closedemo();
-						}
-					}
-				}
-
-				document.addEventListener('fullscreenchange', function() {_fullscreenchange()});
-				document.addEventListener('mozfullscreenchange', function() {_fullscreenchange()});
-				document.addEventListener('webkitfullscreenchange', function() {_fullscreenchange()});
 
 				var player = new PinkFie();
 
@@ -199,20 +161,28 @@
 				var oTitle = null;
 
 				player.onstartload.subscribe(function() {
-					if (oTitle) document.title = oTitle + " - PinkFie";
+					if (oTitle) {
+						document.title = oTitle + " - PinkFie";
+						ggtitle5.textContent = oTitle;
+					}
 					plyplaying.style.display = "";
+				});
+
+				player.onload.subscribe(function() {
+					showSwf();
 				});
 
 				player.oncleanup.subscribe(function() {
 					document.title = initialTitle;
 					plyplaying.style.display = "none";
+					pinkfiedemo_info.innerHTML = '';
+					pinkfiedemo_info.style.display = "none";
+					ggtitle5.textContent = "";
 				});
 
 				plycancel.onclick = function() {
 					player.cleanup();
-				}
-				plyresume.onclick = function() {
-					opendemo();
+					closedemo();
 				}
 
 				var plydemo = document.getElementById("plydemo");
@@ -231,127 +201,66 @@
 					sa.click();
 				}
 
-				var plymenuall = document.getElementById("plymenuall");
-				var plymenu = document.getElementById("plymenu");
-
-				plymenu.onclick = function() {
-					if (plymenuall.style.display == "none") {
-						plymenuall.style.display = "";
-					} else {
-						plymenuall.style.display = "none";
-					}
-				}
-
-				var plyplaypause = document.getElementById("plyplaypause");
-
-				plyplaypause.onclick = function() {
-					plymenuall.style.display = "none";
+				var pd_plyplaypause = document.getElementById("pd_plyplaypause");
+				var pd_plysetting = document.getElementById("pd_plysetting");
+				var pd_plycontrol = document.getElementById("pd_plycontrol");
+				var pd_plyfullscreen = document.getElementById("pd_plyfullscreen");
+				var pd_plyreload = document.getElementById("pd_plyreload");
+				pd_plyplaypause.onclick = function() {
 					player.toggleRunning();
 				}
-
-				var plysetting = document.getElementById("plysetting");
-
-				plysetting.onclick = function() {
-					plymenuall.style.display = "none";
-					player.showSetting()
+				pd_plysetting.onclick = function() {
+					player.showSetting();
 				}
-
-				var plycontrol = document.getElementById("plycontrol");
-
-				plycontrol.onclick = function() {
-					plymenuall.style.display = "none";
+				pd_plycontrol.onclick = function() {
 					player.showControls();
 				}
-
-				var plyfullscreen = document.getElementById("plyfullscreen");
-
-				plyfullscreen.onclick = function() {
-					plymenuall.style.display = "none";
+				pd_plyfullscreen.onclick = function() {
 					player.fullscreen();
 				}
-
-				var plyreload = document.getElementById("plyreload");
-
-				plyreload.onclick = function() {
-					plymenuall.style.display = "none";
+				pd_plyreload.onclick = function() {
 					player.reload();
 				}
 
 				if (isPhone) {
-					plyfullscreen.style.display = "none";
-					player.fullscreenButton.style.display = "none";
-					player.playPauseButton.style.display = "none";
+					pd_plyfullscreen.style.display = "";
 				}
 
 				player.menuSettingControls(false);
 
-				var plyexit = document.getElementById("plyexit");
-
-				plyexit.onclick = function() {
-					closedemo();
-				}
-
 				pinkswf.appendChild(player.root);
 
-				function _resize_() {
-					player.resize(window.innerWidth, window.innerHeight);
-				}
-				window.addEventListener("resize", _resize_);
-				_resize_();
+				pinkfiedemo.style.background = "rgba(0, 0, 0, 0)";
+				pinkfiedemo.style.width = ppwidth + "px";
+				pinkfiedemo.style.height = ppheight + "px";
+
+				player.resize(ppwidth, ppheight);
 
 				var sle = false;
 
 				function opendemo() {
 					if (!sle) {
 						pinkfiedemo.style.display = "";
-						if (isPhone) {
-							if (pinkfiedemo.requestFullScreenWithKeys) {
-								pinkfiedemo.requestFullScreenWithKeys();
-							} else if (pinkfiedemo.webkitRequestFullScreen) {
-								pinkfiedemo.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
-							} else if (pinkfiedemo.requestFullscreen) {
-								pinkfiedemo.requestFullscreen();
-							}
-						}
-						document.documentElement.classList.add("pinkfiedemofull");
+						pd_pkfcontrols.style.display = "";
 						sle = true;
 					}
 				}
 				function closedemo() {
 					if (sle) {
-						if (isPhone) {
-							if (document.fullscreenElement === pinkfiedemo || document.webkitFullscreenElement === pinkfiedemo) {
-								if (document.exitFullscreen) {
-									document.exitFullscreen();
-								} else if (document.mozCancelFullScreen) {
-									document.mozCancelFullScreen();
-								} else if (document.webkitCancelFullScreen) {
-									document.webkitCancelFullScreen();
-								} else if (document.webkitExitFullscreen) {
-									document.webkitExitFullscreen();
-								}
-							}
-						}
-						plymenuall.style.display = "none";
 						pinkfiedemo.style.display = "none";
-						document.documentElement.classList.remove("pinkfiedemofull");
+						pd_pkfcontrols.style.display = "none";
 						sle = false;
 					}
 				}
 
 				function loadSwfFile(file) {
-					s_opendemo = true;
 					opendemo();
 					oTitle = file.name || "";
 					player.loadSwfFromFile(file);
 				}
 
 				function loadSwfUrl(url) {
-					if (s_opendemo) {
-						opendemo();
-					} else {
-						s_opendemo = true;
-					}
+					opendemo();
 					player.loadSwfFromURL(url);
 				}
 
@@ -382,7 +291,6 @@
 				});
 
 				if (Common.swfUrl) {
-					if (isPhone) s_opendemo = false;
 					loadSwfUrl(Common.swfUrl);
 				}
 
