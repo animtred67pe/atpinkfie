@@ -11610,18 +11610,7 @@ var AT_NIHAV_VP6 = (function() {
     return data;
   }());
 
-  function round_to_i32(f) {
-    if (Number.isFinite(f)) {
-      if (f < 2147483648) {
-        return number_round_ties_even(Math.fround(f)) | 0;
-      } else {
-        return -2147483648;
-      }
-    } else {
-      // NaN/Infinity goes to 0.
-      return 0;
-    }
-  }
+  ////////// PinkFie/Render //////////
 
   var Point = function(x, y) {
     this.x = x;
@@ -11858,6 +11847,47 @@ var AT_NIHAV_VP6 = (function() {
   }
   Matrix.IDENTITY = new Matrix(1, 0, 0, 1, 0, 0);
   Matrix.TWIPS_TO_PIXELS = new Matrix(1 / 20, 0, 0, 1 / 20, 0, 0);
+  function round_to_i32(f) {
+    if (Number.isFinite(f)) {
+      if (f < 2147483648) {
+        return number_round_ties_even(Math.fround(f)) | 0;
+      } else {
+        return -2147483648;
+      }
+    } else {
+      // NaN/Infinity goes to 0.
+      return 0;
+    }
+  }
+  var PixelSnapping = function(type) {
+    this.type = type;
+  }
+  PixelSnapping.prototype.apply = function(matrix) {
+    switch (this.type) {
+      case PixelSnapping.Always:
+        matrix[4] = Math.round(matrix[4] / 20) * 20;
+        matrix[5] = Math.round(matrix[5] / 20) * 20;
+        break;
+      case PixelSnapping.Auto:
+        if ((matrix[0] >= 0.999 && matrix[0] <= 1.001) && (matrix[3] >= 0.999 && matrix[3] <= 1.001) && matrix[1] == 0.0 && matrix[2] == 0.0) {
+          matrix[0] = 1;
+          matrix[3] = 1;
+          matrix[4] = Math.round(matrix[4] / 20) * 20;
+          matrix[5] = Math.round(matrix[5] / 20) * 20;
+        }
+        break;
+      case PixelSnapping.Never:
+        break;
+    }
+  }
+  PixelSnapping.Always = 1;
+  PixelSnapping.Auto = 2;
+  PixelSnapping.Never = 3;
+  PixelSnapping.INSTANCE = {
+    Always: new PixelSnapping(PixelSnapping.Always),
+    Auto: new PixelSnapping(PixelSnapping.Auto),
+    Never: new PixelSnapping(PixelSnapping.Never),
+  }
   var Bitmap = function(width, height, format, data) {
     this.width = width;
     this.height = height;
@@ -11897,35 +11927,6 @@ var AT_NIHAV_VP6 = (function() {
   Bitmap.RGBA = 1;
   Bitmap.YUV420P = 2;
   Bitmap.YUVA420P = 3;
-  var PixelSnapping = function(type) {
-    this.type = type;
-  }
-  PixelSnapping.prototype.apply = function(matrix) {
-    switch (this.type) {
-      case PixelSnapping.Always:
-        matrix[4] = Math.round(matrix[4] / 20) * 20;
-        matrix[5] = Math.round(matrix[5] / 20) * 20;
-        break;
-      case PixelSnapping.Auto:
-        if ((matrix[0] >= 0.999 && matrix[0] <= 1.001) && (matrix[3] >= 0.999 && matrix[3] <= 1.001) && matrix[1] == 0.0 && matrix[2] == 0.0) {
-          matrix[0] = 1;
-          matrix[3] = 1;
-          matrix[4] = Math.round(matrix[4] / 20) * 20;
-          matrix[5] = Math.round(matrix[5] / 20) * 20;
-        }
-        break;
-      case PixelSnapping.Never:
-        break;
-    }
-  }
-  PixelSnapping.Always = 1;
-  PixelSnapping.Auto = 2;
-  PixelSnapping.Never = 3;
-  PixelSnapping.INSTANCE = {
-    Always: new PixelSnapping(PixelSnapping.Always),
-    Auto: new PixelSnapping(PixelSnapping.Auto),
-    Never: new PixelSnapping(PixelSnapping.Never),
-  }
   function determineJpegTagFormat(data) {
     if ((data[0] == 0xff) && (data[1] == 0xd8)) {
       return "jpeg";
@@ -13645,6 +13646,24 @@ var AT_NIHAV_VP6 = (function() {
       case "low": return new StageQuality(StageQuality.Low);
       case "medium": return new StageQuality(StageQuality.Medium);
       case "high": return new StageQuality(StageQuality.High);
+      case "best": return new StageQuality(StageQuality.Best);
+      case "8x8": return new StageQuality(StageQuality.High8x8);
+      case "8x8linear": return new StageQuality(StageQuality.High8x8Linear);
+      case "16x16": return new StageQuality(StageQuality.High16x16);
+      case "16x16linear": return new StageQuality(StageQuality.High16x16Linear);
+      default: return null;
+    }
+  }
+  StageQuality.prototype.intoAvmStr = function() {
+    switch (this.type) {
+      case StageQuality.Low: return "LOW";
+      case StageQuality.Medium: return "MEDIUM";
+      case StageQuality.High: return "HIGH";
+      case StageQuality.Best: return "BEST";
+      case StageQuality.High8x8:
+      case StageQuality.High8x8Linear: return "8X8";
+      case StageQuality.High16x16:
+      case StageQuality.High16x16Linear: return "16X16";
       default: return null;
     }
   }
@@ -13653,7 +13672,36 @@ var AT_NIHAV_VP6 = (function() {
       case StageQuality.Low: return "low";
       case StageQuality.Medium: return "medium";
       case StageQuality.High: return "high";
+      case StageQuality.Best: return "best";
+      case StageQuality.High8x8:
+      case StageQuality.High8x8Linear: return "8x8";
+      case StageQuality.High16x16:
+      case StageQuality.High16x16Linear: return "16x16";
       default: return null;
+    }
+  }
+  StageQuality.prototype.sampleCount = function() {
+    switch (this.type) {
+      case StageQuality.Low: return 1;
+      case StageQuality.Medium: return 2;
+      case StageQuality.High: return 4;
+      case StageQuality.Best: return 4;
+      case StageQuality.High8x8:
+      case StageQuality.High8x8Linear: return 8;
+      case StageQuality.High16x16:
+      case StageQuality.High16x16Linear: return 16;
+      default: return 1;
+    }
+  }
+  StageQuality.prototype.isHigh = function() {
+    switch (this.type) {
+      case StageQuality.High: return true;
+      case StageQuality.Best: return true;
+      case StageQuality.High8x8: return true;
+      case StageQuality.High8x8Linear: return true;
+      case StageQuality.High16x16: return true;
+      case StageQuality.High16x16Linear: return true;
+      default: return false;
     }
   }
   StageQuality.prototype.set = function(other) {
@@ -13805,6 +13853,7 @@ var AT_NIHAV_VP6 = (function() {
     this.canvas = document.createElement("canvas");
     this.ctx = this.canvas.getContext("2d");
     this.quality = "high";
+    this.is_high = true;
     this.width = 640;
     this.height = 480;
     this.canvas.width = this.width;
@@ -13813,7 +13862,8 @@ var AT_NIHAV_VP6 = (function() {
     this.blendModes = ["normal"];
   }
   RenderCanvas2d.prototype.setQuality = function(quality) {
-    this.quality = quality;
+    this.quality = quality.toString();
+    this.is_high = quality.isHigh();
   }
   RenderCanvas2d.prototype.submitFrame = function(clear, commands, _cache_entries) {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -13824,7 +13874,7 @@ var AT_NIHAV_VP6 = (function() {
     commands.execute(this);
   }
   RenderCanvas2d.prototype.isAllowImageColorTransform = function() {
-    return (this.quality == "high");
+    return this.is_high;
   }
   RenderCanvas2d.prototype.buildCmd2dPath = function(cmd) {
     var result = [];
@@ -15877,6 +15927,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.isGL2 = isGL2;
     this.useMultisample = true;
     this.quality = "high";
+    this.quality_msaa_sample_count = 4;
     this.canvas = canvas;
     this.gl = gl;
     this.msaa_sample_count = msaa_sample_count;
@@ -15893,7 +15944,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return Math.min(this.get_quality_msaa_sample_count(), this.msaa_sample_count);
   }
   RenderWebGL.prototype.get_quality_msaa_sample_count = function() {
-    return (this.quality == "high") ? 4 : 2;
+    return this.quality_msaa_sample_count;
   }
   RenderWebGL.prototype.createStencilRenderbuffer = function(width, height) {
     var gl = this.gl;
@@ -16010,7 +16061,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     return new RenderWebGLShapeInterval(this, result);
   }
   RenderWebGL.prototype.allowMultisample = function() {
-    return (this.isGL2 && (this.msaa_sample_count >= 2)) && this.useMultisample && this.quality != "low";
+    return (this.isGL2 && (this.msaa_sample_count >= 2)) && this.useMultisample && (this.get_msaa_sample_count() > 1);
   }
   RenderWebGL.prototype.submitFrame = function(clear, commands, cache_entries) {
     var gl = this.gl;
@@ -16362,7 +16413,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
   }
   RenderWebGL.prototype.setQuality = function(quality) {
-    this.quality = quality;
+    this.quality = quality.toString();
+    this.quality_msaa_sample_count = quality.sampleCount();
     this.resetSurface();
   }
   RenderWebGL.prototype.is_offscreen_supported = function() {
@@ -18142,7 +18194,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       try {
         event = reader.readEvent();
       } catch(error) {
-        console.log("Error while parsing HTML", error);
+        log.log("Error while parsing HTML", error);
         break;
       }
       if (event) {
@@ -22187,13 +22239,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         condition = "condIdleToOverUp";
         sound = this._soundInfo.over;
         break;
+      case ClipEvent.KeyPress:
+        return this.runActions(context, "condKeyPress", event.data);
+      case ClipEvent.KeyDown:
+      case ClipEvent.KeyUp:
+        new_state = this._state;
+        condition = null;
+        sound = null;
+        break;
       default:
         return false;
     }
     var _update_state = null, _new_state = null;
     if (is_enabled) {
       if (condition) {
-        this.runActions(context, condition);
+        this.runActions(context, condition, null);
       }
       if (sound) {
         var _sound = movie.library.getSound(sound.id);
@@ -22221,12 +22281,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return false;
   }
-  Avm1Button.prototype.runActions = function(context, condition) {
+  Avm1Button.prototype.runActions = function(context, condition, keyCode) {
     var movie = this.getMovie();
     var handled = false;
     for (var i = 0; i < this._actions.length; i++) {
       var g = this._actions[i];
-      if (g[condition]) {
+      if ((condition == "condKeyPress") ? (g[condition] == keyCode) : g[condition]) {
         context.actionQueue.queueAction(this.getParent(), {
           type: "normal",
           bytecode: SwfSlice.from(movie).toUnboundedSubslice(g.actionScript)
@@ -22378,6 +22438,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       case ClipEvent.Release: return !!this.events.release;
       case ClipEvent.KeyDown: return !!this.events.keyDown;
       case ClipEvent.KeyUp: return !!this.events.keyUp;
+      case ClipEvent.MouseUp: return !!this.events.mouseUp;
+      case ClipEvent.MouseDown: return !!this.events.mouseDown;
+      case ClipEvent.MouseMove: return !!this.events.mouseMove;
       default:
         return false;
     }
@@ -23537,7 +23600,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     this.frameLabels.push([cur_frame, label]);
     var g = this.frameLabelsMap.get(label);
     if (g) {
-      console.log("Movie clip " + this.characterId + " Duplicated frame label");
+      log.log("Movie clip " + this.characterId + " Duplicated frame label");
     } else {
       this.frameLabelsMap.set(label, cur_frame);
     }
@@ -23857,7 +23920,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   }
   Stage.prototype.setQuality = function(context, quality) {
     this.quality.set(quality);
-    context.renderer.setQuality(quality.toString());
+    context.renderer.setQuality(quality);
   }
   Stage.prototype.getAlign = function() {
     return this.align;
@@ -24425,6 +24488,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Avm1NativeObject.Sound = 12;
   Avm1NativeObject.ColorTransform = 13;
   Avm1NativeObject.Transform = 14;
+  Avm1NativeObject.SharedObject = 15;
   Avm1NativeObject.INSTANCE = {
     None: new Avm1NativeObject(Avm1NativeObject.None)
   };
@@ -25344,13 +25408,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var proto_name = "__proto__";
     var prototype_name = "prototype";
     switch(order) {
-      case "PrototypeFirst":
+      case Avm1PropertyOrder.PrototypeFirst:
         obj.defineValue(prototype_name, Avm1Value.fromObject(prototype), attr);
         obj.defineValue(constructor_name, Avm1Value.fromObject(function_class), attr);
         obj.defineValue(proto_name, Avm1Value.fromObject(fn_proto), attr);
         prototype.defineValue(constructor_name, Avm1Value.fromObject(obj), attr);
         break;
-      case "PrototypeLast":
+      case Avm1PropertyOrder.PrototypeLast:
         obj.defineValue(constructor_name, Avm1Value.fromObject(function_class), attr);
         obj.defineValue(proto_name, Avm1Value.fromObject(fn_proto), attr);
         prototype.defineValue(constructor_name, Avm1Value.fromObject(obj), attr);
@@ -25551,6 +25615,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return null;
     }
   }
+  var Avm1SharedObject = function() {
+    this.name = "";
+  }
   function avm1_args_try_get_object(myargs, activation, i) {
     var value = myargs[i];
     if (value) {
@@ -25586,6 +25653,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       
     }
   }
+  var Avm1PropertyOrder = {
+    PrototypeFirst: 1,
+    PrototypeLast: 2
+  }
   var Avm1DeclContext = function(object_proto, fn_proto) {
     this.object_proto = object_proto;
     this.fn_proto = fn_proto;
@@ -25612,27 +25683,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
     }
   }
-  Avm1DeclContext.prototype.empty_class = function(super_proto) {
-    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
-    var constr = Avm1FunctionObject.createEmpty().build(this.fn_proto, proto);
-    return new Avm1SystemClass(proto, constr);
+  Avm1DeclContext.prototype.empty_class = function(super_proto, order) {
+    return this.build_class(Avm1FunctionObject.createEmpty(), super_proto, order);
   }
-  Avm1DeclContext.prototype.class = function(_function, super_proto) {
-    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
-    var constr = Avm1FunctionObject.createNative(_function).build(this.fn_proto, proto);
-    return new Avm1SystemClass(proto, constr);
+  Avm1DeclContext.prototype.class = function(_function, super_proto, order) {
+    return this.build_class(Avm1FunctionObject.createNative(_function), super_proto, order);
   }
-  Avm1DeclContext.prototype.native_class = function(_constructor, _function, super_proto) {
-    var proto = Avm1Object.createNew(Avm1Value.fromObject(super_proto));
-    return this.native_class_with_proto(_constructor, _function, proto);
+  Avm1DeclContext.prototype.native_class = function(_constructor, _function, super_proto, order) {
+    return this.build_class(Avm1FunctionObject.createConstructor(_constructor, _function), super_proto, order);
   }
-  Avm1DeclContext.prototype.native_class_with_proto = function(_constructor, _function, proto) {
-    var constr = Avm1FunctionObject.createConstructor(_constructor, _function).build(this.fn_proto, proto);
-    return new Avm1SystemClass(proto, constr);
+  Avm1DeclContext.prototype.native_class_with_proto = function(_constructor, _function, proto, order) {
+    return this.build_class_with_proto(Avm1FunctionObject.createConstructor(_constructor, _function), proto, order);
   }
   Avm1DeclContext.prototype.build_class = function(function_object, super_proto, order) {
     var proto = Avm1Object.createNewWithoutProto();
-    var _class = this.build_class_with_proto(function_object, proto, "First");
+    var _class = this.build_class_with_proto(function_object, proto, order);
     proto.defineValue("__proto__", Avm1Value.fromObject(super_proto), new Avm1Attribute().dontEnum().dontDelete());
     return _class;
   }
@@ -25893,7 +25958,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context) {
-        var _class = context.native_class_with_proto(_constructor, object_function, context.object_proto);
+        var _class = context.native_class_with_proto(_constructor, object_function, context.object_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         context.define_properties_on(_class.constr, OBJECT_DECLS);
         return _class;
@@ -25948,7 +26013,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context) {
-        var _class = context.native_class_with_proto(_constructor, _function, context.fn_proto);
+        var _class = context.native_class_with_proto(_constructor, _function, context.fn_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -25994,7 +26059,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(number, number_function, super_proto);
+        var _class = context.native_class(number, number_function, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         context.define_properties_on(_class.constr, OBJECT_DECLS);
         return _class;
@@ -26207,7 +26272,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(string, string_function, super_proto);
+        var _class = context.native_class(string, string_function, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         context.define_properties_on(_class.constr, OBJECT_DECLS);
         return _class;
@@ -26247,7 +26312,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(_constructor, boolean_function, super_proto);
+        var _class = context.native_class(_constructor, boolean_function, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -26518,7 +26583,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class_with_proto(_constructor, array, super_proto);
+        var _class = context.native_class_with_proto(_constructor, array, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -26816,7 +26881,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         new_instance_name = new_instance_name.coerceToString(activation);
         depth = (depth.coerceToI32(activation) + AVM1_DEPTH_BIAS) | 0;
       } else {
-        console.log("MovieClip.attachMovie: Too few parameters");
+        log.log("MovieClip.attachMovie: Too few parameters");
         return Avm1Value.INSTANCE.Undefined;
       }
       var init_object = args[3];
@@ -26836,7 +26901,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         new_clip.postInstantiation(activation.context, _init_object, Instantiator.Avm1, true);
         return new_clip.getObject1OrUndef();
       } else {
-        console.log("Unable to attach", export_name);
+        log.log("Unable to attach", export_name);
         return Avm1Value.INSTANCE.Undefined;
       }
     }
@@ -26846,7 +26911,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         new_instance_name = args[0].coerceToString(activation);
         depth = (args[1].coerceToI32(activation) + AVM1_DEPTH_BIAS) | 0;
       } else {
-        console.log("MovieClip.createEmptyMovieClip: Too few parameters");
+        log.log("MovieClip.createEmptyMovieClip: Too few parameters");
         return Avm1Value.INSTANCE.Undefined;
       }
       var swf_movie = movie_clip.getMovie();
@@ -26949,7 +27014,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       if (name) {
         name = name.coerceToString(activation);
       } else {
-        console.log("MovieClip.duplicateMovieClip: Too few parameters");
+        log.log("MovieClip.duplicateMovieClip: Too few parameters");
         return Avm1Value.INSTANCE.Undefined;
       }
       var depth = args[1];
@@ -26975,7 +27040,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         if (depth) {
           depth = (depth.coerceToI32(activation) + AVM1_DEPTH_BIAS) | 0;
         } else {
-          console.log("MovieClip.get_instance_at_depth: Too few parameters");
+          log.log("MovieClip.get_instance_at_depth: Too few parameters");
           return Avm1Value.INSTANCE.Undefined;
         }
         var child = movie_clip.childByDepth(depth);
@@ -27055,13 +27120,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             if ((target_parent === parent) && !target.AVM1_REMOVED) {
               depth = target.getDepth();
             } else {
-              console.log("MovieClip.swapDepths: Objects do not have the same parent");
+              log.log("MovieClip.swapDepths: Objects do not have the same parent");
             }
           } else {
-            console.log("MovieClip.swapDepths: Invalid target");
+            log.log("MovieClip.swapDepths: Invalid target");
           }
         } else {
-          console.log("MovieClip.swapDepths: Invalid target");
+          log.log("MovieClip.swapDepths: Invalid target");
         }
       }
       if (depth != null) {
@@ -27163,7 +27228,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       goto_frame: goto_frame,
       clone_sprite: clone_sprite,
       create_class: function(context, super_proto) {
-        var _class = context.empty_class(super_proto);
+        var _class = context.empty_class(super_proto, Avm1PropertyOrder.PrototypeLast);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27176,7 +27241,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     };
     return {
       create_class: function(context, super_proto) {
-        var _class = context.empty_class(super_proto);
+        var _class = context.empty_class(super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27266,7 +27331,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.empty_class(super_proto);
+        var _class = context.empty_class(super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27311,10 +27376,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           sound.setIsStreaming(false);
           sound.setPosition(0);
         } else {
-          console.log("Sound.attachSound: Sound " + _name + " not found");
+          log.log("Sound.attachSound: Sound " + _name + " not found");
         }
       } else {
-        console.log("Sound.attachSound: this is not a Sound");
+        log.log("Sound.attachSound: this is not a Sound");
       }
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -27336,10 +27401,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             sound.setSoundInstance(sound_instance);
           }
         } else {
-          console.log("Sound.start: No sound is attached");
+          log.log("Sound.start: No sound is attached");
         }
       } else {
-        console.log("Sound.start: Invalid sound");
+        log.log("Sound.start: Invalid sound");
       }
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -27355,7 +27420,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           if (csound && (csound[1].type == Character.Sound)) {
             activation.context.stopSoundsWithHandle(csound[1].data);
           } else {
-            console.log("Sound.attachSound: Sound " + _name + " not found");
+            log.log("Sound.attachSound: Sound " + _name + " not found");
           }
         } else if (sound.owner) {
           activation.context.stopSoundsWithDisplayObject(sound.owner);
@@ -27364,7 +27429,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
           activation.context.stopAllSounds();
         }
       } else {
-        console.log("Sound.attachSound: this is not a Sound");
+        log.log("Sound.attachSound: this is not a Sound");
       }
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -27429,7 +27494,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(constructor, null, super_proto);
+        var _class = context.native_class(constructor, null, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27544,7 +27609,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(_constructor, null, super_proto);
+        var _class = context.native_class(_constructor, null, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27668,7 +27733,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.native_class(transform_method(0), null, super_proto);
+        var _class = context.native_class(transform_method(0), null, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27754,7 +27819,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     }
     return {
       create_class: function(context, super_proto) {
-        var _class = context.class(_constructor, super_proto);
+        var _class = context.class(_constructor, super_proto, Avm1PropertyOrder.PrototypeFirst);
         context.define_properties_on(_class.proto, PROTO_DECLS);
         return _class;
       }
@@ -27794,7 +27859,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(code);
     }
     return {
-      create_key_object: function(context, broadcaster_functions, array_proto) {
+      create_key_object: function(context) {
         var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
         context.define_properties_on(object, OBJECT_DECLS);
         return object;
@@ -27817,7 +27882,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.fromNumber(was_visible ? 0 : 1);
     }
     return {
-      create_mouse_object: function(context, broadcaster_functions, array_proto) {
+      create_mouse_object: function(context) {
         var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
         context.define_properties_on(object, OBJECT_DECLS);
         return object;
@@ -27872,10 +27937,40 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return Avm1Value.INSTANCE.Undefined;
     }
     return {
-      create_stage_object: function(context, broadcaster_functions, array_proto) {
+      create_stage_object: function(context) {
         var object = Avm1Object.createNew(Avm1Value.fromObject(context.object_proto));
         context.define_properties_on(object, OBJECT_DECLS);
         return object;
+      }
+    };
+  }());
+  avm1_globals.shared_object = (function(){
+    var PROTO_DECLS = {
+      "flush": avm1_dsp_method(_flush, ["DONT_ENUM", "DONT_DELETE"]),
+    };
+    function _constructor(activation, _this, args) {
+      _this.setNative(new Avm1NativeObject(Avm1NativeObject.SharedObject, new Avm1SharedObject()));
+      console.log(_this, args);
+      return Avm1Value.INSTANCE.Undefined;
+    }
+    function _flush(activation, _this, _args) {
+      var native = _this.getNative();
+      var shared_object;
+      if (native.type == Avm1NativeObject.SharedObject) {
+        shared_object = native.data;
+      } else {
+        return Avm1Value.INSTANCE.Undefined;
+      }
+      var name = shared_object.name;
+      var data = _this.get("data", activation);
+      console.log(name, data);
+      return Avm1Value.INSTANCE.Undefined;
+    }
+    return {
+      create_class: function(context, super_proto) {
+        var _class = context.class(_constructor, super_proto, Avm1PropertyOrder.PrototypeLast);
+        context.define_properties_on(_class.proto, PROTO_DECLS);
+        return _class;
       }
     };
   }());
@@ -27971,7 +28066,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var id = args[0] || Avm1Value.INSTANCE.Undefined;
       id = id.coerceToI32(activation);
       if (!activation.context.timers.remove(id)) {
-        console.log("clearTimeout: Timer " + id + " does not exist");
+        log.log("clearTimeout: Timer " + id + " does not exist");
       }
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -27982,7 +28077,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var id = args[0] || Avm1Value.INSTANCE.Undefined;
       id = id.coerceToI32(activation);
       if (!activation.context.timers.remove(id)) {
-        console.log("clearTimeout: Timer " + id + " does not exist");
+        log.log("clearTimeout: Timer " + id + " does not exist");
       }
       return Avm1Value.INSTANCE.Undefined;
     }
@@ -29755,10 +29850,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       if (property) {
         property.set(this, clip, prop_value);
       } else {
-        console.log("SetProperty: Invalid property " + prop_index);
+        log.log("SetProperty: Invalid property " + prop_index);
       }
     } else {
-      console.log("SetProperty: Invalid target: " + path);
+      log.log("SetProperty: Invalid target: " + path);
     }
     return Avm1FrameControl.objContinue;
   }
@@ -29777,7 +29872,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (movie_clip) {
       avm1_globals.movieclip.clone_sprite(movie_clip, this.context, target, depth, null);
     } else {
-      console.log("CloneSprite: Source is not a movie clip");
+      log.log("CloneSprite: Source is not a movie clip");
     }
     return Avm1FrameControl.objContinue;
   }
@@ -29788,7 +29883,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (target_clip) {
       avm1_remove_display_object(target_clip, this);
     } else {
-      console.log("RemoveSprite: Source is not a display object");
+      log.log("RemoveSprite: Source is not a display object");
     }
     return Avm1FrameControl.objContinue;
   }
@@ -29811,7 +29906,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     if (display_object) {
       avm1_globals.movieclip.start_drag_impl(display_object, this, lock_center, constraint_args);
     } else {
-      console.log("StartDrag: Invalid target");
+      log.log("StartDrag: Invalid target");
     }
     return Avm1FrameControl.objContinue;
   }
@@ -30044,7 +30139,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       if (constructor.a == Avm1Value.Object) {
         result = constructor.b.construct(this, args);
       } else {
-        console.log("Tried to construct with non-object constructor", constructor);
+        log.log("Tried to construct with non-object constructor", constructor);
         result = Avm1Value.INSTANCE.Undefined;
       }
     } else {
@@ -30305,13 +30400,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
   Avm1Activation.prototype.actionImplementsOp = function() { // ActionImplementsOp
     var constructor = this.pop().asObject(this);
     if (!constructor) {
-      console.log("ImplementsOp: primitive not coerced into object");
+      log.log("ImplementsOp: primitive not coerced into object");
     }
     var count = this.pop();
     if (count.isPrimitive()) {
       count = count.coerceToI32(this);
     } else {
-      console.log("ImplementsOp: Object not coerced into number");
+      log.log("ImplementsOp: Object not coerced into number");
       count = 0;
     }
     count = Math.min(count, this.stackLen());
@@ -30325,7 +30420,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
             interfaces.push(_prototype.b);  
           }
         } else {
-          console.log("ImplementsOp: primitive not coerced into object");
+          log.log("ImplementsOp: primitive not coerced into object");
         }
       }
       if (constructor && (this.swfVersion >= 7)) {
@@ -30811,13 +30906,13 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       return false;
     }
     var length = listeners.getLength(activation);
-    var listeners = [];
+    var _listeners = [];
     for (var i = 0; i < length; i++) {
-      listeners.push(listeners.getElement(activation, i));
+      _listeners.push(listeners.getElement(activation, i));
     }
     var has_listeners = false;
-    for (var i = 0; i < listeners.length; i++) {
-      var l = listeners[i];
+    for (var i = 0; i < _listeners.length; i++) {
+      var l = _listeners[i];
       var listener_object = l.coerceToObject(activation);
       if (!listener_object) {
         continue;
@@ -30912,7 +31007,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         parent.removeChildDirectly(context, child);
         parent.container.updatePendingRemovals();
       } else {
-        console.log("AVM1 object pending removal doesn't have a parent, ", child, "pending removal", out);
+        log.log("AVM1 object pending removal doesn't have a parent, ", child, "pending removal", out);
       }
     }
   }
@@ -33744,7 +33839,8 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       display_object.setX(new_position.x / 20);
       display_object.setY(new_position.y / 20);
       if (display_object instanceof MovieClip) {
-
+        //var was_visible = display_object.getVisible();
+        //display_object.setVisible(was_visible);
       }
     }
   }
@@ -33902,6 +33998,10 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var event = this.input.processEvent(_event);
     if (!event) return false;
     this.mutateWithUpdateContext(function(context) {
+      var button_event = null;
+      if (event.type == InputEvent.KeyDown) {
+        button_event = new ClipEvent(ClipEvent.KeyPress, event.data);
+      }
       var clipEvent = null;
       var listener = null;
       switch (event.type) {
@@ -33930,6 +34030,15 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         if (context.stage.handleClipEvent(context, clipEvent)) {
           player_event_handled = true;
         }
+      }
+      var key_press_handled = false;
+      if (button_event) {
+        if (context.stage.handleClipEvent(context, button_event)) {
+          key_press_handled = true;
+        }
+      }
+      if (key_press_handled) {
+        player_event_handled = true;
       }
       var rootClip = context.stage.getRootClip();
       if (listener && rootClip) {
@@ -34665,20 +34774,12 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       }
     });
   }
-  Player.prototype.runMenu = function(menu) {
+  Player.prototype.setQuality = function(quality) {
     this.mutateWithUpdateContext(function(context) {
-      switch (menu) {
-        case "quality:low":
-          context.stage.setQuality(context, new StageQuality(StageQuality.Low));
-          break;
-        case "quality:medium":
-          context.stage.setQuality(context, new StageQuality(StageQuality.Medium));
-          break;
-        case "quality:high":
-          context.stage.setQuality(context, new StageQuality(StageQuality.High));
-          break;
-      }
-      this.runActions(context);
+      var _quality = StageQuality.fromStr(quality);
+      if (_quality) {
+        context.stage.setQuality(context, _quality);
+      }  
     });
   }
   Player.prototype.clipGetLoop = function() {
@@ -34783,20 +34884,21 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var player = new Player();
     var movie = SwfMovie.from(result);
 
-    //_this.cancelInterval();
-    //if (!_this.aborted) calllback(stage);
-    //while(true) {
-    //  var g = stage.preload(new ExecutionLimit(1000000));
-    //  if (g) {
-    //    if (!_this.aborted) calllback(stage);
-    //    break;
-    //  }
-    //}
-
     player.mutateWithUpdateContext(function(context) {
       Avm1.load_player_globals(context);
       Avm2.load_player_globals(context);
       context.setRootMovie(movie);
+
+      //_this.cancelInterval();
+      //if (!_this.aborted) calllback(stage);
+      //while(true) {
+      //  var g = stage.preload(new ExecutionLimit(1000000));
+      //  if (g) {
+      //    if (!_this.aborted) calllback(stage);
+      //    break;
+      //  }
+      //}
+
       _this.interval = setInterval(function() {
         var g = player.preload(new ExecutionLimit(500000));
         if (g) {
@@ -35209,7 +35311,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     setInterval(this.tick.bind(this), 5);
   }
   PinkFiePlayer.version = "1.4";
-  PinkFiePlayer.built = "2026-10-24";
+  PinkFiePlayer.built = "2026-10-26";
   PinkFiePlayer.isBeta = false;
   PinkFiePlayer.prototype.addNAS3 = function() {
     this.nas3 = document.createElement('div');
@@ -35332,7 +35434,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
     var rrj7 = document.createElement('label');
     rrj7.innerHTML = "Quality: ";
     var rrj8 = document.createElement('select');
-    rrj8.innerHTML = '<option value="high">high<option value="medium">medium<option value="low">low';
+    rrj8.innerHTML = '<option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="best">best</option><option value="8x8">8x8</option><option value="16x16">16x16</option>';
     rrj8.addEventListener("change", function() {
       if (rrj8.value) {
         _this.setOptions({
@@ -35930,17 +36032,7 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
       var renderDirty = false;
       var q = this.stage.getQuality();
       if (q != this.options.quality) {
-        switch (this.options.quality) {
-          case "low":
-            this.stage.runMenu("quality:low");
-            break;
-          case "medium":
-            this.stage.runMenu("quality:medium");
-            break;
-          case "high":
-            this.stage.runMenu("quality:high");
-            break;
-        }
+        this.stage.setQuality(this.options.quality);
         this._quality = this.options.quality;
         renderDirty = true;
       }
