@@ -30918,9 +30918,9 @@ gl_FragColor = vec4(color.rgb * color.a, color.a);
         continue;
       }
       if (method_name) {
-        listener_object.call(method_name, activation, l, []);
+        listener_object.callMethod(method_name, call_args, activation, Avm1ExecutionReason.INSTANCE.Special);
       } else {
-        listener_object.callMethod(method_name, [], activation, Avm1ExecutionReason.INSTANCE.Special);
+        listener_object.call(method_name, activation, l, call_args);
       }
     }
     return has_listeners;
